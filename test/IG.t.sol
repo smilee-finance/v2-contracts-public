@@ -23,7 +23,7 @@ contract IGTest is Test {
 
     function testCantCreate() public {
         vm.expectRevert(AddressZero);
-        IG ig = new IG(address(0x0), address(0x0), 0, 0);
+        new IG(address(0x0), address(0x0), 0, 0);
     }
 
     function testCantUse() public {
@@ -112,13 +112,13 @@ contract IGTest is Test {
         bytes32 posId2 = keccak256(abi.encodePacked(owner2, ig.currentStrike(), inputStrategy2));
 
         {
-            (uint256 amount1, uint256 strategy1, uint256 strike1, uint256 epoch1) = ig.positions(posId1);
+            (uint256 amount1, uint256 strategy1, , ) = ig.positions(posId1);
             assertEq(inputStrategy1, strategy1);
             assertEq(inputAmount, amount1);
         }
 
         {
-            (uint256 amount2, uint256 strategy2, uint256 strike2, uint256 epoch2) = ig.positions(posId2);
+            (uint256 amount2, uint256 strategy2, , ) = ig.positions(posId2);
             assertEq(inputStrategy2, strategy2);
             assertEq(inputAmount, amount2);
         }

@@ -13,9 +13,9 @@ abstract contract EpochControls is IEpochControls {
     /// @inheritdoc IEpochControls
     uint256 public override currentEpoch = 0;
 
-    constructor(uint256 _epochFrequency) {
-        EpochFrequency.validityCheck(_epochFrequency);
-        epochFrequency = _epochFrequency;
+    constructor(uint256 epochFrequency_) {
+        EpochFrequency.validityCheck(epochFrequency_);
+        epochFrequency = epochFrequency_;
     }
 
     /// Draft modifiers ///

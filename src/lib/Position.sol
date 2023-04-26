@@ -13,46 +13,33 @@ library Position {
         uint256 epoch; // the timestamp corresponding to the maturity of this position epoch
     }
 
-    struct UpdateParams {
-        uint256 epoch;
-        address owner; // the address that owns the position
-        uint256 strike; // strike price of the option
-        uint256 strategy; // the option payoff type
-        int256 amount; // the number of options to be created
+    error CantBurnMoreThanMinted();
+
+    /**
+        @notice Returns the unique ID of a position (for a given epoch)
+        @param owner The address of the position owner
+        @param strategy The position strategy
+        @param strike The strike price of the position
+        @return id The position id
+     */
+    function getID(address owner, uint256 strategy, uint256 strike) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(owner, strategy, strike));
     }
 
     /**
-        @notice Returns the Info struct of a position, given uniqueness identifiers
-        @param self The mapping containing all user positions
-        @param owner The address of the position owner
-        @param strike The entry price of the position
-        @return position The position info struct of the given owners' position
+        @notice Updates the amount of options for a given position
+        @param self The position to update
+        @param delta The increment/decrement of options for the given position
      */
-    function get(
-        mapping(bytes32 => Info) storage self,
-        address owner,
-        uint256 strategy,
-        uint256 strike
-    ) internal view returns (Position.Info storage position) {
-        position = self[keccak256(abi.encodePacked(owner, strategy, strike))];
-    }
-
-    error CantBurnMoreThanMinted();
-
-    function _update(Info storage self, UpdateParams memory params) internal {
-        if (params.amount < 0 && uint256(-params.amount) > self.amount) revert CantBurnMoreThanMinted();
-
-        if (self.epoch == 0) {
-            // position is not initialized
-            self.epoch = params.epoch;
-            self.strike = params.strike;
-            self.strategy = params.strategy;
+    function updateAmount(Info storage self, int256 delta) internal {
+        if (delta < 0 && uint256(-delta) > self.amount) {
+            revert CantBurnMoreThanMinted();
         }
 
-        if (params.amount < 0) {
-            self.amount = self.amount - uint256(-params.amount);
+        if (delta < 0) {
+            self.amount = self.amount - uint256(-delta);
         } else {
-            self.amount = self.amount + uint256(params.amount);
+            self.amount = self.amount + uint256(delta);
         }
     }
 }

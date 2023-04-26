@@ -8,17 +8,16 @@ import {Position} from "../lib/Position.sol";
 /// @title The interface for Smilee DVP
 /// @notice A DVP (Decentralized Volatility Product) is basically a generator for options on volatility
 interface IDVP is IDVPImmutables, IDVPEvents {
-    ////// STATE
 
     /**
         @notice Returns the information about a position by the position's key
-        @param key The position's key [TODO]
+        @param positionID The position's key [TODO]
         @return amount The amount of liquidity in the position,
         @return strategy The strategy of the position,
         @return strike The strike price of the position
      */
     function positions(
-        bytes32 key
+        bytes32 positionID
     ) external view returns (uint256 amount, uint256 strategy, uint256 strike, uint256 epoch);
 
     /**
@@ -39,10 +38,10 @@ interface IDVP is IDVPImmutables, IDVPEvents {
 
     /**
         @notice Returns the payoff of the given position
-        @param key The hash identifying the position
+        @param positionID The hash identifying the position
         @return payoff The current value of the position
      */
-    function payoff(bytes32 key) external view returns (uint256 payoff);
+    function payoff(bytes32 positionID) external view returns (uint256 payoff);
 
     ////// USER ACTIONS
 
