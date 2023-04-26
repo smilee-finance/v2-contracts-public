@@ -38,11 +38,11 @@ abstract contract DVP is IDVP, EpochControls {
     /// @inheritdoc IDVP
     function positions(
         bytes32 id
-    ) public view override returns (uint256 amount, uint256 strategy, uint256 entryPrice, uint256 epoch) {
+    ) public view override returns (uint256 amount, uint256 strategy, uint256 strike, uint256 epoch) {
         return (
             epochPositions[currentEpoch][id].amount,
             epochPositions[currentEpoch][id].strategy,
-            epochPositions[currentEpoch][id].entryPrice,
+            epochPositions[currentEpoch][id].strike,
             epochPositions[currentEpoch][id].epoch
         );
     }
@@ -62,19 +62,18 @@ abstract contract DVP is IDVP, EpochControls {
         return abi.decode(data, (uint256));
     }
 
-    struct UpdatePositionParams {
-        address owner; // the address that owns the position
-        uint256 strategy; // the option payoff type
-        int256 amount; // the number of options to be created
-    }
-
-    /// @inheritdoc IDVP
-    function mint(address recipient, uint256 strategy, uint256 amount) external override epochActive {
+    function _mint(address recipient, uint256 strike, uint256 strategy, uint256 amount) internal epochActive {
         require(amount > 0);
         require(strategy.isValid());
 
         (uint256 amountBase, uint256 amountSide) = _updatePosition(
-            UpdatePositionParams({owner: recipient, strategy: strategy, amount: int256(amount)})
+            Position.UpdateParams({
+                owner: recipient,
+                strike: strike,
+                strategy: strategy,
+                amount: int256(amount),
+                epoch: currentEpoch
+            })
         );
 
         amountBase;
@@ -82,13 +81,24 @@ abstract contract DVP is IDVP, EpochControls {
         emit Mint(msg.sender, recipient);
     }
 
-    /// @inheritdoc IDVP
-    function burn(address recipient, uint256 strategy, uint256 amount) external override epochActive {
+    function _burn(
+        uint256 epoch,
+        address recipient,
+        uint256 strike,
+        uint256 strategy,
+        uint256 amount
+    ) internal epochActive {
         require(amount > 0);
-        require(strategy.isValid());
+        require(OptionStrategy.isValid(strategy));
 
         (uint256 amountBase, uint256 amountSide) = _updatePosition(
-            UpdatePositionParams({owner: recipient, strategy: strategy, amount: -int256(amount)})
+            Position.UpdateParams({
+                owner: recipient,
+                strike: strike,
+                strategy: strategy,
+                amount: -int256(amount),
+                epoch: epoch
+            })
         );
 
         amountBase;
@@ -97,19 +107,16 @@ abstract contract DVP is IDVP, EpochControls {
     }
 
     function _updatePosition(
-        UpdatePositionParams memory params
+        Position.UpdateParams memory params
     ) private returns (uint256 amountBase, uint256 amountSide) {
         // check liquidity availability on liquidity provider
 
         // trigger liquidity rebalance on liquidity provider
 
-        // get entry price of the position
-        uint256 entryPrice = 0; // LiquidityPool.mint(option);
-
-        Position.Info storage position = epochPositions[currentEpoch].get(params.owner, params.strategy, entryPrice);
+        Position.Info storage position = epochPositions[currentEpoch].get(params.owner, params.strategy, params.strike);
 
         // update or create position
-        position.update(params.amount);
+        position._update(params);
 
         return (0, 0);
     }
