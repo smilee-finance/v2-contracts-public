@@ -37,8 +37,11 @@ library Position {
         position = self[keccak256(abi.encodePacked(owner, strategy, strike))];
     }
 
+    error CantBurnMoreThanMinted();
+
     function _update(Info storage self, UpdateParams memory params) internal {
-        require(params.amount > 0 || uint256(-params.amount) <= self.amount);
+        if (params.amount < 0 && uint256(-params.amount) > self.amount) revert CantBurnMoreThanMinted();
+
         if (self.epoch == 0) {
             // position is not initialized
             self.epoch = params.epoch;

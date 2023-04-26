@@ -59,4 +59,8 @@ interface IDVP is IDVPImmutables, IDVPEvents {
     /// @notice Burns an option transferring back the payoff to the owner
     /// TODO
     function burn(uint256 epoch, address recipient, uint256 strike, uint256 strategy, uint256 amount) external;
+
+    ////// ERRORS
+
+    error AmountZero();
 }

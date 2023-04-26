@@ -63,7 +63,7 @@ abstract contract DVP is IDVP, EpochControls {
     }
 
     function _mint(address recipient, uint256 strike, uint256 strategy, uint256 amount) internal epochActive {
-        require(amount > 0);
+        if (amount == 0) revert AmountZero();
         require(strategy.isValid());
 
         (uint256 amountBase, uint256 amountSide) = _updatePosition(
@@ -88,7 +88,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strategy,
         uint256 amount
     ) internal epochActive {
-        require(amount > 0);
+        if (amount == 0) revert AmountZero();
         require(OptionStrategy.isValid(strategy));
 
         (uint256 amountBase, uint256 amountSide) = _updatePosition(
