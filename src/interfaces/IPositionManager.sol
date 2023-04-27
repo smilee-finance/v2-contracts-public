@@ -16,32 +16,17 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         address recipient;
     }
 
-    struct BuyDvpParams {
-        address dvpAddr;
-        uint256 strike;
-        uint256 strategy;
-        uint256 premium;
-        address recipient;
-    }
-
-    struct SellDvpParams {
-        uint256 tokenId;
-        uint256 notional;
-    }
-
     /// @notice Emitted when option notional is increased
     /// @dev Also emitted when a token is minted
     /// @param tokenId The ID of the token for which liquidity was increased
     /// @param expiry The maturity timestamp of the position
     /// @param notional The amount of token that is held by the position
-    event BuyDVP(uint256 indexed tokenId, uint256 expiry, uint256 notional);
+    event BuyedDVP(uint256 indexed tokenId, uint256 expiry, uint256 notional);
     /// @notice Emitted when option notional is decreased
     /// @param tokenId The ID of the token for which liquidity was decreased
     /// @param notional The amount by which liquidity for the NFT position was decreased
     /// @param payoff The amount of token that was paid back for burning the position
-    event SellDVP(uint256 indexed tokenId, uint256 notional, uint256 payoff);
-
-    error InvalidTokenID();
+    event SoldDVP(uint256 indexed tokenId, uint256 notional, uint256 payoff);
 
     /**
         @notice Returns the position information associated with a given token ID.
@@ -121,14 +106,6 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
     //     uint256 amount1Min;
     //     uint256 deadline;
     // }
-
-    /**
-        @notice Decreases the amount of liquidity in a position and accounts it to the position
-        @param params tokenId The ID of the token for which liquidity is being decreased,
-                      notional The amount of liquidity in the option to sell
-        @return payoff The amount of baseToken paid to the owner of the position
-     */
-    function sellDVP(SellDvpParams calldata params) external returns (uint256 payoff);
 
     /**
         @notice Burns a token ID, which deletes it from the NFT contract. The token must have 0 liquidity and all tokens

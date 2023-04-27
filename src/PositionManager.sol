@@ -8,10 +8,6 @@ import {IPositionManager} from "./interfaces/IPositionManager.sol";
 import {Position} from "./lib/Position.sol";
 
 contract PositionManager is ERC721Enumerable, IPositionManager {
-    error NotApproved();
-    error CantBurnZero();
-    error CantBurnMoreThanMinted();
-
     // details about the Smilee position
     struct ManagedPosition {
         address dvpAddr;
@@ -33,9 +29,29 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     /// @dev The ID of the next token that will be minted. Skips 0
     uint256 private _nextId;
 
+    // error NotApproved();
+    error NotOwner();
+    error CantBurnZero();
+    // error CantBurnMoreThanMinted();
+    error InvalidTokenID();
+
     constructor(address factory_) ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") {
         _factory = factory_;
         _nextId = 1;
+    }
+
+    // modifier isAuthorizedForToken(uint256 tokenId) {
+    //     if (!_isApprovedOrOwner(msg.sender, tokenId)) {
+    //         revert NotApproved();
+    //     }
+    //     _;
+    // }
+
+    modifier isOwner(uint256 tokenId) {
+        if (ownerOf(tokenId) != msg.sender) {
+            revert NotOwner();
+        }
+        _;
     }
 
     /// @inheritdoc IPositionManager
@@ -108,12 +124,7 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
             cumulatedPayoff: 0
         });
 
-        emit BuyDVP(tokenId, _positions[tokenId].expiry, notional);
-    }
-
-    modifier isAuthorizedForToken(uint256 tokenId) {
-        if (!_isApprovedOrOwner(msg.sender, tokenId)) revert NotApproved();
-        _;
+        emit BuyedDVP(tokenId, _positions[tokenId].expiry, notional);
     }
 
     // function tokenURI(uint256 tokenId) public view override(ERC721, IERC721Metadata) returns (string memory) {
@@ -182,31 +193,36 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     // }
 
     /// @inheritdoc IPositionManager
-    function sellDVP(
-        SellDvpParams calldata params
-    ) external override isAuthorizedForToken(params.tokenId) returns (uint256 payoff) {
-        if (params.notional <= 0) revert CantBurnZero();
-
-        ManagedPosition storage position = _positions[params.tokenId];
-        uint256 positionNotional = position.notional;
-        if (params.notional > positionNotional) revert CantBurnMoreThanMinted();
-
-        IDVP dvp = IDVP(position.dvpAddr);
-        payoff = dvp.burn(position.expiry, address(this), position.strike, position.strategy, params.notional);
-
-        position.cumulatedPayoff += payoff;
-        // subtraction is safe because we already checked positionNotional is gte burn notional
-        position.notional = positionNotional - params.notional;
-
-        emit SellDVP(params.tokenId, params.notional, payoff);
-    }
-
-    /// @inheritdoc IPositionManager
-    function burn(uint256 tokenId) external override isAuthorizedForToken(tokenId) {
+    function burn(uint256 tokenId) external override isOwner(tokenId) {
         ManagedPosition storage position = _positions[tokenId];
-        require(position.notional == 0, "Not cleared");
+
+        _sell(tokenId, position.notional);
+
         delete _positions[tokenId];
         _burn(tokenId);
+    }
+
+    function _sell(
+        uint256 tokenId,
+        uint256 notional
+    ) internal returns (uint256 payoff) {
+        if (notional <= 0) {
+            revert CantBurnZero();
+        }
+
+        ManagedPosition storage position = _positions[tokenId];
+
+        // if (notional > position.notional) {
+        //     revert CantBurnMoreThanMinted();
+        // }
+
+        payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional);
+
+        position.cumulatedPayoff += payoff;
+        // NOTE: subtraction is safe because we already checked position.notional is gte burn notional
+        position.notional -= notional;
+
+        emit SoldDVP(tokenId, notional, payoff);
     }
 
     // function _getAndIncrementNonce(uint256 tokenId) internal override returns (uint256) {
