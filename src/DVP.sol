@@ -2,11 +2,11 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {EpochControls} from "./EpochControls.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
-import {Position} from "./lib/Position.sol";
-import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {DVPLogic} from "./lib/DVPLogic.sol";
+import {OptionStrategy} from "./lib/OptionStrategy.sol";
+import {Position} from "./lib/Position.sol";
+import {EpochControls} from "./EpochControls.sol";
 
 abstract contract DVP is IDVP, EpochControls {
     using Position for Position.Info;
@@ -63,7 +63,9 @@ abstract contract DVP is IDVP, EpochControls {
         if (amount == 0) {
             revert AmountZero();
         }
-        require(OptionStrategy.isValid(strategy));
+        if (!OptionStrategy.isValid(strategy)) {
+            revert InvalidStrategy();
+        }
 
         // TBD: check liquidity availability on liquidity provider
         // TBD: trigger liquidity rebalance on liquidity provider
@@ -89,7 +91,9 @@ abstract contract DVP is IDVP, EpochControls {
         if (amount == 0) {
             revert AmountZero();
         }
-        require(OptionStrategy.isValid(strategy));
+        if (!OptionStrategy.isValid(strategy)) {
+            revert InvalidStrategy();
+        }
 
         // TBD: check liquidity availability on liquidity provider
         // TBD: trigger liquidity rebalance on liquidity provider

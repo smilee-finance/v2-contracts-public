@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {DVP} from "./DVP.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
+import {DVP} from "./DVP.sol";
 
 contract IG is DVP {
 

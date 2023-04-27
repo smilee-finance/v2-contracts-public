@@ -4,11 +4,15 @@ pragma solidity ^0.8.15;
 import {IDVPEvents} from "./IDVPEvents.sol";
 import {IDVPImmutables} from "./IDVPImmutables.sol";
 import {IEpochControls} from "./IEpochControls.sol";
-import {Position} from "../lib/Position.sol";
 
 /// @title The interface for Smilee DVP
 /// @notice A DVP (Decentralized Volatility Product) is basically a generator for options on volatility
 interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
+
+    ////// ERRORS
+    error AmountZero();
+    error InvalidStrategy();
+
     /**
         @notice Returns the information about a position by the position's key
         @param positionID The position's key [TODO]
@@ -58,8 +62,4 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
     /// @notice Burns an option transferring back the payoff to the owner
     /// TODO
     function burn(uint256 epoch, address recipient, uint256 strike, uint256 strategy, uint256 amount) external;
-
-    ////// ERRORS
-
-    error AmountZero();
 }

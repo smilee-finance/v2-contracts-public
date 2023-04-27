@@ -3,6 +3,14 @@ pragma solidity ^0.8.15;
 
 /// @title A registry for rolling epochs
 interface IEpochControls {
+
+    error NoActiveEpoch();
+    error NoNextEpoch();
+    error EpochAlreadyStarted();
+    error EpochNotFinished();
+    error EpochDoesNotExist();
+    error EpochEndBeforeLast();
+
     /// @notice The list of currently executed epochs
     /// @return The list of epoch ends (timestamps) identifying the epochs
     function epochs() external view returns (uint256[] memory);
@@ -18,11 +26,4 @@ interface IEpochControls {
     /// @notice Regenerates the epoch-related processes, moving currentEpoch to the next one
     /// @dev Need to call this also as a setup function on vault creation
     function rollEpoch() external;
-
-    error NoActiveEpoch();
-    error NoNextEpoch();
-    error EpochAlreadyStarted();
-    error EpochNotFinished();
-    error EpochDoesNotExist();
-    error EpochEndBeforeLast();
 }

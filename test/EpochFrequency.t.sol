@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 
 contract EpochFrequencyTest is Test {
     bytes4 private constant MissingNextEpoch = bytes4(keccak256("MissingNextEpoch()"));
+
     uint256 private constant dailyPeriod = 0;
     uint256 private constant weeklyPeriod = 1;
     uint256 private constant customPeriod = 2;

@@ -3,13 +3,10 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-
+import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {IG} from "../src/IG.sol";
-import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {PositionManager} from "../src/PositionManager.sol";
-
-import {console} from "forge-std/console.sol";
 
 contract PositionManagerTest is Test {
     // Errors hashes
@@ -28,7 +25,7 @@ contract PositionManagerTest is Test {
 
         IPositionManager pm = new PositionManager(address(0x0));
 
-        (uint256 tokenId, uint256 posLiquidity) = pm.mint(
+        (uint256 tokenId, ) = pm.mint(
             IPositionManager.MintParams({dvpAddr: address(ig), premium: 10, strike: 0, strategy: 0, recipient: alice})
         );
 

@@ -32,13 +32,14 @@ library Position {
         @param delta The increment/decrement of options for the given position
      */
     function updateAmount(Info storage self, int256 delta) internal {
-        if (delta < 0 && uint256(-delta) > self.amount) {
-            revert CantBurnMoreThanMinted();
-        }
-
         if (delta < 0) {
+            // It's a burn
+            if (uint256(-delta) > self.amount) {
+                revert CantBurnMoreThanMinted();
+            }
             self.amount = self.amount - uint256(-delta);
         } else {
+            // It's a mint
             self.amount = self.amount + uint256(delta);
         }
     }

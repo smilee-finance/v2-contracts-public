@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "./IDVPImmutables.sol";
-
 /// @title Events emitted by a DVP
 /// @notice Contains all events emitted by the DVP
 interface IDVPEvents {
@@ -13,7 +11,5 @@ interface IDVPEvents {
 
     /// @notice Emitted when a position's option is destroyed
     /// @param owner The owner of the position that is being burnt
-    event Burn(
-        address indexed owner
-    );
+    event Burn(address indexed owner);
 }

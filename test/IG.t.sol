@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-
+import {IDVP} from "../src/interfaces/IDVP.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {IG} from "../src/IG.sol";
-
-import {console} from "forge-std/console.sol";
 
 contract IGTest is Test {
     // Errors hashes
@@ -27,14 +25,14 @@ contract IGTest is Test {
     }
 
     function testCantUse() public {
-        IG ig = new IG(baseToken, sideToken, 0, 0);
+        IDVP ig = new IG(baseToken, sideToken, 0, 0);
 
         vm.expectRevert(NoActiveEpoch);
         ig.mint(address(0x1), 0, 0, 1);
     }
 
     function testCanUse() public {
-        IG ig = new IG(baseToken, sideToken, EpochFrequency.DAILY, 0);
+        IDVP ig = new IG(baseToken, sideToken, EpochFrequency.DAILY, 0);
         ig.rollEpoch();
         ig.mint(address(0x1), 0, 0, 1);
     }
@@ -141,7 +139,7 @@ contract IGTest is Test {
         address owner = address(0x3);
         uint256 inputStrategy = 0;
 
-        IG ig = new IG(baseToken, sideToken, EpochFrequency.DAILY, 0);
+        IDVP ig = new IG(baseToken, sideToken, EpochFrequency.DAILY, 0);
         ig.rollEpoch();
 
         vm.expectRevert(AmountZero);
@@ -153,7 +151,7 @@ contract IGTest is Test {
         uint256 inputStrategy = 0;
         uint256 inputAmount = 1;
 
-        IG ig = new IG(baseToken, sideToken, EpochFrequency.DAILY, 0);
+        IDVP ig = new IG(baseToken, sideToken, EpochFrequency.DAILY, 0);
         ig.rollEpoch();
         ig.mint(owner, 0, inputStrategy, inputAmount);
 

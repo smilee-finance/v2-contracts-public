@@ -8,6 +8,15 @@ import {IERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions
 /// @notice Wraps Uniswap V3 positions in a non-fungible token interface which allows for them to be transferred
 /// and authorized.
 interface IPositionManager is IERC721Metadata, IERC721Enumerable {
+
+    struct MintParams {
+        address dvpAddr;
+        uint256 premium;
+        uint256 strike;
+        uint256 strategy;
+        address recipient;
+    }
+
     // /// @notice Emitted when liquidity is increased for a position NFT
     // /// @dev Also emitted when a token is minted
     // /// @param tokenId The ID of the token for which liquidity was increased
@@ -54,14 +63,6 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
             uint256 premium,
             uint256 leverage
         );
-
-    struct MintParams {
-        address dvpAddr;
-        uint256 premium;
-        uint256 strike;
-        uint256 strategy;
-        address recipient;
-    }
 
     /**
         @notice Creates a new position wrapped in a NFT

@@ -1,27 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {Position} from "./lib/Position.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IPositionManager} from "./interfaces/IPositionManager.sol";
-import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {Position} from "./lib/Position.sol";
 
-contract PositionManager is IPositionManager, ERC721Enumerable {
-    struct BuyDVPParams {
-        address dvpAddr;
-        // address baseToken;
-        // address sideToken;
-        // uint256 dvpFreq;
-        // uint256 dvpType;
-        uint256 strike;
-        uint256 strategy;
-        uint256 premium;
-        address recipient;
-    }
-
+contract PositionManager is ERC721Enumerable, IPositionManager {
     // details about the Smilee position
-    struct PositionStrc {
+    struct ManagedPosition {
         address dvpAddr;
         uint256 strategy;
         uint256 strike;
@@ -30,24 +18,18 @@ contract PositionManager is IPositionManager, ERC721Enumerable {
         uint256 expiry;
     }
 
-    struct DVPCacheData {
-        address baseToken;
-        address sideToken;
-        uint256 freq;
-        uint256 typ;
-    }
-
     /// @dev The token ID position data
     address private immutable _factory;
 
     /// @dev The token ID position data
-    mapping(uint256 => PositionStrc) private _positions;
+    mapping(uint256 => ManagedPosition) private _positions;
 
     /// @dev The ID of the next token that will be minted. Skips 0
-    uint256 private _nextId = 1;
+    uint256 private _nextId;
 
     constructor(address factory_) ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") {
         _factory = factory_;
+        _nextId = 1;
     }
 
     /// @inheritdoc IPositionManager
@@ -70,12 +52,13 @@ contract PositionManager is IPositionManager, ERC721Enumerable {
             uint256 leverage
         )
     {
-        PositionStrc memory position = _positions[tokenId];
+        ManagedPosition memory position = _positions[tokenId];
         if (position.dvpAddr == address(0)) {
             revert InvalidTokenID();
         }
-        // DVPCacheData memory dvpCache = _dvpIdToCacheData[position.dvpId];
+
         IDVP dvp = IDVP(position.dvpAddr);
+
         return (
             position.dvpAddr,
             dvp.baseToken(),
@@ -92,38 +75,31 @@ contract PositionManager is IPositionManager, ERC721Enumerable {
 
     /// @inheritdoc IPositionManager
     function mint(MintParams calldata params) external override returns (uint256 tokenId, uint256 posLiquidity) {
-        (uint256 leverage, IDVP dvp) = buyDVP(
-            BuyDVPParams({
-                dvpAddr: params.dvpAddr,
-                strike: params.strike,
-                strategy: params.strategy,
-                premium: params.premium,
-                recipient: address(this)
-            })
-        );
+        IDVP dvp = IDVP(params.dvpAddr);
 
+        // ToDo: handle premium
+
+        // Buy position:
+        dvp.mint(address(this), params.strike, params.strategy, params.premium);
+
+        // Mint token:
+        tokenId = _nextId++;
+        _mint(params.recipient, tokenId);
+
+        uint256 leverage = 1;
         posLiquidity = params.premium * leverage;
-        _mint(params.recipient, (tokenId = _nextId++));
 
-        bytes32 positionKey = Position.getID(address(this), params.strategy, params.strike);
-        (, uint256 strategy, uint256 strike, uint256 expiry) = dvp.positions(positionKey);
-
-        _positions[tokenId] = PositionStrc({
+        // Save position:
+        _positions[tokenId] = ManagedPosition({
             dvpAddr: params.dvpAddr,
-            strike: strike,
-            strategy: strategy,
-            expiry: expiry,
+            strike: params.strike,
+            strategy: params.strategy,
+            expiry: dvp.currentEpoch(),
             premium: params.premium,
             leverage: leverage
         });
 
         // emit IncreaseLiquidity(tokenId, liquidity, amount0, amount1);
-    }
-
-    function buyDVP(BuyDVPParams memory params) internal returns (uint256 leverage, IDVP dvp) {
-        dvp = IDVP(params.dvpAddr);
-        dvp.mint(address(this), params.strike, params.strategy, params.premium);
-        return (1, dvp);
     }
 
     // modifier isAuthorizedForToken(uint256 tokenId) {
