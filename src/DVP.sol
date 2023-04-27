@@ -45,12 +45,7 @@ abstract contract DVP is IDVP, EpochControls {
     ) public view override returns (uint256 amount, uint256 strategy, uint256 strike, uint256 epoch) {
         Position.Info storage position = _getPosition(currentEpoch, positionID);
 
-        return (
-            position.amount,
-            position.strategy,
-            position.strike,
-            position.epoch
-        );
+        return (position.amount, position.strategy, position.strike, position.epoch);
     }
 
     /// @notice The total premium currently paid to the DVP
@@ -59,7 +54,12 @@ abstract contract DVP is IDVP, EpochControls {
         return IERC20(baseToken).balanceOf(address(this));
     }
 
-    function _mint(address recipient, uint256 strike, uint256 strategy, uint256 amount) internal epochActive {
+    function _mint(
+        address recipient,
+        uint256 strike,
+        uint256 strategy,
+        uint256 amount
+    ) internal epochActive returns (uint256 leverage) {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -78,6 +78,7 @@ abstract contract DVP is IDVP, EpochControls {
         position.strategy = strategy;
         position.updateAmount(int256(amount));
 
+        leverage = 1;
         emit Mint(msg.sender, recipient);
     }
 
@@ -87,7 +88,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         uint256 strategy,
         uint256 amount
-    ) internal epochActive {
+    ) internal epochActive returns (uint256 payoff) {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -102,6 +103,7 @@ abstract contract DVP is IDVP, EpochControls {
 
         position.updateAmount(-int256(amount));
 
+        payoff = 0;
         emit Burn(msg.sender);
     }
 

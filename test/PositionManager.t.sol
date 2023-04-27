@@ -41,7 +41,9 @@ contract PositionManagerTest is Test {
             uint256 pos_strategy,
             uint256 pos_expiry,
             uint256 pos_premium,
-            uint256 pos_leverage
+            uint256 pos_leverage,
+            uint256 pos_notional,
+            uint256 pos_cumulatedPayoff
         ) = pm.positions(tokenId);
 
         assertEq(address(ig), pos_dvpAddr);
@@ -54,5 +56,6 @@ contract PositionManagerTest is Test {
         assertEq(ig.currentEpoch(), pos_expiry);
         assertEq(10, pos_premium);
         assertEq(1, pos_leverage);
+        assertEq(1 * 10, pos_notional);
     }
 }

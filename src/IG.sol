@@ -5,7 +5,6 @@ import {IDVP} from "./interfaces/IDVP.sol";
 import {DVP} from "./DVP.sol";
 
 contract IG is DVP {
-
     /// @notice Common strike price for all impermanent gain positions in this DVP, set at epoch start
     uint256 public currentStrike;
 
@@ -31,9 +30,14 @@ contract IG is DVP {
     }
 
     /// @inheritdoc IDVP
-    function mint(address recipient, uint256 strike, uint256 strategy, uint256 amount) external override {
+    function mint(
+        address recipient,
+        uint256 strike,
+        uint256 strategy,
+        uint256 amount
+    ) external override returns (uint256 leverage) {
         strike;
-        _mint(recipient, currentStrike, strategy, amount);
+        leverage = _mint(recipient, currentStrike, strategy, amount);
     }
 
     /// @inheritdoc IDVP
@@ -43,7 +47,7 @@ contract IG is DVP {
         uint256 strike,
         uint256 strategy,
         uint256 amount
-    ) external override {
-        _burn(epoch, recipient, strike, strategy, amount);
+    ) external override returns (uint256 paidPayoff) {
+        paidPayoff = _burn(epoch, recipient, strike, strategy, amount);
     }
 }

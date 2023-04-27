@@ -8,7 +8,6 @@ import {IEpochControls} from "./IEpochControls.sol";
 /// @title The interface for Smilee DVP
 /// @notice A DVP (Decentralized Volatility Product) is basically a generator for options on volatility
 interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
-
     ////// ERRORS
     error AmountZero();
     error InvalidStrategy();
@@ -56,10 +55,22 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @dev strike param is ignored for IG vaults, can pass 0
         @param strategy The selected strategy
         @param amount The integer quantity of options recipient wants to mint
+        @return leverage The multiplier to obtain position notional from paid premium
      */
-    function mint(address recipient, uint256 strike, uint256 strategy, uint256 amount) external;
+    function mint(
+        address recipient,
+        uint256 strike,
+        uint256 strategy,
+        uint256 amount
+    ) external returns (uint256 leverage);
 
     /// @notice Burns an option transferring back the payoff to the owner
     /// TODO
-    function burn(uint256 epoch, address recipient, uint256 strike, uint256 strategy, uint256 amount) external;
+    function burn(
+        uint256 epoch,
+        address recipient,
+        uint256 strike,
+        uint256 strategy,
+        uint256 amount
+    ) external returns (uint256 paidPayoff);
 }

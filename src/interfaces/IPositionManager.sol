@@ -8,7 +8,6 @@ import {IERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions
 /// @notice Wraps Uniswap V3 positions in a non-fungible token interface which allows for them to be transferred
 /// and authorized.
 interface IPositionManager is IERC721Metadata, IERC721Enumerable {
-
     struct MintParams {
         address dvpAddr;
         uint256 premium;
@@ -17,17 +16,30 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         address recipient;
     }
 
-    // /// @notice Emitted when liquidity is increased for a position NFT
-    // /// @dev Also emitted when a token is minted
-    // /// @param tokenId The ID of the token for which liquidity was increased
-    // /// @param liquidity The amount by which liquidity for the NFT position was increased
-    // /// @param amount0 The amount of token that was paid for the increase in liquidity
-    // event IncreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 price);
-    // /// @notice Emitted when liquidity is decreased for a position NFT
-    // /// @param tokenId The ID of the token for which liquidity was decreased
-    // /// @param liquidity The amount by which liquidity for the NFT position was decreased
-    // /// @param amount The amount of token that was accounted for the decrease in liquidity
-    // event DecreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount);
+    struct BuyDvpParams {
+        address dvpAddr;
+        uint256 strike;
+        uint256 strategy;
+        uint256 premium;
+        address recipient;
+    }
+
+    struct SellDvpParams {
+        uint256 tokenId;
+        uint256 notional;
+    }
+
+    /// @notice Emitted when option notional is increased
+    /// @dev Also emitted when a token is minted
+    /// @param tokenId The ID of the token for which liquidity was increased
+    /// @param expiry The maturity timestamp of the position
+    /// @param notional The amount of token that is held by the position
+    event BuyDVP(uint256 indexed tokenId, uint256 expiry, uint256 notional);
+    /// @notice Emitted when option notional is decreased
+    /// @param tokenId The ID of the token for which liquidity was decreased
+    /// @param notional The amount by which liquidity for the NFT position was decreased
+    /// @param payoff The amount of token that was paid back for burning the position
+    event SellDVP(uint256 indexed tokenId, uint256 notional, uint256 payoff);
 
     error InvalidTokenID();
 
@@ -45,6 +57,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         @return expiry
         @return premium
         @return leverage
+        @return notional
      */
     function positions(
         uint256 tokenId
@@ -61,7 +74,9 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
             uint256 strategy,
             uint256 expiry,
             uint256 premium,
-            uint256 leverage
+            uint256 leverage,
+            uint256 notional,
+            uint256 cumulatedPayoff
         );
 
     /**
@@ -107,21 +122,18 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
     //     uint256 deadline;
     // }
 
-    // /// @notice Decreases the amount of liquidity in a position and accounts it to the position
-    // /// @param params tokenId The ID of the token for which liquidity is being decreased,
-    // /// amount The amount by which liquidity will be decreased,
-    // /// amount0Min The minimum amount of token0 that should be accounted for the burned liquidity,
-    // /// amount1Min The minimum amount of token1 that should be accounted for the burned liquidity,
-    // /// deadline The time by which the transaction must be included to effect the change
-    // /// @return amount0 The amount of token0 accounted to the position's tokens owed
-    // /// @return amount1 The amount of token1 accounted to the position's tokens owed
-    // function decreaseLiquidity(DecreaseLiquidityParams calldata params)
-    //     external
-    //     payable
-    //     returns (uint256 amount0, uint256 amount1);
+    /**
+        @notice Decreases the amount of liquidity in a position and accounts it to the position
+        @param params tokenId The ID of the token for which liquidity is being decreased,
+                      notional The amount of liquidity in the option to sell
+        @return payoff The amount of baseToken paid to the owner of the position
+     */
+    function sellDVP(SellDvpParams calldata params) external returns (uint256 payoff);
 
-    // /// @notice Burns a token ID, which deletes it from the NFT contract. The token must have 0 liquidity and all tokens
-    // /// must be collected first.
-    // /// @param tokenId The ID of the token that is being burned
-    // function burn(uint256 tokenId) external payable;
+    /**
+        @notice Burns a token ID, which deletes it from the NFT contract. The token must have 0 liquidity and all tokens
+                must be collected first.
+        @param tokenId The ID of the token that is being burned
+     */
+    function burn(uint256 tokenId) external;
 }
