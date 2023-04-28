@@ -27,7 +27,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @notice Returns the pool providing liquidity for these DVP options
         @return provider The address location of the provider contract
      */
-    function liquidityProvider() external view returns (address);
+    function vault() external view returns (address);
 
     /**
         @notice Returns the current price for one option, in function of the time and the number of options still

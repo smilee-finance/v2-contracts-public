@@ -3,6 +3,8 @@ pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
+import {IEpochControls} from "./interfaces/IEpochControls.sol";
+import {IVault} from "./interfaces/IVault.sol";
 import {DVPLogic} from "./lib/DVPLogic.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
@@ -22,7 +24,7 @@ abstract contract DVP is IDVP, EpochControls {
     bool public immutable override optionType;
 
     /// @inheritdoc IDVP
-    address public override liquidityProvider;
+    address public override vault;
 
     mapping(uint256 => mapping(bytes32 => Position.Info)) public epochPositions;
 
@@ -104,5 +106,14 @@ abstract contract DVP is IDVP, EpochControls {
 
     function _getPosition(uint256 epochID, bytes32 positionID) internal view returns (Position.Info storage) {
         return epochPositions[epochID][positionID];
+    }
+
+    /// @inheritdoc EpochControls
+    function rollEpoch() public override(EpochControls, IEpochControls) {
+        // TBD: review
+        if (vault != address(0)) {
+            IVault(vault).triggerEpochChange();
+        }
+        super.rollEpoch();
     }
 }

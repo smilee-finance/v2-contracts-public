@@ -42,7 +42,7 @@ abstract contract EpochControls is IEpochControls {
     }
 
     /// @inheritdoc IEpochControls
-    function rollEpoch() public override epochFinished(currentEpoch) {
+    function rollEpoch() public virtual override epochFinished(currentEpoch) {
         uint256 nextEpoch = EpochFrequency.nextExpiry(block.timestamp, epochFrequency);
 
         // If next epoch expiry is in the past (should not happen...) go to next of the next
