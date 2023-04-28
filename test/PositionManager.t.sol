@@ -104,7 +104,7 @@ contract PositionManagerTest is Test {
         (uint256 tokenId, ) = initAndMint();
 
         vm.prank(alice);
-        uint256 payoff = pm.burn(tokenId);
+        pm.burn(tokenId);
         vm.expectRevert(InvalidTokenID);
         pm.positions(tokenId);
     }
