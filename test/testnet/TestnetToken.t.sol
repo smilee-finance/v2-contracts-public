@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
-import {TestnetController} from "../../src/testnet/TestnetController.sol";
+import {TestnetDVPRegister} from "../../src/testnet/TestnetDVPRegister.sol";
 
 contract TestnetTokenTest is Test {
     bytes4 private constant NotInitialized = bytes4(keccak256("NotInitialized()"));
@@ -19,7 +19,7 @@ contract TestnetTokenTest is Test {
     address bob = address(0x5);
 
     function setUp() public {
-        controller = address(new TestnetController());
+        controller = address(new TestnetDVPRegister());
     }
 
     function testCantMintNotInit() public {

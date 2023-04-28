@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IDVPRegister} from "./IDVPRegister.sol";
+import {IDVPRegister} from "../interfaces/testnet/IDVPRegister.sol";
 
 contract TestnetDVPRegister is IDVPRegister {
-    constructor() {}
+    mapping(address => bool) registered;
 
-    function isRegistered(address dvpAddr) external pure returns (bool ok) {
-        dvpAddr;
-        return false;
+    // ToDo: limit msg.sender
+    function record(address addr) public {
+        registered[addr] = true;
+    }
+
+    function isRegistered(address dvpAddr) external view returns (bool ok) {
+        return registered[dvpAddr];
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ITokenController} from "./ITokenController.sol";
+import {IDVPRegister} from "../interfaces/testnet/IDVPRegister.sol";
 import {AdminAccess} from "./AdminAccess.sol";
 
 /**
@@ -12,7 +12,7 @@ import {AdminAccess} from "./AdminAccess.sol";
          A Swapper contract is authorized to mint and burn tokens to simulate an exchange.
  */
 contract TestnetToken is ERC20, AdminAccess {
-    ITokenController private _controller;
+    IDVPRegister private _controller;
     address private _swapper;
 
     error NotInitialized();
@@ -63,7 +63,7 @@ contract TestnetToken is ERC20, AdminAccess {
     }
 
     function setController(address controllerAddr) external onlyAdmin {
-        _controller = ITokenController(controllerAddr);
+        _controller = IDVPRegister(controllerAddr);
     }
 
     function setSwapper(address swapper) external onlyAdmin {
