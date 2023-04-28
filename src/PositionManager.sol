@@ -29,10 +29,9 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     /// @dev The ID of the next token that will be minted. Skips 0
     uint256 private _nextId;
 
-    // error NotApproved();
     error NotOwner();
     error CantBurnZero();
-    // error CantBurnMoreThanMinted();
+    error CantBurnMoreThanMinted();
     error InvalidTokenID();
 
     constructor(address factory_) ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") {
@@ -105,6 +104,7 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
 
         // ToDo: handle premium
 
+        // Buy option:
         uint256 leverage = dvp.mint(address(this), params.strike, params.strategy, params.premium);
         notional = params.premium * leverage;
 
@@ -193,28 +193,24 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     // }
 
     /// @inheritdoc IPositionManager
-    function burn(uint256 tokenId) external override isOwner(tokenId) {
+    function burn(uint256 tokenId) external override isOwner(tokenId) returns (uint256 payoff) {
         ManagedPosition storage position = _positions[tokenId];
-
-        _sell(tokenId, position.notional);
-
-        delete _positions[tokenId];
-        _burn(tokenId);
+        payoff = _sell(tokenId, position.notional);
     }
 
-    function _sell(
-        uint256 tokenId,
-        uint256 notional
-    ) internal returns (uint256 payoff) {
+    function sell(SellParams calldata params) external returns (uint256 payoff) {
+        payoff = _sell(params.tokenId, params.notional);
+    }
+
+    function _sell(uint256 tokenId, uint256 notional) internal returns (uint256 payoff) {
         if (notional <= 0) {
             revert CantBurnZero();
         }
 
         ManagedPosition storage position = _positions[tokenId];
-
-        // if (notional > position.notional) {
-        //     revert CantBurnMoreThanMinted();
-        // }
+        if (notional > position.notional) {
+            revert CantBurnMoreThanMinted();
+        }
 
         payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional);
 
@@ -222,10 +218,11 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
         // NOTE: subtraction is safe because we already checked position.notional is gte burn notional
         position.notional -= notional;
 
+        if (position.notional == 0) {
+            delete _positions[tokenId];
+            _burn(tokenId);
+        }
+
         emit SoldDVP(tokenId, notional, payoff);
     }
-
-    // function _getAndIncrementNonce(uint256 tokenId) internal override returns (uint256) {
-    //     return uint256(_positions[tokenId].nonce++);
-    // }
 }

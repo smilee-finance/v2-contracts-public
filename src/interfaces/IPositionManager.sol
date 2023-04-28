@@ -16,6 +16,11 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         address recipient;
     }
 
+    struct SellParams {
+        uint256 tokenId;
+        uint256 notional;
+    }
+
     /// @notice Emitted when option notional is increased
     /// @dev Also emitted when a token is minted
     /// @param tokenId The ID of the token for which liquidity was increased
@@ -70,9 +75,9 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         a method does not exist, i.e. the pool is assumed to be initialized.
         @param params The params necessary to mint a position, encoded as `MintParams` in calldata
         @return tokenId The ID of the token that represents the minted position
-        @return posLiquidity The amount of liquidity held by this position
+        @return notional The amount of liquidity held by this position
      */
-    function mint(MintParams calldata params) external returns (uint256 tokenId, uint256 posLiquidity);
+    function mint(MintParams calldata params) external returns (uint256 tokenId, uint256 notional);
 
     // struct IncreaseLiquidityParams {
     //     uint256 tokenId;
@@ -99,18 +104,19 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
     //         uint256 amount1
     //     );
 
-    // struct DecreaseLiquidityParams {
-    //     uint256 tokenId;
-    //     uint128 liquidity;
-    //     uint256 amount0Min;
-    //     uint256 amount1Min;
-    //     uint256 deadline;
-    // }
+    /**
+        @notice Sell a portion of the option
+        @dev If the held notional goes to zero, also deletes the NFT
+        @param params tokenId The ID of the token representing the position
+                      notional The quantity to sell from the position
+        @return payoff The amount of baseToken paid to the owner of the position
+     */
+    function sell(SellParams calldata params) external returns (uint256 payoff);
 
     /**
-        @notice Burns a token ID, which deletes it from the NFT contract. The token must have 0 liquidity and all tokens
-                must be collected first.
+        @notice Burns a token ID, which deletes it from the NFT contract. The option is completely sold before burn.
         @param tokenId The ID of the token that is being burned
+        @return payoff The amount of baseToken paid to the owner of the position
      */
-    function burn(uint256 tokenId) external;
+    function burn(uint256 tokenId) external returns (uint256 payoff);
 }

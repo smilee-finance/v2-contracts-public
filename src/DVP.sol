@@ -19,7 +19,7 @@ abstract contract DVP is IDVP, EpochControls {
     /// @inheritdoc IDVPImmutables
     address public immutable override sideToken;
     /// @inheritdoc IDVPImmutables
-    uint256 public immutable override optionSize;
+    uint256 public immutable override optionType;
 
     /// @inheritdoc IDVP
     address public override liquidityProvider;
@@ -30,13 +30,13 @@ abstract contract DVP is IDVP, EpochControls {
         address baseToken_,
         address sideToken_,
         uint256 frequency_,
-        uint256 optionSize_
+        uint256 optionType_
     ) EpochControls(frequency_) {
         DVPLogic.valid(DVPLogic.DVPCreateParams(baseToken_, sideToken_));
         factory = msg.sender;
         baseToken = baseToken_;
         sideToken = sideToken_;
-        optionSize = optionSize_;
+        optionType = optionType_;
     }
 
     /// @inheritdoc IDVP
@@ -99,12 +99,12 @@ abstract contract DVP is IDVP, EpochControls {
         // TBD: check liquidity availability on liquidity provider
         // TBD: trigger liquidity rebalance on liquidity provider
 
-        Position.Info storage position = _getPosition(epoch, Position.getID(recipient, strategy, strike));
-
+        Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
         position.updateAmount(-int256(amount));
 
         // ToDo: handle payoff
         payoff = 0;
+        recipient;
 
         emit Burn(msg.sender);
     }

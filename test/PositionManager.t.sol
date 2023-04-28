@@ -9,25 +9,34 @@ import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
 
 contract PositionManagerTest is Test {
-    // Errors hashes
-    // bytes4 private constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
+    bytes4 private constant NotOwner = bytes4(keccak256("NotOwner()"));
+    bytes4 private constant CantBurnZero = bytes4(keccak256("CantBurnZero()"));
+    bytes4 private constant InvalidTokenID = bytes4(keccak256("InvalidTokenID()"));
+    bytes4 private constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
 
     address baseToken = address(0x11);
     address sideToken = address(0x22);
 
     address alice = address(0x1);
+    address bob = address(0x2);
 
-    function setUp() public {}
+    IPositionManager pm;
 
-    function testMint() public {
-        IG ig = new IG(baseToken, sideToken, EpochFrequency.DAILY, 0);
+    function setUp() public {
+        pm = new PositionManager(address(0x0));
+    }
+
+    function initAndMint() private returns (uint256 tokenId, IG ig) {
+        ig = new IG(baseToken, sideToken, EpochFrequency.DAILY);
         ig.rollEpoch();
 
-        IPositionManager pm = new PositionManager(address(0x0));
-
-        (uint256 tokenId, ) = pm.mint(
+        (tokenId, ) = pm.mint(
             IPositionManager.MintParams({dvpAddr: address(ig), premium: 10, strike: 0, strategy: 0, recipient: alice})
         );
+    }
+
+    function testMint() public {
+        (uint256 tokenId, IG ig) = initAndMint();
 
         assertEq(1, tokenId);
 
@@ -43,7 +52,7 @@ contract PositionManagerTest is Test {
             uint256 pos_premium,
             uint256 pos_leverage,
             uint256 pos_notional,
-
+            uint256 pos_cumulatedPayoff
         ) = pm.positions(tokenId);
 
         assertEq(address(ig), pos_dvpAddr);
@@ -57,5 +66,39 @@ contract PositionManagerTest is Test {
         assertEq(10, pos_premium);
         assertEq(1, pos_leverage);
         assertEq(1 * 10, pos_notional);
+        assertEq(0, pos_cumulatedPayoff);
+    }
+
+    function testCantBurnNonOwner() public {
+        (uint256 tokenId, ) = initAndMint();
+
+        vm.prank(bob);
+        vm.expectRevert(NotOwner);
+        pm.burn(tokenId);
+    }
+
+    function testCantBurnZero() public {
+        (uint256 tokenId, ) = initAndMint();
+
+        vm.prank(alice);
+        vm.expectRevert(CantBurnZero);
+        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 0}));
+    }
+
+    function testCantBurnTooMuch() public {
+        (uint256 tokenId, ) = initAndMint();
+
+        vm.prank(alice);
+        vm.expectRevert(CantBurnMoreThanMinted);
+        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 11}));
+    }
+
+    function testMintAndBurn() public {
+        (uint256 tokenId, ) = initAndMint();
+
+        vm.prank(alice);
+        uint256 payoff = pm.burn(tokenId);
+        vm.expectRevert(InvalidTokenID);
+        pm.positions(tokenId);
     }
 }

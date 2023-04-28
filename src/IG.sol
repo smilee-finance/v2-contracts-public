@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {DVPType} from "./lib/DVPType.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {DVP} from "./DVP.sol";
 
@@ -11,12 +12,11 @@ contract IG is DVP {
     constructor(
         address baseToken_,
         address sideToken_,
-        uint256 frequency_,
-        uint256 optionSize_
-    ) DVP(baseToken_, sideToken_, frequency_, optionSize_) {}
+        uint256 frequency_
+    ) DVP(baseToken_, sideToken_, frequency_, DVPType.IG) {}
 
     /// @inheritdoc IDVP
-    function premium(uint256 strike, uint256 strategy, uint256 amount) public view override returns (uint256) {
+    function premium(uint256 strike, uint256 strategy, uint256 amount) public pure override returns (uint256) {
         strike;
         strategy;
         amount;
