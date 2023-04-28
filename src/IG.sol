@@ -33,7 +33,7 @@ contract IG is DVP {
     function mint(
         address recipient,
         uint256 strike,
-        uint256 strategy,
+        bool strategy,
         uint256 amount
     ) external override returns (uint256 leverage) {
         strike;
@@ -45,7 +45,7 @@ contract IG is DVP {
         uint256 epoch,
         address recipient,
         uint256 strike,
-        uint256 strategy,
+        bool strategy,
         uint256 amount
     ) external override returns (uint256 paidPayoff) {
         paidPayoff = _burn(epoch, recipient, strike, strategy, amount);

@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
+import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
 
@@ -31,7 +32,13 @@ contract PositionManagerTest is Test {
         ig.rollEpoch();
 
         (tokenId, ) = pm.mint(
-            IPositionManager.MintParams({dvpAddr: address(ig), premium: 10, strike: 0, strategy: 0, recipient: alice})
+            IPositionManager.MintParams({
+                dvpAddr: address(ig),
+                premium: 10,
+                strike: 0,
+                strategy: OptionStrategy.CALL,
+                recipient: alice
+            })
         );
     }
 
@@ -47,7 +54,7 @@ contract PositionManagerTest is Test {
             uint256 pos_dvpFreq,
             uint256 pos_dvpType,
             uint256 pos_strike,
-            uint256 pos_strategy,
+            bool pos_strategy,
             uint256 pos_expiry,
             uint256 pos_premium,
             uint256 pos_leverage,
@@ -61,7 +68,7 @@ contract PositionManagerTest is Test {
         assertEq(EpochFrequency.DAILY, pos_dvpFreq);
         assertEq(0, pos_dvpType);
         assertEq(ig.currentStrike(), pos_strike);
-        assertEq(0, pos_strategy);
+        assertEq(OptionStrategy.CALL, pos_strategy);
         assertEq(ig.currentEpoch(), pos_expiry);
         assertEq(10, pos_premium);
         assertEq(1, pos_leverage);

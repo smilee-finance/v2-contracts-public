@@ -21,7 +21,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
      */
     function positions(
         bytes32 positionID
-    ) external view returns (uint256 amount, uint256 strategy, uint256 strike, uint256 epoch);
+    ) external view returns (uint256 amount, bool strategy, uint256 strike, uint256 epoch);
 
     /**
         @notice Returns the pool providing liquidity for these DVP options
@@ -57,12 +57,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param amount The integer quantity of options recipient wants to mint
         @return leverage The multiplier to obtain position notional from paid premium
      */
-    function mint(
-        address recipient,
-        uint256 strike,
-        uint256 strategy,
-        uint256 amount
-    ) external returns (uint256 leverage);
+    function mint(address recipient, uint256 strike, bool strategy, uint256 amount) external returns (uint256 leverage);
 
     /// @notice Burns an option transferring back the payoff to the owner
     /// TODO
@@ -70,7 +65,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         uint256 epoch,
         address recipient,
         uint256 strike,
-        uint256 strategy,
+        bool strategy,
         uint256 amount
     ) external returns (uint256 paidPayoff);
 }

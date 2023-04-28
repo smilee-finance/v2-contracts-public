@@ -27,7 +27,7 @@ interface IDVPImmutables {
     /**
         @notice The type of options held by this contract
         @dev (see lib/DVPType.sol)
-        @return optionType An integer identifying option type
+        @return optionType A bool identifying option type
      */
-    function optionType() external view returns (uint256 optionType);
+    function optionType() external view returns (bool optionType);
 }

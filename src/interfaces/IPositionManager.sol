@@ -12,7 +12,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         address dvpAddr;
         uint256 premium;
         uint256 strike;
-        uint256 strategy;
+        bool strategy;
         address recipient;
     }
 
@@ -61,7 +61,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
             uint256 dvpFreq,
             uint256 dvpType,
             uint256 strike,
-            uint256 strategy,
+            bool strategy,
             uint256 expiry,
             uint256 premium,
             uint256 leverage,

@@ -11,7 +11,7 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     // details about the Smilee position
     struct ManagedPosition {
         address dvpAddr;
-        uint256 strategy;
+        bool strategy;
         uint256 strike;
         uint256 expiry;
         uint256 premium;
@@ -67,7 +67,7 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
             uint256 dvpFreq,
             uint256 dvpType,
             uint256 strike,
-            uint256 strategy,
+            bool strategy,
             uint256 expiry,
             uint256 premium,
             uint256 leverage,

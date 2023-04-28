@@ -19,7 +19,7 @@ abstract contract DVP is IDVP, EpochControls {
     /// @inheritdoc IDVPImmutables
     address public immutable override sideToken;
     /// @inheritdoc IDVPImmutables
-    uint256 public immutable override optionType;
+    bool public immutable override optionType;
 
     /// @inheritdoc IDVP
     address public override liquidityProvider;
@@ -30,7 +30,7 @@ abstract contract DVP is IDVP, EpochControls {
         address baseToken_,
         address sideToken_,
         uint256 frequency_,
-        uint256 optionType_
+        bool optionType_
     ) EpochControls(frequency_) {
         DVPLogic.valid(DVPLogic.DVPCreateParams(baseToken_, sideToken_));
         factory = msg.sender;
@@ -42,7 +42,7 @@ abstract contract DVP is IDVP, EpochControls {
     /// @inheritdoc IDVP
     function positions(
         bytes32 positionID
-    ) public view override returns (uint256 amount, uint256 strategy, uint256 strike, uint256 epoch) {
+    ) public view override returns (uint256 amount, bool strategy, uint256 strike, uint256 epoch) {
         Position.Info storage position = _getPosition(currentEpoch, positionID);
 
         return (position.amount, position.strategy, position.strike, position.epoch);
@@ -57,14 +57,11 @@ abstract contract DVP is IDVP, EpochControls {
     function _mint(
         address recipient,
         uint256 strike,
-        uint256 strategy,
+        bool strategy,
         uint256 amount
     ) internal epochActive returns (uint256 leverage) {
         if (amount == 0) {
             revert AmountZero();
-        }
-        if (!OptionStrategy.isValid(strategy)) {
-            revert InvalidStrategy();
         }
 
         // TBD: check liquidity availability on liquidity provider
@@ -86,16 +83,12 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 epoch,
         address recipient,
         uint256 strike,
-        uint256 strategy,
+        bool strategy,
         uint256 amount
     ) internal epochActive returns (uint256 payoff) {
         if (amount == 0) {
             revert AmountZero();
         }
-        if (!OptionStrategy.isValid(strategy)) {
-            revert InvalidStrategy();
-        }
-
         // TBD: check liquidity availability on liquidity provider
         // TBD: trigger liquidity rebalance on liquidity provider
 
