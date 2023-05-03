@@ -13,7 +13,6 @@ contract Vault is EpochControls, ERC20, IVault {
     using SafeMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
 
-    address public immutable dvp;
     address public immutable baseToken;
     address public immutable sideToken;
 
@@ -26,17 +25,10 @@ contract Vault is EpochControls, ERC20, IVault {
     error ExceedsAvailable();
     error SecondaryMarkedNotAllowed();
 
-    constructor(IDVP dvp_, address baseToken_, address sideToken_) EpochControls(dvp_.epochFrequency()) ERC20("", "") {
-        dvp = address(dvp_);
+    constructor(address baseToken_, address sideToken_, uint256 epochFrequency_) EpochControls(epochFrequency_) ERC20("", "") {
         baseToken = baseToken_;
         sideToken = sideToken_;
-    }
-
-    modifier onlyDVP() {
-        if (msg.sender != dvp) {
-            revert OnlyDVPAllowed();
-        }
-        _;
+        
     }
 
     function getPortfolio() public view override returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {

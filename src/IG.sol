@@ -12,8 +12,8 @@ contract IG is DVP {
     constructor(
         address baseToken_,
         address sideToken_,
-        uint256 frequency_
-    ) DVP(baseToken_, sideToken_, frequency_, DVPType.IG) {}
+        address vault_
+    ) DVP(baseToken_, sideToken_, vault_, DVPType.IG) {}
 
     /// @inheritdoc IDVP
     function premium(uint256 strike, uint256 strategy, uint256 amount) public pure override returns (uint256) {

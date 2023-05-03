@@ -31,14 +31,15 @@ abstract contract DVP is IDVP, EpochControls {
     constructor(
         address baseToken_,
         address sideToken_,
-        uint256 frequency_,
+        address vault_,
         bool optionType_
-    ) EpochControls(frequency_) {
+    ) EpochControls(IEpochControls(vault_).epochFrequency()) {
         DVPLogic.valid(DVPLogic.DVPCreateParams(baseToken_, sideToken_));
         factory = msg.sender;
         baseToken = baseToken_;
         sideToken = sideToken_;
         optionType = optionType_;
+        vault = vault_;
     }
 
     /// @inheritdoc IDVP
