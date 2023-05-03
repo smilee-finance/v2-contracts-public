@@ -54,27 +54,7 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     }
 
     /// @inheritdoc IPositionManager
-    function positions(
-        uint256 tokenId
-    )
-        external
-        view
-        override
-        returns (
-            address dvpAddr,
-            address baseToken,
-            address sideToken,
-            uint256 dvpFreq,
-            uint256 dvpType,
-            uint256 strike,
-            bool strategy,
-            uint256 expiry,
-            uint256 premium,
-            uint256 leverage,
-            uint256 notional,
-            uint256 cumulatedPayoff
-        )
-    {
+    function positions(uint256 tokenId) external view override returns (PositionDetail memory) {
         ManagedPosition memory position = _positions[tokenId];
         if (position.dvpAddr == address(0)) {
             revert InvalidTokenID();
@@ -82,20 +62,21 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
 
         IDVP dvp = IDVP(position.dvpAddr);
 
-        return (
-            position.dvpAddr,
-            dvp.baseToken(),
-            dvp.sideToken(),
-            dvp.epochFrequency(),
-            0, // dvp.dvpType(),
-            position.strike,
-            position.strategy,
-            position.expiry,
-            position.premium,
-            position.leverage,
-            position.notional,
-            position.cumulatedPayoff
-        );
+        return
+            PositionDetail(
+                position.dvpAddr,
+                dvp.baseToken(),
+                dvp.sideToken(),
+                dvp.epochFrequency(),
+                0, // dvp.dvpType(),
+                position.strike,
+                position.strategy,
+                position.expiry,
+                position.premium,
+                position.leverage,
+                position.notional,
+                position.cumulatedPayoff
+            );
     }
 
     /// @inheritdoc IPositionManager

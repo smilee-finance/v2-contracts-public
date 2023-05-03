@@ -18,17 +18,23 @@ contract Vault is EpochControls, ERC20, IVault {
 
     VaultLib.VaultState public vaultState;
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
+    mapping(address => VaultLib.Withdrawal) public withdrawals;
     mapping(uint256 => uint256) public epochPricePerShare;
+    uint256 currentQueuedWithdrawShares = 0;
 
     error OnlyDVPAllowed();
     error AmountZero();
     error ExceedsAvailable();
+    error ExistingIncompleteWithdraw();
     error SecondaryMarkedNotAllowed();
 
-    constructor(address baseToken_, address sideToken_, uint256 epochFrequency_) EpochControls(epochFrequency_) ERC20("", "") {
+    constructor(
+        address baseToken_,
+        address sideToken_,
+        uint256 epochFrequency_
+    ) EpochControls(epochFrequency_) ERC20("", "") {
         baseToken = baseToken_;
         sideToken = sideToken_;
-        
     }
 
     function getPortfolio() public view override returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
@@ -73,11 +79,14 @@ contract Vault is EpochControls, ERC20, IVault {
     }
 
     /// @inheritdoc IVault
-    function redeem(uint256 amount) external {
-        if (!(amount > 0)) {
+    function redeem(uint256 shares) external {
+        if (!(shares > 0)) {
             revert AmountZero();
         }
+        _redeem(shares, false);
+    }
 
+    function _redeem(uint256 shares, bool isMax) internal {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[msg.sender];
 
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
@@ -85,8 +94,12 @@ contract Vault is EpochControls, ERC20, IVault {
             epochPricePerShare[depositReceipt.epoch]
         );
 
-        if (amount > unredeemedShares) {
+        if (shares > unredeemedShares) {
             revert ExceedsAvailable();
+        }
+
+        if (isMax) {
+            shares = unredeemedShares;
         }
 
         // If we have a depositReceipt on the same round, BUT we have some unredeemed shares
@@ -97,12 +110,60 @@ contract Vault is EpochControls, ERC20, IVault {
             depositReceipts[msg.sender].amount = 0;
         }
 
-        depositReceipts[msg.sender].unredeemedShares = unredeemedShares.sub(amount);
+        depositReceipts[msg.sender].unredeemedShares = unredeemedShares.sub(shares);
 
         // TODO emit Redeem
 
-        _transfer(address(this), msg.sender, amount);
+        _transfer(address(this), msg.sender, shares);
     }
+
+    /// @inheritdoc IVault
+    function initiateWithdraw(uint256 shares) external {
+        if (!(shares > 0)) {
+            revert AmountZero();
+        }
+
+        // We do a max redeem before initiating a withdrawal
+        // But we check if they must first have unredeemed shares
+        if (depositReceipts[msg.sender].amount > 0 || depositReceipts[msg.sender].unredeemedShares > 0) {
+            _redeem(0, true);
+        }
+
+        // // This caches the `round` variable used in shareBalances
+        // uint256 currentRound = vaultState.round;
+
+        VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
+
+        bool withdrawalIsSameRound = withdrawal.epoch == currentEpoch;
+
+        // emit InitiateWithdraw
+
+        uint256 existingShares = withdrawal.shares;
+
+        uint256 withdrawalShares;
+        if (withdrawalIsSameRound) {
+            // if user has already pre-ordered a withdrawal in this epoch just add to that
+            withdrawalShares = existingShares.add(shares);
+        } else {
+            if (existingShares > 0) {
+                revert ExistingIncompleteWithdraw();
+            }
+            withdrawalShares = shares;
+            withdrawals[msg.sender].epoch = currentEpoch;
+        }
+
+        withdrawals[msg.sender].shares = withdrawalShares;
+
+        _transfer(msg.sender, address(this), shares);
+
+        currentQueuedWithdrawShares = currentQueuedWithdrawShares.add(shares);
+    }
+
+    // /// @inheritdoc IVault
+    // function completeWithdraw() external {
+    //     uint256 withdrawAmount = _completeWithdraw();
+    //     lastQueuedWithdrawAmount = uint128(uint256(lastQueuedWithdrawAmount).sub(withdrawAmount));
+    // }
 
     function rollEpoch() public override {
         // assume locked liquidity is updated after trades
@@ -148,7 +209,7 @@ contract Vault is EpochControls, ERC20, IVault {
      */
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal view override {
         amount;
-        if (from == address(this) || from == address(0) || to == address(0)) {
+        if (from == address(this) || to == address(this) || from == address(0) || to == address(0)) {
             // it's a valid mint/burn
             return;
         }

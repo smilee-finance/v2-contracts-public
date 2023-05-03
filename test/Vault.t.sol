@@ -110,9 +110,77 @@ contract VaultTest is Test {
         assertEq(50, vault.balanceOf(_alice));
     }
 
+    function testInitWithdrawFail() public {
+        Vault vault = _createMarket();
+        vault.rollEpoch();
+
+        _provideApprovedBaseTokens(_alice, 100, address(vault));
+
+        vm.startPrank(_alice);
+        vault.deposit(100);
+
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        vault.initiateWithdraw(100);
+    }
+
+    function testInitWithdrawWithRedeem() public {
+        Vault vault = _createMarket();
+        vault.rollEpoch();
+
+        _provideApprovedBaseTokens(_alice, 100, address(vault));
+
+        vm.startPrank(_alice);
+        vault.deposit(100);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        vault.redeem(100);
+        vault.initiateWithdraw(100);
+        (, uint256 withdrawalShares) = vault.withdrawals(_alice);
+
+        assertEq(0, vault.balanceOf(_alice));
+        assertEq(100, withdrawalShares);
+    }
+
+    function testInitWithdrawWithoutRedeem() public {
+        Vault vault = _createMarket();
+        vault.rollEpoch();
+
+        _provideApprovedBaseTokens(_alice, 100, address(vault));
+
+        vm.startPrank(_alice);
+        vault.deposit(100);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        vault.initiateWithdraw(100);
+        (, uint256 withdrawalShares) = vault.withdrawals(_alice);
+        assertEq(0, vault.balanceOf(_alice));
+        assertEq(100, withdrawalShares);
+    }
+
+    function testInitWithdrawWithoutRedeem____() public {
+        Vault vault = _createMarket();
+        vault.rollEpoch();
+
+        _provideApprovedBaseTokens(_alice, 100, address(vault));
+
+        vm.startPrank(_alice);
+        vault.deposit(100);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        vault.initiateWithdraw(50);
+        (, uint256 withdrawalShares) = vault.withdrawals(_alice);
+        assertEq(50, vault.balanceOf(_alice));
+        assertEq(50, withdrawalShares);
+    }
+
     function _createMarket() private returns (Vault vault) {
         vault = new Vault(address(_baseToken), address(_sideToken), EpochFrequency.DAILY);
-        IDVP ig = new IG(address(_baseToken), address(_sideToken), address(vault));
         _controller.register(address(vault));
     }
 

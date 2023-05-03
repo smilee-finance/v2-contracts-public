@@ -9,6 +9,11 @@ library VaultLib {
     uint256 constant DECIMALS = 18;
     uint256 constant UNIT_PRICE = 10 ** DECIMALS;
 
+    struct Withdrawal {
+        uint256 epoch;
+        uint256 shares; // Number of shares withdrawn
+    }
+
     struct VaultState {
         uint256 lockedLiquidity; // liquidity currently used by associated DVP
         uint256 totalPendingLiquidity; // liquidity deposited during current epoch (to be locked on the next one)

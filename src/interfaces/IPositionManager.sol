@@ -21,53 +21,45 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         uint256 notional;
     }
 
-    /// @notice Emitted when option notional is increased
-    /// @dev Also emitted when a token is minted
-    /// @param tokenId The ID of the token for which liquidity was increased
-    /// @param expiry The maturity timestamp of the position
-    /// @param notional The amount of token that is held by the position
+    struct PositionDetail {
+        address dvpAddr;
+        address baseToken;
+        address sideToken;
+        uint256 dvpFreq;
+        uint256 dvpType;
+        uint256 strike;
+        bool strategy;
+        uint256 expiry;
+        uint256 premium;
+        uint256 leverage;
+        uint256 notional;
+        uint256 cumulatedPayoff;
+    }
+
+    /**
+        @notice Emitted when option notional is increased
+        @dev Also emitted when a token is minted
+        @param tokenId The ID of the token for which liquidity was increased
+        @param expiry The maturity timestamp of the position
+        @param notional The amount of token that is held by the position
+     */
     event BuyedDVP(uint256 indexed tokenId, uint256 expiry, uint256 notional);
-    /// @notice Emitted when option notional is decreased
-    /// @param tokenId The ID of the token for which liquidity was decreased
-    /// @param notional The amount by which liquidity for the NFT position was decreased
-    /// @param payoff The amount of token that was paid back for burning the position
+
+    /**
+        @notice Emitted when option notional is decreased
+        @param tokenId The ID of the token for which liquidity was decreased
+        @param notional The amount by which liquidity for the NFT position was decreased
+        @param payoff The amount of token that was paid back for burning the position
+     */
     event SoldDVP(uint256 indexed tokenId, uint256 notional, uint256 payoff);
 
     /**
         @notice Returns the position information associated with a given token ID.
         @dev Throws if the token ID is not valid.
         @param tokenId The ID of the token that represents the position
-        @return dvpAddr
-        @return baseToken
-        @return sideToken
-        @return dvpFreq
-        @return dvpType
-        @return strike
-        @return strategy
-        @return expiry
-        @return premium
-        @return leverage
-        @return notional
+        @return position The struct holding all position data
      */
-    function positions(
-        uint256 tokenId
-    )
-        external
-        view
-        returns (
-            address dvpAddr,
-            address baseToken,
-            address sideToken,
-            uint256 dvpFreq,
-            uint256 dvpType,
-            uint256 strike,
-            bool strategy,
-            uint256 expiry,
-            uint256 premium,
-            uint256 leverage,
-            uint256 notional,
-            uint256 cumulatedPayoff
-        );
+    function positions(uint256 tokenId) external view returns (PositionDetail memory position);
 
     /**
         @notice Creates a new position wrapped in a NFT

@@ -11,10 +11,7 @@ import {DVPType} from "../src/lib/DVPType.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 
-
-
 contract FactoryTest is Test {
-
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
 
     address _tokenAdmin = address(0x1);
@@ -24,8 +21,7 @@ contract FactoryTest is Test {
     uint256 _epochFrequency;
     Factory _factory;
 
-    function setUp() public {   
-
+    function setUp() public {
         address controller = address(_factory);
         address swapper = address(0x5);
 
@@ -47,7 +43,6 @@ contract FactoryTest is Test {
         vm.warp(EpochFrequency.REF_TS);
     }
 
-
     function testFactoryUnauthorized() public {
         //vm.startPrank(address(0x100));
         vm.expectRevert("Ownable: caller is not the owner");
@@ -56,19 +51,17 @@ contract FactoryTest is Test {
 
     function testFactoryTokenBaseTokenZero() public {
         vm.startPrank(_tokenAdmin);
-        
+
         vm.expectRevert(AddressZero);
         _factory.createIGMarket(address(0x0), address(_sideToken), EpochFrequency.DAILY);
     }
 
-
     function testFactoryTokenSideTokenZero() public {
         vm.startPrank(_tokenAdmin);
-        
+
         vm.expectRevert(AddressZero);
         _factory.createIGMarket(address(_baseToken), address(0x0), EpochFrequency.DAILY);
     }
-
 
     function testFactoryCreatedDVP() public {
         vm.startPrank(_tokenAdmin);
@@ -79,7 +72,6 @@ contract FactoryTest is Test {
         assertEq(igDVP.sideToken(), address(_sideToken));
         assertEq(igDVP.optionType(), DVPType.IG);
         assertEq(igDVP.epochFrequency(), EpochFrequency.DAILY);
-        
     }
 
     function testFactoryCreatedVault() public {
@@ -91,5 +83,4 @@ contract FactoryTest is Test {
         assertEq(vault.sideToken(), address(_sideToken));
         assertEq(vault.epochFrequency(), EpochFrequency.DAILY);
     }
-
 }

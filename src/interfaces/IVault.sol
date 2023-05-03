@@ -19,10 +19,28 @@ interface IVault {
     function deposit(uint256 amount) external;
 
     /**
-     * @notice Redeems shares held by the vault for the wallet
-     * @param amount is the number of shares to redeem
+        @notice Redeems shares held by the vault for the wallet
+        @param shares is the number of shares to redeem
      */
-    function redeem(uint256 amount) external;
+    function redeem(uint256 shares) external;
+
+    // /**
+    //      @notice Enables withdraw assets deposited in the same epoch (withdraws using the outstanding
+    //              `DepositReceipt.amount`)
+    //      @param amount is the amount to withdraw
+    //  */
+    // function withdrawInstantly(uint256 amount) external;
+
+    /**
+        @notice Initiates a withdrawal that can be executed on epoch roll on
+        @param shares is the number of shares to withdraw
+     */
+    function initiateWithdraw(uint256 shares) external;
+
+    // /**
+    //     @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
+    //  */
+    // function completeWithdraw() external;
 
     /**
         @notice Get wallet balance of actual owned shares and owed shares.

@@ -19,7 +19,7 @@ contract PositionManagerTest is Test {
     address baseToken = address(0x11);
     address sideToken = address(0x22);
 
-    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY);    
+    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY);
 
     address alice = address(0x1);
     address bob = address(0x2);
@@ -50,33 +50,20 @@ contract PositionManagerTest is Test {
 
         assertEq(1, tokenId);
 
-        (
-            address pos_dvpAddr,
-            address pos_baseToken,
-            address pos_sideToken,
-            uint256 pos_dvpFreq,
-            uint256 pos_dvpType,
-            uint256 pos_strike,
-            bool pos_strategy,
-            uint256 pos_expiry,
-            uint256 pos_premium,
-            uint256 pos_leverage,
-            uint256 pos_notional,
-            uint256 pos_cumulatedPayoff
-        ) = pm.positions(tokenId);
+        IPositionManager.PositionDetail memory pos = pm.positions(tokenId);
 
-        assertEq(address(ig), pos_dvpAddr);
-        assertEq(baseToken, pos_baseToken);
-        assertEq(sideToken, pos_sideToken);
-        assertEq(EpochFrequency.DAILY, pos_dvpFreq);
-        assertEq(0, pos_dvpType);
-        assertEq(ig.currentStrike(), pos_strike);
-        assertEq(OptionStrategy.CALL, pos_strategy);
-        assertEq(ig.currentEpoch(), pos_expiry);
-        assertEq(10, pos_premium);
-        assertEq(1, pos_leverage);
-        assertEq(1 * 10, pos_notional);
-        assertEq(0, pos_cumulatedPayoff);
+        assertEq(address(ig), pos.dvpAddr);
+        assertEq(baseToken, pos.baseToken);
+        assertEq(sideToken, pos.sideToken);
+        assertEq(EpochFrequency.DAILY, pos.dvpFreq);
+        assertEq(0, pos.dvpType);
+        assertEq(ig.currentStrike(), pos.strike);
+        assertEq(OptionStrategy.CALL, pos.strategy);
+        assertEq(ig.currentEpoch(), pos.expiry);
+        assertEq(10, pos.premium);
+        assertEq(1, pos.leverage);
+        assertEq(1 * 10, pos.notional);
+        assertEq(0, pos.cumulatedPayoff);
     }
 
     function testCantBurnNonOwner() public {
