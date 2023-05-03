@@ -7,7 +7,7 @@ contract TestnetDVPRegister is IDVPRegister {
     mapping(address => bool) registered;
 
     // ToDo: limit msg.sender
-    function record(address addr) public {
+    function register(address addr) public {
         registered[addr] = true;
     }
 

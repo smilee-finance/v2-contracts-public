@@ -4,11 +4,11 @@ pragma solidity ^0.8.15;
 /// @title Simple library to manage DVPs epoch rolls.
 library EpochFrequency {
     /// @notice Friday 2023-04-21 08:00 UTC
-    uint256 private constant REF_TS = 1682064000;
+    uint256 public constant REF_TS = 1682064000;
     /// @notice Number of seconds in a day
-    uint256 private constant DAY_S = 24 * 60 * 60;
+    uint256 private constant DAY_S = 1 days;
     /// @notice Number of seconds in a week
-    uint256 private constant WEEK_S = 7 * DAY_S;
+    uint256 private constant WEEK_S = 7 days;
 
     /// Enum values ///
 

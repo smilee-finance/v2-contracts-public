@@ -112,7 +112,7 @@ abstract contract DVP is IDVP, EpochControls {
     function rollEpoch() public override(EpochControls, IEpochControls) {
         // TBD: review
         if (vault != address(0)) {
-            IVault(vault).triggerEpochChange();
+            IEpochControls(vault).rollEpoch();
         }
         super.rollEpoch();
     }

@@ -8,7 +8,7 @@ abstract contract EpochControls is IEpochControls {
     uint256[] private _epochs;
 
     /// @inheritdoc IEpochControls
-    uint256 public override epochFrequency;
+    uint256 public immutable override epochFrequency;
 
     /// @inheritdoc IEpochControls
     uint256 public override currentEpoch = 0;
@@ -22,13 +22,15 @@ abstract contract EpochControls is IEpochControls {
 
     /// @notice Ensure the vault is active and current timestamp is in the active epoch
     modifier epochActive() {
-        if (currentEpoch == 0) revert NoActiveEpoch();
+        if (currentEpoch == 0) {
+            revert NoActiveEpoch();
+        }
         _;
     }
 
     modifier epochFinished(uint256 epoch) {
         // if currentEpoch == 0 consider it finished
-        if (currentEpoch > 0 && block.timestamp < epoch) {
+        if (currentEpoch > 0 && block.timestamp <= epoch) {
             revert EpochNotFinished();
         }
         _;
