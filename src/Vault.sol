@@ -23,7 +23,7 @@ contract Vault is EpochControls, ERC20, IVault {
 
     error OnlyDVPAllowed();
     error AmountZero();
-    error LiquidityIsLocked();
+    error ExceedsAvailable();
     error SecondaryMarkedNotAllowed();
 
     constructor(IDVP dvp_, address baseToken_, address sideToken_) EpochControls(dvp_.epochFrequency()) ERC20("", "") {
@@ -75,7 +75,41 @@ contract Vault is EpochControls, ERC20, IVault {
         });
         vaultState.totalPendingLiquidity = vaultState.totalPendingLiquidity.add(amount);
 
+        // TODO emit Deposit
+
         IERC20(baseToken).transferFrom(msg.sender, address(this), amount);
+    }
+
+    /// @inheritdoc IVault
+    function redeem(uint256 amount) external {
+        if (!(amount > 0)) {
+            revert AmountZero();
+        }
+
+        VaultLib.DepositReceipt memory depositReceipt = depositReceipts[msg.sender];
+
+        uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
+            currentEpoch,
+            epochPricePerShare[depositReceipt.epoch]
+        );
+
+        if (amount > unredeemedShares) {
+            revert ExceedsAvailable();
+        }
+
+        // If we have a depositReceipt on the same round, BUT we have some unredeemed shares
+        // we debit from the unredeemedShares, but leave the amount field intact
+        // If the round has past, with no new deposits, we just zero it out for new deposits.
+        // The amount is being transformed in unredeemed shares from line 92.
+        if (depositReceipt.epoch < currentEpoch) {
+            depositReceipts[msg.sender].amount = 0;
+        }
+
+        depositReceipts[msg.sender].unredeemedShares = unredeemedShares.sub(amount);
+
+        // TODO emit Redeem
+
+        _transfer(address(this), msg.sender, amount);
     }
 
     function rollEpoch() public override {
@@ -84,7 +118,7 @@ contract Vault is EpochControls, ERC20, IVault {
         uint256 sharePrice;
         if (totalSupply() == 0) {
             // first time mint 1:1
-            sharePrice = 10 ** VaultLib.DECIMALS;
+            sharePrice = VaultLib.UNIT_PRICE;
         } else {
             if (vaultState.lockedLiquidity > 0) {
                 sharePrice = vaultState.lockedLiquidity / totalSupply();
@@ -120,9 +154,9 @@ contract Vault is EpochControls, ERC20, IVault {
     /**
         @dev Block shares transfer when not allowed (for testnet purposes)
      */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal view override {
         amount;
-        if (from == address(0) || to == address(0)) {
+        if (from == address(this) || from == address(0) || to == address(0)) {
             // it's a valid mint/burn
             return;
         }

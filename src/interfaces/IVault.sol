@@ -19,6 +19,12 @@ interface IVault {
     function deposit(uint256 amount) external;
 
     /**
+     * @notice Redeems shares held by the vault for the wallet
+     * @param amount is the number of shares to redeem
+     */
+    function redeem(uint256 amount) external;
+
+    /**
         @notice Get wallet balance of actual owned shares and owed shares.
         @return heldByAccount The amount of shares owned by the wallet
         @return heldByVault The amount of shares owed to the wallet

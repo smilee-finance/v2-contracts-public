@@ -7,6 +7,7 @@ library VaultLib {
     using SafeMath for uint256;
 
     uint256 constant DECIMALS = 18;
+    uint256 constant UNIT_PRICE = 10 ** DECIMALS;
 
     struct VaultState {
         uint256 lockedLiquidity; // liquidity currently used by associated DVP
@@ -27,16 +28,16 @@ library VaultLib {
      * @notice Returns the shares unredeemed by the user given their DepositReceipt
      * @param depositReceipt is the user's deposit receipt
      * @param currentEpoch is the `epoch` stored on the vault
-     * @param assetPerShare is the price in asset per share with `DECIMALS` decimals
+     * @param sharePrice is the price in asset per share with `DECIMALS` decimals
      * @return unredeemedShares is the user's virtual balance of shares that are owed
      */
     function getSharesFromReceipt(
         DepositReceipt memory depositReceipt,
         uint256 currentEpoch,
-        uint256 assetPerShare
+        uint256 sharePrice
     ) internal pure returns (uint256 unredeemedShares) {
         if (depositReceipt.epoch > 0 && depositReceipt.epoch < currentEpoch) {
-            uint256 sharesFromRound = assetToShares(depositReceipt.amount, assetPerShare);
+            uint256 sharesFromRound = assetToShares(depositReceipt.amount, sharePrice);
 
             return uint256(depositReceipt.unredeemedShares).add(sharesFromRound);
         }

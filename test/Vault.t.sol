@@ -12,6 +12,7 @@ import {Vault} from "../src/Vault.sol";
 
 contract VaultTest is Test {
     bytes4 private constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
+    bytes4 private constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
 
     address _tokenAdmin = address(0x1);
     address _alice = address(0x2);
@@ -40,9 +41,7 @@ contract VaultTest is Test {
     }
 
     function testDepositFail() public {
-        IDVP ig = new IG(address(_baseToken), address(_sideToken), EpochFrequency.DAILY);
-        Vault vault = new Vault(ig, address(_baseToken), address(_sideToken));
-        _controller.register(address(vault));
+        Vault vault = _createMarket();
 
         _provideApprovedBaseTokens(_alice, 100, address(vault));
 
@@ -52,9 +51,7 @@ contract VaultTest is Test {
     }
 
     function testDeposit() public {
-        IDVP ig = new IG(address(_baseToken), address(_sideToken), EpochFrequency.DAILY);
-        Vault vault = new Vault(ig, address(_baseToken), address(_sideToken));
-        _controller.register(address(vault));
+        Vault vault = _createMarket();
         vault.rollEpoch();
 
         _provideApprovedBaseTokens(_alice, 100, address(vault));
@@ -72,6 +69,50 @@ contract VaultTest is Test {
         assertEq(0, _baseToken.balanceOf(_alice));
         assertEq(0, shares);
         assertEq(100, unredeemedShares);
+    }
+
+    function testRedeemFail() public {
+        Vault vault = _createMarket();
+        vault.rollEpoch();
+
+        _provideApprovedBaseTokens(_alice, 100, address(vault));
+
+        vm.prank(_alice);
+        vault.deposit(100);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        vm.prank(_alice);
+        vm.expectRevert(ExceedsAvailable);
+        vault.redeem(150);
+    }
+
+    function testRedeem() public {
+        Vault vault = _createMarket();
+        vault.rollEpoch();
+
+        _provideApprovedBaseTokens(_alice, 100, address(vault));
+
+        vm.prank(_alice);
+        vault.deposit(100);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        vm.prank(_alice);
+        vault.redeem(50);
+
+        (uint256 shares, uint256 unredeemedShares) = vault.shareBalances(_alice);
+        assertEq(50, shares);
+        assertEq(50, unredeemedShares);
+        assertEq(50, vault.balanceOf(_alice));
+    }
+
+    function _createMarket() private returns (Vault vault) {
+        IDVP ig = new IG(address(_baseToken), address(_sideToken), EpochFrequency.DAILY);
+        vault = new Vault(ig, address(_baseToken), address(_sideToken));
+        _controller.register(address(vault));
     }
 
     function _provideApprovedBaseTokens(address wallet, uint256 amount, address approved) private {
