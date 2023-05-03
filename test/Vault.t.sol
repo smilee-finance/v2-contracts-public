@@ -9,6 +9,7 @@ import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {TestnetDVPRegister} from "../src/testnet/TestnetDVPRegister.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Vault} from "../src/Vault.sol";
+import {Factory} from "../src/Factory.sol";
 
 contract VaultTest is Test {
     bytes4 private constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
@@ -110,8 +111,8 @@ contract VaultTest is Test {
     }
 
     function _createMarket() private returns (Vault vault) {
-        IDVP ig = new IG(address(_baseToken), address(_sideToken), EpochFrequency.DAILY);
-        vault = new Vault(ig, address(_baseToken), address(_sideToken));
+        vault = new Vault(address(_baseToken), address(_sideToken), EpochFrequency.DAILY);
+        IDVP ig = new IG(address(_baseToken), address(_sideToken), address(vault));
         _controller.register(address(vault));
     }
 

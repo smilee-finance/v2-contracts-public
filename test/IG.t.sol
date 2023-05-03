@@ -6,6 +6,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {IDVP} from "../src/interfaces/IDVP.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
+import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 
 contract IGTest is Test {
@@ -16,6 +17,7 @@ contract IGTest is Test {
 
     address baseToken = address(0x11);
     address sideToken = address(0x22);
+    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY);
 
     address alice = address(0x1);
     address bob = address(0x2);
@@ -24,18 +26,18 @@ contract IGTest is Test {
 
     function testCantCreate() public {
         vm.expectRevert(AddressZero);
-        new IG(address(0x0), address(0x0), 0);
+        new IG(address(0x0), address(0x0), address(vault));
     }
 
     function testCantUse() public {
-        IDVP ig = new IG(baseToken, sideToken, 0);
+        IDVP ig = new IG(baseToken, sideToken, address(vault));
 
         vm.expectRevert(NoActiveEpoch);
         ig.mint(address(0x1), 0, OptionStrategy.CALL, 1);
     }
 
     function testCanUse() public {
-        IDVP ig = new IG(baseToken, sideToken, EpochFrequency.DAILY);
+        IDVP ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
         ig.mint(address(0x1), 0, OptionStrategy.CALL, 1);
     }
@@ -43,7 +45,7 @@ contract IGTest is Test {
     function testMint() public {
         uint256 inputAmount = 1;
 
-        IG ig = new IG(baseToken, sideToken, EpochFrequency.DAILY);
+        IG ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
@@ -59,7 +61,7 @@ contract IGTest is Test {
     function testMintSum() public {
         uint256 inputAmount = 1;
 
-        IG ig = new IG(baseToken, sideToken, EpochFrequency.DAILY);
+        IG ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
@@ -75,7 +77,7 @@ contract IGTest is Test {
     function testMintAndBurn() public {
         uint256 inputAmount = 1;
 
-        IG ig = new IG(baseToken, sideToken, EpochFrequency.DAILY);
+        IG ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
         uint256 currEpoch = ig.currentEpoch();
 
@@ -99,7 +101,7 @@ contract IGTest is Test {
         bool bInputStrategy = OptionStrategy.PUT;
         uint256 inputAmount = 1;
 
-        IG ig = new IG(baseToken, sideToken, EpochFrequency.DAILY);
+        IG ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
         uint256 currEpoch = ig.currentEpoch();
         ig.mint(alice, 0, aInputStrategy, inputAmount);
@@ -137,7 +139,7 @@ contract IGTest is Test {
     }
 
     function testCantMintZero() public {
-        IDVP ig = new IG(baseToken, sideToken, EpochFrequency.DAILY);
+        IDVP ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
 
         vm.expectRevert(AmountZero);
@@ -147,7 +149,7 @@ contract IGTest is Test {
     function testCantBurnMoreThanMinted() public {
         uint256 inputAmount = 1;
 
-        IDVP ig = new IG(baseToken, sideToken, EpochFrequency.DAILY);
+        IDVP ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 

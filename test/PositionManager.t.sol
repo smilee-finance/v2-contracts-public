@@ -6,6 +6,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
+import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
 
@@ -18,6 +19,8 @@ contract PositionManagerTest is Test {
     address baseToken = address(0x11);
     address sideToken = address(0x22);
 
+    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY);    
+
     address alice = address(0x1);
     address bob = address(0x2);
 
@@ -28,7 +31,7 @@ contract PositionManagerTest is Test {
     }
 
     function initAndMint() private returns (uint256 tokenId, IG ig) {
-        ig = new IG(baseToken, sideToken, EpochFrequency.DAILY);
+        ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
 
         (tokenId, ) = pm.mint(

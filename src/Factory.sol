@@ -2,16 +2,13 @@
 pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IDVP} from "./interfaces/IDVP.sol";
+import {DVPRegister} from "./DVPRegister.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {DVPType} from "./lib/DVPType.sol";
 import {Vault} from "./Vault.sol";
 import {IG} from "./IG.sol";
 
-contract Factory is Ownable {
-
-    // Map to save DVPs
-    mapping(address => bool) registered;
+contract Factory is Ownable, DVPRegister {
 
     /** 
      * Create Vault given baseToken and sideToken
@@ -29,6 +26,7 @@ contract Factory is Ownable {
         internal returns (address)  
     {
         Vault vault = new Vault(baseToken, sideToken, epochFrequency);
+        register(address(vault));
         return address(vault);
     }
 
@@ -41,16 +39,16 @@ contract Factory is Ownable {
      * @dev (see interfaces/IDVPImmutables.sol)
      * @return address The address of the created DVP
      */
-    function createIGDVP(
+    function createIGMarket(
         address baseToken,
         address sideToken,
         uint256 epochFrequency
     ) 
-    external returns (address) 
+    external onlyOwner returns (address) 
     {
         address vault = _createVault(baseToken, sideToken, epochFrequency); 
         IDVP dvp = new IG(baseToken, sideToken, vault);
-        
+        register(address(dvp));  
         return address(dvp);
     }
 
