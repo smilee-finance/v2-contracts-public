@@ -4,12 +4,12 @@ pragma solidity ^0.8.15;
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
-import {TestnetDVPRegister} from "../../src/testnet/TestnetDVPRegister.sol";
+import {Factory} from "../../src/Factory.sol";
 
 contract TestnetTokenTest is Test {
-    bytes4 private constant NotInitialized = bytes4(keccak256("NotInitialized()"));
-    bytes4 private constant Unauthorized = bytes4(keccak256("Unauthorized()"));
-    bytes4 private constant CallerNotAdmin = bytes4(keccak256("CallerNotAdmin()"));
+    bytes4 constant NotInitialized = bytes4(keccak256("NotInitialized()"));
+    bytes4 constant Unauthorized = bytes4(keccak256("Unauthorized()"));
+    bytes4 constant CallerNotAdmin = bytes4(keccak256("CallerNotAdmin()"));
 
     address controller;
     address swapper = address(0x2);
@@ -19,7 +19,7 @@ contract TestnetTokenTest is Test {
     address bob = address(0x5);
 
     function setUp() public {
-        controller = address(new TestnetDVPRegister());
+        controller = address(new Factory());
     }
 
     function testCantMintNotInit() public {

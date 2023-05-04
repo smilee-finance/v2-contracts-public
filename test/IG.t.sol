@@ -10,10 +10,10 @@ import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 
 contract IGTest is Test {
-    bytes4 private constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
-    bytes4 private constant AddressZero = bytes4(keccak256("AddressZero()"));
-    bytes4 private constant AmountZero = bytes4(keccak256("AmountZero()"));
-    bytes4 private constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
+    bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
+    bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
+    bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
+    bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
 
     address baseToken = address(0x11);
     address sideToken = address(0x22);

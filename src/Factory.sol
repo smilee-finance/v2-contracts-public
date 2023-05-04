@@ -2,13 +2,13 @@
 pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {DVPRegister} from "./DVPRegister.sol";
+import {Registry} from "./Registry.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {DVPType} from "./lib/DVPType.sol";
 import {Vault} from "./Vault.sol";
 import {IG} from "./IG.sol";
 
-contract Factory is Ownable, DVPRegister {
+contract Factory is Ownable, Registry {
 
     /** 
      * Create Vault given baseToken and sideToken
@@ -52,7 +52,6 @@ contract Factory is Ownable, DVPRegister {
         return address(dvp);
     }
 
-
     /**
      * Create Vanilla DVP associating vault to it.
      * @param baseToken Base Token
@@ -74,5 +73,4 @@ contract Factory is Ownable, DVPRegister {
     }
     */
 
-    
 }

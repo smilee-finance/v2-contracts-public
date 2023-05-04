@@ -11,10 +11,10 @@ import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
 
 contract PositionManagerTest is Test {
-    bytes4 private constant NotOwner = bytes4(keccak256("NotOwner()"));
-    bytes4 private constant CantBurnZero = bytes4(keccak256("CantBurnZero()"));
-    bytes4 private constant InvalidTokenID = bytes4(keccak256("InvalidTokenID()"));
-    bytes4 private constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
+    bytes4 constant NotOwner = bytes4(keccak256("NotOwner()"));
+    bytes4 constant CantBurnZero = bytes4(keccak256("CantBurnZero()"));
+    bytes4 constant InvalidTokenID = bytes4(keccak256("InvalidTokenID()"));
+    bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
 
     address baseToken = address(0x11);
     address sideToken = address(0x22);

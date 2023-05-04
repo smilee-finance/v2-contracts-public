@@ -12,32 +12,33 @@ import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 
 contract FactoryTest is Test {
+
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
 
-    address _tokenAdmin = address(0x1);
 
-    TestnetToken _baseToken;
-    TestnetToken _sideToken;
-    uint256 _epochFrequency;
-    Factory _factory;
+    address tokenAdmin = address(0x1);
+
+    TestnetToken baseToken;
+    TestnetToken sideToken;
+    uint256 epochFrequency;
+    Factory factory;
 
     function setUp() public {
-        address controller = address(_factory);
+        address controller = address(factory);
         address swapper = address(0x5);
 
-        vm.startPrank(_tokenAdmin);
+        vm.startPrank(tokenAdmin);
         TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
         token.setController(controller);
         token.setSwapper(swapper);
-        _baseToken = token;
+        baseToken = token;
 
         token = new TestnetToken("Testnet WETH", "stWETH");
         token.setController(controller);
         token.setSwapper(swapper);
-        _sideToken = token;
+        sideToken = token;
 
-        Factory factory = new Factory();
-        _factory = factory;
+        factory = new Factory();
 
         vm.stopPrank();
         vm.warp(EpochFrequency.REF_TS);
@@ -46,41 +47,42 @@ contract FactoryTest is Test {
     function testFactoryUnauthorized() public {
         //vm.startPrank(address(0x100));
         vm.expectRevert("Ownable: caller is not the owner");
-        _factory.createIGMarket(address(_baseToken), address(_sideToken), EpochFrequency.DAILY);
+        factory.createIGMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY);
     }
 
     function testFactoryTokenBaseTokenZero() public {
-        vm.startPrank(_tokenAdmin);
+        vm.startPrank(tokenAdmin);
 
         vm.expectRevert(AddressZero);
-        _factory.createIGMarket(address(0x0), address(_sideToken), EpochFrequency.DAILY);
+        factory.createIGMarket(address(0x0), address(sideToken), EpochFrequency.DAILY);
     }
 
     function testFactoryTokenSideTokenZero() public {
-        vm.startPrank(_tokenAdmin);
+        vm.startPrank(tokenAdmin);
 
         vm.expectRevert(AddressZero);
-        _factory.createIGMarket(address(_baseToken), address(0x0), EpochFrequency.DAILY);
+        factory.createIGMarket(address(baseToken), address(0x0), EpochFrequency.DAILY);
     }
 
     function testFactoryCreatedDVP() public {
-        vm.startPrank(_tokenAdmin);
-        address dvp = _factory.createIGMarket(address(_baseToken), address(_sideToken), EpochFrequency.DAILY);
+        vm.startPrank(tokenAdmin);
+        address dvp = factory.createIGMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY);
         DVP igDVP = DVP(dvp);
 
-        assertEq(igDVP.baseToken(), address(_baseToken));
-        assertEq(igDVP.sideToken(), address(_sideToken));
+        assertEq(igDVP.baseToken(), address(baseToken));
+        assertEq(igDVP.sideToken(), address(sideToken));
         assertEq(igDVP.optionType(), DVPType.IG);
         assertEq(igDVP.epochFrequency(), EpochFrequency.DAILY);
     }
 
     function testFactoryCreatedVault() public {
-        vm.startPrank(_tokenAdmin);
-        address dvp = _factory.createIGMarket(address(_baseToken), address(_sideToken), EpochFrequency.DAILY);
+        vm.startPrank(tokenAdmin);
+        address dvp = factory.createIGMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY);
         DVP igDVP = DVP(dvp);
         Vault vault = Vault(igDVP.vault());
-        assertEq(vault.baseToken(), address(_baseToken));
-        assertEq(vault.sideToken(), address(_sideToken));
+        assertEq(vault.baseToken(), address(baseToken));
+        assertEq(vault.sideToken(), address(sideToken));
         assertEq(vault.epochFrequency(), EpochFrequency.DAILY);
     }
+
 }

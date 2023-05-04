@@ -6,13 +6,13 @@ import {Vm} from "forge-std/Vm.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 
 contract EpochFrequencyTest is Test {
-    bytes4 private constant MissingNextEpoch = bytes4(keccak256("MissingNextEpoch()"));
+    bytes4 constant MissingNextEpoch = bytes4(keccak256("MissingNextEpoch()"));
 
-    uint256 private constant dailyPeriod = 0;
-    uint256 private constant weeklyPeriod = 1;
-    uint256 private constant customPeriod = 2;
+    uint256 constant dailyPeriod = 0;
+    uint256 constant weeklyPeriod = 1;
+    uint256 constant customPeriod = 2;
 
-    uint256 public fri20230421 = 1682064000;
+    uint256 fri20230421 = 1682064000;
 
     function setUp() public {}
 
