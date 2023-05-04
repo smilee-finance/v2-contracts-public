@@ -25,16 +25,34 @@ library VaultLib {
         uint256 unredeemedShares;
     }
 
-    function assetToShares(uint256 assetAmount, uint256 assetPerShare) internal pure returns (uint256) {
-        return assetAmount.mul(10 ** DECIMALS).div(assetPerShare);
+    /**
+        @notice Returns the number of shares corresponding to given amount of asset
+        @param assetAmount The amount of assets to be converted to shares
+        @param sharePrice The price (in asset) for 1 share
+     */
+    function assetToShares(uint256 assetAmount, uint256 sharePrice) internal pure returns (uint256) {
+        return assetAmount.mul(UNIT_PRICE).div(sharePrice);
     }
 
     /**
-     * @notice Returns the shares unredeemed by the user given their DepositReceipt
-     * @param depositReceipt is the user's deposit receipt
-     * @param currentEpoch is the `epoch` stored on the vault
-     * @param sharePrice is the price in asset per share with `DECIMALS` decimals
-     * @return unredeemedShares is the user's virtual balance of shares that are owed
+        @notice Returns the amount of asset corresponding to given number of shares
+        @param shares The number of shares to be converted to asset
+        @param sharePrice The price (in asset) for 1 share
+     */
+    function sharesToAsset(uint256 shares, uint256 sharePrice) internal pure returns (uint256) {
+        return shares.mul(sharePrice).div(UNIT_PRICE);
+    }
+
+    function computePrice(uint256 assets, uint256 shares) internal pure returns (uint256) {
+        return assets.mul(UNIT_PRICE).div(shares);
+    }
+
+    /**
+        @notice Returns the shares unredeemed by the user given their DepositReceipt
+        @param depositReceipt is the user's deposit receipt
+        @param currentEpoch is the `epoch` stored on the vault
+        @param sharePrice is the price in asset per share with `DECIMALS` decimals
+        @return unredeemedShares is the user's virtual balance of shares that are owed
      */
     function getSharesFromReceipt(
         DepositReceipt memory depositReceipt,

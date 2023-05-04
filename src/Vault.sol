@@ -8,6 +8,9 @@ import {IVault} from "./interfaces/IVault.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 import {EpochControls} from "./EpochControls.sol";
+import {IEpochControls} from "./interfaces/IEpochControls.sol";
+
+import "forge-std/console.sol";
 
 contract Vault is EpochControls, ERC20, IVault {
     using SafeMath for uint256;
@@ -26,6 +29,8 @@ contract Vault is EpochControls, ERC20, IVault {
     error AmountZero();
     error ExceedsAvailable();
     error ExistingIncompleteWithdraw();
+    error WithdrawNotInitiated();
+    error WithdrawTooEarly();
     error SecondaryMarkedNotAllowed();
 
     constructor(
@@ -159,12 +164,43 @@ contract Vault is EpochControls, ERC20, IVault {
         currentQueuedWithdrawShares = currentQueuedWithdrawShares.add(shares);
     }
 
-    // /// @inheritdoc IVault
-    // function completeWithdraw() external {
-    //     uint256 withdrawAmount = _completeWithdraw();
-    //     lastQueuedWithdrawAmount = uint128(uint256(lastQueuedWithdrawAmount).sub(withdrawAmount));
-    // }
+    /// @inheritdoc IVault
+    function completeWithdraw() external {
+        VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
+        uint256 withdrawalShares = withdrawal.shares;
+        uint256 withdrawalEpoch = withdrawal.epoch;
+
+        // This checks if there is a withdrawal
+        if (!(withdrawalShares > 0)) {
+            revert WithdrawNotInitiated();
+        }
+
+        if (withdrawalEpoch >= currentEpoch) {
+            revert WithdrawTooEarly();
+        }
+
+        // We leave the round number as non-zero to save on gas for subsequent writes
+        withdrawals[msg.sender].shares = 0;
+        // vaultState.queuedWithdrawShares = vaultState.queuedWithdrawShares.sub(withdrawalShares);
+
+        uint256 withdrawAmount = VaultLib.sharesToAsset(withdrawalShares, epochPricePerShare[withdrawalEpoch]);
+
+        // emit Withdraw
+
+        _burn(address(this), withdrawalShares);
+
+        // TODO can withdraw zero ?
+        // if (!(withdrawAmount > 0)) {
+        //     revert WithdrawZero();
+        // }
+
+        IERC20(baseToken).transfer(msg.sender, withdrawAmount);
+
+        // lastQueuedWithdrawAmount = uint128(uint256(lastQueuedWithdrawAmount).sub(withdrawAmount));
+    }
+
+    /// @inheritdoc IEpochControls
     function rollEpoch() public override {
         // assume locked liquidity is updated after trades
 
@@ -174,7 +210,7 @@ contract Vault is EpochControls, ERC20, IVault {
             sharePrice = VaultLib.UNIT_PRICE;
         } else {
             if (vaultState.lockedLiquidity > 0) {
-                sharePrice = vaultState.lockedLiquidity / totalSupply();
+                sharePrice = VaultLib.computePrice(vaultState.lockedLiquidity, totalSupply());
             } else {
                 // if locked liquidity goes to 0 (market crash) need to burn all shares supply
                 // TODO

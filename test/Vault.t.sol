@@ -98,7 +98,7 @@ contract VaultTest is Test {
         vm.prank(_alice);
         vault.deposit(100);
 
-        vm.warp(block.timestamp + 1 days + 1);
+        _skipDay();
         vault.rollEpoch();
 
         vm.prank(_alice);
@@ -132,7 +132,7 @@ contract VaultTest is Test {
         vm.startPrank(_alice);
         vault.deposit(100);
 
-        vm.warp(block.timestamp + 1 days + 1);
+        _skipDay();
         vault.rollEpoch();
 
         vault.redeem(100);
@@ -152,7 +152,7 @@ contract VaultTest is Test {
         vm.startPrank(_alice);
         vault.deposit(100);
 
-        vm.warp(block.timestamp + 1 days + 1);
+        _skipDay();
         vault.rollEpoch();
 
         vault.initiateWithdraw(100);
@@ -161,7 +161,7 @@ contract VaultTest is Test {
         assertEq(100, withdrawalShares);
     }
 
-    function testInitWithdrawWithoutRedeem____() public {
+    function testInitWithdrawPartWithoutRedeem() public {
         Vault vault = _createMarket();
         vault.rollEpoch();
 
@@ -170,13 +170,44 @@ contract VaultTest is Test {
         vm.startPrank(_alice);
         vault.deposit(100);
 
-        vm.warp(block.timestamp + 1 days + 1);
+        _skipDay();
         vault.rollEpoch();
 
         vault.initiateWithdraw(50);
         (, uint256 withdrawalShares) = vault.withdrawals(_alice);
         assertEq(50, vault.balanceOf(_alice));
+        assertEq(50, vault.balanceOf(address(vault)));
         assertEq(50, withdrawalShares);
+    }
+
+    function testWithdraw() public {
+        Vault vault = _createMarket();
+        vault.rollEpoch();
+
+        _provideApprovedBaseTokens(_alice, 100, address(vault));
+
+        vm.startPrank(_alice);
+        vault.deposit(100);
+
+        _skipDay();
+        vault.rollEpoch();
+
+        vault.initiateWithdraw(40);
+
+        // a max redeem is done within initiateWithdraw so not withdrawn shares remain to alice
+        assertEq(40, vault.balanceOf(address(vault)));
+        assertEq(60, vault.balanceOf(_alice));
+
+        _skipDay();
+        vault.rollEpoch();
+
+        vault.completeWithdraw();
+
+        (, uint256 withdrawalShares) = vault.withdrawals(_alice);
+        assertEq(60, vault.totalSupply());
+        assertEq(60, _baseToken.balanceOf(address(vault)));
+        assertEq(40, _baseToken.balanceOf(address(_alice)));
+        assertEq(0, withdrawalShares);
     }
 
     function _createMarket() private returns (Vault vault) {
@@ -189,5 +220,9 @@ contract VaultTest is Test {
         _baseToken.mint(wallet, amount);
         vm.prank(wallet);
         _baseToken.approve(approved, amount);
+    }
+
+    function _skipDay() private {
+        vm.warp(block.timestamp + 1 days + 1);
     }
 }

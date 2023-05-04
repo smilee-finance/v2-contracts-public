@@ -37,10 +37,10 @@ interface IVault {
      */
     function initiateWithdraw(uint256 shares) external;
 
-    // /**
-    //     @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
-    //  */
-    // function completeWithdraw() external;
+    /**
+        @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
+     */
+    function completeWithdraw() external;
 
     /**
         @notice Get wallet balance of actual owned shares and owed shares.
