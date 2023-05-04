@@ -10,8 +10,6 @@ import {VaultLib} from "./lib/VaultLib.sol";
 import {EpochControls} from "./EpochControls.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 
-import "forge-std/console.sol";
-
 contract Vault is EpochControls, ERC20, IVault {
     using SafeMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
@@ -203,18 +201,15 @@ contract Vault is EpochControls, ERC20, IVault {
     /// @inheritdoc IEpochControls
     function rollEpoch() public override {
         // assume locked liquidity is updated after trades
+        vaultState.lastLockedLiquidity = vaultState.lockedLiquidity;
 
         uint256 sharePrice;
-        if (totalSupply() == 0) {
+        if (totalSupply() == 0 || vaultState.lastLockedLiquidity == 0) {
             // first time mint 1:1
             sharePrice = VaultLib.UNIT_PRICE;
         } else {
-            if (vaultState.lockedLiquidity > 0) {
-                sharePrice = VaultLib.computePrice(vaultState.lockedLiquidity, totalSupply());
-            } else {
-                // if locked liquidity goes to 0 (market crash) need to burn all shares supply
-                // TODO
-            }
+            // if vaultState.lockedLiquidity is 0 price is set to 0
+            sharePrice = VaultLib.pricePerShare(vaultState.lockedLiquidity, totalSupply());
         }
 
         epochPricePerShare[currentEpoch] = sharePrice;

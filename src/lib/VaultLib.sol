@@ -16,6 +16,7 @@ library VaultLib {
 
     struct VaultState {
         uint256 lockedLiquidity; // liquidity currently used by associated DVP
+        uint256 lastLockedLiquidity; // liquidity used by associated DVP at current epoch begin
         uint256 totalPendingLiquidity; // liquidity deposited during current epoch (to be locked on the next one)
     }
 
@@ -43,7 +44,7 @@ library VaultLib {
         return shares.mul(sharePrice).div(UNIT_PRICE);
     }
 
-    function computePrice(uint256 assets, uint256 shares) internal pure returns (uint256) {
+    function pricePerShare(uint256 assets, uint256 shares) internal pure returns (uint256) {
         return assets.mul(UNIT_PRICE).div(shares);
     }
 
