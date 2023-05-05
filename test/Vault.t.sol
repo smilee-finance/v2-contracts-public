@@ -3,16 +3,14 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "../src/interfaces/IDVP.sol";
-import {IG} from "../src/IG.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
+import {VaultLib} from "../src/lib/VaultLib.sol";
+import {IG} from "../src/IG.sol";
+import {Registry} from "../src/Registry.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Vault} from "../src/Vault.sol";
-import {VaultLib} from "../src/lib/VaultLib.sol";
-
-import {Registry} from "../src/Registry.sol";
 
 contract VaultTest is Test {
     bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
@@ -30,17 +28,16 @@ contract VaultTest is Test {
 
     function setUp() public {
         registry = new Registry();
-        address controller = address(registry);
         address swapper = address(0x5);
         vm.startPrank(tokenAdmin);
 
         TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
-        token.setController(controller);
+        token.setController(address(registry));
         token.setSwapper(swapper);
         baseToken = token;
 
         token = new TestnetToken("Testnet WETH", "stWETH");
-        token.setController(controller);
+        token.setController(address(registry));
         token.setSwapper(swapper);
         sideToken = token;
 
@@ -391,24 +388,5 @@ contract VaultTest is Test {
     function _skipDay(bool additionalSecond) private {
         uint256 secondToAdd = (additionalSecond) ? 1 : 0;
         vm.warp(block.timestamp + 1 days + secondToAdd);
-    }
-
-    function _refreshVaultStateInformation(Vault vault) private returns (uint256) {
-        (
-            uint256 lockedLiquidity,
-            uint256 lastLockedLiquidity,
-            bool lastLockedLiquidityZero,
-            uint256 totalPendingLiquidity,
-            uint256 totalWithdrawAmount,
-            uint256 queuedWithdrawShares,
-            bool dead
-        ) = vault.vaultState();
-        vaultState.lockedLiquidity = lockedLiquidity;
-        vaultState.lastLockedLiquidity = lastLockedLiquidity;
-        vaultState.lastLockedLiquidityZero = lastLockedLiquidityZero;
-        vaultState.totalPendingLiquidity = totalPendingLiquidity;
-        vaultState.totalWithdrawAmount = totalWithdrawAmount;
-        vaultState.queuedWithdrawShares = queuedWithdrawShares;
-        vaultState.dead = dead;
     }
 }

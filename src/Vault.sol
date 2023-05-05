@@ -238,9 +238,8 @@ contract Vault is IVault, ERC20, EpochControls {
         epochPricePerShare[currentEpoch] = sharePrice;
 
         vaultState.queuedWithdrawShares = vaultState.queuedWithdrawShares.add(currentQueuedWithdrawShares);
-        vaultState.totalWithdrawAmount = vaultState.totalWithdrawAmount.add(
-            VaultLib.sharesToAsset(currentQueuedWithdrawShares, sharePrice)
-        );
+        uint256 lastWithdrawAmount = VaultLib.sharesToAsset(currentQueuedWithdrawShares, sharePrice);
+        vaultState.totalWithdrawAmount = vaultState.totalWithdrawAmount.add(lastWithdrawAmount);
         currentQueuedWithdrawShares = 0;
 
         if (sharePrice == 0) {
@@ -252,7 +251,10 @@ contract Vault is IVault, ERC20, EpochControls {
             if (sharesToMint > 0) {
                 _mint(address(this), sharesToMint);
             }
-            vaultState.lockedLiquidity = vaultState.lockedLiquidity.add(vaultState.totalPendingLiquidity);
+            vaultState.lockedLiquidity = vaultState.lockedLiquidity.add(vaultState.totalPendingLiquidity).sub(
+                lastWithdrawAmount
+            );
+
             vaultState.totalPendingLiquidity = 0;
         }
 
@@ -306,6 +308,9 @@ contract Vault is IVault, ERC20, EpochControls {
         revert SecondaryMarkedNotAllowed();
     }
 
+    /**
+        @notice
+     */
     function moveAsset(int256 amount) public {
         if (amount > 0) {
             vaultState.lockedLiquidity = vaultState.lockedLiquidity.add(uint256(amount));
@@ -315,7 +320,7 @@ contract Vault is IVault, ERC20, EpochControls {
                 revert ExceedsAvailable();
             }
             vaultState.lockedLiquidity = vaultState.lockedLiquidity.sub(uint256(-amount));
-            IERC20(baseToken).transferFrom(address(this), msg.sender, uint256(-amount));
+            IERC20(baseToken).transfer(msg.sender, uint256(-amount));
         }
     }
 }

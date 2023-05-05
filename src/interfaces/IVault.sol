@@ -4,6 +4,19 @@ pragma solidity ^0.8.15;
 import {IVaultParams} from "./IVaultParams.sol";
 
 interface IVault is IVaultParams {
+    function vaultState()
+        external
+        view
+        returns (
+            uint256 lockedLiquidity,
+            uint256 lastLockedLiquidity,
+            bool lastLockedLiquidityZero,
+            uint256 totalPendingLiquidity,
+            uint256 totalWithdrawAmount,
+            uint256 queuedWithdrawShares,
+            bool dead
+        );
+
     /**
         @notice Gives portfolio composition for currently active epoch
         @return baseTokenAmount The amount of baseToken currently locked in the vault
