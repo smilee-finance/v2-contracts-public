@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {DVPType} from "./lib/DVPType.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
+import {Position} from "./lib/Position.sol";
 import {DVP} from "./DVP.sol";
 
 contract IG is DVP {
@@ -20,12 +21,6 @@ contract IG is DVP {
         strike;
         strategy;
         amount;
-        return 0.1 ether;
-    }
-
-    /// @inheritdoc IDVP
-    function payoff(bytes32 key) public pure override returns (uint256) {
-        key;
         return 0.1 ether;
     }
 
@@ -49,5 +44,9 @@ contract IG is DVP {
         uint256 amount
     ) external override returns (uint256 paidPayoff) {
         paidPayoff = _burn(epoch, recipient, strike, strategy, amount);
+    }
+
+    function _computePayoff(Position.Info memory position) internal view virtual override returns (uint256) {
+        return position.amount;
     }
 }

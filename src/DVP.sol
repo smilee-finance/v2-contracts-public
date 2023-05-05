@@ -88,7 +88,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochActive returns (uint256 payoff) {
+    ) internal epochActive returns (uint256 paidPayoff) {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -98,8 +98,8 @@ abstract contract DVP is IDVP, EpochControls {
         Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
         position.updateAmount(-int256(amount));
 
+        paidPayoff = _computePayoff(position);
         // ToDo: handle payoff
-        payoff = 0;
         recipient;
 
         emit Burn(msg.sender);
@@ -116,5 +116,17 @@ abstract contract DVP is IDVP, EpochControls {
             IEpochControls(vault).rollEpoch();
         }
         super.rollEpoch();
+    }
+
+    /// @inheritdoc IDVP
+    function payoff(uint256 epoch, bool strategy, uint256 strike) public view override returns (uint256) {
+        Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
+        return _computePayoff(position);
+    }
+
+    function _computePayoff(Position.Info memory position) internal view virtual returns (uint256) {
+        /// @dev: placeholder to be filled by the concrete DVPs.
+        position;
+        return 0;
     }
 }
