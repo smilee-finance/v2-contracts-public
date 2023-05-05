@@ -221,15 +221,18 @@ contract Vault is IVault, ERC20, EpochControls {
     /// @inheritdoc IEpochControls
     function rollEpoch() public override isNotDead {
         // assume locked liquidity is updated after trades
-        vaultState.lastLockedLiquidity = vaultState.lockedLiquidity;
 
         uint256 sharePrice;
-        if (totalSupply() == 0 || vaultState.lastLockedLiquidity == 0) {
+        if (totalSupply() == 0 || vaultState.lastLockedLiquidityZero) {
             // first time mint 1:1
             sharePrice = VaultLib.UNIT_PRICE;
+            vaultState.lastLockedLiquidityZero = false;
         } else {
             // if vaultState.lockedLiquidity is 0 price is set to 0
-            sharePrice = VaultLib.pricePerShare(vaultState.lockedLiquidity, totalSupply());
+            sharePrice = VaultLib.pricePerShare(vaultState. , totalSupply());
+            if (vaultState.lockedLiquidity == 0) {
+                vaultState.lastLockedLiquidityZero = true;
+            }
         }
 
         epochPricePerShare[currentEpoch] = sharePrice;
@@ -283,9 +286,8 @@ contract Vault is IVault, ERC20, EpochControls {
         return (balanceOf(account), unredeemedShares);
     }
 
-
     function testIncreaseDecreateLiquidityLocked(uint256 amount, bool increase) public {
-        if(increase) {
+        if (increase) {
             vaultState.lockedLiquidity = vaultState.lockedLiquidity.add(amount);
         } else {
             vaultState.lockedLiquidity = vaultState.lockedLiquidity.sub(amount);
