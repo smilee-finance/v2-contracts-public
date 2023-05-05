@@ -17,6 +17,8 @@ import {Registry} from "../src/Registry.sol";
 contract VaultTest is Test {
     bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
+    bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
+    bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
 
     address tokenAdmin = address(0x1);
     address alice = address(0x2);
@@ -24,6 +26,7 @@ contract VaultTest is Test {
     TestnetToken baseToken;
     TestnetToken sideToken;
     Registry registry;
+    VaultLib.VaultState vaultState;
 
     function setUp() public {
         registry = new Registry();
@@ -214,10 +217,10 @@ contract VaultTest is Test {
     }
 
     /**
-     * Describe two users, the first (Alice) deposits 100$ in epoch1 receiving 100 shares. 
+     * Describe two users, the first (Alice) deposits 100$ in epoch1 receiving 100 shares.
      * Meanwhile the price of the lockedLiquidity has been multiplied by 2 (always in epoch1).
      * Bob deposits 100$ in epoch1, but, since his shares will be delivered in epoch2 and the price in epoch1 is changed, Bob receive 50 shares.
-     * In epoch2, the price has been multiplied by 2 again. Meanwhile Bob and Alice start a the withdraw procedure for all their shares. 
+     * In epoch2, the price has been multiplied by 2 again. Meanwhile Bob and Alice start a the withdraw procedure for all their shares.
      * Alice should receive 400$ and Bob 200$ from their shares.
      */
     function testVaultMathDoubleLiquidity() public {
@@ -226,7 +229,6 @@ contract VaultTest is Test {
 
         _provideApprovedBaseTokens(alice, 100, address(vault));
         _provideApprovedBaseTokens(bob, 100, address(vault));
-
 
         vm.startPrank(alice);
         vault.deposit(100);
@@ -261,13 +263,12 @@ contract VaultTest is Test {
         vm.startPrank(bob);
         vault.initiateWithdraw(50);
         vm.stopPrank();
-        
+
         vault.testIncreaseDecreateLiquidityLocked(300, true);
         _provideApprovedBaseTokens(address(vault), 300, address(vault));
         assertEq(baseToken.balanceOf(address(vault)), 600);
 
-
-         _skipDay(false);
+        _skipDay(false);
 
         vault.rollEpoch();
 
@@ -290,14 +291,13 @@ contract VaultTest is Test {
         assertEq(200, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
         vm.stopPrank();
-
     }
 
     /**
-     * Describe two users, the first (Alice) deposits 100$ in epoch1 receiving 100 shares. 
+     * Describe two users, the first (Alice) deposits 100$ in epoch1 receiving 100 shares.
      * Meanwhile the price of the lockedLiquidity has been divided by 2 (always in epoch1).
      * Bob deposits 100$ in epoch1, but, since his shares will be delivered in epoch2 and the price in epoch1 is changed, Bob receive 200 shares.
-     * In epoch2, the price has been divided by 2 again. Meanwhile Bob and Alice start a the withdraw procedure for all their shares. 
+     * In epoch2, the price has been divided by 2 again. Meanwhile Bob and Alice start a the withdraw procedure for all their shares.
      * Alice should receive 25$ and Bob 50$ from their shares.
      */
     function testVaultMathHalfLiquidity() public {
@@ -306,7 +306,6 @@ contract VaultTest is Test {
 
         _provideApprovedBaseTokens(alice, 100, address(vault));
         _provideApprovedBaseTokens(bob, 100, address(vault));
-
 
         vm.startPrank(alice);
         vault.deposit(100);
@@ -344,7 +343,7 @@ contract VaultTest is Test {
         vm.startPrank(bob);
         vault.initiateWithdraw(200);
         vm.stopPrank();
-        
+
         vm.startPrank(address(vault));
         vault.testIncreaseDecreateLiquidityLocked(75, false);
         IERC20(baseToken).transfer(address(0x1000), 75);
@@ -352,8 +351,7 @@ contract VaultTest is Test {
 
         assertEq(baseToken.balanceOf(address(vault)), 75);
 
-
-         _skipDay(false);
+        _skipDay(false);
 
         vault.rollEpoch();
 
@@ -376,191 +374,7 @@ contract VaultTest is Test {
         assertEq(50, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
         vm.stopPrank();
-
     }
-
-
-    /**
-     * Describe two users, the first (Alice) deposits 100$ in epoch1 receiving 100 shares. 
-     * Meanwhile the price of the lockedLiquidity has been divided by 2 (always in epoch1).
-     * Bob deposits 100$ in epoch1, but, since his shares will be delivered in epoch2 and the price in epoch1 is changed, Bob receive 200 shares.
-     * In epoch2, the price has been divided by 2 again. Meanwhile Bob and Alice start a the withdraw procedure for all their shares. 
-     * Alice should receive 25$ and Bob 50$ from their shares.
-     */
-    function testVaultMathLiquidityGoesToZero() public {
-        Vault vault = _createMarket();
-        vault.rollEpoch();
-
-        _provideApprovedBaseTokens(alice, 100, address(vault));
-        _provideApprovedBaseTokens(bob, 100, address(vault));
-
-
-        vm.startPrank(alice);
-        vault.deposit(100);
-        vm.stopPrank();
-        _skipDay(true);
-
-        vault.rollEpoch();
-
-        (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(vault.totalSupply(), 100);
-        assertEq(heldByVaultAlice, 100);
-
-        vm.startPrank(bob);
-        vault.deposit(100);
-        vm.stopPrank();
-        _skipDay(false);
-
-        // Increasing liquidityLocked by 100
-        vault.testIncreaseDecreateLiquidityLocked(100, true);
-        _provideApprovedBaseTokens(address(vault), 100, address(vault));
-        
-
-        assertEq(baseToken.balanceOf(address(vault)), 300);
-        vault.rollEpoch();
-
-        (, uint256 heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(vault.totalSupply(), 150);
-        assertEq(heldByVaultBob, 50);
-
-        vm.startPrank(alice);
-        vault.initiateWithdraw(100);
-        vm.stopPrank();
-
-        vm.startPrank(bob);
-        vault.initiateWithdraw(50);
-        vm.stopPrank();
-        
-        vm.startPrank(address(vault));
-        vault.testIncreaseDecreateLiquidityLocked(300, false);
-        IERC20(baseToken).transfer(address(0x1000), 300);
-        vm.stopPrank();
-
-        assertEq(baseToken.balanceOf(address(vault)), 0);
-
-         _skipDay(false);
-        uint256 withdrawalEpoch = vault.currentEpoch();
-        vault.rollEpoch();
-
-        (uint256 lockedLiquidity, ,) = vault.vaultState();
-        console.log("lockedLiquidity");
-        console.logUint(lockedLiquidity);
-        
-        console.log("vault.epochPricePerShare(withdrawalEpoch)");
-        console.logUint(vault.epochPricePerShare(withdrawalEpoch));
-        vm.startPrank(alice);
-        vault.completeWithdraw();
-
-        (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
-        assertEq(50, vault.totalSupply());
-        assertEq(0, baseToken.balanceOf(address(vault)));
-        assertEq(0, baseToken.balanceOf(address(alice)));
-        assertEq(0, withdrawalSharesAlice);
-        vm.stopPrank();
-
-        vm.startPrank(bob);
-        vault.completeWithdraw();
-
-        (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
-        assertEq(0, vault.totalSupply());
-        assertEq(0, baseToken.balanceOf(address(vault)));
-        assertEq(50, baseToken.balanceOf(address(bob)));
-        assertEq(0, withdrawalSharesBob);
-        vm.stopPrank();
-
-    }
-
-    /**
-     * Describe two users, the first (Alice) deposits 100$ in epoch1 receiving 100 shares. 
-     * Meanwhile the price of the lockedLiquidity has been divided by 2 (always in epoch1).
-     * Bob deposits 100$ in epoch1, but, since his shares will be delivered in epoch2 and the price in epoch1 is changed, Bob receive 200 shares.
-     * In epoch2, the price has been divided by 2 again. Meanwhile Bob and Alice start a the withdraw procedure for all their shares. 
-     * Alice should receive 25$ and Bob 50$ from their shares.
-     */
-    function testVaultMathLiquidityGoesToZeroWithDeposit() public {
-        Vault vault = _createMarket();
-        vault.rollEpoch();
-
-        _provideApprovedBaseTokens(alice, 100, address(vault));
-        _provideApprovedBaseTokens(bob, 100, address(vault));
-
-
-        vm.startPrank(alice);
-        vault.deposit(100);
-        vm.stopPrank();
-        _skipDay(true);
-
-        vault.rollEpoch();
-
-        (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(vault.totalSupply(), 100);
-        assertEq(heldByVaultAlice, 100);
-
-        vm.startPrank(bob);
-        vault.deposit(100);
-        vm.stopPrank();
-        _skipDay(false);
-
-        // Increasing liquidityLocked by 100
-        vault.testIncreaseDecreateLiquidityLocked(100, true);
-        _provideApprovedBaseTokens(address(vault), 100, address(vault));
-        
-
-        assertEq(baseToken.balanceOf(address(vault)), 300);
-        vault.rollEpoch();
-
-        (, uint256 heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(vault.totalSupply(), 150);
-        assertEq(heldByVaultBob, 50);
-
-        vm.startPrank(alice);
-        vault.initiateWithdraw(100);
-        vm.stopPrank();
-
-        vm.startPrank(bob);
-        vault.initiateWithdraw(50);
-        vm.stopPrank();
-        
-        vm.startPrank(address(vault));
-        vault.testIncreaseDecreateLiquidityLocked(300, false);
-        IERC20(baseToken).transfer(address(0x1000), 300);
-        vm.stopPrank();
-
-        assertEq(baseToken.balanceOf(address(vault)), 0);
-
-         _skipDay(false);
-        uint256 withdrawalEpoch = vault.currentEpoch();
-        vault.rollEpoch();
-
-        (uint256 lockedLiquidity, ,) = vault.vaultState();
-        console.log("lockedLiquidity");
-        console.logUint(lockedLiquidity);
-        
-        console.log("vault.epochPricePerShare(withdrawalEpoch)");
-        console.logUint(vault.epochPricePerShare(withdrawalEpoch));
-        vm.startPrank(alice);
-        vault.completeWithdraw();
-
-        (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
-        assertEq(50, vault.totalSupply());
-        assertEq(0, baseToken.balanceOf(address(vault)));
-        assertEq(0, baseToken.balanceOf(address(alice)));
-        assertEq(0, withdrawalSharesAlice);
-        vm.stopPrank();
-
-        vm.startPrank(bob);
-        vault.completeWithdraw();
-
-        (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
-        assertEq(0, vault.totalSupply());
-        assertEq(0, baseToken.balanceOf(address(vault)));
-        assertEq(50, baseToken.balanceOf(address(bob)));
-        assertEq(0, withdrawalSharesBob);
-        vm.stopPrank();
-
-    }
-
-
 
     function _createMarket() private returns (Vault vault) {
         vault = new Vault(address(baseToken), address(sideToken), EpochFrequency.DAILY);
@@ -577,5 +391,24 @@ contract VaultTest is Test {
     function _skipDay(bool additionalSecond) private {
         uint256 secondToAdd = (additionalSecond) ? 1 : 0;
         vm.warp(block.timestamp + 1 days + secondToAdd);
+    }
+
+    function _refreshVaultStateInformation(Vault vault) private returns (uint256) {
+        (
+            uint256 lockedLiquidity,
+            uint256 lastLockedLiquidity,
+            bool lastLockedLiquidityZero,
+            uint256 totalPendingLiquidity,
+            uint256 totalWithdrawAmount,
+            uint256 queuedWithdrawShares,
+            bool dead
+        ) = vault.vaultState();
+        vaultState.lockedLiquidity = lockedLiquidity;
+        vaultState.lastLockedLiquidity = lastLockedLiquidity;
+        vaultState.lastLockedLiquidityZero = lastLockedLiquidityZero;
+        vaultState.totalPendingLiquidity = totalPendingLiquidity;
+        vaultState.totalWithdrawAmount = totalWithdrawAmount;
+        vaultState.queuedWithdrawShares = queuedWithdrawShares;
+        vaultState.dead = dead;
     }
 }

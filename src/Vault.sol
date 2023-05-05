@@ -229,7 +229,7 @@ contract Vault is IVault, ERC20, EpochControls {
             vaultState.lastLockedLiquidityZero = false;
         } else {
             // if vaultState.lockedLiquidity is 0 price is set to 0
-            sharePrice = VaultLib.pricePerShare(vaultState. , totalSupply());
+            sharePrice = VaultLib.pricePerShare(vaultState.lockedLiquidity, totalSupply());
             if (vaultState.lockedLiquidity == 0) {
                 vaultState.lastLockedLiquidityZero = true;
             }
@@ -268,7 +268,7 @@ contract Vault is IVault, ERC20, EpochControls {
             revert NothingToRescue();
         }
         depositReceipts[msg.sender].amount = 0;
-        IERC20(baseToken).transferFrom(address(this), msg.sender, amount);
+        IERC20(baseToken).transfer(msg.sender, amount);
     }
 
     /// @inheritdoc IVault

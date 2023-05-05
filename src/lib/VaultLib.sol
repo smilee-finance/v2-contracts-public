@@ -14,6 +14,8 @@ library VaultLib {
         uint256 lockedLiquidity;
         // Liquidity used by associated DVP at the begin of the current epoch
         uint256 lastLockedLiquidity;
+        // Control flag to check if lastLockedLiquidity has gone to 0
+        bool lastLockedLiquidityZero;
         // Liquidity deposited during current epoch (to be locked on the next one)
         uint256 totalPendingLiquidity;
         // Liquidity reserved for withdrawals (accounting purposes)
@@ -41,9 +43,14 @@ library VaultLib {
         @param sharePrice The price (in asset) for 1 share
      */
     function assetToShares(uint256 assetAmount, uint256 sharePrice) internal pure returns (uint256) {
+        // If sharePrice goes to zero, the asset cannot minted, this means the assetAmount is to rescue
+        if (sharePrice == 0) {
+            return 0;
+        }
         if (assetAmount > 0) {
             return assetAmount.mul(UNIT_PRICE).div(sharePrice);
         }
+
         return 0;
     }
 
