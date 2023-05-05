@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-interface IVault {
+import {IVaultParams} from "./IVaultParams.sol";
+
+interface IVault is IVaultParams {
     /**
         @notice Gives portfolio composition for currently active epoch
         @return baseTokenAmount The amount of baseToken currently locked in the vault
@@ -49,9 +51,9 @@ interface IVault {
      */
     function shareBalances(address account) external view returns (uint256 heldByAccount, uint256 heldByVault);
 
-    // /**
-    //     @notice A trigger to move on to next epoch
-    //     @dev Should be called from the associated DVP which is in charge of managing epoch synchronization
-    //  */
-    // function rollEpoch() external;
+    /**
+        @notice Move base asset to or from the Vault
+        @param amount The amount of asset to be moved
+     */
+    function moveAsset(int256 amount) external;
 }

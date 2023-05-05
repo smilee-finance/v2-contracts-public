@@ -9,15 +9,19 @@ library VaultLib {
     uint256 constant DECIMALS = 18;
     uint256 constant UNIT_PRICE = 10 ** DECIMALS;
 
-    struct Withdrawal {
-        uint256 epoch;
-        uint256 shares; // Number of shares withdrawn
-    }
-
     struct VaultState {
-        uint256 lockedLiquidity; // liquidity currently used by associated DVP
-        uint256 lastLockedLiquidity; // liquidity used by associated DVP at current epoch begin
-        uint256 totalPendingLiquidity; // liquidity deposited during current epoch (to be locked on the next one)
+        // Liquidity currently used by associated DVP
+        uint256 lockedLiquidity;
+        // Liquidity used by associated DVP at the begin of the current epoch
+        uint256 lastLockedLiquidity;
+        // Liquidity deposited during current epoch (to be locked on the next one)
+        uint256 totalPendingLiquidity;
+        // Liquidity reserved for withdrawals (accounting purposes)
+        uint256 totalWithdrawAmount;
+        // Cumulated shares held by Vault for initiated withdraws (accounting purposes)
+        uint256 queuedWithdrawShares;
+        // Vault dies if ever the locked liquidity goes to zero (outstanding shares are worth 0, can't mint new shares ever)
+        bool dead;
     }
 
     struct DepositReceipt {
@@ -26,13 +30,21 @@ library VaultLib {
         uint256 unredeemedShares;
     }
 
+    struct Withdrawal {
+        uint256 epoch;
+        uint256 shares; // Number of shares withdrawn
+    }
+
     /**
         @notice Returns the number of shares corresponding to given amount of asset
         @param assetAmount The amount of assets to be converted to shares
         @param sharePrice The price (in asset) for 1 share
      */
     function assetToShares(uint256 assetAmount, uint256 sharePrice) internal pure returns (uint256) {
-        return assetAmount.mul(UNIT_PRICE).div(sharePrice);
+        if (assetAmount > 0) {
+            return assetAmount.mul(UNIT_PRICE).div(sharePrice);
+        }
+        return 0;
     }
 
     /**

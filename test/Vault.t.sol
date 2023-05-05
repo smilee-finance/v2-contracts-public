@@ -187,14 +187,14 @@ contract VaultTest is Test {
         _provideApprovedBaseTokens(_alice, 100, address(vault));
 
         vm.startPrank(_alice);
+
         vault.deposit(100);
 
         _skipDay();
         vault.rollEpoch();
 
         vault.initiateWithdraw(40);
-
-        // a max redeem is done within initiateWithdraw so not withdrawn shares remain to alice
+        // a max redeem is done within initiateWithdraw so unwithdrawn shares remain to alice
         assertEq(40, vault.balanceOf(address(vault)));
         assertEq(60, vault.balanceOf(_alice));
 
@@ -202,8 +202,8 @@ contract VaultTest is Test {
         vault.rollEpoch();
 
         vault.completeWithdraw();
-
         (, uint256 withdrawalShares) = vault.withdrawals(_alice);
+
         assertEq(60, vault.totalSupply());
         assertEq(60, _baseToken.balanceOf(address(vault)));
         assertEq(40, _baseToken.balanceOf(address(_alice)));
