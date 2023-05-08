@@ -17,6 +17,7 @@ library VaultUtils {
             uint256 totalPendingLiquidity,
             uint256 totalWithdrawAmount,
             uint256 queuedWithdrawShares,
+            uint256 currentQueuedWithdrawShares,
             bool dead
         ) = vault.vaultState();
         return
@@ -27,6 +28,7 @@ library VaultUtils {
                 totalPendingLiquidity,
                 totalWithdrawAmount,
                 queuedWithdrawShares,
+                currentQueuedWithdrawShares,
                 dead
             );
     }

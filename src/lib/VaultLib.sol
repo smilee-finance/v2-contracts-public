@@ -9,6 +9,7 @@ library VaultLib {
     uint256 constant DECIMALS = 18;
     uint256 constant UNIT_PRICE = 10 ** DECIMALS;
 
+    // TBD: split into multiple structs (e.g. liquidity, shares, etc).
     struct VaultState {
         // Liquidity currently used by associated DVP
         uint256 lockedLiquidity;
@@ -22,6 +23,8 @@ library VaultLib {
         uint256 totalWithdrawAmount;
         // Cumulated shares held by Vault for initiated withdraws (accounting purposes)
         uint256 queuedWithdrawShares;
+        // Number of shares held by the contract because of inititateWithdraw() calls during the current epoch
+        uint256 currentQueuedWithdrawShares;
         // Vault dies if ever the locked liquidity goes to zero (outstanding shares are worth 0, can't mint new shares ever)
         bool dead;
     }
@@ -33,7 +36,7 @@ library VaultLib {
     }
 
     struct Withdrawal {
-        uint256 epoch;
+        uint256 epoch; // Epoch in which the withdraw flow started
         uint256 shares; // Number of shares withdrawn
     }
 
@@ -47,11 +50,11 @@ library VaultLib {
         if (sharePrice == 0) {
             return 0;
         }
-        if (assetAmount > 0) {
-            return assetAmount.mul(UNIT_PRICE).div(sharePrice);
+        if (assetAmount == 0) {
+            return 0;
         }
 
-        return 0;
+        return assetAmount.mul(UNIT_PRICE).div(sharePrice);
     }
 
     /**
@@ -79,11 +82,11 @@ library VaultLib {
         uint256 currentEpoch,
         uint256 sharePrice
     ) public pure returns (uint256 unredeemedShares) {
-        if (depositReceipt.epoch > 0 && depositReceipt.epoch < currentEpoch) {
-            uint256 sharesFromRound = assetToShares(depositReceipt.amount, sharePrice);
-
-            return uint256(depositReceipt.unredeemedShares).add(sharesFromRound);
+        if (depositReceipt.epoch == 0 || depositReceipt.epoch == currentEpoch) {
+            return depositReceipt.unredeemedShares;
         }
-        return depositReceipt.unredeemedShares;
+
+        uint256 sharesFromRound = assetToShares(depositReceipt.amount, sharePrice);
+        return depositReceipt.unredeemedShares.add(sharesFromRound);
     }
 }

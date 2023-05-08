@@ -286,6 +286,7 @@ contract VaultDeathTest is Test {
             uint256 totalPendingLiquidity,
             uint256 totalWithdrawAmount,
             uint256 queuedWithdrawShares,
+            uint256 currentQueuedWithdrawShares,
             bool dead
         ) = vault.vaultState();
         vaultState.lockedLiquidity = lockedLiquidity;
@@ -294,6 +295,7 @@ contract VaultDeathTest is Test {
         vaultState.totalPendingLiquidity = totalPendingLiquidity;
         vaultState.totalWithdrawAmount = totalWithdrawAmount;
         vaultState.queuedWithdrawShares = queuedWithdrawShares;
+        vaultState.currentQueuedWithdrawShares = currentQueuedWithdrawShares;
         vaultState.dead = dead;
     }
 }

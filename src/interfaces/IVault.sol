@@ -14,6 +14,7 @@ interface IVault is IVaultParams {
             uint256 totalPendingLiquidity,
             uint256 totalWithdrawAmount,
             uint256 queuedWithdrawShares,
+            uint256 currentQueuedWithdrawShares,
             bool dead
         );
 
@@ -34,7 +35,7 @@ interface IVault is IVaultParams {
     function deposit(uint256 amount) external;
 
     /**
-        @notice Redeems shares held by the vault for the wallet
+        @notice Redeems shares held by the vault for the calling wallet
         @param shares is the number of shares to redeem
      */
     function redeem(uint256 shares) external;
