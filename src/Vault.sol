@@ -164,13 +164,11 @@ contract Vault is IVault, ERC20, EpochControls {
         }
 
         withdrawal.shares = sharesToWithdraw;
-        withdrawal.epoch = currentEpoch; // ToDo: review
+        withdrawal.epoch = currentEpoch;
 
-        // TBD: shares or sharesToWithdraw ?
         _transfer(msg.sender, address(this), shares);
 
         // NOTE: shall the user attempt to calls redeem after this one, there'll be no unredeemed shares
-        // ToDo: move within vaultState
         vaultState.currentQueuedWithdrawShares += shares;
 
         // TBD: emit InitiateWithdraw event
