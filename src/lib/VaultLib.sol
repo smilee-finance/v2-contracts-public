@@ -42,7 +42,7 @@ library VaultLib {
         @param assetAmount The amount of assets to be converted to shares
         @param sharePrice The price (in asset) for 1 share
      */
-    function assetToShares(uint256 assetAmount, uint256 sharePrice) internal pure returns (uint256) {
+    function assetToShares(uint256 assetAmount, uint256 sharePrice) public pure returns (uint256) {
         // If sharePrice goes to zero, the asset cannot minted, this means the assetAmount is to rescue
         if (sharePrice == 0) {
             return 0;
@@ -59,11 +59,11 @@ library VaultLib {
         @param shares The number of shares to be converted to asset
         @param sharePrice The price (in asset) for 1 share
      */
-    function sharesToAsset(uint256 shares, uint256 sharePrice) internal pure returns (uint256) {
+    function sharesToAsset(uint256 shares, uint256 sharePrice) public pure returns (uint256) {
         return shares.mul(sharePrice).div(UNIT_PRICE);
     }
 
-    function pricePerShare(uint256 assets, uint256 shares) internal pure returns (uint256) {
+    function pricePerShare(uint256 assets, uint256 shares) public pure returns (uint256) {
         return assets.mul(UNIT_PRICE).div(shares);
     }
 
@@ -78,7 +78,7 @@ library VaultLib {
         DepositReceipt memory depositReceipt,
         uint256 currentEpoch,
         uint256 sharePrice
-    ) internal pure returns (uint256 unredeemedShares) {
+    ) public pure returns (uint256 unredeemedShares) {
         if (depositReceipt.epoch > 0 && depositReceipt.epoch < currentEpoch) {
             uint256 sharesFromRound = assetToShares(depositReceipt.amount, sharePrice);
 

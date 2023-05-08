@@ -13,7 +13,7 @@ library DVPLogic {
 
     /// Logic ///
 
-    function valid(DVPCreateParams memory params) external pure {
+    function valid(DVPCreateParams memory params) public pure {
         if (params.baseToken == address(0x0)) revert AddressZero();
         if (params.sideToken == address(0x0)) revert AddressZero();
     }

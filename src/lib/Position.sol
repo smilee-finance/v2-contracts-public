@@ -22,7 +22,7 @@ library Position {
         @param strike The strike price of the position
         @return id The position id
      */
-    function getID(address owner, bool strategy, uint256 strike) internal pure returns (bytes32) {
+    function getID(address owner, bool strategy, uint256 strike) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(owner, strategy, strike));
     }
 
@@ -31,7 +31,7 @@ library Position {
         @param self The position to update
         @param delta The increment/decrement of options for the given position
      */
-    function updateAmount(Info storage self, int256 delta) internal {
+    function updateAmount(Info storage self, int256 delta) public {
         if (delta < 0) {
             // It's a burn
             if (uint256(-delta) > self.amount) {

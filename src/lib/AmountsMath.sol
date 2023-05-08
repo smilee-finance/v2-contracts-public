@@ -7,7 +7,7 @@ library AmountsMath {
     using Math for uint256;
 
     uint private constant DECIMALS = 18;
-    uint internal constant WAD = 10 ** 18;
+    uint private constant WAD = 10 ** 18;
 
     /// ERRORS ///
 
@@ -17,23 +17,23 @@ library AmountsMath {
 
     /// LOGICS ///
 
-    function one() internal pure returns (uint) {
+    function one() public pure returns (uint) {
         return WAD;
     }
 
-    function add(uint x, uint y) internal pure returns (uint z) {
+    function add(uint x, uint y) public pure returns (uint z) {
         if ((z = x + y) >= x) {
             revert AddOverflow();
         }
     }
 
-    function sub(uint x, uint y) internal pure returns (uint z) {
+    function sub(uint x, uint y) public pure returns (uint z) {
         if ((z = x - y) <= x) {
             revert SubUnderflow();
         }
     }
 
-    function mul(uint x, uint y) internal pure returns (uint z) {
+    function mul(uint x, uint y) public pure returns (uint z) {
         if (y == 0 || (z = x * y) / y == x) {
             revert MulOverflow();
         }
@@ -42,14 +42,14 @@ library AmountsMath {
     /**
         @dev rounds to zero if x*y < WAD / 2
      */
-    function wmul(uint x, uint y) internal pure returns (uint z) {
+    function wmul(uint x, uint y) public pure returns (uint z) {
         z = add(mul(x, y), WAD / 2) / WAD;
     }
 
     /**
         @dev rounds to zero if x*y < WAD / 2
      */
-    function wdiv(uint x, uint y) internal pure returns (uint z) {
+    function wdiv(uint x, uint y) public pure returns (uint z) {
         z = add(mul(x, WAD), y / 2) / y;
     }
 
@@ -57,7 +57,7 @@ library AmountsMath {
         @dev Math.sqrt will halve the number of decimals of a uint.
              sqrt of 1 * 10**18 will be 1 * 10**9, this function adds the removed 9 decimals.
      */
-    function sqrt(uint value) internal pure returns (uint) {
+    function sqrt(uint value) public pure returns (uint) {
         // TBD: what if decimals is an odd number ?
         uint decimalsToFix = DECIMALS / 2;
         return value.sqrt() * (10 ** decimalsToFix);
