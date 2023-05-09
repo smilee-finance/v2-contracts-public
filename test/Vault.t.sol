@@ -7,6 +7,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "../src/interfaces/IDVP.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {VaultLib} from "../src/lib/VaultLib.sol";
+import {TokenUtils} from "./utils/TokenUtils.sol";
+import {Utils} from "./utils/Utils.sol";
+import {VaultUtils} from "./utils/VaultUtils.sol";
 import {IG} from "../src/IG.sol";
 import {Registry} from "../src/Registry.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
@@ -24,7 +27,7 @@ contract VaultTest is Test {
     TestnetToken baseToken;
     TestnetToken sideToken;
     Registry registry;
-    VaultLib.VaultState vaultState;
+    Vault vault;
 
     function setUp() public {
         registry = new Registry();
@@ -43,12 +46,12 @@ contract VaultTest is Test {
 
         vm.stopPrank();
         vm.warp(EpochFrequency.REF_TS);
+
+        vault = VaultUtils.createMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY, registry);
     }
 
     function testDepositFail() public {
-        Vault vault = _createMarket();
-
-        _provideApprovedBaseTokens(alice, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.prank(alice);
         vm.expectRevert(NoActiveEpoch);
@@ -56,10 +59,9 @@ contract VaultTest is Test {
     }
 
     function testDeposit() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.prank(alice);
         vault.deposit(100);
@@ -74,13 +76,15 @@ contract VaultTest is Test {
         assertEq(0, baseToken.balanceOf(alice));
         assertEq(0, shares);
         assertEq(100, unredeemedShares);
+        // check lockedLiquidity
+        uint256 lockedLiquidity = VaultUtils.vaultState(vault).lockedLiquidity;
+        assertEq(100, lockedLiquidity);
     }
 
     function testRedeemFail() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.prank(alice);
         vault.deposit(100);
@@ -94,15 +98,14 @@ contract VaultTest is Test {
     }
 
     function testRedeem() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.prank(alice);
         vault.deposit(100);
 
-        _skipDay(true);
+        Utils.skipDay(true, vm);
         vault.rollEpoch();
 
         vm.prank(alice);
@@ -112,13 +115,16 @@ contract VaultTest is Test {
         assertEq(50, shares);
         assertEq(50, unredeemedShares);
         assertEq(50, vault.balanceOf(alice));
+
+        // check lockedLiquidity. It still remains the same
+        uint256 lockedLiquidity = VaultUtils.vaultState(vault).lockedLiquidity;
+        assertEq(100, lockedLiquidity);
     }
 
     function testInitWithdrawFail() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
@@ -128,15 +134,14 @@ contract VaultTest is Test {
     }
 
     function testInitWithdrawWithRedeem() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
 
-        _skipDay(true);
+        Utils.skipDay(true, vm);
         vault.rollEpoch();
 
         vault.redeem(100);
@@ -148,15 +153,14 @@ contract VaultTest is Test {
     }
 
     function testInitWithdrawWithoutRedeem() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
 
-        _skipDay(true);
+        Utils.skipDay(true, vm);
         vault.rollEpoch();
 
         vault.initiateWithdraw(100);
@@ -166,15 +170,14 @@ contract VaultTest is Test {
     }
 
     function testInitWithdrawPartWithoutRedeem() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
 
-        _skipDay(true);
+        Utils.skipDay(true, vm);
         vault.rollEpoch();
 
         vault.initiateWithdraw(50);
@@ -185,24 +188,30 @@ contract VaultTest is Test {
     }
 
     function testWithdraw() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
 
-        _skipDay(true);
+        Utils.skipDay(true, vm);
         vault.rollEpoch();
 
         vault.initiateWithdraw(40);
         // a max redeem is done within initiateWithdraw so unwithdrawn shares remain to alice
         assertEq(40, vault.balanceOf(address(vault)));
         assertEq(60, vault.balanceOf(alice));
+        // check lockedLiquidity
+        uint256 lockedLiquidity = VaultUtils.vaultState(vault).lockedLiquidity;
+        assertEq(100, lockedLiquidity);
 
-        _skipDay(false);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
+
+        // check lockedLiquidity
+        lockedLiquidity = VaultUtils.vaultState(vault).lockedLiquidity;
+        assertEq(60, lockedLiquidity);
 
         vault.completeWithdraw();
 
@@ -221,16 +230,15 @@ contract VaultTest is Test {
      * Alice should receive 400$ and Bob 200$ from their shares.
      */
     function testVaultMathDoubleLiquidity() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
-        _provideApprovedBaseTokens(bob, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
         vm.stopPrank();
-        _skipDay(true);
+        Utils.skipDay(true, vm);
 
         vault.rollEpoch();
 
@@ -241,10 +249,10 @@ contract VaultTest is Test {
         vm.startPrank(bob);
         vault.deposit(100);
         vm.stopPrank();
-        _skipDay(false);
+        Utils.skipDay(false, vm);
 
         vault.testIncreaseDecreateLiquidityLocked(100, true);
-        _provideApprovedBaseTokens(address(vault), 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), address(vault), address(vault), 100, vm);
 
         assertEq(baseToken.balanceOf(address(vault)), 300);
         vault.rollEpoch();
@@ -261,11 +269,12 @@ contract VaultTest is Test {
         vault.initiateWithdraw(50);
         vm.stopPrank();
 
+        // TODO remove testIncreaseDecreaseLiquidityTokem function from Vault.sol
         vault.testIncreaseDecreateLiquidityLocked(300, true);
-        _provideApprovedBaseTokens(address(vault), 300, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), address(vault), address(vault), 300, vm);
         assertEq(baseToken.balanceOf(address(vault)), 600);
 
-        _skipDay(false);
+        Utils.skipDay(false, vm);
 
         vault.rollEpoch();
 
@@ -298,16 +307,15 @@ contract VaultTest is Test {
      * Alice should receive 25$ and Bob 50$ from their shares.
      */
     function testVaultMathHalfLiquidity() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
-        _provideApprovedBaseTokens(bob, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
         vm.stopPrank();
-        _skipDay(true);
+        Utils.skipDay(true, vm);
 
         vault.rollEpoch();
 
@@ -318,7 +326,7 @@ contract VaultTest is Test {
         vm.startPrank(bob);
         vault.deposit(100);
         vm.stopPrank();
-        _skipDay(false);
+        Utils.skipDay(false, vm);
 
         vault.testIncreaseDecreateLiquidityLocked(50, false);
         vm.startPrank(address(vault));
@@ -348,7 +356,7 @@ contract VaultTest is Test {
 
         assertEq(baseToken.balanceOf(address(vault)), 75);
 
-        _skipDay(false);
+        Utils.skipDay(false, vm);
 
         vault.rollEpoch();
 
@@ -371,22 +379,5 @@ contract VaultTest is Test {
         assertEq(50, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
         vm.stopPrank();
-    }
-
-    function _createMarket() private returns (Vault vault) {
-        vault = new Vault(address(baseToken), address(sideToken), EpochFrequency.DAILY);
-        registry.register(address(vault));
-    }
-
-    function _provideApprovedBaseTokens(address wallet, uint256 amount, address approved) private {
-        vm.prank(tokenAdmin);
-        baseToken.mint(wallet, amount);
-        vm.prank(wallet);
-        baseToken.approve(approved, amount);
-    }
-
-    function _skipDay(bool additionalSecond) private {
-        uint256 secondToAdd = (additionalSecond) ? 1 : 0;
-        vm.warp(block.timestamp + 1 days + secondToAdd);
     }
 }

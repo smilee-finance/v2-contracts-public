@@ -9,8 +9,10 @@ import {IG} from "../src/IG.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Vault} from "../src/Vault.sol";
+import {TokenUtils} from "./utils/TokenUtils.sol";
+import {Utils} from "./utils/Utils.sol";
 import {VaultLib} from "../src/lib/VaultLib.sol";
-
+import {VaultUtils} from "./utils/VaultUtils.sol";
 import {Registry} from "../src/Registry.sol";
 
 contract VaultDeathTest is Test {
@@ -23,7 +25,7 @@ contract VaultDeathTest is Test {
     TestnetToken baseToken;
     TestnetToken sideToken;
     Registry registry;
-    VaultLib.VaultState vaultState;
+    Vault vault;
 
     function setUp() public {
         registry = new Registry();
@@ -43,26 +45,27 @@ contract VaultDeathTest is Test {
 
         vm.stopPrank();
         vm.warp(EpochFrequency.REF_TS);
+
+        vault = VaultUtils.createMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY, registry);
     }
 
     /**
      * Describe two users, the first (Alice) deposits 100$ in epoch1 receiving 100 shares.
-     * Bob deposits 100$ in epoch2. Bob receive also 100 shares. 
+     * Bob deposits 100$ in epoch2. Bob receive also 100 shares.
      * Bob and Alice starts the withdraw procedure in epoch3. Meanwhile, the lockedLiquidity goes to 0.
      * In epoch3, the Vault dies due to empty lockedLiquidity (so the sharePrice is 0). Nobody can deposit from epoch2 on.
      * Bob and Alice could complete the withdraw procedure receiving both 0$.
      */
     function testVaultMathLiquidityGoesToZero() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 100, address(vault));
-        _provideApprovedBaseTokens(bob, 100, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
         vm.stopPrank();
-        _skipDay(true);
+        Utils.skipDay(true, vm);
 
         vault.rollEpoch();
 
@@ -73,7 +76,7 @@ contract VaultDeathTest is Test {
         vm.startPrank(bob);
         vault.deposit(100);
         vm.stopPrank();
-        _skipDay(false);
+        Utils.skipDay(false, vm);
 
         vault.rollEpoch();
 
@@ -96,12 +99,10 @@ contract VaultDeathTest is Test {
 
         assertEq(0, baseToken.balanceOf(address(vault)));
 
-        _skipDay(false);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
-        _refreshVaultStateInformation(vault);
-
-        assertEq(true, vaultState.dead);
+        assertEq(true, VaultUtils.vaultState(vault).dead);
 
         vm.startPrank(alice);
         vault.completeWithdraw();
@@ -124,19 +125,18 @@ contract VaultDeathTest is Test {
         vm.stopPrank();
     }
 
-     /**
+    /**
      * Describe the case of deposit after Vault Death. In this case is expected an error.
      */
     function testVaultMathLiquidityGoesToZeroWithDepositAfterDieFail() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 200, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
         vm.stopPrank();
-        _skipDay(true);
+        Utils.skipDay(true, vm);
 
         vault.rollEpoch();
 
@@ -144,7 +144,7 @@ contract VaultDeathTest is Test {
         assertEq(100, vault.totalSupply());
         assertEq(100, heldByVaultAlice);
 
-        _skipDay(false);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         vm.startPrank(address(vault));
@@ -154,14 +154,12 @@ contract VaultDeathTest is Test {
 
         assertEq(0, baseToken.balanceOf(address(vault)));
 
-        _skipDay(false);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
-        _refreshVaultStateInformation(vault);
-
         // Check if lockedLiquidity has gone to 0 and the Vault is dead.
-        assertEq(0, vaultState.lockedLiquidity);
-        assertEq(true, vaultState.dead);
+        assertEq(0, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(true, VaultUtils.vaultState(vault).dead);
 
         // Alice wants to deposit after Vault death. We expect a VaultDead error.
         vm.startPrank(alice);
@@ -171,18 +169,17 @@ contract VaultDeathTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testVaultMathLiquidityGoesToZeroWithDepositBeforeDie() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 200, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
         vm.stopPrank();
-        _skipDay(true);
+        Utils.skipDay(true, vm);
 
         vault.rollEpoch();
 
@@ -190,7 +187,7 @@ contract VaultDeathTest is Test {
         assertEq(100, vault.totalSupply());
         assertEq(100, heldByVaultAlice);
 
-        _skipDay(false);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         vm.startPrank(address(vault));
@@ -204,16 +201,14 @@ contract VaultDeathTest is Test {
         vault.deposit(100);
         vm.stopPrank();
 
-        _skipDay(false);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         assertEq(100, vault.totalSupply());
 
-        _refreshVaultStateInformation(vault);
-
         // Check if lockedLiquidity has gone to 0 and the Vault is dead.
-        assertEq(0, vaultState.lockedLiquidity);
-        assertEq(true, vaultState.dead);
+        assertEq(0, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(true, VaultUtils.vaultState(vault).dead);
 
         (heldByAccountAlice, heldByVaultAlice) = vault.shareBalances(alice);
 
@@ -236,20 +231,19 @@ contract VaultDeathTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testVaultRescueDepositVaultNotDeath() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
-        _provideApprovedBaseTokens(alice, 200, address(vault));
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
 
         vm.startPrank(alice);
         vault.deposit(100);
         vm.expectRevert(VaultNotDead);
         vault.rescueDeposit();
         vm.stopPrank();
-        _skipDay(true);
+        Utils.skipDay(true, vm);
 
         vault.rollEpoch();
 
@@ -257,45 +251,7 @@ contract VaultDeathTest is Test {
         assertEq(100, vault.totalSupply());
         assertEq(100, heldByVaultAlice);
 
-        _skipDay(false);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
-    }
-
-    function _createMarket() private returns (Vault vault) {
-        vault = new Vault(address(baseToken), address(sideToken), EpochFrequency.DAILY);
-        registry.register(address(vault));
-    }
-
-    function _provideApprovedBaseTokens(address wallet, uint256 amount, address approved) private {
-        vm.prank(tokenAdmin);
-        baseToken.mint(wallet, amount);
-        vm.prank(wallet);
-        baseToken.approve(approved, amount);
-    }
-
-    function _skipDay(bool additionalSecond) private {
-        uint256 secondToAdd = (additionalSecond) ? 1 : 0;
-        vm.warp(block.timestamp + 1 days + secondToAdd);
-    }
-
-    function _refreshVaultStateInformation(Vault vault) private {
-        (
-            uint256 lockedLiquidity,
-            uint256 lastLockedLiquidity,
-            bool lastLockedLiquidityZero,
-            uint256 totalPendingLiquidity,
-            uint256 totalWithdrawAmount,
-            uint256 queuedWithdrawShares,
-            uint256 currentQueuedWithdrawShares,
-            bool dead
-        ) = vault.vaultState();
-        vaultState.lockedLiquidity = lockedLiquidity;
-        vaultState.lastLockedLiquidity = lastLockedLiquidity;
-        vaultState.lastLockedLiquidityZero = lastLockedLiquidityZero;
-        vaultState.totalPendingLiquidity = totalPendingLiquidity;
-        vaultState.totalWithdrawAmount = totalWithdrawAmount;
-        vaultState.queuedWithdrawShares = queuedWithdrawShares;
-        vaultState.currentQueuedWithdrawShares = currentQueuedWithdrawShares;
-        vaultState.dead = dead;
     }
 }

@@ -24,6 +24,7 @@ contract VaultTest is Test {
     TestnetToken baseToken;
     TestnetToken sideToken;
     Registry registry = new Registry();
+    Vault vault;
 
     function setUp() public {
         address swapper = address(0x5);
@@ -31,13 +32,14 @@ contract VaultTest is Test {
         baseToken = TestnetToken(baseToken_);
         sideToken = TestnetToken(sideToken_);
         vm.warp(EpochFrequency.REF_TS);
-    }
+
+        vault = VaultUtils.createMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY, registry);
+    }   
 
     /**
         Test that vault accounting properties are correct after calling `moveAsset()`
      */
     function testMoveAssetPull() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -61,7 +63,6 @@ contract VaultTest is Test {
     }
 
     function testMoveAssetPullFail() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -81,7 +82,6 @@ contract VaultTest is Test {
     }
 
     function testMoveAssetPush() public {
-        Vault vault = _createMarket();
         vault.rollEpoch();
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -110,7 +110,7 @@ contract VaultTest is Test {
     //     Test that vault accounting properties are correct after calling `moveAsset()`
     //  */
     // function testMoveAsset() public {
-    //     Vault vault = _createMarket();
+    //  
     //     vault.rollEpoch();
 
     //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -149,9 +149,4 @@ contract VaultTest is Test {
     //     // assertEq(40, baseToken.balanceOf(address(alice)));
     //     // assertEq(0, withdrawalShares);
     // }
-
-    function _createMarket() private returns (Vault vault) {
-        vault = new Vault(address(baseToken), address(sideToken), EpochFrequency.DAILY);
-        registry.register(address(vault));
-    }
 }
