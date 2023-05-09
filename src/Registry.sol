@@ -9,11 +9,12 @@ contract Registry is IRegistry {
 
     error MissingAddress();
 
-    // ToDo: limit msg.sender
+    /// @inheritdoc IRegistry
     function register(address addr) public {
         registered[addr] = true;
     }
 
+    /// @inheritdoc IRegistry
     function isRegistered(address dvpAddr) external view returns (bool ok) {
         return registered[dvpAddr];
     }

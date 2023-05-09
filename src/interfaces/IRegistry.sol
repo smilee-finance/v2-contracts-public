@@ -2,6 +2,13 @@
 pragma solidity ^0.8.15;
 
 interface IRegistry {
+
+    /**
+     * Registry an address into the registry
+     * @param addr A generic address to register
+     */
+    function register(address addr) external;
+
     /**
      * @notice Checks wheather an address is a DVP or not
      * @param  addr A generic address

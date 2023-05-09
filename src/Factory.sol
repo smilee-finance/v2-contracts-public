@@ -10,6 +10,23 @@ import {IG} from "./IG.sol";
 
 contract Factory is Ownable, Registry {
 
+
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Vault is created when event is emitted
+     * @param dvpAddress DVP address
+     * @param vaultAddress Vault address
+     * @param token Base Token address
+     */
+    event IGMarketCreated(address dvpAddress, address vaultAddress, address token);
+
+    /*//////////////////////////////////////////////////////////////
+                                FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     /** 
      * Create Vault given baseToken and sideToken
      * @param baseToken Base Token 
@@ -48,7 +65,8 @@ contract Factory is Ownable, Registry {
     {
         address vault = _createVault(baseToken, sideToken, epochFrequency); 
         IDVP dvp = new IG(baseToken, sideToken, vault);
-        register(address(dvp));  
+        register(address(dvp));
+        emit IGMarketCreated(address(dvp), vault, baseToken);  
         return address(dvp);
     }
 
