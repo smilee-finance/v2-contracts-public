@@ -315,15 +315,6 @@ contract Vault is IVault, ERC20, EpochControls {
         return (balanceOf(account), unredeemedShares);
     }
 
-    // ToDo: review (delete ?)
-    function testIncreaseDecreateLiquidityLocked(uint256 amount, bool increase) public {
-        if (increase) {
-            _state.liquidity.locked = _state.liquidity.locked.add(amount);
-        } else {
-            _state.liquidity.locked = _state.liquidity.locked.sub(amount);
-        }
-    }
-
     /**
         @dev Block shares transfer when not allowed (for testnet purposes)
      */

@@ -24,4 +24,9 @@ library Utils {
         uint256 secondToAdd = (additionalSecond) ? 1 : 0;
         vm.warp(block.timestamp + 1 days + secondToAdd);
     }
+
+    /**
+     * Function used to skip coverage on this file
+     */
+    function testCoverageSkip() private view {}
 }

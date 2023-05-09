@@ -46,4 +46,9 @@ library VaultUtils {
                 dead
             );
     }
+
+    /**
+     * Function used to skip coverage on this file
+     */
+    function testCoverageSkip() private view {}
 }

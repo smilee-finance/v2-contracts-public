@@ -92,10 +92,7 @@ contract VaultDeathTest is Test {
         vault.initiateWithdraw(100);
         vm.stopPrank();
 
-        vm.startPrank(address(vault));
-        vault.testIncreaseDecreateLiquidityLocked(200, false);
-        IERC20(baseToken).transfer(address(0x1000), 200);
-        vm.stopPrank();
+        vault.moveAsset(-200);
 
         assertEq(0, baseToken.balanceOf(address(vault)));
 
@@ -147,10 +144,7 @@ contract VaultDeathTest is Test {
         Utils.skipDay(false, vm);
         vault.rollEpoch();
 
-        vm.startPrank(address(vault));
-        vault.testIncreaseDecreateLiquidityLocked(100, false);
-        IERC20(baseToken).transfer(address(0x1000), 100);
-        vm.stopPrank();
+        vault.moveAsset(-100);
 
         assertEq(0, baseToken.balanceOf(address(vault)));
 
@@ -190,10 +184,7 @@ contract VaultDeathTest is Test {
         Utils.skipDay(false, vm);
         vault.rollEpoch();
 
-        vm.startPrank(address(vault));
-        vault.testIncreaseDecreateLiquidityLocked(100, false);
-        IERC20(baseToken).transfer(address(0x1000), 100);
-        vm.stopPrank();
+        vault.moveAsset(-100);
 
         assertEq(0, baseToken.balanceOf(address(vault)));
 

@@ -45,9 +45,13 @@ contract VaultTest is Test {
         sideToken = token;
 
         vm.stopPrank();
+
         vm.warp(EpochFrequency.REF_TS);
 
         vault = VaultUtils.createMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY, registry);
+
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 1000, vm);
+
     }
 
     function testDepositFail() public {
@@ -251,8 +255,9 @@ contract VaultTest is Test {
         vm.stopPrank();
         Utils.skipDay(false, vm);
 
-        vault.testIncreaseDecreateLiquidityLocked(100, true);
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), address(vault), address(vault), 100, vm);
+        vm.startPrank(tokenAdmin);
+        vault.moveAsset(100);
+        vm.stopPrank();
 
         assertEq(baseToken.balanceOf(address(vault)), 300);
         vault.rollEpoch();
@@ -269,9 +274,10 @@ contract VaultTest is Test {
         vault.initiateWithdraw(50);
         vm.stopPrank();
 
-        // TODO remove testIncreaseDecreaseLiquidityTokem function from Vault.sol
-        vault.testIncreaseDecreateLiquidityLocked(300, true);
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), address(vault), address(vault), 300, vm);
+        vm.startPrank(tokenAdmin);
+        vault.moveAsset(300);
+        vm.stopPrank();
+
         assertEq(baseToken.balanceOf(address(vault)), 600);
 
         Utils.skipDay(false, vm);
@@ -328,11 +334,8 @@ contract VaultTest is Test {
         vm.stopPrank();
         Utils.skipDay(false, vm);
 
-        vault.testIncreaseDecreateLiquidityLocked(50, false);
-        vm.startPrank(address(vault));
-        // Burn baseToken from Vault
-        IERC20(baseToken).transfer(address(0x1000), 50);
-        vm.stopPrank();
+        // Remove asset from Vault
+        vault.moveAsset(-50);
 
         assertEq(baseToken.balanceOf(address(vault)), 150);
         vault.rollEpoch();
@@ -349,10 +352,7 @@ contract VaultTest is Test {
         vault.initiateWithdraw(200);
         vm.stopPrank();
 
-        vm.startPrank(address(vault));
-        vault.testIncreaseDecreateLiquidityLocked(75, false);
-        IERC20(baseToken).transfer(address(0x1000), 75);
-        vm.stopPrank();
+        vault.moveAsset(-75);
 
         assertEq(baseToken.balanceOf(address(vault)), 75);
 
