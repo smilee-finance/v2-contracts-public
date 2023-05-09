@@ -47,19 +47,19 @@ contract VaultTest is Test {
         vm.prank(alice);
         vault.deposit(100);
         assertEq(100, baseToken.balanceOf(address(vault)));
-        assertEq(0, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
         assertEq(100, baseToken.balanceOf(address(vault)));
-        assertEq(100, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
 
         vault.moveAsset(-30);
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
         assertEq(70, baseToken.balanceOf(address(vault)));
-        assertEq(70, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(70, VaultUtils.vaultState(vault).liquidity.locked);
     }
 
     function testMoveAssetPullFail() public {
@@ -70,12 +70,12 @@ contract VaultTest is Test {
         vm.prank(alice);
         vault.deposit(100);
         assertEq(100, baseToken.balanceOf(address(vault)));
-        assertEq(0, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
         assertEq(100, baseToken.balanceOf(address(vault)));
-        assertEq(100, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
 
         vm.expectRevert(ExceedsAvailable);
         vault.moveAsset(-101);
@@ -89,12 +89,12 @@ contract VaultTest is Test {
         vm.prank(alice);
         vault.deposit(100);
         assertEq(100, baseToken.balanceOf(address(vault)));
-        assertEq(0, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
         assertEq(100, baseToken.balanceOf(address(vault)));
-        assertEq(100, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100, vm);
         vm.prank(tokenAdmin);
@@ -103,7 +103,7 @@ contract VaultTest is Test {
         Utils.skipDay(false, vm);
         vault.rollEpoch();
         assertEq(200, baseToken.balanceOf(address(vault)));
-        assertEq(200, VaultUtils.vaultState(vault).lockedLiquidity);
+        assertEq(200, VaultUtils.vaultState(vault).liquidity.locked);
     }
 
     // /**
@@ -118,7 +118,7 @@ contract VaultTest is Test {
     //     vm.prank(alice);
     //     vault.deposit(100);
     //     assertEq(100, baseToken.balanceOf(address(vault)));
-    //     assertEq(0, VaultUtils.vaultState(vault).lockedLiquidity);
+    //     assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 
     //     Utils.skipDay(true, vm);
     //     vault.rollEpoch();
@@ -126,16 +126,16 @@ contract VaultTest is Test {
     //     vm.prank(alice);
     //     vault.initiateWithdraw(40);
     //     assertEq(100, baseToken.balanceOf(address(vault)));
-    //     assertEq(100, VaultUtils.vaultState(vault).lockedLiquidity);
+    //     assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
 
     //     Utils.skipDay(false, vm);
     //     vault.rollEpoch();
     //     assertEq(100, baseToken.balanceOf(address(vault)));
-    //     assertEq(60, VaultUtils.vaultState(vault).lockedLiquidity);
+    //     assertEq(60, VaultUtils.vaultState(vault).liquidity.locked);
 
     //     vault.moveAsset(-30);
     //     assertEq(70, baseToken.balanceOf(address(vault)));
-    //     assertEq(30, VaultUtils.vaultState(vault).lockedLiquidity);
+    //     assertEq(30, VaultUtils.vaultState(vault).liquidity.locked);
 
     //     Utils.skipDay(false, vm);
     //     vault.rollEpoch();

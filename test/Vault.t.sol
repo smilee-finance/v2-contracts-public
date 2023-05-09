@@ -77,7 +77,7 @@ contract VaultTest is Test {
         assertEq(0, shares);
         assertEq(100, unredeemedShares);
         // check lockedLiquidity
-        uint256 lockedLiquidity = VaultUtils.vaultState(vault).lockedLiquidity;
+        uint256 lockedLiquidity = VaultUtils.vaultState(vault).liquidity.locked;
         assertEq(100, lockedLiquidity);
     }
 
@@ -117,7 +117,7 @@ contract VaultTest is Test {
         assertEq(50, vault.balanceOf(alice));
 
         // check lockedLiquidity. It still remains the same
-        uint256 lockedLiquidity = VaultUtils.vaultState(vault).lockedLiquidity;
+        uint256 lockedLiquidity = VaultUtils.vaultState(vault).liquidity.locked;
         assertEq(100, lockedLiquidity);
     }
 
@@ -203,14 +203,14 @@ contract VaultTest is Test {
         assertEq(40, vault.balanceOf(address(vault)));
         assertEq(60, vault.balanceOf(alice));
         // check lockedLiquidity
-        uint256 lockedLiquidity = VaultUtils.vaultState(vault).lockedLiquidity;
+        uint256 lockedLiquidity = VaultUtils.vaultState(vault).liquidity.locked;
         assertEq(100, lockedLiquidity);
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         // check lockedLiquidity
-        lockedLiquidity = VaultUtils.vaultState(vault).lockedLiquidity;
+        lockedLiquidity = VaultUtils.vaultState(vault).liquidity.locked;
         assertEq(60, lockedLiquidity);
 
         vault.completeWithdraw();

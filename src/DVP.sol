@@ -111,10 +111,9 @@ abstract contract DVP is IDVP, EpochControls {
 
     /// @inheritdoc EpochControls
     function rollEpoch() public override(EpochControls, IEpochControls) {
-        // TBD: review
-        if (vault != address(0)) {
-            IEpochControls(vault).rollEpoch();
-        }
+        // NOTE: super.rollEpoch verifies that the epoch can be rolled
+        IEpochControls(vault).rollEpoch();
+        // ToDo: check if vault is dead and react to it
         super.rollEpoch();
     }
 

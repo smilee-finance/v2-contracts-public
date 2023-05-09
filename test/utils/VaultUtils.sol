@@ -23,7 +23,7 @@ library VaultUtils {
     function vaultState(IVault vault) internal view returns (VaultLib.VaultState memory) {
         (
             uint256 lockedLiquidity,
-            uint256 lastLockedLiquidity,
+            ,
             bool lastLockedLiquidityZero,
             uint256 totalPendingLiquidity,
             uint256 totalWithdrawAmount,
@@ -33,13 +33,16 @@ library VaultUtils {
         ) = vault.vaultState();
         return
             VaultLib.VaultState(
-                lockedLiquidity,
-                lastLockedLiquidity,
-                lastLockedLiquidityZero,
-                totalPendingLiquidity,
-                totalWithdrawAmount,
-                queuedWithdrawShares,
-                currentQueuedWithdrawShares,
+                VaultLib.VaultLiquidity(
+                    lockedLiquidity,
+                    lastLockedLiquidityZero,
+                    totalPendingLiquidity,
+                    totalWithdrawAmount
+                ),
+                VaultLib.VaultWithdrawals(
+                    queuedWithdrawShares,
+                    currentQueuedWithdrawShares
+                ),
                 dead
             );
     }

@@ -17,10 +17,10 @@ contract Vault is IVault, ERC20, EpochControls {
     address public immutable baseToken;
     address public immutable sideToken;
 
-    VaultLib.VaultState public vaultState;
+    VaultLib.VaultState internal _state;
 
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
-    mapping(address => VaultLib.Withdrawal) public withdrawals;
+    mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
     mapping(uint256 => uint256) internal _epochPricePerShare;
 
     error AmountZero();
@@ -44,7 +44,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @dev The Vault is alive until a certain amount of underlying asset is available to give value to outstanding shares
     modifier isNotDead() {
-        if (vaultState.dead) {
+        if (_state.dead) {
             revert VaultDead();
         }
         _;
@@ -52,10 +52,36 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @dev The Vault is dead if underlying locked liquidity goes to zero because we can't mint new shares since then
     modifier isDead() {
-        if (!vaultState.dead) {
+        if (!_state.dead) {
             revert VaultNotDead();
         }
         _;
+    }
+
+    /// @inheritdoc IVault
+    function vaultState()
+        external
+        view
+        returns (
+            uint256 lockedLiquidity,
+            uint256 lastLockedLiquidity,
+            bool lastLockedLiquidityZero,
+            uint256 totalPendingLiquidity,
+            uint256 totalWithdrawAmount,
+            uint256 queuedWithdrawShares,
+            uint256 currentQueuedWithdrawShares,
+            bool dead
+        ) {
+            return (
+                _state.liquidity.locked,
+                0,
+                _state.liquidity.lockedByPreviousEpochWasZero,
+                _state.liquidity.availableForNextEpoch,
+                _state.liquidity.pendingWithdrawals,
+                _state.withdrawals.heldShares,
+                _state.withdrawals.newHeldShares,
+                _state.dead
+            );
     }
 
     function getPortfolio() public view override returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
@@ -74,7 +100,7 @@ contract Vault is IVault, ERC20, EpochControls {
         IERC20(baseToken).transferFrom(creditor, address(this), amount);
         _emitUpdatedDepositReceipt(creditor, amount);
 
-        vaultState.totalPendingLiquidity += amount;
+        _state.liquidity.availableForNextEpoch += amount;
 
         // ToDo emit Deposit event
     }
@@ -169,7 +195,7 @@ contract Vault is IVault, ERC20, EpochControls {
         _transfer(msg.sender, address(this), shares);
 
         // NOTE: shall the user attempt to calls redeem after this one, there'll be no unredeemed shares
-        vaultState.currentQueuedWithdrawShares += shares;
+        _state.withdrawals.newHeldShares += shares;
 
         // TBD: emit InitiateWithdraw event
     }
@@ -189,18 +215,17 @@ contract Vault is IVault, ERC20, EpochControls {
         }
 
         uint256 sharesToWithdraw = withdrawal.shares;
-        uint256 withdrawAmount = VaultLib.sharesToAsset(sharesToWithdraw, _epochPricePerShare[withdrawal.epoch]);
+        uint256 amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, _epochPricePerShare[withdrawal.epoch]);
 
         withdrawal.shares = 0;
         // NOTE: we choose to leave the epoch number as-is in order to save gas
 
         // NOTE: the user transferred the required shares to the vault when it initiated the withdraw
         _burn(address(this), sharesToWithdraw);
+        _state.withdrawals.heldShares -= sharesToWithdraw;
 
-        IERC20(baseToken).transfer(msg.sender, withdrawAmount);
-
-        vaultState.queuedWithdrawShares -= sharesToWithdraw;
-        vaultState.totalWithdrawAmount -= withdrawAmount;
+        IERC20(baseToken).transfer(msg.sender, amountToWithdraw);
+        _state.liquidity.pendingWithdrawals -= amountToWithdraw;
 
         // ToDo: emit Withdraw event
     }
@@ -209,44 +234,56 @@ contract Vault is IVault, ERC20, EpochControls {
     function rollEpoch() public override isNotDead {
         // assume locked liquidity is updated after trades
 
-        // ToDo: add comments
+        // ToDo: trigger management of vault locked liquidity (inverse rebalance)
+
         uint256 sharePrice;
-        if (totalSupply() == 0 || vaultState.lastLockedLiquidityZero) {
+        // ToDo: review as we probably need to consider the shares held for withdrawals
+        if (totalSupply() == 0 || _state.liquidity.lockedByPreviousEpochWasZero) {
             // First time mint 1 share for each token
             sharePrice = VaultLib.UNIT_PRICE;
 
-            vaultState.lastLockedLiquidityZero = false;
+            // Reset:
+            _state.liquidity.lockedByPreviousEpochWasZero = false;
         } else {
-            // if vaultState.lockedLiquidity is 0 price is set to 0
-            sharePrice = VaultLib.pricePerShare(vaultState.lockedLiquidity, totalSupply());
+            // NOTE: if the locked liquidity is 0, the price is set to 0
+            // NOTE: if the number of shares is 0, it will revert due to a division by zero
+            sharePrice = VaultLib.pricePerShare(_state.liquidity.locked, totalSupply());
 
-            if (vaultState.lockedLiquidity == 0) {
-                vaultState.lastLockedLiquidityZero = true;
+            // TBD: move outside of this if-else statement
+            if (_state.liquidity.locked == 0) {
+                // Set for the upcoming epoch:
+                _state.liquidity.lockedByPreviousEpochWasZero = true;
             }
         }
 
         _epochPricePerShare[currentEpoch] = sharePrice;
 
-        vaultState.queuedWithdrawShares += vaultState.currentQueuedWithdrawShares;
-        uint256 lastWithdrawAmount = VaultLib.sharesToAsset(vaultState.currentQueuedWithdrawShares, sharePrice);
-        vaultState.totalWithdrawAmount += lastWithdrawAmount;
-        vaultState.currentQueuedWithdrawShares = 0;
-
         if (sharePrice == 0) {
             // if vault underlying asset disappear, don't mint any shares.
             // Pending deposits will be enabled for withdrawal - see rescueDeposit()
-            vaultState.dead = true;
-        } else {
+            _state.dead = true;
+        }
+
+        // NOTE: if sharePrice went to zero, the user will receive zero
+        _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
+        uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
+        _state.withdrawals.newHeldShares = 0;
+        _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
+
+        if (!_state.dead) {
             // Mint shares related to new deposits performed during the closing epoch:
-            uint256 sharesToMint = VaultLib.assetToShares(vaultState.totalPendingLiquidity, sharePrice);
+            uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.availableForNextEpoch, sharePrice);
             _mint(address(this), sharesToMint);
 
-            vaultState.lockedLiquidity += vaultState.totalPendingLiquidity;
-            vaultState.lockedLiquidity -= lastWithdrawAmount;
-            vaultState.totalPendingLiquidity = 0;
+            // ToDo: review as it doesn't seems right
+            _state.liquidity.locked += _state.liquidity.availableForNextEpoch;
+            _state.liquidity.locked -= newPendingWithdrawals;
+            _state.liquidity.availableForNextEpoch = 0;
         }
 
         super.rollEpoch();
+
+        // ToDo: trigger management of vault locked liquidity (equal weight portfolio)
     }
 
     /**
@@ -265,6 +302,7 @@ contract Vault is IVault, ERC20, EpochControls {
     function shareBalances(address account) public view returns (uint256 heldByAccount, uint256 heldByVault) {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[account];
 
+        // TBD: wrap in a function
         if (depositReceipt.epoch == 0) {
             return (0, 0);
         }
@@ -280,9 +318,9 @@ contract Vault is IVault, ERC20, EpochControls {
     // ToDo: review (delete ?)
     function testIncreaseDecreateLiquidityLocked(uint256 amount, bool increase) public {
         if (increase) {
-            vaultState.lockedLiquidity = vaultState.lockedLiquidity.add(amount);
+            _state.liquidity.locked = _state.liquidity.locked.add(amount);
         } else {
-            vaultState.lockedLiquidity = vaultState.lockedLiquidity.sub(amount);
+            _state.liquidity.locked = _state.liquidity.locked.sub(amount);
         }
     }
 
@@ -307,13 +345,13 @@ contract Vault is IVault, ERC20, EpochControls {
      */
     function moveAsset(int256 amount) public {
         if (amount > 0) {
-            vaultState.lockedLiquidity = vaultState.lockedLiquidity.add(uint256(amount));
+            _state.liquidity.locked = _state.liquidity.locked.add(uint256(amount));
             IERC20(baseToken).transferFrom(msg.sender, address(this), uint256(amount));
         } else {
-            if (uint256(-amount) > vaultState.lockedLiquidity) {
+            if (uint256(-amount) > _state.liquidity.locked) {
                 revert ExceedsAvailable();
             }
-            vaultState.lockedLiquidity = vaultState.lockedLiquidity.sub(uint256(-amount));
+            _state.liquidity.locked = _state.liquidity.locked.sub(uint256(-amount));
             IERC20(baseToken).transfer(msg.sender, uint256(-amount));
         }
     }

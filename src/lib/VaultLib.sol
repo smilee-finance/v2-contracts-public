@@ -9,24 +9,30 @@ library VaultLib {
     uint256 constant DECIMALS = 18;
     uint256 constant UNIT_PRICE = 10 ** DECIMALS;
 
-    // TBD: split into multiple structs (e.g. liquidity, shares, etc).
     struct VaultState {
-        // Liquidity currently used by associated DVP
-        uint256 lockedLiquidity;
-        // Liquidity used by associated DVP at the begin of the current epoch
-        uint256 lastLockedLiquidity;
-        // Control flag to check if lastLockedLiquidity has gone to 0
-        bool lastLockedLiquidityZero;
-        // Liquidity deposited during current epoch (to be locked on the next one)
-        uint256 totalPendingLiquidity;
-        // Liquidity reserved for withdrawals (accounting purposes)
-        uint256 totalWithdrawAmount;
-        // Cumulated shares held by Vault for initiated withdraws (accounting purposes)
-        uint256 queuedWithdrawShares;
-        // Number of shares held by the contract because of inititateWithdraw() calls during the current epoch
-        uint256 currentQueuedWithdrawShares;
+        VaultLiquidity liquidity;
+        VaultWithdrawals withdrawals;
         // Vault dies if ever the locked liquidity goes to zero (outstanding shares are worth 0, can't mint new shares ever)
         bool dead;
+    }
+
+    struct VaultLiquidity {
+        // Liquidity currently used by associated DVP
+        uint256 locked;
+        // Control flag to check if lastLockedLiquidity has gone to 0
+        bool lockedByPreviousEpochWasZero;
+        // Liquidity deposited during current epoch (to be locked on the next one)
+        uint256 availableForNextEpoch;
+        // Liquidity reserved for withdrawals (accounting purposes)
+        // NOTE: currently used only by tests
+        uint256 pendingWithdrawals;
+    }
+
+    struct VaultWithdrawals {
+        // Cumulated shares held by Vault for initiated withdraws (accounting purposes)
+        uint256 heldShares;
+        // Number of shares held by the contract because of inititateWithdraw() calls done during the current epoch
+        uint256 newHeldShares;
     }
 
     struct DepositReceipt {
