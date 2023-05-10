@@ -10,6 +10,7 @@ import {DVP} from "../src/DVP.sol";
 import {DVPType} from "../src/lib/DVPType.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract FactoryTest is Test {
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
@@ -36,7 +37,8 @@ contract FactoryTest is Test {
         token.setSwapper(swapper);
         sideToken = token;
 
-        factory = new Factory();
+        AddressProvider ap = new AddressProvider();
+        factory = new Factory(address(ap));
 
         vm.stopPrank();
         vm.warp(EpochFrequency.REF_TS);

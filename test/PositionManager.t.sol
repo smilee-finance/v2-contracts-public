@@ -9,6 +9,7 @@ import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract PositionManagerTest is Test {
     bytes4 constant NotOwner = bytes4(keccak256("NotOwner()"));
@@ -19,7 +20,8 @@ contract PositionManagerTest is Test {
     address baseToken = address(0x11);
     address sideToken = address(0x22);
 
-    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY);
+    AddressProvider _ap = new AddressProvider();
+    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY, address(_ap));
 
     address alice = address(0x1);
     address bob = address(0x2);

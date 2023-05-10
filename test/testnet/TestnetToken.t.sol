@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+import {AddressProvider} from "../../src/AddressProvider.sol";
 import {Factory} from "../../src/Factory.sol";
 
 contract TestnetTokenTest is Test {
@@ -19,7 +20,8 @@ contract TestnetTokenTest is Test {
     address bob = address(0x5);
 
     function setUp() public {
-        controller = address(new Factory());
+        AddressProvider ap = new AddressProvider();
+        controller = address(new Factory(address(ap)));
     }
 
     function testCantMintNotInit() public {

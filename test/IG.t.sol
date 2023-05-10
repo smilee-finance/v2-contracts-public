@@ -8,6 +8,7 @@ import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract IGTest is Test {
     bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
@@ -17,7 +18,8 @@ contract IGTest is Test {
 
     address baseToken = address(0x11);
     address sideToken = address(0x22);
-    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY);
+    AddressProvider _ap = new AddressProvider();
+    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY, address(_ap));
 
     address alice = address(0x1);
     address bob = address(0x2);

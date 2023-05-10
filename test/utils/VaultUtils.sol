@@ -9,6 +9,7 @@ import {Vault} from "../../src/Vault.sol";
 import {EpochFrequency} from "../../src/lib/EpochFrequency.sol";
 import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+import {AddressProvider} from "../../src/AddressProvider.sol";
 
 library VaultUtils {
     /// @dev Test function to create a Vault with baseToken and sideToken
@@ -18,7 +19,9 @@ library VaultUtils {
         uint256 epochFrequency,
         IRegistry registry
     ) internal returns (Vault vault) {
-        vault = new Vault(address(baseToken), address(sideToken), epochFrequency);
+        AddressProvider ap = new AddressProvider();
+        vault = new Vault(address(baseToken), address(sideToken), epochFrequency, address(ap));
+        // ToDo: review
         registry.register(address(vault));
     }
 

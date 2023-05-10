@@ -6,8 +6,10 @@ import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
+import {IExchange} from "./interfaces/IExchange.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
+import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 contract Vault is IVault, ERC20, EpochControls {
@@ -18,10 +20,11 @@ contract Vault is IVault, ERC20, EpochControls {
     address public immutable sideToken;
 
     VaultLib.VaultState internal _state;
+    IExchange internal _exchange;
 
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
     mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
-    mapping(uint256 => uint256) public _epochPricePerShare;
+    mapping(uint256 => uint256) internal _epochPricePerShare;
 
     error AmountZero();
     error ExceedsAvailable();
@@ -36,10 +39,16 @@ contract Vault is IVault, ERC20, EpochControls {
     constructor(
         address baseToken_,
         address sideToken_,
-        uint256 epochFrequency_
+        uint256 epochFrequency_,
+        address addressProvider_
     ) EpochControls(epochFrequency_) ERC20("", "") {
         baseToken = baseToken_;
         sideToken = sideToken_;
+
+        // ToDo: review if we just need the exchange adapter...
+        // ToDo: provide ownable setters
+        AddressProvider addressProvider = AddressProvider(addressProvider_);
+        _exchange = IExchange(addressProvider.exchangeAdapter());
     }
 
     /// @dev The Vault is alive until a certain amount of underlying asset is available to give value to outstanding shares
@@ -232,11 +241,12 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @inheritdoc IEpochControls
     function rollEpoch() public override isNotDead {
-        // assume locked liquidity is updated after trades
+        // NOTE: assume locked liquidity is updated after trades
 
         // ToDo: trigger management of vault locked liquidity (inverse rebalance)
-        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
+
         uint256 sharePrice;
+        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
         // ToDo: review as we probably need to consider the shares held for withdrawals
         if (outstandingShares == 0) {
             // First time mint 1 share for each token
@@ -266,7 +276,6 @@ contract Vault is IVault, ERC20, EpochControls {
             uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.availableForNextEpoch, sharePrice);
             _mint(address(this), sharesToMint);
 
-            // ToDo: review as it doesn't seems right
             _state.liquidity.locked += _state.liquidity.availableForNextEpoch;
             _state.liquidity.locked -= newPendingWithdrawals;
             _state.liquidity.availableForNextEpoch = 0;

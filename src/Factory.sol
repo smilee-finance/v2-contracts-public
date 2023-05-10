@@ -2,14 +2,16 @@
 pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Registry} from "./Registry.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {DVPType} from "./lib/DVPType.sol";
-import {Vault} from "./Vault.sol";
 import {IG} from "./IG.sol";
+import {Registry} from "./Registry.sol";
+import {Vault} from "./Vault.sol";
+import {AddressProvider} from "./AddressProvider.sol";
 
 contract Factory is Ownable, Registry {
 
+    AddressProvider internal _addressProvider;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -22,6 +24,14 @@ contract Factory is Ownable, Registry {
      * @param token Base Token address
      */
     event IGMarketCreated(address dvpAddress, address vaultAddress, address token);
+
+    /*//////////////////////////////////////////////////////////////
+                                CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(address addressProvider) Ownable() {
+        _addressProvider = AddressProvider(addressProvider);
+    }
 
     /*//////////////////////////////////////////////////////////////
                                 FUNCTIONS
@@ -42,11 +52,10 @@ contract Factory is Ownable, Registry {
     ) 
         internal returns (address)  
     {
-        Vault vault = new Vault(baseToken, sideToken, epochFrequency);
+        Vault vault = new Vault(baseToken, sideToken, epochFrequency, address(_addressProvider));
         register(address(vault));
         return address(vault);
     }
-
 
     /**
      * Create Impermanent Gain (IG) DVP associating vault to it. 
