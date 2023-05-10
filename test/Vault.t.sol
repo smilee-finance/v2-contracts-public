@@ -26,47 +26,35 @@ contract VaultTest is Test {
     address bob = address(0x3);
     TestnetToken baseToken;
     TestnetToken sideToken;
-    Registry registry;
     Vault vault;
+    Registry registry;
 
     function setUp() public {
         registry = new Registry();
         address swapper = address(0x5);
-        vm.startPrank(tokenAdmin);
-
-        TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
-        token.setController(address(registry));
-        token.setSwapper(swapper);
-        baseToken = token;
-
-        token = new TestnetToken("Testnet WETH", "stWETH");
-        token.setController(address(registry));
-        token.setSwapper(swapper);
-        sideToken = token;
-
-        vm.stopPrank();
-
+        (address baseToken_, address sideToken_) = TokenUtils.initTokens(tokenAdmin, address(registry), swapper, vm);
+        baseToken = TestnetToken(baseToken_);
+        sideToken = TestnetToken(sideToken_);
         vm.warp(EpochFrequency.REF_TS);
-
-        vault = VaultUtils.createMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY, registry);
-
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 1000, vm);
-
+        vault = VaultUtils.createRegisteredVault(baseToken_, sideToken_, EpochFrequency.DAILY, registry);
+        vault.rollEpoch();
     }
 
     function testDepositFail() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
+        Vault notActiveVault = VaultUtils.createRegisteredVault(
+            address(baseToken),
+            address(sideToken),
+            EpochFrequency.DAILY,
+            registry
+        );
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(notActiveVault), 100, vm);
         vm.prank(alice);
         vm.expectRevert(NoActiveEpoch);
-        vault.deposit(100);
+        notActiveVault.deposit(100);
     }
 
     function testDeposit() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
         vm.prank(alice);
         vault.deposit(100);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
@@ -86,10 +74,7 @@ contract VaultTest is Test {
     }
 
     function testRedeemFail() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
         vm.prank(alice);
         vault.deposit(100);
 
@@ -102,10 +87,7 @@ contract VaultTest is Test {
     }
 
     function testRedeem() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
         vm.prank(alice);
         vault.deposit(100);
 
@@ -126,10 +108,7 @@ contract VaultTest is Test {
     }
 
     function testInitWithdrawFail() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
         vm.startPrank(alice);
         vault.deposit(100);
 
@@ -138,10 +117,7 @@ contract VaultTest is Test {
     }
 
     function testInitWithdrawWithRedeem() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
         vm.startPrank(alice);
         vault.deposit(100);
 
@@ -157,10 +133,7 @@ contract VaultTest is Test {
     }
 
     function testInitWithdrawWithoutRedeem() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
         vm.startPrank(alice);
         vault.deposit(100);
 
@@ -174,16 +147,14 @@ contract VaultTest is Test {
     }
 
     function testInitWithdrawPartWithoutRedeem() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
-        vm.startPrank(alice);
+        vm.prank(alice);
         vault.deposit(100);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
 
+        vm.prank(alice);
         vault.initiateWithdraw(50);
         (, uint256 withdrawalShares) = vault.withdrawals(alice);
         assertEq(50, vault.balanceOf(alice));
@@ -192,16 +163,14 @@ contract VaultTest is Test {
     }
 
     function testWithdraw() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
-        vm.startPrank(alice);
+        vm.prank(alice);
         vault.deposit(100);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
 
+        vm.prank(alice);
         vault.initiateWithdraw(40);
         // a max redeem is done within initiateWithdraw so unwithdrawn shares remain to alice
         assertEq(40, vault.balanceOf(address(vault)));
@@ -217,6 +186,7 @@ contract VaultTest is Test {
         lockedLiquidity = VaultUtils.vaultState(vault).liquidity.locked;
         assertEq(60, lockedLiquidity);
 
+        vm.prank(alice);
         vault.completeWithdraw();
 
         (, uint256 withdrawalShares) = vault.withdrawals(alice);
@@ -234,57 +204,48 @@ contract VaultTest is Test {
      * Alice should receive 400$ and Bob 200$ from their shares.
      */
     function testVaultMathDoubleLiquidity() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
-
-        vm.startPrank(alice);
+        vm.prank(alice);
         vault.deposit(100);
-        vm.stopPrank();
-        Utils.skipDay(true, vm);
 
+        Utils.skipDay(true, vm);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
         assertEq(vault.totalSupply(), 100);
         assertEq(heldByVaultAlice, 100);
 
-        vm.startPrank(bob);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
+        vm.prank(bob);
         vault.deposit(100);
-        vm.stopPrank();
-        Utils.skipDay(false, vm);
 
-        vm.startPrank(tokenAdmin);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100, vm);
+        vm.prank(tokenAdmin);
         vault.moveAsset(100);
-        vm.stopPrank();
-
         assertEq(baseToken.balanceOf(address(vault)), 300);
+
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
         assertEq(vault.totalSupply(), 150);
         assertEq(heldByVaultBob, 50);
 
-        vm.startPrank(alice);
+        vm.prank(alice);
         vault.initiateWithdraw(100);
-        vm.stopPrank();
 
-        vm.startPrank(bob);
+        vm.prank(bob);
         vault.initiateWithdraw(50);
-        vm.stopPrank();
 
-        vm.startPrank(tokenAdmin);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 300, vm);
+        vm.prank(tokenAdmin);
         vault.moveAsset(300);
-        vm.stopPrank();
-
         assertEq(baseToken.balanceOf(address(vault)), 600);
 
         Utils.skipDay(false, vm);
-
         vault.rollEpoch();
 
-        vm.startPrank(alice);
+        vm.prank(alice);
         vault.completeWithdraw();
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
@@ -292,9 +253,8 @@ contract VaultTest is Test {
         assertEq(200, baseToken.balanceOf(address(vault)));
         assertEq(400, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
-        vm.stopPrank();
 
-        vm.startPrank(bob);
+        vm.prank(bob);
         vault.completeWithdraw();
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
@@ -302,7 +262,6 @@ contract VaultTest is Test {
         assertEq(0, baseToken.balanceOf(address(vault)));
         assertEq(200, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
-        vm.stopPrank();
     }
 
     /**
@@ -313,54 +272,45 @@ contract VaultTest is Test {
      * Alice should receive 25$ and Bob 50$ from their shares.
      */
     function testVaultMathHalfLiquidity() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
-
-        vm.startPrank(alice);
+        vm.prank(alice);
         vault.deposit(100);
-        vm.stopPrank();
-        Utils.skipDay(true, vm);
 
+        Utils.skipDay(true, vm);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
         assertEq(vault.totalSupply(), 100);
         assertEq(heldByVaultAlice, 100);
 
-        vm.startPrank(bob);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
+        vm.prank(bob);
         vault.deposit(100);
-        vm.stopPrank();
-        Utils.skipDay(false, vm);
 
         // Remove asset from Vault
         vault.moveAsset(-50);
-
         assertEq(baseToken.balanceOf(address(vault)), 150);
+
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
         assertEq(vault.totalSupply(), 300);
         assertEq(heldByVaultBob, 200);
 
-        vm.startPrank(alice);
+        vm.prank(alice);
         vault.initiateWithdraw(100);
-        vm.stopPrank();
 
-        vm.startPrank(bob);
+        vm.prank(bob);
         vault.initiateWithdraw(200);
-        vm.stopPrank();
 
         vault.moveAsset(-75);
-
         assertEq(baseToken.balanceOf(address(vault)), 75);
 
         Utils.skipDay(false, vm);
-
         vault.rollEpoch();
 
-        vm.startPrank(alice);
+        vm.prank(alice);
         vault.completeWithdraw();
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
@@ -368,9 +318,8 @@ contract VaultTest is Test {
         assertEq(50, baseToken.balanceOf(address(vault)));
         assertEq(25, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
-        vm.stopPrank();
 
-        vm.startPrank(bob);
+        vm.prank(bob);
         vault.completeWithdraw();
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
@@ -378,6 +327,5 @@ contract VaultTest is Test {
         assertEq(0, baseToken.balanceOf(address(vault)));
         assertEq(50, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
-        vm.stopPrank();
     }
 }

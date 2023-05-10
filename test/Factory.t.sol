@@ -12,9 +12,7 @@ import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 
 contract FactoryTest is Test {
-
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
-
 
     address tokenAdmin = address(0x1);
 
@@ -51,15 +49,13 @@ contract FactoryTest is Test {
     }
 
     function testFactoryTokenBaseTokenZero() public {
-        vm.startPrank(tokenAdmin);
-
+        vm.prank(tokenAdmin);
         vm.expectRevert(AddressZero);
         factory.createIGMarket(address(0x0), address(sideToken), EpochFrequency.DAILY);
     }
 
     function testFactoryTokenSideTokenZero() public {
-        vm.startPrank(tokenAdmin);
-
+        vm.prank(tokenAdmin);
         vm.expectRevert(AddressZero);
         factory.createIGMarket(address(baseToken), address(0x0), EpochFrequency.DAILY);
     }
@@ -80,9 +76,9 @@ contract FactoryTest is Test {
         address dvp = factory.createIGMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY);
         DVP igDVP = DVP(dvp);
         Vault vault = Vault(igDVP.vault());
+
         assertEq(vault.baseToken(), address(baseToken));
         assertEq(vault.sideToken(), address(sideToken));
         assertEq(vault.epochFrequency(), EpochFrequency.DAILY);
     }
-
 }

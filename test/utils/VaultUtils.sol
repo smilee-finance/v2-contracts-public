@@ -11,15 +11,18 @@ import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 
 library VaultUtils {
-
     /// @dev Test function to create a Vault with baseToken and sideToken
-    function createMarket(address baseToken, address sideToken, uint256 epochFrequency, IRegistry registry) internal returns (Vault vault) {
+    function createRegisteredVault(
+        address baseToken,
+        address sideToken,
+        uint256 epochFrequency,
+        IRegistry registry
+    ) internal returns (Vault vault) {
         vault = new Vault(address(baseToken), address(sideToken), epochFrequency);
         registry.register(address(vault));
     }
 
-
-    /// @dev Test function to give a certain amount of base tokens to a Vault
+    /// @dev Builds and returns a `VaultLib.VaultState` with info on current vault state
     function vaultState(IVault vault) internal view returns (VaultLib.VaultState memory) {
         (
             uint256 lockedLiquidity,
@@ -39,10 +42,7 @@ library VaultUtils {
                     totalPendingLiquidity,
                     totalWithdrawAmount
                 ),
-                VaultLib.VaultWithdrawals(
-                    queuedWithdrawShares,
-                    currentQueuedWithdrawShares
-                ),
+                VaultLib.VaultWithdrawals(queuedWithdrawShares, currentQueuedWithdrawShares),
                 dead
             );
     }

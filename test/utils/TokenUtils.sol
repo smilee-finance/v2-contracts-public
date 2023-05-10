@@ -31,14 +31,14 @@ library TokenUtils {
     function provideApprovedTokens(
         address tokenAdmin,
         address token,
-        address wallet,
+        address receiver,
         address approved,
         uint256 amount,
         Vm vm
     ) internal {
         vm.prank(tokenAdmin);
-        TestnetToken(token).mint(wallet, amount);
-        vm.prank(wallet);
+        TestnetToken(token).mint(receiver, amount);
+        vm.prank(receiver);
         TestnetToken(token).approve(approved, amount);
     }
 

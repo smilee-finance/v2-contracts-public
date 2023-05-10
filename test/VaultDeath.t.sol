@@ -15,6 +15,11 @@ import {VaultLib} from "../src/lib/VaultLib.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {Registry} from "../src/Registry.sol";
 
+/**
+    @title Test case for underlying asset going to zero
+    @dev This should never happen, still we need to test shares value goes to zero, users deposits can be rescued and
+         new deposits are not allowed
+ */
 contract VaultDeathTest is Test {
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
@@ -24,29 +29,17 @@ contract VaultDeathTest is Test {
     address bob = address(0x3);
     TestnetToken baseToken;
     TestnetToken sideToken;
-    Registry registry;
     Vault vault;
 
     function setUp() public {
-        registry = new Registry();
-        address controller = address(registry);
+        Registry registry = new Registry();
         address swapper = address(0x5);
-        vm.startPrank(tokenAdmin);
-
-        TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
-        token.setController(controller);
-        token.setSwapper(swapper);
-        baseToken = token;
-
-        token = new TestnetToken("Testnet WETH", "stWETH");
-        token.setController(controller);
-        token.setSwapper(swapper);
-        sideToken = token;
-
-        vm.stopPrank();
+        (address baseToken_, address sideToken_) = TokenUtils.initTokens(tokenAdmin, address(registry), swapper, vm);
+        baseToken = TestnetToken(baseToken_);
+        sideToken = TestnetToken(sideToken_);
         vm.warp(EpochFrequency.REF_TS);
-
-        vault = VaultUtils.createMarket(address(baseToken), address(sideToken), EpochFrequency.DAILY, registry);
+        vault = VaultUtils.createRegisteredVault(baseToken_, sideToken_, EpochFrequency.DAILY, registry);
+        vault.rollEpoch();
     }
 
     /**
@@ -57,8 +50,6 @@ contract VaultDeathTest is Test {
      * Bob and Alice could complete the withdraw procedure receiving both 0$.
      */
     function testVaultMathLiquidityGoesToZero() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
 
@@ -126,8 +117,6 @@ contract VaultDeathTest is Test {
      * Describe the case of deposit after Vault Death. In this case is expected an error.
      */
     function testVaultMathLiquidityGoesToZeroWithDepositAfterDieFail() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
 
         vm.startPrank(alice);
@@ -166,8 +155,6 @@ contract VaultDeathTest is Test {
      *
      */
     function testVaultMathLiquidityGoesToZeroWithDepositBeforeDie() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
 
         vm.startPrank(alice);
@@ -225,8 +212,6 @@ contract VaultDeathTest is Test {
      *
      */
     function testVaultRescueDepositVaultNotDeath() public {
-        vault.rollEpoch();
-
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
 
         vm.startPrank(alice);
