@@ -43,6 +43,10 @@ abstract contract EpochControls is IEpochControls {
         return _epochs;
     }
 
+    function getLastRolledEpoch() internal view returns(uint256 lastEpoch) {
+        lastEpoch = _epochs[_epochs.length - 2];
+    } 
+
     /// @inheritdoc IEpochControls
     function rollEpoch() public virtual override epochFinished(currentEpoch) {
         uint256 nextEpoch = EpochFrequency.nextExpiry(block.timestamp, epochFrequency);

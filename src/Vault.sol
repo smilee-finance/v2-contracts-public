@@ -270,7 +270,7 @@ contract Vault is IVault, ERC20, EpochControls {
             _state.liquidity.locked += _state.liquidity.availableForNextEpoch;
             _state.liquidity.locked -= newPendingWithdrawals;
             _state.liquidity.availableForNextEpoch = 0;
-        }
+        } 
 
         super.rollEpoch();
 
@@ -281,7 +281,14 @@ contract Vault is IVault, ERC20, EpochControls {
         @notice Enables user withdrawal of a deposits executed during an epoch causing Vault death
      */
     function rescueDeposit() external isDead {
-        uint256 amount = depositReceipts[msg.sender].amount;
+        VaultLib.DepositReceipt memory depositReceipt = depositReceipts[msg.sender];
+
+        // User enabled to rescue only if the user has deposited in the last epoch before the Vault died.
+        if(depositReceipt.epoch != getLastRolledEpoch()) {
+            revert NothingToRescue();
+        }
+
+        uint256 amount = depositReceipt.amount;
         if (amount == 0) {
             revert NothingToRescue();
         }

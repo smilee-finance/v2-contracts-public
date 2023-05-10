@@ -17,10 +17,14 @@ import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Vault} from "../src/Vault.sol";
 
 contract VaultTest is Test {
-    bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
+    bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
+    bytes4 constant ExistingIncompleteWithdraw = bytes4(keccak256("ExistingIncompleteWithdraw()"));
+    bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
+    bytes4 constant WithdrawNotInitiated = bytes4(keccak256("WithdrawNotInitiated()"));
+    bytes4 constant WithdrawTooEarly = bytes4(keccak256("WithdrawTooEarly()"));
 
     address tokenAdmin = address(0x1);
     address alice = address(0x2);
@@ -30,6 +34,9 @@ contract VaultTest is Test {
     Vault vault;
     Registry registry;
 
+    /**
+     * Setup function for each test.
+     */
     function setUp() public {
         registry = new Registry();
         address swapper = address(0x5);
@@ -41,6 +48,9 @@ contract VaultTest is Test {
         vault.rollEpoch();
     }
 
+    /**
+     * 
+     */
     function testDepositFail() public {
         Vault notActiveVault = VaultUtils.createRegisteredVault(
             address(baseToken),
@@ -54,6 +64,9 @@ contract VaultTest is Test {
         notActiveVault.deposit(100);
     }
 
+    /**
+     * 
+     */
     function testDeposit() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
@@ -74,6 +87,9 @@ contract VaultTest is Test {
         assertEq(100, lockedLiquidity);
     }
 
+    /**
+     * 
+     */
     function testRedeemFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
@@ -87,6 +103,57 @@ contract VaultTest is Test {
         vault.redeem(150);
     }
 
+    /**
+     * This test expect a revert when a user call a deposit function with no amount (0).
+     */
+    function testDepositAmountZero() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        vm.prank(alice);
+        vault.deposit(100);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vm.expectRevert(AmountZero);
+        vault.deposit(0);
+    }
+
+    /**
+     * An user deposit twice (or more) in the same epoch. The amount of the shares minted for the user is the sum of all deposits.
+     */
+    function testDoubleDepositSameEpoch() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        vm.startPrank(alice);
+        vault.deposit(50);
+        vault.deposit(50);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+        (uint256 vaultBaseTokenBalance, ) = vault.getPortfolio();
+        assertEq(100, vault.totalSupply());
+        assertEq(100, vaultBaseTokenBalance);
+        assertEq(100, heldByVaultAlice);
+    }
+
+    /**
+     * An user redeem 0 shares. An AmountZero error is expected.
+     */
+    function testRedeemWithZeroAmount() public {
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vm.expectRevert(AmountZero);
+        vault.redeem(0);
+    }
+
+    /**
+     * 
+     */
     function testRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
@@ -108,6 +175,9 @@ contract VaultTest is Test {
         assertEq(100, lockedLiquidity);
     }
 
+    /**
+     * An user tries to deposit for the first time and initiate a withdraw without roll the epoch. An error is expected.
+     */
     function testInitWithdrawFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.startPrank(alice);
@@ -117,6 +187,21 @@ contract VaultTest is Test {
         vault.initiateWithdraw(100);
     }
 
+    /**
+     * An user starts the withdrawal procedure redeeming 0 shares. An AmountZero error is expected.
+     */
+    function testInitWithdrawWithZeroAmount() public {
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vm.expectRevert(AmountZero);
+        vault.initiateWithdraw(0);
+    }
+
+    /**
+     * An user redeem and start a withdraw of the redemeed shares. Everithing goes ok. 
+     */
     function testInitWithdrawWithRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.startPrank(alice);
@@ -133,6 +218,9 @@ contract VaultTest is Test {
         assertEq(100, withdrawalShares);
     }
 
+    /**
+     * 
+     */
     function testInitWithdrawWithoutRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.startPrank(alice);
@@ -147,6 +235,89 @@ contract VaultTest is Test {
         assertEq(100, withdrawalShares);
     }
 
+    /**
+     * An user requests the withdraw twice (or more) in the same epoch. The amount of the shares to withdraw has to be the sum of each.
+     */
+    function testInitWithdrawTwiceSameEpoch() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+        vm.prank(alice);
+        vault.deposit(100);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.startPrank(alice);
+        vault.initiateWithdraw(50);
+        vault.initiateWithdraw(50);
+        vm.stopPrank();
+
+        (, uint256 aliceWithdrawalShares) = vault.withdrawals(alice);
+        assertEq(100, aliceWithdrawalShares);
+    }
+
+    /**
+     * An user requests the withdraw twice (or more) in the same epoch. A ExistingIncompleteWithdraw error is expected.
+     */
+    function testInitWithdrawTwiceDifferentEpochs() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+        vm.prank(alice);
+        vault.deposit(100);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vault.initiateWithdraw(50);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vm.expectRevert(ExistingIncompleteWithdraw);
+        vault.initiateWithdraw(50);
+    }
+
+    /**
+     * A user tries to complete a withdraw without init it first. A WithdrawNotInitiated error is expected.
+     */
+    function testCompleteWithdrawWithoutInit() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+        vm.prank(alice);
+        vault.deposit(100);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vm.expectRevert(WithdrawNotInitiated);
+        vault.completeWithdraw();
+    }
+
+    /**
+     * A user tries to init and complete a withdrawal procedure in the same epoch. An WithdrawTooEarly error is expected.
+     */
+    function testInitAndCompleteWithdrawSameEpoch() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+        vm.prank(alice);
+        vault.deposit(100);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.startPrank(alice);
+        vault.initiateWithdraw(100);
+        vm.expectRevert(WithdrawTooEarly);
+        vault.completeWithdraw();
+        vm.stopPrank();
+    }
+
+    /**
+     * 
+     */
     function testInitWithdrawPartWithoutRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
@@ -163,6 +334,9 @@ contract VaultTest is Test {
         assertEq(50, withdrawalShares);
     }
 
+    /**
+     * 
+     */
     function testWithdraw() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
@@ -259,8 +433,9 @@ contract VaultTest is Test {
         vault.completeWithdraw();
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
+        (uint256 vaultBaseTokenBalance, ) = vault.getPortfolio();
         assertEq(0, vault.totalSupply());
-        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, vaultBaseTokenBalance);
         assertEq(200, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
     }
@@ -332,12 +507,11 @@ contract VaultTest is Test {
 
     /**
      * This test intends to check the behaviour of the Vault when someone start a withdraw and, in the next epoch
-     * someone else deposits into the Vault. The expected behaviour is basicaly the withdrawal (redeemed) shares have to reduce the 
-     * locked liquidity balance. Who deposits after the request of withdraw must receive a number of shares calculated by subtracting the withdrawal shares amount 
+     * someone else deposits into the Vault. The expected behaviour is basicaly the withdrawal (redeemed) shares have to reduce the
+     * locked liquidity balance. Who deposits after the request of withdraw must receive a number of shares calculated by subtracting the withdrawal shares amount
      * to the totalSupply(). In this case, the price must be of 1$.
      */
     function testRollEpochMathSingleInitWithdrawWithDepositWithoutCompletingWithdraw() public {
-
         vm.warp(block.timestamp + 1 days + 1);
         // Roll first epoch
         vault.rollEpoch();
@@ -411,8 +585,8 @@ contract VaultTest is Test {
 
     /**
      * This test intends to check the behaviour of the Vault when someone start a withdraw and, in the next epoch
-     * someone else deposits into the Vault. The expected behaviour is basicaly the withdrawal (redeemed) shares have to reduce the 
-     * locked liquidity balance. Who deposits after the request of withdraw must receive a number of shares calculated by subtracting the withdrawal shares amount 
+     * someone else deposits into the Vault. The expected behaviour is basicaly the withdrawal (redeemed) shares have to reduce the
+     * locked liquidity balance. Who deposits after the request of withdraw must receive a number of shares calculated by subtracting the withdrawal shares amount
      * to the totalSupply(). In this case, the price must be of 1$.
      * Completing or not the withdraw cannot change the behaviour.
      */
@@ -488,8 +662,8 @@ contract VaultTest is Test {
     }
 
     /**
-     * This test intends to check the behaviour of the Vault when all the holder complete the withdrawal procedure. 
-     * The price of a single share of the first deposit after all withdraws has to be 1$ (UNIT_PRICE). 
+     * This test intends to check the behaviour of the Vault when all the holder complete the withdrawal procedure.
+     * The price of a single share of the first deposit after all withdraws has to be 1$ (UNIT_PRICE).
      */
     function testRollEpochMathEveryoneWithdraw() public {
         vm.warp(block.timestamp + 1 days + 1);
@@ -554,8 +728,8 @@ contract VaultTest is Test {
     }
 
     /**
-     * This test intends to check the behaviour of the Vault when all the holder start the withdrawal procedure. 
-     * Meanwhile someone else deposits into the Vault. The price of a single share of the first deposit after all withdraws has to stay fixed to 1$ (UNIT_PRICE). 
+     * This test intends to check the behaviour of the Vault when all the holder start the withdrawal procedure.
+     * Meanwhile someone else deposits into the Vault. The price of a single share of the first deposit after all withdraws has to stay fixed to 1$ (UNIT_PRICE).
      */
     function testRollEpochMathEveryoneWithdrawWithDeposit() public {
         vm.warp(block.timestamp + 1 days + 1);

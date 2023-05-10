@@ -21,6 +21,7 @@ import {Registry} from "../src/Registry.sol";
          new deposits are not allowed
  */
 contract VaultDeathTest is Test {
+    bytes4 constant NothingToRescue = bytes4(keccak256("NothingToRescue()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
 
@@ -208,9 +209,6 @@ contract VaultDeathTest is Test {
         assertEq(0, depositReceiptsAliceAmount);
     }
 
-    /**
-     *
-     */
     function testVaultRescueDepositVaultNotDeath() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
 
@@ -229,5 +227,40 @@ contract VaultDeathTest is Test {
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
+    }
+
+    /**
+     * An user tries to call rescueDeposit function when a vault is dead, but without nothing to rescue. A NothingToRescue error is expected.
+     */
+    function testVaultRescueDepositNothingToRescue() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+        vm.prank(alice);
+        vault.deposit(100);
+        Utils.skipDay(true, vm);
+
+        vault.rollEpoch();
+
+        (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+        assertEq(100, vault.totalSupply());
+        assertEq(100, heldByVaultAlice);
+
+        vault.moveAsset(-100);
+
+        assertEq(0, baseToken.balanceOf(address(vault)));
+
+        Utils.skipDay(false, vm);
+        vault.rollEpoch();
+
+        assertEq(100, vault.totalSupply());
+
+        // Check if lockedLiquidity has gone to 0 and the Vault is dead.
+        assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
+        assertEq(true, VaultUtils.vaultState(vault).dead);
+
+        //Alice starts the rescue procedure. An error is expected
+        vm.prank(alice);
+        vm.expectRevert(NothingToRescue);
+        vault.rescueDeposit();
     }
 }
