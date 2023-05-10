@@ -30,8 +30,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
     function vault() external view returns (address);
 
     /**
-        @notice Returns the current price for one option, in function of the time and the number of options still
-        available
+        @notice Returns the current price for the given option amount, function of time and available underlying assets
         @param strike The strike price the user wants to mint
         @param strategy The option type
         @param amount The amount of options to be paid
@@ -46,7 +45,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param strategy The selected strategy
         @return payoff The current value of the position
      */
-    function payoff(uint256 epoch, bool strategy, uint256 strike) external view returns (uint256);
+    function payoff(uint256 epoch, uint256 strike, bool strategy) external view returns (uint256);
 
     ////// USER ACTIONS
 

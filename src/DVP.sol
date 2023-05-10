@@ -118,7 +118,7 @@ abstract contract DVP is IDVP, EpochControls {
     }
 
     /// @inheritdoc IDVP
-    function payoff(uint256 epoch, bool strategy, uint256 strike) public view override returns (uint256) {
+    function payoff(uint256 epoch, uint256 strike, bool strategy) public view override returns (uint256) {
         Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
         return _computePayoff(position);
     }
