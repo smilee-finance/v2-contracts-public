@@ -331,9 +331,13 @@ contract VaultTest is Test {
     }
 
     /**
-     *
+     * This test intends to check the behaviour of the Vault when someone start a withdraw and, in the next epoch
+     * someone else deposits into the Vault. The expected behaviour is basicaly the withdrawal (redeemed) shares have to reduce the 
+     * locked liquidity balance. Who deposits after the request of withdraw must receive a number of shares calculated by subtracting the withdrawal shares amount 
+     * to the totalSupply(). In this case, the price must be of 1$.
      */
-    function testRollEpochMath1() public {
+    function testRollEpochMathSingleInitWithdrawWithDepositWithoutCompletingWithdraw() public {
+
         vm.warp(block.timestamp + 1 days + 1);
         // Roll first epoch
         vault.rollEpoch();
@@ -405,7 +409,14 @@ contract VaultTest is Test {
         assertEq(100, vault.totalSupply());
     }
 
-    function testRollEpochMath2() public {
+    /**
+     * This test intends to check the behaviour of the Vault when someone start a withdraw and, in the next epoch
+     * someone else deposits into the Vault. The expected behaviour is basicaly the withdrawal (redeemed) shares have to reduce the 
+     * locked liquidity balance. Who deposits after the request of withdraw must receive a number of shares calculated by subtracting the withdrawal shares amount 
+     * to the totalSupply(). In this case, the price must be of 1$.
+     * Completing or not the withdraw cannot change the behaviour.
+     */
+    function testRollEpochMathSingleInitAndCompletingWithdrawWithDeposit() public {
         vm.warp(block.timestamp + 1 days + 1);
         // Roll first epoch
         vault.rollEpoch();
@@ -477,7 +488,8 @@ contract VaultTest is Test {
     }
 
     /**
-     *
+     * This test intends to check the behaviour of the Vault when all the holder complete the withdrawal procedure. 
+     * The price of a single share of the first deposit after all withdraws has to be 1$ (UNIT_PRICE). 
      */
     function testRollEpochMathEveryoneWithdraw() public {
         vm.warp(block.timestamp + 1 days + 1);
@@ -541,6 +553,10 @@ contract VaultTest is Test {
         assertEq(vault.totalSupply(), 100);
     }
 
+    /**
+     * This test intends to check the behaviour of the Vault when all the holder start the withdrawal procedure. 
+     * Meanwhile someone else deposits into the Vault. The price of a single share of the first deposit after all withdraws has to stay fixed to 1$ (UNIT_PRICE). 
+     */
     function testRollEpochMathEveryoneWithdrawWithDeposit() public {
         vm.warp(block.timestamp + 1 days + 1);
         // Roll first epoch
