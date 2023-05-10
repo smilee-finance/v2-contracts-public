@@ -80,17 +80,18 @@ contract Vault is IVault, ERC20, EpochControls {
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
             bool dead
-        ) {
-            return (
-                _state.liquidity.locked,
-                0,
-                _state.liquidity.lockedByPreviousEpochWasZero,
-                _state.liquidity.availableForNextEpoch,
-                _state.liquidity.pendingWithdrawals,
-                _state.withdrawals.heldShares,
-                _state.withdrawals.newHeldShares,
-                _state.dead
-            );
+        )
+    {
+        return (
+            _state.liquidity.locked,
+            0,
+            _state.liquidity.lockedByPreviousEpochWasZero,
+            _state.liquidity.availableForNextEpoch,
+            _state.liquidity.pendingWithdrawals,
+            _state.withdrawals.heldShares,
+            _state.withdrawals.newHeldShares,
+            _state.dead
+        );
     }
 
     function getPortfolio() public view override returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
@@ -279,7 +280,7 @@ contract Vault is IVault, ERC20, EpochControls {
             _state.liquidity.locked += _state.liquidity.availableForNextEpoch;
             _state.liquidity.locked -= newPendingWithdrawals;
             _state.liquidity.availableForNextEpoch = 0;
-        } 
+        }
 
         super.rollEpoch();
 
@@ -293,14 +294,17 @@ contract Vault is IVault, ERC20, EpochControls {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[msg.sender];
 
         // User enabled to rescue only if the user has deposited in the last epoch before the Vault died.
-        if(depositReceipt.epoch != getLastRolledEpoch()) {
+        if (depositReceipt.epoch != getLastRolledEpoch()) {
             revert NothingToRescue();
         }
 
         uint256 amount = depositReceipt.amount;
-        if (amount == 0) {
-            revert NothingToRescue();
-        }
+
+        // TODO define if it needed to check the amount
+        // if (amount == 0) {
+        //     revert NothingToRescue();
+        // }
+
         depositReceipts[msg.sender].amount = 0;
         IERC20(baseToken).transfer(msg.sender, amount);
     }
