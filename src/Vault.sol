@@ -21,7 +21,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
     mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
-    mapping(uint256 => uint256) internal _epochPricePerShare;
+    mapping(uint256 => uint256) public _epochPricePerShare;
 
     error AmountZero();
     error ExceedsAvailable();
@@ -235,25 +235,16 @@ contract Vault is IVault, ERC20, EpochControls {
         // assume locked liquidity is updated after trades
 
         // ToDo: trigger management of vault locked liquidity (inverse rebalance)
-
+        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
         uint256 sharePrice;
         // ToDo: review as we probably need to consider the shares held for withdrawals
-        if (totalSupply() == 0 || _state.liquidity.lockedByPreviousEpochWasZero) {
+        if (outstandingShares == 0) {
             // First time mint 1 share for each token
             sharePrice = VaultLib.UNIT_PRICE;
-
-            // Reset:
-            _state.liquidity.lockedByPreviousEpochWasZero = false;
         } else {
             // NOTE: if the locked liquidity is 0, the price is set to 0
             // NOTE: if the number of shares is 0, it will revert due to a division by zero
-            sharePrice = VaultLib.pricePerShare(_state.liquidity.locked, totalSupply());
-
-            // TBD: move outside of this if-else statement
-            if (_state.liquidity.locked == 0) {
-                // Set for the upcoming epoch:
-                _state.liquidity.lockedByPreviousEpochWasZero = true;
-            }
+            sharePrice = VaultLib.pricePerShare(_state.liquidity.locked, outstandingShares);
         }
 
         _epochPricePerShare[currentEpoch] = sharePrice;
