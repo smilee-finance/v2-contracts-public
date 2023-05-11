@@ -114,7 +114,7 @@ contract TestnetSwapAdapterTest is Test {
         swapAdapter.swap(address(wETH), address(wBTC), 10 ether);
 
         assertEq(90 ether, wETH.balanceOf(alice));
-        assertEq(amountToReceive. wBTC.balanceOf(alice);)
+        assertEq(amountToReceive, wBTC.balanceOf(alice));
         assertEq(1 ether, wBTC.balanceOf(alice));
     }
 }
