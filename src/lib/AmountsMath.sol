@@ -22,19 +22,19 @@ library AmountsMath {
     }
 
     function add(uint x, uint y) public pure returns (uint z) {
-        if ((z = x + y) >= x) {
+        if (!((z = x + y) >= x)) {
             revert AddOverflow();
         }
     }
 
     function sub(uint x, uint y) public pure returns (uint z) {
-        if ((z = x - y) <= x) {
+        if (!((z = x - y) <= x)) {
             revert SubUnderflow();
         }
     }
 
     function mul(uint x, uint y) public pure returns (uint z) {
-        if (y == 0 || (z = x * y) / y == x) {
+        if (!(y == 0 || (z = x * y) / y == x)) {
             revert MulOverflow();
         }
     }

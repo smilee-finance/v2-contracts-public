@@ -300,11 +300,6 @@ contract Vault is IVault, ERC20, EpochControls {
 
         uint256 amount = depositReceipt.amount;
 
-        // TODO define if it needed to check the amount
-        // if (amount == 0) {
-        //     revert NothingToRescue();
-        // }
-
         depositReceipts[msg.sender].amount = 0;
         IERC20(baseToken).transfer(msg.sender, amount);
     }
