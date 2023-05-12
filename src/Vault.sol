@@ -20,7 +20,7 @@ contract Vault is IVault, ERC20, EpochControls {
     address public immutable sideToken;
 
     VaultLib.VaultState internal _state;
-    IExchange internal _exchange;
+    AddressProvider _addressProvider;
 
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
     mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
@@ -45,10 +45,7 @@ contract Vault is IVault, ERC20, EpochControls {
         baseToken = baseToken_;
         sideToken = sideToken_;
 
-        // ToDo: review if we just need the exchange adapter...
-        // ToDo: provide ownable setters
-        AddressProvider addressProvider = AddressProvider(addressProvider_);
-        _exchange = IExchange(addressProvider.exchangeAdapter());
+        _addressProvider = AddressProvider(addressProvider_);
     }
 
     /// @dev The Vault is alive until a certain amount of underlying asset is available to give value to outstanding shares
@@ -212,6 +209,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @inheritdoc IVault
     function completeWithdraw() external {
+        // ToDo: review in order to consider also the side tokens...
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
         // Checks if there is an initiated withdrawal:
@@ -244,7 +242,10 @@ contract Vault is IVault, ERC20, EpochControls {
     function rollEpoch() public override isNotDead {
         // NOTE: assume locked liquidity is updated after trades
 
-        // ToDo: trigger management of vault locked liquidity (inverse rebalance)
+        // Trigger management of vault locked liquidity (inverse rebalance):
+        // ToDo [mainnet]: do not swap everything, but only what's needed for the next epoch.
+        // NOTE: the penguin says that doing so will let us save money...
+        _sellSideTokens();
 
         uint256 sharePrice;
         uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
@@ -284,7 +285,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         super.rollEpoch();
 
-        // ToDo: trigger management of vault locked liquidity (equal weight portfolio)
+        _splitIntoEqualWeightPortfolio();
     }
 
     /**
@@ -339,8 +340,11 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /**
         @notice
+        @dev ToDo: replace with something that hedges a side token amount
      */
     function moveAsset(int256 amount) public {
+        _sellSideTokens();
+
         if (amount > 0) {
             _state.liquidity.locked = _state.liquidity.locked.add(uint256(amount));
             IERC20(baseToken).transferFrom(msg.sender, address(this), uint256(amount));
@@ -351,5 +355,37 @@ contract Vault is IVault, ERC20, EpochControls {
             _state.liquidity.locked = _state.liquidity.locked.sub(uint256(-amount));
             IERC20(baseToken).transfer(msg.sender, uint256(-amount));
         }
+
+        _splitIntoEqualWeightPortfolio();
+    }
+
+    function _splitIntoEqualWeightPortfolio() internal {
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+
+        uint256 amountToSwap = _state.liquidity.locked / 2;
+        IERC20(baseToken).approve(exchangeAddress, amountToSwap);
+        uint256 swappedAmount = exchange.swap(baseToken, sideToken, amountToSwap);
+
+        _state.liquidity.locked -= swappedAmount;
+    }
+
+    function _sellSideTokens() internal {
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+
+        uint256 amountToSwap = IERC20(sideToken).balanceOf(address(this));
+        IERC20(sideToken).approve(exchangeAddress, amountToSwap);
+        uint256 swappedAmount = exchange.swap(sideToken, baseToken, amountToSwap);
+
+        _state.liquidity.locked += swappedAmount;
+    }
+
+    function lockedValue() view public returns (uint256) {
+        // ToDo: allow the IExchange to preview the swapped amount
+        // ToDo: return the total portfolio value in base tokens
+        // NOTE: stub assuming price 1:1
+        (uint256 baseTokens, uint256 sideTokens) = getPortfolio();
+        return baseTokens + sideTokens;
     }
 }

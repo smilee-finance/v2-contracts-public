@@ -59,4 +59,9 @@ abstract contract EpochControls is IEpochControls {
         currentEpoch = nextEpoch;
         _epochs.push(currentEpoch);
     }
+
+    /// @inheritdoc IEpochControls
+    function timeToNextEpoch() view public returns (uint256) {
+        return currentEpoch - block.timestamp;
+    }
 }

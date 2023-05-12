@@ -2,18 +2,12 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IDVP} from "../src/interfaces/IDVP.sol";
-import {IG} from "../src/IG.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Vault} from "../src/Vault.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
-import {VaultLib} from "../src/lib/VaultLib.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
-import {Registry} from "../src/Registry.sol";
 
 /**
     @title Test case for underlying asset going to zero
@@ -33,13 +27,12 @@ contract VaultDeathTest is Test {
     Vault vault;
 
     function setUp() public {
-        Registry registry = new Registry();
-        address swapper = address(0x5);
-        (address baseToken_, address sideToken_) = TokenUtils.initTokens(tokenAdmin, address(registry), swapper, vm);
-        baseToken = TestnetToken(baseToken_);
-        sideToken = TestnetToken(sideToken_);
         vm.warp(EpochFrequency.REF_TS);
-        vault = VaultUtils.createRegisteredVault(baseToken_, sideToken_, EpochFrequency.DAILY, registry);
+
+        vault = VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm);
+        baseToken = TestnetToken(vault.baseToken());
+        sideToken = TestnetToken(vault.sideToken());
+
         vault.rollEpoch();
     }
 

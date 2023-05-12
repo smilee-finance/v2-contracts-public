@@ -27,6 +27,9 @@ abstract contract DVP is IDVP, EpochControls {
     address public override vault;
 
     mapping(uint256 => mapping(bytes32 => Position.Info)) public epochPositions;
+    // ToDo: add a counter of overall position's amounts for the current epoch
+    // - TBD: how does it changes when we burn something ?
+    // - TBD: perhaps it's better kept within the vault...
 
     constructor(
         address baseToken_,

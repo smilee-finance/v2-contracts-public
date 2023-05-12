@@ -65,4 +65,21 @@ contract TestnetPriceOracle is IPriceOracle, Ownable {
         return token0Price.wdiv(token1Price);
     }
 
+    // ToDo: add to interface
+    // ToDo: add setter
+    function getImpliedVolatility(address token0, address token1, uint256 strikePrice, uint256 frequency) external returns (uint256 iv) {
+        token0;
+        token1;
+        strikePrice;
+        frequency;
+        return 0;
+    }
+
+    // ToDo: add to interface
+    // ToDo: add setter
+    function getRiskFreeRate(address token0, address token1) external returns (uint256 rate) {
+        token0;
+        token1;
+        return 0;
+    }
 }

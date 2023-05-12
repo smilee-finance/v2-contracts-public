@@ -6,9 +6,9 @@ import {Vm} from "forge-std/Vm.sol";
 import {IDVP} from "../src/interfaces/IDVP.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
+import {VaultUtils} from "./utils/VaultUtils.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract IGTest is Test {
     bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
@@ -16,13 +16,18 @@ contract IGTest is Test {
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
 
-    address baseToken = address(0x11);
-    address sideToken = address(0x22);
-    AddressProvider _ap = new AddressProvider();
-    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY, address(_ap));
+    address baseToken;
+    address sideToken;
+    Vault vault;
 
     address alice = address(0x1);
     address bob = address(0x2);
+
+    constructor() {
+        vault = VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, address(0x10), vm);
+        baseToken = vault.baseToken();
+        sideToken = vault.sideToken();
+    }
 
     function setUp() public {}
 

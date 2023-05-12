@@ -6,6 +6,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
+import {VaultUtils} from "./utils/VaultUtils.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
@@ -17,16 +18,21 @@ contract PositionManagerTest is Test {
     bytes4 constant InvalidTokenID = bytes4(keccak256("InvalidTokenID()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
 
-    address baseToken = address(0x11);
-    address sideToken = address(0x22);
+    address baseToken;
+    address sideToken;
 
-    AddressProvider _ap = new AddressProvider();
-    Vault vault = new Vault(baseToken, sideToken, EpochFrequency.DAILY, address(_ap));
+    Vault vault;
 
     address alice = address(0x1);
     address bob = address(0x2);
 
     IPositionManager pm;
+
+    constructor() {
+        vault = VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, address(0x10), vm);
+        baseToken = vault.baseToken();
+        sideToken = vault.sideToken();
+    }
 
     function setUp() public {
         pm = new PositionManager(address(0x0));

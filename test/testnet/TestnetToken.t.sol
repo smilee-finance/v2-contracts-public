@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
+import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {Factory} from "../../src/Factory.sol";
@@ -71,7 +71,7 @@ contract TestnetTokenTest is Test {
         token.setSwapper(swapper);
         vm.stopPrank();
 
-        vm.prank(controller);
+        vm.prank(admin);
         token.mint(alice, 100);
         assertEq(100, token.balanceOf(alice));
 
@@ -91,7 +91,7 @@ contract TestnetTokenTest is Test {
         token.setSwapper(swapper);
         vm.stopPrank();
 
-        vm.prank(controller);
+        vm.prank(admin);
         token.mint(alice, 100);
         assertEq(100, token.balanceOf(alice));
 
@@ -111,15 +111,22 @@ contract TestnetTokenTest is Test {
         token.setSwapper(swapper);
         vm.stopPrank();
 
-        vm.prank(controller);
+        vm.prank(admin);
         token.mint(alice, 100);
         assertEq(100, token.balanceOf(alice));
 
         vm.prank(alice);
         token.approve(controller, 100);
 
-        vm.prank(controller);
-        token.transferFrom(alice, bob, 100);
-        assertEq(100, token.balanceOf(bob));
+        IRegistry registry = IRegistry(controller);
+        address vaultAddress = address(0x42);
+        registry.register(vaultAddress);
+
+        vm.prank(alice);
+        token.approve(vaultAddress, 100);
+
+        vm.prank(vaultAddress);
+        token.transferFrom(alice, vaultAddress, 100);
+        assertEq(100, token.balanceOf(vaultAddress));
     }
 }

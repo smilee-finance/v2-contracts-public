@@ -10,19 +10,42 @@ import {EpochFrequency} from "../../src/lib/EpochFrequency.sol";
 import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
+import {Registry} from "../../src/Registry.sol";
+import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
+import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 
 library VaultUtils {
-    /// @dev Test function to create a Vault with baseToken and sideToken
-    function createRegisteredVault(
-        address baseToken,
-        address sideToken,
-        uint256 epochFrequency,
-        IRegistry registry
-    ) internal returns (Vault vault) {
-        AddressProvider ap = new AddressProvider();
-        vault = new Vault(address(baseToken), address(sideToken), epochFrequency, address(ap));
-        // ToDo: review
+
+    function createVaultFromNothing(uint256 epochFrequency, address admin, Vm vm) internal returns (Vault) {
+        vm.startPrank(admin);
+
+        Registry registry = new Registry();
+
+        TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
+        address baseToken = address(token);
+        token.setController(address(registry));
+
+        AddressProvider _ap = new AddressProvider();
+
+        TestnetPriceOracle priceOracle = new TestnetPriceOracle(baseToken);
+        _ap.setPriceOracle(address(priceOracle));
+
+        TestnetSwapAdapter exchange = new TestnetSwapAdapter(address(priceOracle));
+        _ap.setExchangeAdapter(address(exchange));
+        token.setSwapper(address(exchange));
+
+        token = new TestnetToken("Testnet WETH", "stWETH");
+        token.setController(address(registry));
+        token.setSwapper(address(exchange));
+        address sideToken = address(token);
+        priceOracle.setTokenPrice(sideToken, 1 ether);
+
+        Vault vault = new Vault(baseToken, sideToken, epochFrequency, address(_ap));
         registry.register(address(vault));
+
+        vm.stopPrank();
+
+        return vault;
     }
 
     /// @dev Builds and returns a `VaultLib.VaultState` with info on current vault state

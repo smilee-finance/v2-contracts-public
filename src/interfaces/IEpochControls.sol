@@ -26,4 +26,10 @@ interface IEpochControls {
     /// @notice Regenerates the epoch-related processes, moving currentEpoch to the next one
     /// @dev Need to call this also as a setup function on vault creation
     function rollEpoch() external;
+
+    /**
+        @notice Returns the number of seconds left until the next epoch.
+        @return time the number of seconds left until the next epoch.
+     */
+    function timeToNextEpoch() view external returns (uint256 time);
 }

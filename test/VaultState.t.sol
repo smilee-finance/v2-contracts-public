@@ -2,16 +2,11 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IDVP} from "../src/interfaces/IDVP.sol";
 import {Utils} from "./utils/Utils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
-import {VaultLib} from "../src/lib/VaultLib.sol";
-import {IG} from "../src/IG.sol";
-import {Registry} from "../src/Registry.sol";
+import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Vault} from "../src/Vault.sol";
 
@@ -26,13 +21,12 @@ contract VaultStateTest is Test {
     Vault vault;
 
     function setUp() public {
-        Registry registry = new Registry();
-        address swapper = address(0x5);
-        (address baseToken_, address sideToken_) = TokenUtils.initTokens(tokenAdmin, address(registry), swapper, vm);
-        baseToken = TestnetToken(baseToken_);
-        sideToken = TestnetToken(sideToken_);
         vm.warp(EpochFrequency.REF_TS);
-        vault = VaultUtils.createRegisteredVault(baseToken_, sideToken_, EpochFrequency.DAILY, registry);
+
+        vault = VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm);
+        baseToken = TestnetToken(vault.baseToken());
+        sideToken = TestnetToken(vault.sideToken());
+
         vault.rollEpoch();
     }
 
@@ -49,15 +43,16 @@ contract VaultStateTest is Test {
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
-        assertEq(100, baseToken.balanceOf(address(vault)));
-        assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
+        assertEq(50, baseToken.balanceOf(address(vault)));
+        assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
 
         vault.moveAsset(-30);
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
-        assertEq(70, baseToken.balanceOf(address(vault)));
-        assertEq(70, VaultUtils.vaultState(vault).liquidity.locked);
+
+        assertEq(35, baseToken.balanceOf(address(vault)));
+        assertEq(35, VaultUtils.vaultState(vault).liquidity.locked);
     }
 
     function testMoveAssetPullFail() public {
@@ -70,8 +65,9 @@ contract VaultStateTest is Test {
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
-        assertEq(100, baseToken.balanceOf(address(vault)));
-        assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
+
+        assertEq(50, baseToken.balanceOf(address(vault)));
+        assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
 
         vm.expectRevert(ExceedsAvailable);
         vault.moveAsset(-101);
@@ -87,8 +83,9 @@ contract VaultStateTest is Test {
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
-        assertEq(100, baseToken.balanceOf(address(vault)));
-        assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
+
+        assertEq(50, baseToken.balanceOf(address(vault)));
+        assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100, vm);
         vm.prank(tokenAdmin);
@@ -96,8 +93,9 @@ contract VaultStateTest is Test {
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
-        assertEq(200, baseToken.balanceOf(address(vault)));
-        assertEq(200, VaultUtils.vaultState(vault).liquidity.locked);
+
+        assertEq(100, baseToken.balanceOf(address(vault)));
+        assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
     }
 
     // /**

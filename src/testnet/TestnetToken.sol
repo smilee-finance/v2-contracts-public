@@ -35,7 +35,7 @@ contract TestnetToken is ERC20, AdminAccess {
     }
 
     modifier mintBurnAuth() {
-        if (msg.sender != Admin && msg.sender != _swapper && msg.sender != address(_controller)) {
+        if (msg.sender != Admin && msg.sender != _swapper) {
             revert Unauthorized();
         }
         _;
@@ -91,7 +91,7 @@ contract TestnetToken is ERC20, AdminAccess {
         address from,
         address to,
         uint256 amount
-    ) public virtual override initialized transferAuth(msg.sender, to) returns (bool) {
+    ) public virtual override initialized transferAuth(from, to) returns (bool) {
         return super.transferFrom(from, to, amount);
     }
 
