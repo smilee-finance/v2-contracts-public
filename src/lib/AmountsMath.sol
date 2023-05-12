@@ -17,7 +17,7 @@ library AmountsMath {
 
     /// LOGICS ///
 
-    function one() public pure returns (uint) {
+    function one() internal pure returns (uint z) {
         return WAD;
     }
 
@@ -39,27 +39,13 @@ library AmountsMath {
         }
     }
 
-    /**
-        @dev rounds to zero if x*y < WAD / 2
-     */
-    function wmul(uint x, uint y) public pure returns (uint z) {
+    //rounds to zero if x*y < WAD / 2
+    function wmul(uint x, uint y) internal pure returns (uint z) {
         z = add(mul(x, y), WAD / 2) / WAD;
     }
 
-    /**
-        @dev rounds to zero if x*y < WAD / 2
-     */
-    function wdiv(uint x, uint y) public pure returns (uint z) {
+    //rounds to zero if x*y < WAD / 2
+    function wdiv(uint x, uint y) internal pure returns (uint z) {
         z = add(mul(x, WAD), y / 2) / y;
-    }
-
-    /**
-        @dev Math.sqrt will halve the number of decimals of a uint.
-             sqrt of 1 * 10**18 will be 1 * 10**9, this function adds the removed 9 decimals.
-     */
-    function sqrt(uint value) public pure returns (uint) {
-        // TBD: what if decimals is an odd number ?
-        uint decimalsToFix = DECIMALS / 2;
-        return value.sqrt() * (10 ** decimalsToFix);
     }
 }
