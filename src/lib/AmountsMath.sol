@@ -17,8 +17,8 @@ library AmountsMath {
 
     /// LOGICS ///
 
-    function one() internal pure returns (uint z) {
-        return WAD;
+    function wrap(uint x) internal pure returns (uint z) {
+        return mul(x, WAD);
     }
 
     function add(uint x, uint y) public pure returns (uint z) {

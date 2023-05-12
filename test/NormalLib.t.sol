@@ -13,9 +13,35 @@ import {WadTime} from "../src/lib/WadTime.sol";
 import {Normal} from "../src/lib/Normal.sol";
 
 contract NormalLibTest is Test {
-    function setup() public {}
+    function setUp() public {}
 
-    function testNormalBack() public {
+    function testCdfGas() public pure {
+        Normal.cdf(341);
+        Normal.cdf(342);
+        Normal.cdf(345);
+        Normal.cdf(385);
+        Normal.cdf(399);
+        Normal.cdf(400);
+        Normal.cdf(401);
+        Normal.cdf(500);
+        Normal.cdf(-341);
+        Normal.cdf(-342);
+        Normal.cdf(-345);
+        Normal.cdf(-385);
+        Normal.cdf(-399);
+        Normal.cdf(-400);
+        Normal.cdf(-401);
+        Normal.cdf(-500);
+        Normal.cdf(11);
+        Normal.cdf(5);
+        Normal.cdf(1);
+        Normal.cdf(0);
+        Normal.cdf(-1);
+        Normal.cdf(-5);
+        Normal.cdf(-11);
+    }
+
+    function testCdf() public {
         assertEq(99968e13, Normal.cdf(341));
         assertEq(99969e13, Normal.cdf(342));
         assertEq(99972e13, Normal.cdf(345));
@@ -41,7 +67,9 @@ contract NormalLibTest is Test {
         assertEq(49601e13, Normal.cdf(-1));
         assertEq(48006e13, Normal.cdf(-5));
         assertEq(45620e13, Normal.cdf(-11));
+    }
 
+    function testWcdf() public {
         assertEq(99968e13, Normal.wcdf(3_411250000123000123));
         assertEq(99969e13, Normal.wcdf(3_421250000123000123));
         assertEq(99972e13, Normal.wcdf(3_451250000123000123));

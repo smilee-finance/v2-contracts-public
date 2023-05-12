@@ -19,7 +19,7 @@ library WadTime {
         if (d == 0) {
             revert InvalidInput();
         }
-        return (n).wadd() / d;
+        return (n).wrap() / d;
     }
 
     /**
@@ -32,7 +32,7 @@ library WadTime {
         if (start > end) {
             revert InvalidInput();
         }
-        return (end - start).wadd() / 1 days;
+        return (end - start).wrap() / 1 days;
     }
 
     /**

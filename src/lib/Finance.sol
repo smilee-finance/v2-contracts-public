@@ -44,7 +44,7 @@ library Finance {
             uint256 c45 = c4_ + c5_;
             igDUp = int256(c123) + SignedMath.neg(c45);
         }
-        igDDown = int256(AmountsMath.one().wdiv(2 * params.K)) - int256(bo / 2) - igDUp;
+        igDDown = int256(AmountsMath.wrap(1).wdiv(2 * params.K)) - int256(bo / 2) - igDUp;
     }
 
     function cs(
