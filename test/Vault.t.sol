@@ -859,4 +859,22 @@ contract VaultTest is Test {
         assertEq(0, vault.lockedValue());
         assertEq(200, baseToken.balanceOf(bob));
     }
+
+    /**
+     * Test used to retrieve shares of an account before first epoch roll 
+     */
+    function testVaultShareBalanceZeroEpochNotStarted() public {
+        (uint256 heldByVaultAlice, uint256 heldByAlice) = vault.shareBalances(alice);
+        assertEq(0, heldByVaultAlice);
+        assertEq(0, heldByAlice);
+        
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        vm.prank(alice);
+        vault.deposit(100);
+
+        //Check Share Balance of Alice epoch not rolled yet
+        (heldByVaultAlice, heldByAlice) = vault.shareBalances(alice);
+        assertEq(0, heldByVaultAlice);
+        assertEq(0, heldByAlice);
+    }
 }
