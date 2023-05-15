@@ -79,7 +79,7 @@ contract VaultDeathTest is Test {
 
         vault.moveAsset(-200);
 
-        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, vault.lockedValue());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -91,7 +91,7 @@ contract VaultDeathTest is Test {
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
         assertEq(100, vault.totalSupply());
-        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, vault.lockedValue());
         assertEq(0, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
         vm.stopPrank();
@@ -101,7 +101,7 @@ contract VaultDeathTest is Test {
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
         assertEq(0, vault.totalSupply());
-        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, vault.lockedValue());
         assertEq(0, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
         vm.stopPrank();
@@ -129,7 +129,7 @@ contract VaultDeathTest is Test {
 
         vault.moveAsset(-100);
 
-        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, vault.lockedValue());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -167,7 +167,7 @@ contract VaultDeathTest is Test {
 
         vault.moveAsset(-100);
 
-        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, vault.lockedValue());
 
         vm.startPrank(alice);
         vault.deposit(100);
@@ -187,7 +187,7 @@ contract VaultDeathTest is Test {
         assertEq(0, heldByAccountAlice);
         assertEq(100, heldByVaultAlice);
 
-        assertEq(100, baseToken.balanceOf(address(vault)));
+        assertEq(100, vault.lockedValue());
         (, uint256 depositReceiptsAliceAmount, ) = vault.depositReceipts(alice);
         assertEq(100, depositReceiptsAliceAmount);
 
@@ -196,7 +196,7 @@ contract VaultDeathTest is Test {
         vault.rescueDeposit();
         vm.stopPrank();
 
-        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, vault.lockedValue());
         assertEq(100, baseToken.balanceOf(alice));
         (, depositReceiptsAliceAmount, ) = vault.depositReceipts(alice);
         assertEq(0, depositReceiptsAliceAmount);
@@ -240,7 +240,7 @@ contract VaultDeathTest is Test {
 
         vault.moveAsset(-100);
 
-        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, vault.lockedValue());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
