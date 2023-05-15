@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
@@ -83,7 +84,10 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     function mint(MintParams calldata params) external override returns (uint256 tokenId, uint256 notional) {
         IDVP dvp = IDVP(params.dvpAddr);
 
-        // ToDo: handle premium
+        // Transfer premium:
+        IERC20 baseToken = IERC20(dvp.baseToken());
+        baseToken.transferFrom(msg.sender, dvp.vault(), params.premium);
+        // ToDo: increase the amount of liquidity available for next epoch within the Vault
 
         // Buy option:
         uint256 leverage = dvp.mint(address(this), params.strike, params.strategy, params.premium);

@@ -247,9 +247,9 @@ contract Vault is IVault, ERC20, EpochControls {
         // NOTE: the penguin says that doing so will let us save money...
         _sellSideTokens();
 
+        // Set share price for the ending epoch:
         uint256 sharePrice;
         uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
-        // ToDo: review as we probably need to consider the shares held for withdrawals
         if (outstandingShares == 0) {
             // First time mint 1 share for each token
             sharePrice = VaultLib.UNIT_PRICE;
@@ -275,6 +275,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         if (!_state.dead) {
             // Mint shares related to new deposits performed during the closing epoch:
+            // ToDo: do not use only the availableForNextEpoch, but also the amount from the premiums paid in the current epoch.
             uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.availableForNextEpoch, sharePrice);
             _mint(address(this), sharesToMint);
 
@@ -381,11 +382,14 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.liquidity.locked += swappedAmount;
     }
 
+    /**
+        @notice Provides the total portfolio value in base tokens
+        @return value The total portfolio value in base tokens
+     */
     function lockedValue() view public returns (uint256) {
         // ToDo: allow the IExchange to preview the swapped amount
-        // ToDo: return the total portfolio value in base tokens
+        (, uint256 sideTokens) = getPortfolio();
         // NOTE: stub assuming price 1:1
-        (uint256 baseTokens, uint256 sideTokens) = getPortfolio();
-        return baseTokens + sideTokens;
+        return _state.liquidity.locked + sideTokens;
     }
 }

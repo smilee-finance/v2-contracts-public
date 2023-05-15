@@ -2,15 +2,15 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
+import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract PositionManagerTest is Test {
     bytes4 constant NotOwner = bytes4(keccak256("NotOwner()"));
@@ -42,6 +42,10 @@ contract PositionManagerTest is Test {
         ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
 
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, DEFAULT_SENDER, address(pm), 10, vm);
+
+        // NOTE: somehow, the sender is something else without this prank...
+        vm.prank(DEFAULT_SENDER);
         (tokenId, ) = pm.mint(
             IPositionManager.MintParams({
                 dvpAddr: address(ig),
