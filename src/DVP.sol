@@ -65,7 +65,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochActive returns (uint256 leverage) {
+    ) internal epochActive epochNotFrozen(currentEpoch) returns (uint256 leverage) {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -91,7 +91,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochActive returns (uint256 paidPayoff) {
+    ) internal epochActive epochNotFrozen(currentEpoch) returns (uint256 paidPayoff) {
         if (amount == 0) {
             revert AmountZero();
         }

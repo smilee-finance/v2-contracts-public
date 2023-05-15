@@ -97,7 +97,7 @@ contract Vault is IVault, ERC20, EpochControls {
     }
 
     /// @inheritdoc IVault
-    function deposit(uint256 amount) external override epochActive isNotDead {
+    function deposit(uint256 amount) external override epochActive isNotDead epochNotFrozen(currentEpoch) {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -173,7 +173,7 @@ contract Vault is IVault, ERC20, EpochControls {
     }
 
     /// @inheritdoc IVault
-    function initiateWithdraw(uint256 shares) external {
+    function initiateWithdraw(uint256 shares) external epochNotFrozen(currentEpoch) {
         if (shares == 0) {
             revert AmountZero();
         }
@@ -208,7 +208,7 @@ contract Vault is IVault, ERC20, EpochControls {
     }
 
     /// @inheritdoc IVault
-    function completeWithdraw() external {
+    function completeWithdraw() external epochNotFrozen(currentEpoch) {
         // ToDo: review in order to consider also the side tokens...
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 

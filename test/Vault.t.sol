@@ -16,6 +16,7 @@ contract VaultTest is Test {
     bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
+    bytes4 constant EpochFrozen = bytes4(keccak256("EpochFrozen()"));
     bytes4 constant WithdrawNotInitiated = bytes4(keccak256("WithdrawNotInitiated()"));
     bytes4 constant WithdrawTooEarly = bytes4(keccak256("WithdrawTooEarly()"));
 
@@ -40,7 +41,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testDepositFail() public {
         Vault notActiveVault = new Vault(address(baseToken), address(sideToken), EpochFrequency.DAILY, address(0x1));
@@ -53,7 +54,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testDeposit() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -76,7 +77,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testRedeemFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -105,6 +106,64 @@ contract VaultTest is Test {
         vm.prank(alice);
         vm.expectRevert(AmountZero);
         vault.deposit(0);
+    }
+
+    /** */
+    function testDepositEpochFrozen() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        vm.prank(alice);
+        vault.deposit(100);
+        assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
+
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vm.expectRevert(EpochFrozen);
+        vault.deposit(100);
+    }
+
+    /**
+     *
+     */
+    function testInitWithdrawEpochFrozen() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        vm.prank(alice);
+        vault.deposit(100);
+        assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
+
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        vm.expectRevert(EpochFrozen);
+        vault.initiateWithdraw(100);
+    }
+
+    /**
+     *
+     */
+    function testCompleteWithdrawEpochFrozen() public {
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        vm.prank(alice);
+        vault.deposit(100);
+        assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+        assertEq(100, heldByVaultAlice);
+        assertEq(100, vault.totalSupply()); // shares are minted at next epoch change
+
+        vm.prank(alice);
+        vault.initiateWithdraw(100);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vm.expectRevert(EpochFrozen);
+        vault.completeWithdraw();
     }
 
     /**
@@ -140,7 +199,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -188,7 +247,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * An user redeem and start a withdraw of the redemeed shares. Everithing goes ok. 
+     * An user redeem and start a withdraw of the redemeed shares. Everithing goes ok.
      */
     function testInitWithdrawWithRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -207,7 +266,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testInitWithdrawWithoutRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -304,7 +363,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testInitWithdrawPartWithoutRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -323,7 +382,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testWithdraw() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);

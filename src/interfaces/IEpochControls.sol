@@ -7,9 +7,10 @@ interface IEpochControls {
     error NoActiveEpoch();
     error NoNextEpoch();
     error EpochAlreadyStarted();
-    error EpochNotFinished();
     error EpochDoesNotExist();
     error EpochEndBeforeLast();
+    error EpochFrozen();
+    error EpochNotFinished();
 
     /// @notice The list of currently executed epochs
     /// @return The list of epoch ends (timestamps) identifying the epochs
