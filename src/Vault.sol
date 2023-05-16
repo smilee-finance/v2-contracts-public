@@ -90,7 +90,7 @@ contract Vault is IVault, ERC20, EpochControls {
         sideTokenAmount = IERC20(sideToken).balanceOf(address(this));
     }
 
-        // TBD: add to the IVault interface
+    // TBD: add to the IVault interface
     /**
         @notice Provides the total portfolio value in base tokens
         @return value The total portfolio value in base tokens
@@ -229,7 +229,6 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @inheritdoc IVault
     function completeWithdraw() external epochNotFrozen(currentEpoch) {
-        // ToDo: review in order to consider also the side tokens...
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
         // Checks if there is an initiated withdrawal:
@@ -269,7 +268,6 @@ contract Vault is IVault, ERC20, EpochControls {
 
         uint256 sharePrice;
         uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
-        // ToDo: review as we probably need to consider the shares held for withdrawals
         if (outstandingShares == 0) {
             // First time mint 1 share for each token
             sharePrice = VaultLib.UNIT_PRICE;
