@@ -106,8 +106,7 @@ abstract contract DVP is IDVP, EpochControls {
         position.updateAmount(-int256(amount));
 
         paidPayoff = _computePayoff(position);
-        // ToDo: handle payoff
-        recipient;
+        IVault(vault).provideLiquidity(recipient, paidPayoff);
 
         emit Burn(msg.sender);
     }

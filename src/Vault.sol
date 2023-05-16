@@ -414,4 +414,18 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.liquidity.locked += amount;
         // ToDo: rebalance
     }
+
+    // ToDo: add a modifier so that only the DVP can call it
+    /// @inheritdoc IVault
+    function provideLiquidity(address recipient, uint256 amount) external {
+        if (amount == 0) {
+            return;
+        }
+        _sellSideTokens();
+
+        _state.liquidity.locked -= amount;
+        IERC20(baseToken).transfer(recipient, amount);
+
+        _splitIntoEqualWeightPortfolio();
+    }
 }

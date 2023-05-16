@@ -73,4 +73,6 @@ interface IVault is IVaultParams {
         @param amount The received amount
      */
     function notifyLiquidityInjection(uint256 amount) external;
+
+    function provideLiquidity(address recipient, uint256 amount) external;
 }

@@ -3,10 +3,12 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "../src/interfaces/IDVP.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
+import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 
@@ -88,7 +90,12 @@ contract IGTest is Test {
         ig.rollEpoch();
         uint256 currEpoch = ig.currentEpoch();
 
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(vault), inputAmount, vm);
+        IERC20(baseToken).transfer(address(vault), inputAmount);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
+
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(vault), inputAmount, vm);
+        IERC20(baseToken).transfer(address(vault), inputAmount);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
         vm.prank(alice);
