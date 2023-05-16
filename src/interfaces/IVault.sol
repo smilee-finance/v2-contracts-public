@@ -23,11 +23,6 @@ interface IVault is IVaultParams {
     function getPortfolio() external view returns (uint256 baseTokenAmount, uint256 sideTokenAmount);
 
     /**
-     * @notice Give Vault Worth in baseToken
-     */
-    function getVaultWorth() external view returns(uint256);
-
-    /**
         @notice Deposits an `amount` of `baseToken` from msg.sender
         @dev The shares are not directly minted to the user. We need to wait for epoch change in order to know how many
              shares these assets correspond to. So shares are minted to the contract in `rollEpoch()` and owed to the

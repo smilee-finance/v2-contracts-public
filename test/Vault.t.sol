@@ -470,7 +470,7 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
         assertEq(50, vault.totalSupply());
-        assertEq(200, vault.lockedValue());
+        assertEq(200, vault.getPortfolioValue());
         assertEq(400, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
 
@@ -510,7 +510,7 @@ contract VaultTest is Test {
 
         // Remove asset from Vault
         vault.moveAsset(-50);
-        assertEq(150, vault.lockedValue());
+        assertEq(150, vault.getPortfolioValue());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -526,7 +526,7 @@ contract VaultTest is Test {
         vault.initiateWithdraw(200);
 
         vault.moveAsset(-75);
-        assertEq(75, vault.lockedValue());
+        assertEq(75, vault.getPortfolioValue());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -536,7 +536,7 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
         assertEq(200, vault.totalSupply());
-        assertEq(50, vault.lockedValue());
+        assertEq(50, vault.getPortfolioValue());
         assertEq(25, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
 
@@ -545,7 +545,7 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
         assertEq(0, vault.totalSupply());
-        assertEq(0, vault.lockedValue());
+        assertEq(0, vault.getPortfolioValue());
         assertEq(50, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
     }
@@ -557,8 +557,8 @@ contract VaultTest is Test {
      * to the totalSupply(). In this case, the price must be of 1$.
      */
     function testRollEpochMathSingleInitWithdrawWithDepositWithoutCompletingWithdraw() public {
-        vm.warp(block.timestamp + 1 days + 1);
         // Roll first epoch
+        vm.warp(block.timestamp + 1 days + 1);
         vault.rollEpoch();
 
         // Give an amount of token to Alice and Bob
@@ -574,12 +574,10 @@ contract VaultTest is Test {
         vault.deposit(100);
 
         Utils.skipDay(true, vm);
-
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
         assertEq(heldByVaultAlice, 100);
-
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
         assertEq(heldByVaultBob, 100);
         assertEq(vault.totalSupply(), 200);
@@ -589,18 +587,15 @@ contract VaultTest is Test {
         vault.initiateWithdraw(100);
 
         Utils.skipDay(true, vm);
-
-        uint256 currentEpoch = vault.currentEpoch();
         vault.rollEpoch();
+
+        // ToDo: check Alice's shares
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
         vm.prank(bob);
         vault.deposit(100);
 
         Utils.skipDay(true, vm);
-
-        currentEpoch = vault.currentEpoch();
-
         vault.rollEpoch();
 
         (, heldByVaultBob) = vault.shareBalances(bob);
@@ -615,8 +610,6 @@ contract VaultTest is Test {
         vault.initiateWithdraw(200);
 
         Utils.skipDay(true, vm);
-
-        currentEpoch = vault.currentEpoch();
         vault.rollEpoch();
 
         vm.prank(bob);
@@ -624,8 +617,9 @@ contract VaultTest is Test {
 
         assertEq(0, baseToken.balanceOf(alice));
         assertEq(200, baseToken.balanceOf(bob));
-        assertEq(100,vault.lockedValue());
         assertEq(100, vault.totalSupply());
+
+        assertEq(100, vault.getPortfolioValue());
     }
 
     /**
@@ -702,7 +696,7 @@ contract VaultTest is Test {
 
         assertEq(100, baseToken.balanceOf(alice));
         assertEq(200, baseToken.balanceOf(bob));
-        assertEq(0, vault.lockedValue());
+        assertEq(0, vault.getLockedValue());
         assertEq(0, vault.totalSupply());
     }
 
@@ -834,7 +828,7 @@ contract VaultTest is Test {
 
         assertEq(100, baseToken.balanceOf(alice));
         assertEq(100, baseToken.balanceOf(bob));
-        assertEq(100, vault.lockedValue());
+        assertEq(100, vault.getLockedValue());
         assertEq(100, vault.totalSupply());
         (, heldByVaultBob) = vault.shareBalances(bob);
         assertEq(heldByVaultBob, 100);
@@ -856,7 +850,7 @@ contract VaultTest is Test {
         (, heldByVaultBob) = vault.shareBalances(bob);
         assertEq(0, heldByVaultBob);
         assertEq(0, vault.totalSupply());
-        assertEq(0, vault.lockedValue());
+        assertEq(0, vault.getLockedValue());
         assertEq(200, baseToken.balanceOf(bob));
     }
 

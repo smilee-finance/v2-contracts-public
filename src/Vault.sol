@@ -90,8 +90,32 @@ contract Vault is IVault, ERC20, EpochControls {
         sideTokenAmount = IERC20(sideToken).balanceOf(address(this));
     }
 
-    function getVaultWorth() public pure override returns(uint256) {
-        return 0;
+        // TBD: add to the IVault interface
+    /**
+        @notice Provides the total portfolio value in base tokens
+        @return value The total portfolio value in base tokens
+     */
+    function getLockedValue() view public returns (uint256) {
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+        (, uint256 sideTokens) = getPortfolio();
+        uint256 valueOfSideTokens = exchange.getSwapAmount(sideToken, baseToken, sideTokens);
+
+        return _state.liquidity.locked + valueOfSideTokens;
+    }
+
+    // TBD: add to the IVault interface
+    /**
+        @notice Provides the total portfolio value in base tokens
+        @return value The total portfolio value in base tokens
+     */
+    function getPortfolioValue() external view returns (uint256) {
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+        (uint256 baseTokens, uint256 sideTokens) = getPortfolio();
+        uint256 valueOfSideTokens = exchange.getSwapAmount(sideToken, baseToken, sideTokens);
+
+        return baseTokens + valueOfSideTokens;
     }
 
     /// @inheritdoc IVault
@@ -382,20 +406,6 @@ contract Vault is IVault, ERC20, EpochControls {
         uint256 swappedAmount = exchange.swap(sideToken, baseToken, amountToSwap);
 
         _state.liquidity.locked += swappedAmount;
-    }
-
-    // TBD: add to the IVault interface
-    /**
-        @notice Provides the total portfolio value in base tokens
-        @return value The total portfolio value in base tokens
-     */
-    function lockedValue() view public returns (uint256) {
-        address exchangeAddress = _addressProvider.exchangeAdapter();
-        IExchange exchange = IExchange(exchangeAddress);
-        (, uint256 sideTokens) = getPortfolio();
-        uint256 valueOfSideTokens = exchange.getSwapAmount(sideToken, baseToken, sideTokens);
-
-        return _state.liquidity.locked + valueOfSideTokens;
     }
 
     // ToDo: add a modifier so that only the DVP can call it

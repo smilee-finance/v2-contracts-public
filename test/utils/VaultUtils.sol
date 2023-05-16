@@ -70,6 +70,18 @@ library VaultUtils {
     }
 
     /**
+        @notice Computes the amount of recoverable tokens when the vault die.
+     */
+    function getRecoverableAmounts(Vault vault) public view returns (uint256) {
+        TestnetToken baseToken = TestnetToken(vault.baseToken());
+        uint256 balance = baseToken.balanceOf(address(vault));
+        uint256 locked = vaultState(vault).liquidity.locked;
+        uint256 pendingWithdrawals = vaultState(vault).liquidity.pendingWithdrawals;
+
+        return balance - locked - pendingWithdrawals;
+    }
+
+    /**
      * Function used to skip coverage on this file
      */
     function testCoverageSkip() private view {}
