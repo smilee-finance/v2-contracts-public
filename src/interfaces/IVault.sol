@@ -9,9 +9,6 @@ interface IVault is IVaultParams {
         view
         returns (
             uint256 lockedLiquidity,
-            uint256 lastLockedLiquidity,
-            bool lastLockedLiquidityZero,
-            uint256 totalPendingLiquidity,
             uint256 totalWithdrawAmount,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
@@ -75,4 +72,10 @@ interface IVault is IVaultParams {
         @param amount The amount of asset to be moved
      */
     function moveAsset(int256 amount) external;
+
+    /**
+        @notice Used by the DVP in order to signal a paid premium after the vault received that amount of base tokens
+        @param amount The received amount
+     */
+    function notifyLiquidityInjection(uint256 amount) external;
 }

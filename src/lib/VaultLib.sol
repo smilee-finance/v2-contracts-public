@@ -16,15 +16,13 @@ library VaultLib {
         bool dead;
     }
 
+    // TBD: track amount of liquidity put aside for the DVP payoff of each epoch ?
     struct VaultLiquidity {
         // Liquidity currently used by associated DVP
         uint256 locked;
-        // Control flag to check if lastLockedLiquidity has gone to 0
-        bool lockedByPreviousEpochWasZero;
-        // Liquidity deposited during current epoch (to be locked on the next one)
-        uint256 availableForNextEpoch;
-        // Liquidity reserved for withdrawals (accounting purposes)
-        // NOTE: currently used only by tests
+        // Liquidity initially used by the associated DVP
+        uint256 lockedInitially;
+        // Liquidity reserved for withdrawals
         uint256 pendingWithdrawals;
     }
 

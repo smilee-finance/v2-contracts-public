@@ -70,9 +70,6 @@ contract Vault is IVault, ERC20, EpochControls {
         view
         returns (
             uint256 lockedLiquidity,
-            uint256 lastLockedLiquidity,
-            bool lastLockedLiquidityZero,
-            uint256 totalPendingLiquidity,
             uint256 totalWithdrawAmount,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
@@ -81,9 +78,6 @@ contract Vault is IVault, ERC20, EpochControls {
     {
         return (
             _state.liquidity.locked,
-            0,
-            _state.liquidity.lockedByPreviousEpochWasZero,
-            _state.liquidity.availableForNextEpoch,
             _state.liquidity.pendingWithdrawals,
             _state.withdrawals.heldShares,
             _state.withdrawals.newHeldShares,
@@ -110,8 +104,6 @@ contract Vault is IVault, ERC20, EpochControls {
 
         IERC20(baseToken).transferFrom(creditor, address(this), amount);
         _emitUpdatedDepositReceipt(creditor, amount);
-
-        _state.liquidity.availableForNextEpoch += amount;
 
         // ToDo emit Deposit event
     }
@@ -271,25 +263,32 @@ contract Vault is IVault, ERC20, EpochControls {
             _state.dead = true;
         }
 
-        // NOTE: if sharePrice went to zero, the user will receive zero
+        // NOTE: if sharePrice went to zero, the users will receive zero
         _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
         uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
         _state.withdrawals.newHeldShares = 0;
         _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
 
         if (!_state.dead) {
-            // Mint shares related to new deposits performed during the closing epoch:
-            uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.availableForNextEpoch, sharePrice);
-            _mint(address(this), sharesToMint);
-
-            _state.liquidity.locked += _state.liquidity.availableForNextEpoch;
             _state.liquidity.locked -= newPendingWithdrawals;
-            _state.liquidity.availableForNextEpoch = 0;
+            // ToDo: put aside the payoff to be paid
+
+            // NOTE: the balanceOf includes deposits from the ending epoch
+            uint256 availableForNextEpoch = IERC20(baseToken).balanceOf(address(this)) - _state.liquidity.locked - _state.liquidity.pendingWithdrawals;
+            _state.liquidity.locked += availableForNextEpoch;
+            _state.liquidity.lockedInitially = _state.liquidity.locked;
+
+            // Mint shares related to new deposits performed during the closing epoch:
+            uint256 sharesToMint = VaultLib.assetToShares(availableForNextEpoch, sharePrice);
+            _mint(address(this), sharesToMint);
         }
 
         super.rollEpoch();
 
-        _splitIntoEqualWeightPortfolio();
+        // NOTE: if dead, liquidity went to zero
+        if (!_state.dead) {
+            _splitIntoEqualWeightPortfolio();
+        }
     }
 
     /**
@@ -385,11 +384,26 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.liquidity.locked += swappedAmount;
     }
 
+    // TBD: add to the IVault interface
+    /**
+        @notice Provides the total portfolio value in base tokens
+        @return value The total portfolio value in base tokens
+     */
     function lockedValue() view public returns (uint256) {
-        // ToDo: allow the IExchange to preview the swapped amount
-        // ToDo: return the total portfolio value in base tokens
-        // NOTE: stub assuming price 1:1
-        (uint256 baseTokens, uint256 sideTokens) = getPortfolio();
-        return baseTokens + sideTokens;
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+        (, uint256 sideTokens) = getPortfolio();
+        uint256 valueOfSideTokens = exchange.getSwapAmount(sideToken, baseToken, sideTokens);
+
+        return _state.liquidity.locked + valueOfSideTokens;
+    }
+
+    // ToDo: add a modifier so that only the DVP can call it
+    // ToDo: make the contract ownable so that only the Factory can set the DVP address
+    /// @inheritdoc IVault
+    function notifyLiquidityInjection(uint256 amount) external {
+        // TBD: do we need to keep track of the paid premium amounts ?
+        _state.liquidity.locked += amount;
+        // ToDo: rebalance
     }
 }

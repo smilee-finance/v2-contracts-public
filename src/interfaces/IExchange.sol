@@ -10,4 +10,6 @@ interface IExchange {
         @return tokenOutAmount The amount of output token given by the exchange
      */
     function swap(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 tokenOutAmount);
+
+    function getSwapAmount(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint);
 }

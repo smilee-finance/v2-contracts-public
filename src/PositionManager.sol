@@ -85,9 +85,10 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
         IDVP dvp = IDVP(params.dvpAddr);
 
         // Transfer premium:
+        // NOTE: the DVP will take care of notifying the vault in order to lock that amount
+        // NOTE: right now it needs to be done this way due to the transfer limitations of the testnet token implementation
         IERC20 baseToken = IERC20(dvp.baseToken());
         baseToken.transferFrom(msg.sender, dvp.vault(), params.premium);
-        // ToDo: increase the amount of liquidity available for next epoch within the Vault
 
         // Buy option:
         uint256 leverage = dvp.mint(address(this), params.strike, params.strategy, params.premium);
@@ -199,6 +200,8 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
 
         payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional);
 
+        // ToDo: handle payoff
+
         position.cumulatedPayoff += payoff;
         // NOTE: subtraction is safe because we already checked position.notional is gte burn notional
         position.notional -= notional;
@@ -210,4 +213,5 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
 
         emit SoldDVP(tokenId, notional, payoff);
     }
+
 }

@@ -72,6 +72,10 @@ abstract contract DVP is IDVP, EpochControls {
 
         // TBD: check liquidity availability on liquidity provider
         // TBD: trigger liquidity rebalance on liquidity provider
+        // TBD: perhaps the DVP needs to know how much premium was paid (in a given epoch ?)...
+
+        // Notify Vault of the paid premium in order to increase the locked liquidity.
+        IVault(vault).notifyLiquidityInjection(amount);
 
         Position.Info storage position = _getPosition(currentEpoch, Position.getID(recipient, strategy, strike));
 

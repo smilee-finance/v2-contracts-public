@@ -37,7 +37,7 @@ abstract contract EpochControls is IEpochControls {
     }
 
     modifier epochNotFrozen(uint256 epoch) {
-        if(currentEpoch > 0 && epoch <= block.timestamp) {
+        if (currentEpoch > 0 && block.timestamp >= epoch) {
             revert EpochFrozen();
         }
         _;
