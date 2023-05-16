@@ -6,6 +6,7 @@ import "forge-std/console.sol";
 import {FixedPointMathLib} from "./FixedPointMathLib.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {SignedMath} from "./SignedMath.sol";
+import {Normal} from "./Normal.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library Finance {
@@ -27,24 +28,26 @@ library Finance {
         uint256 tau;
     }
 
+    struct DeltaIGComponents {
+        uint256 c1;
+        uint256 c2;
+        uint256 c3;
+        uint256 c4;
+        uint256 c5;
+        uint256 c6;
+        uint256 c7;
+    }
+
     function igDeltas(DeltaIGParams memory params) public pure returns (int256 igDUp, int256 igDDown) {
         (int256 d1_, int256 d2_, int256 d3_, uint256 sigmaTaurtd) = ds(params);
         uint256 sigmaTaurtdPi2rtd = sigmaTaurtd.wmul(PI2_RTD);
-        uint256 bo = _bo(params);
         {
-            (uint256 c1_, uint256 c2_, uint256 c3_, uint256 c4_, uint256 c5_) = cs(
-                params,
-                d1_,
-                d2_,
-                d3_,
-                sigmaTaurtdPi2rtd
-            );
-
-            uint256 c123 = c1_ + c2_ + c3_;
-            uint256 c45 = c4_ + c5_;
+            DeltaIGComponents memory cs_ = cs(params, d1_, d2_, d3_, sigmaTaurtdPi2rtd);
+            uint256 c123 = cs_.c1 + cs_.c2 + cs_.c3;
+            uint256 c45 = cs_.c4 + cs_.c5;
             igDUp = int256(c123) + SignedMath.neg(c45);
+            igDDown = int256(cs_.c6) - int256(cs_.c7) - igDUp;
         }
-        igDDown = int256(AmountsMath.wrap(1).wdiv(2 * params.K)) - int256(bo / 2) - igDUp;
     }
 
     function cs(
@@ -53,13 +56,16 @@ library Finance {
         int256 d2_,
         int256 d3_,
         uint256 sigmaTaurtdPi2rtd
-    ) public pure returns (uint256 c1_, uint256 c2_, uint256 c3_, uint256 c4_, uint256 c5_) {
+    ) public pure returns (DeltaIGComponents memory cs_) {
         uint256 bo = _bo(params);
-        c1_ = c1(params.r, params.tau, d2_, params.S, sigmaTaurtdPi2rtd);
-        c2_ = c2(params.K, d1_);
-        c3_ = c3(d1_, params.K, sigmaTaurtdPi2rtd);
-        c4_ = c4(bo, d3_);
-        c5_ = c5(bo, d3_, sigmaTaurtdPi2rtd);
+        uint256 c1_ = c1(params.r, params.tau, d2_, params.S, sigmaTaurtdPi2rtd);
+        uint256 c2_ = c2(params.K, d1_);
+        uint256 c3_ = c3(d1_, params.K, sigmaTaurtdPi2rtd);
+        uint256 c4_ = c4(bo, d3_);
+        uint256 c5_ = c5(bo, d3_, sigmaTaurtdPi2rtd);
+        uint256 c6_ = c6(params.K);
+        uint256 c7_ = c7(bo);
+        return DeltaIGComponents(c1_, c2_, c3_, c4_, c5_, c6_, c7_);
     }
 
     function ds(
@@ -113,16 +119,16 @@ library Finance {
         uint256 S,
         uint256 sigmaTaurtdPi2rtd
     ) public pure returns (uint256) {
-        uint256 q1 = FixedPointMathLib.exp(SignedMath.neg(r * tau)) / 2;
-        uint256 q2 = FixedPointMathLib.exp(SignedMath.neg(SignedMath.pow2(d2_) / 2));
-        uint256 denq2 = S.wmul(sigmaTaurtdPi2rtd);
+        uint256 e1 = FixedPointMathLib.exp(SignedMath.neg(r.wmul(tau)));
+        uint256 e2 = FixedPointMathLib.exp(SignedMath.neg(SignedMath.pow2(d2_) / 2));
+        uint256 den = S.wmul(sigmaTaurtdPi2rtd);
 
-        return q1.wmul(q2.wdiv(denq2));
+        return e1.wmul(e2).wdiv(den) / 2;
     }
 
     /// @dev N(d1) / 2K
     function c2(uint256 K, int256 d1_) public pure returns (uint256) {
-        return _normal(d1_).wdiv(2 * K);
+        return Normal.wcdf(d1_).wdiv(2 * K);
     }
 
     /// @dev e^-( d1^2 / 2) / Kσ√(2 pi t)
@@ -134,7 +140,7 @@ library Finance {
 
     /// @dev [ 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)t ] x N(d3)
     function c4(uint256 bo, int256 d3_) public pure returns (uint256) {
-        return (bo / 2).wmul(_normal(d3_));
+        return (bo / 2).wmul(Normal.wcdf(d3_));
     }
 
     /// @dev [ 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)t ] x [ e^-( d3^2 / 2) / o√(2 pi t) ]
@@ -145,24 +151,31 @@ library Finance {
         return bo.wmul(q2);
     }
 
-    /// @dev (r / 2 + σ^2 / 8)t
-    function _boexp(uint256 r, uint256 sigma, uint256 tau) private pure returns (uint256) {
-        return tau * (r / 2 + SignedMath.pow2(int256(sigma)) / 8);
+    /// @dev 1 / 2 K
+    function c6(uint256 K) private pure returns (uint256) {
+        return AmountsMath.wrap(1).wdiv(2 * K);
     }
 
+    /// @dev 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)t
+    function c7(uint256 bo) private pure returns (uint256) {
+        return bo / 2;
+    }
+
+    ////// HELPERS //////
+
     /// @dev √(KS)
-    function _kssqrd(uint256 K, uint256 S) private pure returns (uint256) {
+    function _ksrtd(uint256 K, uint256 S) private pure returns (uint256) {
         return FixedPointMathLib.sqrt(K.wmul(S));
+    }
+
+    /// @dev (r / 2 + σ^2 / 8)t
+    function _boexp(uint256 r, uint256 sigma, uint256 tau) private pure returns (uint256) {
+        return tau.wmul(r / 2 + SignedMath.pow2(int256(sigma)) / 8);
     }
 
     /// @dev 1 / √(KS) x e^-(r / 2 + σ^2 / 8)t
     function _bo(DeltaIGParams memory params) private pure returns (uint256) {
-        uint256 q1 = FixedPointMathLib.exp(SignedMath.neg(_boexp(params.r, params.sigma, params.tau)));
-        return q1.wdiv(_kssqrd(params.K, params.S));
-    }
-
-    /// @dev Utility to get the cdf of a signed value
-    function _normal(int256 n) private pure returns (uint256) {
-        return uint256(n);
+        uint256 e1 = FixedPointMathLib.exp(SignedMath.neg(_boexp(params.r, params.sigma, params.tau)));
+        return e1.wdiv(_ksrtd(params.K, params.S));
     }
 }
