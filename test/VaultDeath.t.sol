@@ -135,7 +135,7 @@ contract VaultDeathTest is Test {
         vault.rollEpoch();
 
         // Check if lockedLiquidity has gone to 0 and the Vault is dead.
-        assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
+        assertEq(0, vault.lockedValue());
         assertEq(true, VaultUtils.vaultState(vault).dead);
 
         // Alice wants to deposit after Vault death. We expect a VaultDead error.
@@ -247,7 +247,7 @@ contract VaultDeathTest is Test {
         assertEq(100, vault.totalSupply());
 
         // Check if lockedLiquidity has gone to 0 and the Vault is dead.
-        assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
+        assertEq(0, vault.lockedValue());
         assertEq(true, VaultUtils.vaultState(vault).dead);
 
         //Alice starts the rescue procedure. An error is expected

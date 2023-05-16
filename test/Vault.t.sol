@@ -72,8 +72,8 @@ contract VaultTest is Test {
         assertEq(0, shares);
         assertEq(100, unredeemedShares);
         // check lockedLiquidity
-        uint256 lockedLiquidity = VaultUtils.vaultState(vault).liquidity.locked;
-        assertEq(50, lockedLiquidity);
+        uint256 lockedLiquidity = vault.lockedValue();
+        assertEq(100, lockedLiquidity);
     }
 
     /**
@@ -218,8 +218,8 @@ contract VaultTest is Test {
         assertEq(50, vault.balanceOf(alice));
 
         // check lockedLiquidity. It still remains the same
-        uint256 lockedLiquidity = VaultUtils.vaultState(vault).liquidity.locked;
-        assertEq(50, lockedLiquidity);
+        uint256 lockedLiquidity = vault.lockedValue();
+        assertEq(100, lockedLiquidity);
     }
 
     /**
@@ -398,15 +398,15 @@ contract VaultTest is Test {
         assertEq(40, vault.balanceOf(address(vault)));
         assertEq(60, vault.balanceOf(alice));
         // check lockedLiquidity
-        uint256 lockedLiquidity = VaultUtils.vaultState(vault).liquidity.locked;
-        assertEq(50, lockedLiquidity);
+        uint256 lockedLiquidity = vault.lockedValue();
+        assertEq(100, lockedLiquidity);
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         // check lockedLiquidity
-        lockedLiquidity = VaultUtils.vaultState(vault).liquidity.locked;
-        assertEq(30, lockedLiquidity);
+        lockedLiquidity = vault.lockedValue();
+        assertEq(60, lockedLiquidity);
 
         vm.prank(alice);
         vault.completeWithdraw();
@@ -569,7 +569,7 @@ contract VaultTest is Test {
         vm.prank(alice);
         vault.deposit(100);
 
-        // Bob deposits 100
+        // Bob deposits 100 USD
         vm.prank(bob);
         vault.deposit(100);
 
@@ -580,7 +580,7 @@ contract VaultTest is Test {
         assertEq(heldByVaultAlice, 100);
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
         assertEq(heldByVaultBob, 100);
-        assertEq(vault.totalSupply(), 200);
+        assertEq(200, vault.totalSupply());
 
         // Alice starts withdraw
         vm.prank(alice);
