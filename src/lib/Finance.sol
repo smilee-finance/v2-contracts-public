@@ -3,10 +3,10 @@ pragma solidity ^0.8.15;
 
 import "forge-std/console.sol";
 
+import {Gaussian} from "@solstat/Gaussian.sol";
 import {FixedPointMathLib} from "./FixedPointMathLib.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {SignedMath} from "./SignedMath.sol";
-import {Normal} from "./Normal.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library Finance {
@@ -128,7 +128,7 @@ library Finance {
 
     /// @dev N(d1) / 2K
     function c2(uint256 K, int256 d1_) public pure returns (uint256) {
-        return Normal.wcdf(d1_).wdiv(2 * K);
+        return uint256(Gaussian.cdf(d1_)).wdiv(2 * K);
     }
 
     /// @dev e^-( d1^2 / 2) / Kσ√(2 pi t)
@@ -140,7 +140,7 @@ library Finance {
 
     /// @dev [ 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)t ] x N(d3)
     function c4(uint256 bo, int256 d3_) public pure returns (uint256) {
-        return (bo / 2).wmul(Normal.wcdf(d3_));
+        return (bo / 2).wmul(uint256(Gaussian.cdf(d3_)));
     }
 
     /// @dev [ 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)t ] x [ e^-( d3^2 / 2) / o√(2 pi t) ]

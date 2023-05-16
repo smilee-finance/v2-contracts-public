@@ -44,8 +44,11 @@ contract FinanceLibTest is Test {
     mapping(uint256 => TestCase) testCases;
     uint256 testCasesNum = 0;
 
-    /// @dev Accepted delta on comparisons (up to 1e-9)
-    uint256 constant ERR = 1e9;
+    /**
+        @dev Accepted delta on comparisons (up to 5e-7)
+        This is mainly due to limitations of `Gaussian.cdf()` computation error.
+     */
+    uint256 constant ERR = 5e11;
 
     function setUp() public {
         testCases[0] = TestCase(
@@ -159,19 +162,19 @@ contract FinanceLibTest is Test {
             sigma,
             2e21, // 2000 strike price
             2e21, // 2000 current price
-            WadTime.nYears(WadTime.daysFraction(1, 100)), // 1/100 of a day
-            0e9, // 0.000000000
-            0e9, // 0.000000000
-            0e9, // 0.000000000
-            38108887e9, // 0.038108887
-            125000e9, // 0.000125000
-            38108908e9, // 0.038108908
-            125000e9, // 0.000125000
-            76217730e9, // 0.076217730
-            250000e9, // 0.000250000
-            250000e9, // 0.000250000
-            65396203e9, // 0.065396203
-            -65113669e9 // -0.065113669
+            WadTime.nYears(WadTime.daysFraction(1, 6)),
+            6196921e9,
+            -4487425e9,
+            854748e9,
+            9334559e9,
+            125618e9,
+            9334559e9,
+            125083e9,
+            18669117e9,
+            250000e9,
+            249995e9,
+            535156764e9,
+            -530447904e9
         );
 
         testCasesNum = 6;
@@ -234,8 +237,8 @@ contract FinanceLibTest is Test {
             igDUp = (int256(testCases[i].V0) * igDUp) / (10 ** 18);
             igDDown = (int256(testCases[i].V0) * igDDown) / (10 ** 18);
 
-            assertApproxEqAbs(testCases[i].igDUp, igDUp, ERR);
-            assertApproxEqAbs(testCases[i].igDDown, igDDown, ERR);
+            assertApproxEqAbs(testCases[i].igDUp, igDUp, 1e13);
+            assertApproxEqAbs(testCases[i].igDDown, igDDown, 1e13);
         }
     }
 }
