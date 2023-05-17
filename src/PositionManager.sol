@@ -85,10 +85,10 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
         IDVP dvp = IDVP(params.dvpAddr);
 
         // Transfer premium:
-        // NOTE: the DVP will take care of notifying the vault in order to lock that amount
-        // NOTE: right now it needs to be done this way due to the transfer limitations of the testnet token implementation
+        // NOTE: done in this inefficient way in order to let the DVP work without the PositionManager
         IERC20 baseToken = IERC20(dvp.baseToken());
-        baseToken.transferFrom(msg.sender, dvp.vault(), params.premium);
+        baseToken.transferFrom(msg.sender, address(this), params.premium);
+        baseToken.approve(params.dvpAddr, params.premium);
 
         // Buy option:
         uint256 leverage = dvp.mint(address(this), params.strike, params.strategy, params.premium);

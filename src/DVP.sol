@@ -74,6 +74,8 @@ abstract contract DVP is IDVP, EpochControls {
         // TBD: trigger liquidity rebalance on liquidity provider
         // TBD: perhaps the DVP needs to know how much premium was paid (in a given epoch ?)...
 
+        // Transfer premium:
+        IERC20(baseToken).transferFrom(msg.sender, vault, amount);
         // Notify Vault of the paid premium in order to increase the locked liquidity.
         IVault(vault).notifyLiquidityInjection(amount);
 

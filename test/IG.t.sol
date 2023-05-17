@@ -48,7 +48,11 @@ contract IGTest is Test {
     function testCanUse() public {
         IDVP ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
-        ig.mint(address(0x1), 0, OptionStrategy.CALL, 1);
+
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), 1, vm);
+
+        vm.prank(alice);
+        ig.mint(alice, 0, OptionStrategy.CALL, 1);
     }
 
     function testMint() public {
@@ -56,6 +60,10 @@ contract IGTest is Test {
 
         IG ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
+
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+
+        vm.prank(alice);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
         bytes32 posId = keccak256(abi.encodePacked(alice, OptionStrategy.CALL, ig.currentStrike()));
@@ -72,7 +80,15 @@ contract IGTest is Test {
 
         IG ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
+
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+
+        vm.prank(alice);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
+
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+
+        vm.prank(alice);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
         bytes32 posId = keccak256(abi.encodePacked(alice, OptionStrategy.CALL, ig.currentStrike()));
@@ -90,14 +106,12 @@ contract IGTest is Test {
         ig.rollEpoch();
         uint256 currEpoch = ig.currentEpoch();
 
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(vault), inputAmount + 1, vm);
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
         vm.prank(alice);
-        IERC20(baseToken).transfer(address(vault), inputAmount);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(vault), inputAmount + 1, vm);
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
         vm.prank(alice);
-        IERC20(baseToken).transfer(address(vault), inputAmount);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
         vm.prank(alice);
@@ -120,7 +134,15 @@ contract IGTest is Test {
         IG ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
         uint256 currEpoch = ig.currentEpoch();
+
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+
+        vm.prank(alice);
         ig.mint(alice, 0, aInputStrategy, inputAmount);
+
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, bob, address(ig), inputAmount, vm);
+
+        vm.prank(bob);
         ig.mint(bob, 0, bInputStrategy, inputAmount);
 
         bytes32 posId1 = keccak256(abi.encodePacked(alice, aInputStrategy, ig.currentStrike()));
@@ -167,6 +189,10 @@ contract IGTest is Test {
 
         IDVP ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
+
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+
+        vm.prank(alice);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
         uint256 epoch = ig.currentEpoch();
