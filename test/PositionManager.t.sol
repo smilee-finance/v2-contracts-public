@@ -42,14 +42,14 @@ contract PositionManagerTest is Test {
         ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
 
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, DEFAULT_SENDER, address(pm), 10, vm);
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, DEFAULT_SENDER, address(pm), 10 ether, vm);
 
         // NOTE: somehow, the sender is something else without this prank...
         vm.prank(DEFAULT_SENDER);
         (tokenId, ) = pm.mint(
             IPositionManager.MintParams({
                 dvpAddr: address(ig),
-                premium: 10,
+                premium: 10 ether,
                 strike: 0,
                 strategy: OptionStrategy.CALL,
                 recipient: alice
@@ -72,9 +72,9 @@ contract PositionManagerTest is Test {
         assertEq(ig.currentStrike(), pos.strike);
         assertEq(OptionStrategy.CALL, pos.strategy);
         assertEq(ig.currentEpoch(), pos.expiry);
-        assertEq(10, pos.premium);
+        assertEq(10 ether, pos.premium);
         assertEq(1, pos.leverage);
-        assertEq(1 * 10, pos.notional);
+        assertEq(1 * 10 ether, pos.notional);
         assertEq(0, pos.cumulatedPayoff);
     }
 
@@ -99,7 +99,7 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
-        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 11}));
+        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 11 ether}));
     }
 
     function testMintAndBurn() public {

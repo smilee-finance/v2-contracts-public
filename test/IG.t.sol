@@ -84,17 +84,19 @@ contract IGTest is Test {
     }
 
     function testMintAndBurn() public {
-        uint256 inputAmount = 1;
+        uint256 inputAmount = 1 ether;
 
         IG ig = new IG(baseToken, sideToken, address(vault));
         ig.rollEpoch();
         uint256 currEpoch = ig.currentEpoch();
 
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(vault), inputAmount, vm);
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(vault), inputAmount + 1, vm);
+        vm.prank(alice);
         IERC20(baseToken).transfer(address(vault), inputAmount);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(vault), inputAmount, vm);
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(vault), inputAmount + 1, vm);
+        vm.prank(alice);
         IERC20(baseToken).transfer(address(vault), inputAmount);
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
