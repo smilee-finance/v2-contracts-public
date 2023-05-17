@@ -4,13 +4,13 @@ pragma solidity ^0.8.15;
 import "forge-std/console.sol";
 import {FixedPointMathLib} from "../src/lib/FixedPointMathLib.sol";
 
+import {Gaussian} from "@solstat/Gaussian.sol";
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {IDVP} from "../src/interfaces/IDVP.sol";
 import {AmountsMath} from "../src/lib/AmountsMath.sol";
 import {Finance} from "../src/lib/Finance.sol";
 import {WadTime} from "../src/lib/WadTime.sol";
-import {Normal} from "../src/lib/Normal.sol";
 
 contract FinanceLibTest is Test {
     using AmountsMath for uint256;
@@ -18,15 +18,7 @@ contract FinanceLibTest is Test {
     uint256 r = 2e16; // 0.02 or 2%
     uint256 sigma = 5e17; // 0.5 or 50%
 
-    struct TestCase {
-        // inputs
-        uint256 V0;
-        uint256 r;
-        uint256 sigma;
-        uint256 K;
-        uint256 S;
-        uint256 tau;
-        // results
+    struct DeltaComponents {
         int256 d1;
         int256 d2;
         int256 d3;
@@ -41,6 +33,26 @@ contract FinanceLibTest is Test {
         int256 igDDown;
     }
 
+    struct PriceComponents {
+        uint256 pu1;
+        uint256 pu2;
+        uint256 pu3;
+        uint256 pd1;
+        uint256 pd2;
+        uint256 pd3;
+        uint256 igPUp;
+        uint256 igPDown;
+    }
+
+    struct TestCase {
+        // inputs
+        uint256 V0;
+        Finance.DeltaPriceParams params;
+        // results
+        DeltaComponents delta;
+        PriceComponents price;
+    }
+
     mapping(uint256 => TestCase) testCases;
     uint256 testCasesNum = 0;
 
@@ -51,130 +63,65 @@ contract FinanceLibTest is Test {
     uint256 constant ERR = 5e11;
 
     function setUp() public {
+        // 3000 current price
         testCases[0] = TestCase(
             V0,
-            r,
-            sigma,
-            2e21, // 2000 strike price
-            3e21, // 3000 current price
-            WadTime.nYears(WadTime.daysFraction(5, 6)), // 5/6 of a day
-            16985368844e9, // 16.98
-            16961477920e9, // 16.96
-            16973423382e9, // 16.97
-            0, // 0.000000000
-            250000e9, // 0.000250000
-            0, // 0.000000000
-            204105e9, // 0.000204105
-            0, // 0.000000000
-            250000e9, // 0.000250000
-            204105e9, // 0.000204105
-            45895077883e9,
-            0
+            Finance.DeltaPriceParams(r, sigma, 2e21, 3e21,  WadTime.nYears(WadTime.daysFraction(5, 6))),
+            DeltaComponents(
+                16985368844e9, // 16.98
+                16961477920e9, // 16.96
+                16973423382e9, // 16.97
+                0e9, // 0.000000000
+                250000e9, // 0.000250000
+                0, // 0.000000000
+                204105e9, // 0.000204105
+                0, // 0.000000000
+                250000e9, // 0.000250000
+                204105e9, // 0.000204105
+                45895077883e9,
+                0
+            ),
+            PriceComponents(499977169e9, 750000000e9, 1224629533e9, 0e9, 0e9, 0e9, 25347636771321e9, 0e9)
         );
 
+        // 0.1 current price
         testCases[1] = TestCase(
             V0,
-            r,
-            sigma,
-            2e21, // 2000 strike price
-            1e17, // 0.1 current price
-            WadTime.nYears(WadTime.daysFraction(4, 6)), // 2/3 of a day
-            -463445429364e9, // -463.44
-            -463466798056e9, // -463.46
-            -463456113710e9, // -463.45
-            0, // 0.000000000
-            0, // 0.000000000
-            0, // 0.000000000
-            0, // 0.000000000
-            0, // 0.000000000
-            250000e9, // 0.000250000
-            35352675e9, // 0.035352675
-            0,
-            -35102675401250e9
+            Finance.DeltaPriceParams(r, sigma, 2e21, 1e17,  WadTime.nYears(WadTime.daysFraction(4, 6))),
+            DeltaComponents(-463445429364e9, -463466798056e9, -463456113710e9, 0, 0, 0, 0, 0, 250000e9, 35352675e9, 0, -35102675401250e9),
+            PriceComponents(0e0, 0e0, 0e0, 499981735e9, 25000e9, 7070535e9, 0e9, 492936200413168e9)
         );
 
+        // 1500 current price
         testCases[2] = TestCase(
             V0,
-            r,
-            sigma,
-            2e21, // 2000 strike price
-            15e20, // 1500 current price
-            WadTime.nYears(WadTime.daysFraction(3, 6)), // half of a day
-            -15534749771e9, // -15.53
-            -15553255601e9, // -15.55
-            -15544002686e9, // -15.54
-            0, // 0.000000000
-            0, // 0.000000000
-            0, // 0.000000000
-            0, // 0.000000000
-            0, // 0.000000000
-            250000e9, // 0.000250000
-            288659e9, // 0.000288659
-            0,
-            -38658822933e9
+            Finance.DeltaPriceParams(r, sigma, 2e21, 15e20,  WadTime.nYears(WadTime.daysFraction(3, 6))),
+            DeltaComponents(-15534749771e9, -15553255601e9, -15544002686e9, 0, 0, 0, 0, 0, 250000e9, 288659e9, 0, -38658822933e9),
+            PriceComponents(0e9, 0e9, 0e9, 499986302e9, 375000000e9, 865976469e9, 0e9, 9009832757476e9)
         );
 
+        // 2010 current price
         testCases[3] = TestCase(
             V0,
-            r,
-            sigma,
-            2e21, // 2000 strike price
-            201e19, // 2010 current price
-            WadTime.nYears(WadTime.daysFraction(2, 6)), // 1/3 of a day
-            338847089e9, // 0.338847089,
-            323737142e9, // 0.323737142,
-            331292116e9, // 0.331292116,
-            6232393e9, // 0.006232393,
-            158159e9, // 0.000158159,
-            6232393e9, // 0.006232393,
-            157049e9, // 0.000157049,
-            12464787e9, // 0.012464787,
-            250000e9, // 0.000250000,
-            249368e9, // 0.000249368,
-            1110429038e9, // 1.110429038,
-            -478368890e9 // -0.478368890
+            Finance.DeltaPriceParams(r, sigma, 2e21, 201e19,  WadTime.nYears(WadTime.daysFraction(2, 6))),
+            DeltaComponents(338847089e9, 323737142e9, 331292116e9, 6232393e9, 158159e9, 6232393e9, 157049e9, 12464787e9, 250000e9, 249368e9, 1110429038e9, -478368890e9),
+            PriceComponents(313460012e9, 317900362e9, 631336800e9, 186530855e9, 184599638e9, 371122318e9, 23574756999e9, 8174700345e9)
         );
 
+        // 1990 current price
         testCases[4] = TestCase(
             V0,
-            r,
-            sigma,
-            2e21, // 2000 strike price
-            199e19, // 1990 current price
-            WadTime.nYears(WadTime.daysFraction(1, 6)), // 1/3 of a day
-            -462951288e9, // -0.462951288
-            -473635634e9, // -0.473635634
-            -468293461e9, // -0.468293461
-            8386143e9, // 0.008386143
-            80425e9, // 0.000080425
-            8386143e9, // 0.008386143
-            80146e9, // 0.000080146
-            16772287e9, // 0.016772287
-            250000e9, // 0.000250000
-            250623e9, // 0.000250623
-            278957332e9, // 0.278957332
-            -901590214e9 // -0.901590214
+            Finance.DeltaPriceParams(r, sigma, 2e21, 199e19, WadTime.nYears(WadTime.daysFraction(1, 6))),
+            DeltaComponents(-462951288e9, -473635634e9, -468293461e9, 8386143e9, 80425e9, 8386143e9, 80146e9, 16772287e9, 250000e9, 250623e9, 278957332e9, -901590214e9),
+            PriceComponents(158938489e9, 160045572e9, 318980893e9, 341056945e9, 337454428e9, 678497185e9, 3166897805e9, 14188041442e9)
         );
 
+        // 2000 current price
         testCases[5] = TestCase(
             V0,
-            r,
-            sigma,
-            2e21, // 2000 strike price
-            2e21, // 2000 current price
-            WadTime.nYears(WadTime.daysFraction(1, 6)),
-            6196921e9,
-            -4487425e9,
-            854748e9,
-            9334559e9,
-            125618e9,
-            9334559e9,
-            125083e9,
-            18669117e9,
-            250000e9,
-            249995e9,
-            535156764e9,
-            -530447904e9
+            Finance.DeltaPriceParams(r, sigma, 2e21, 2e21,  WadTime.nYears(WadTime.daysFraction(1, 6))),
+            DeltaComponents(6196921e9, -4487425e9, 854748e9, 9334559e9, 125618e9, 9334559e9, 125083e9, 18669117e9, 250000e9, 249995e9, 535156764e9, -530447904e9),
+            PriceComponents(249102616e9, 251236099e9, 500331571e9, 250892818e9, 248763901e9, 499649594e9, 7144356430e9, 7124893424e9)
         );
 
         testCasesNum = 6;
@@ -182,63 +129,71 @@ contract FinanceLibTest is Test {
 
     function testTermsDs() public {
         for (uint256 i = 0; i < testCasesNum; i++) {
-            (int256 d1, int256 d2, int256 d3, ) = Finance.ds(
-                Finance.DeltaIGParams(
-                    testCases[i].r,
-                    testCases[i].sigma,
-                    testCases[i].K,
-                    testCases[i].S,
-                    testCases[i].tau
-                )
-            );
+            (int256 d1, int256 d2, int256 d3, ) = Finance.ds(testCases[i].params);
 
-            assertApproxEqAbs(testCases[i].d1, d1, ERR);
-            assertApproxEqAbs(testCases[i].d2, d2, ERR);
-            assertApproxEqAbs(testCases[i].d3, d3, ERR);
+            assertApproxEqAbs(testCases[i].delta.d1, d1, ERR);
+            assertApproxEqAbs(testCases[i].delta.d2, d2, ERR);
+            assertApproxEqAbs(testCases[i].delta.d3, d3, ERR);
         }
     }
 
     function testTermsCs() public {
         for (uint256 i = 0; i < testCasesNum; i++) {
-            Finance.DeltaIGParams memory params = Finance.DeltaIGParams(
-                testCases[i].r,
-                testCases[i].sigma,
-                testCases[i].K,
-                testCases[i].S,
-                testCases[i].tau
-            );
-
-            (int256 d1, int256 d2, int256 d3, uint256 sigmaTaurtd) = Finance.ds(params);
+            (int256 d1, int256 d2, int256 d3, uint256 sigmaTaurtd) = Finance.ds(testCases[i].params);
             uint256 sigmaTaurtdPi2rtd = sigmaTaurtd.wmul(Finance.PI2_RTD);
-            Finance.DeltaIGComponents memory cs_ = Finance.cs(params, d1, d2, d3, sigmaTaurtdPi2rtd);
+            Finance.DeltaIGAddends memory cs_ = Finance.cs(testCases[i].params, d1, d2, d3, sigmaTaurtdPi2rtd);
 
-            assertApproxEqAbs(testCases[i].c1, cs_.c1, ERR);
-            assertApproxEqAbs(testCases[i].c2, cs_.c2, ERR);
-            assertApproxEqAbs(testCases[i].c3, cs_.c3, ERR);
-            assertApproxEqAbs(testCases[i].c4, cs_.c4, ERR);
-            assertApproxEqAbs(testCases[i].c5, cs_.c5, ERR);
-            assertApproxEqAbs(testCases[i].c6, cs_.c6, ERR);
-            assertApproxEqAbs(testCases[i].c7, cs_.c7, ERR);
+            assertApproxEqAbs(testCases[i].delta.c1, cs_.c1, ERR);
+            assertApproxEqAbs(testCases[i].delta.c2, cs_.c2, ERR);
+            assertApproxEqAbs(testCases[i].delta.c3, cs_.c3, ERR);
+            assertApproxEqAbs(testCases[i].delta.c4, cs_.c4, ERR);
+            assertApproxEqAbs(testCases[i].delta.c5, cs_.c5, ERR);
+            assertApproxEqAbs(testCases[i].delta.c6, cs_.c6, ERR);
+            assertApproxEqAbs(testCases[i].delta.c7, cs_.c7, ERR);
         }
     }
 
     function testDeltas() public {
         for (uint256 i = 0; i < testCasesNum; i++) {
-            Finance.DeltaIGParams memory params = Finance.DeltaIGParams(
-                testCases[i].r,
-                testCases[i].sigma,
-                testCases[i].K,
-                testCases[i].S,
-                testCases[i].tau
-            );
-
-            (int256 igDUp, int256 igDDown) = Finance.igDeltas(params);
+            (int256 igDUp, int256 igDDown) = Finance.igDeltas(testCases[i].params);
 
             igDUp = (int256(testCases[i].V0) * igDUp) / (10 ** 18);
             igDDown = (int256(testCases[i].V0) * igDDown) / (10 ** 18);
 
-            assertApproxEqAbs(testCases[i].igDUp, igDUp, 1e13);
-            assertApproxEqAbs(testCases[i].igDDown, igDDown, 1e13);
+            assertApproxEqAbs(testCases[i].delta.igDUp, igDUp, 1e13);
+            assertApproxEqAbs(testCases[i].delta.igDDown, igDDown, 1e13);
+        }
+    }
+
+    function testPs() public {
+        for (uint256 i = 0; i < testCasesNum; i++) {
+            (uint256 p1_, uint256 p2_, uint256 p3_) = Finance.ps(testCases[i].params);
+            (int256 d1_, int256 d2_, int256 d3_, ) = Finance.ds(testCases[i].params);
+            uint256 N1 = uint256(Gaussian.cdf(d1_));
+            uint256 N2 = uint256(Gaussian.cdf(d2_));
+            uint256 N3 = uint256(Gaussian.cdf(d3_));
+
+            {
+                (uint256 pu1, uint256 pu2, uint256 pu3) = Finance.pus(p1_, p2_, p3_, N1, N2, N3);
+                assertApproxEqAbs(testCases[i].price.pu1, pu1, ERR);
+                assertApproxEqAbs(testCases[i].price.pu2, pu2, ERR);
+                assertApproxEqAbs(testCases[i].price.pu3, pu3, ERR);
+            }
+
+            {
+                (uint256 pd1, uint256 pd2, uint256 pd3) = Finance.pds(p1_, p2_, p3_, N1, N2, N3);
+                assertApproxEqAbs(testCases[i].price.pd1, pd1, ERR);
+                assertApproxEqAbs(testCases[i].price.pd2, pd2, ERR);
+                assertApproxEqAbs(testCases[i].price.pd3, pd3, ERR);
+            }
+        }
+    }
+
+    function testPrices() public {
+        for (uint256 i = 0; i < testCasesNum; i++) {
+            (uint256 igPUp, uint256 igPDown) = Finance.igPrices(testCases[i].params);
+            assertApproxEqAbs(testCases[i].price.igPUp, testCases[i].V0.wmul(igPUp), 15e15); // TODO actually e13 is more than needed, but 2000-2000 test is less accurate
+            assertApproxEqAbs(testCases[i].price.igPDown, testCases[i].V0.wmul(igPDown), 15e15); // TODO actually e13 is more than needed, but 2000-2000 test is less accurate
         }
     }
 }
