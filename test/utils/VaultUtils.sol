@@ -62,6 +62,7 @@ library VaultUtils {
                 VaultLib.VaultLiquidity(
                     lockedLiquidity,
                     0,
+                    0,
                     totalWithdrawAmount
                 ),
                 VaultLib.VaultWithdrawals(queuedWithdrawShares, currentQueuedWithdrawShares),

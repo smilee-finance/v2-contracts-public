@@ -15,4 +15,8 @@ interface IPriceOracle {
      * @return decimals Number of decimals for the prices
      */
     function priceDecimals() external pure returns (uint decimals);
+
+    function getImpliedVolatility(address token0, address token1, uint256 strikePrice, uint256 frequency) external returns (uint256 iv);
+
+    function getRiskFreeRate(address token0, address token1) external returns (uint256 rate);
 }

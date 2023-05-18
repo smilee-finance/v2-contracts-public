@@ -14,6 +14,12 @@ abstract contract DVP is IDVP, EpochControls {
     using Position for Position.Info;
     using OptionStrategy for uint256;
 
+    // NOTE: used come residuo da ritirare post fine epoca ?
+    struct Liquidity {
+        uint256 initial;
+        uint256 used;
+    }
+
     /// @inheritdoc IDVPImmutables
     address public immutable override factory;
     /// @inheritdoc IDVPImmutables
@@ -25,12 +31,15 @@ abstract contract DVP is IDVP, EpochControls {
 
     /// @inheritdoc IDVP
     address public override vault;
+    // ToDo: index by epoch and add payoff (mapping of struct)
+    /// @notice Liquidity of the current epoch
+    Liquidity internal _liquidity;
 
     mapping(uint256 => mapping(bytes32 => Position.Info)) public epochPositions;
-    // ToDo: add a counter of overall position's amounts for the current epoch
-    // - TBD: how does it changes when we burn something ?
-    // - TBD: perhaps it's better kept within the vault...
 
+    // error NotEnoughLiquidity();
+
+    // ToDo: retrieve tokens from vault
     constructor(
         address baseToken_,
         address sideToken_,
@@ -54,12 +63,13 @@ abstract contract DVP is IDVP, EpochControls {
         return (position.amount, position.strategy, position.strike, position.epoch);
     }
 
-    /// @notice The total premium currently paid to the DVP
-    /// @return The amount of base tokens deposited in the DVP
-    function balance() public view returns (uint256) {
-        return IERC20(baseToken).balanceOf(address(this));
-    }
+    // /// @notice The total premium currently paid to the DVP
+    // /// @return The amount of base tokens deposited in the DVP
+    // function balance() public view returns (uint256) {
+    //     return IERC20(baseToken).balanceOf(address(this));
+    // }
 
+    // ToDo: replace amount with notional instead of premium
     function _mint(
         address recipient,
         uint256 strike,
@@ -74,10 +84,22 @@ abstract contract DVP is IDVP, EpochControls {
         // TBD: trigger liquidity rebalance on liquidity provider
         // TBD: perhaps the DVP needs to know how much premium was paid (in a given epoch ?)...
 
+        // ToDo: compute premium
+        uint256 premium = 1;
         // Transfer premium:
-        IERC20(baseToken).transferFrom(msg.sender, vault, amount);
-        // Notify Vault of the paid premium in order to increase the locked liquidity.
-        IVault(vault).notifyLiquidityInjection(amount);
+        IERC20(baseToken).transferFrom(msg.sender, vault, premium);
+
+        // ToDo: delta hedge
+        // hedge_notional := initial - (amount + used)
+        // ∆hedge := hedge_notional * ig_delta(...)
+        // vault._____(∆hedge)
+
+        // Check available liquidity:
+        // if (_liquidity.initial - _liquidity.used < amount) {
+        //     revert NotEnoughLiquidity();
+        // }
+        // TBD: let the vault know that it's locked
+        _liquidity.used += amount;
 
         Position.Info storage position = _getPosition(currentEpoch, Position.getID(recipient, strategy, strike));
 
@@ -107,6 +129,9 @@ abstract contract DVP is IDVP, EpochControls {
         Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
         position.updateAmount(-int256(amount));
 
+        _liquidity.used -= amount;
+
+        // ToDo: delta hedge
         paidPayoff = _computePayoff(position);
         IVault(vault).provideLiquidity(recipient, paidPayoff);
 
@@ -119,9 +144,18 @@ abstract contract DVP is IDVP, EpochControls {
 
     /// @inheritdoc EpochControls
     function rollEpoch() public override(EpochControls, IEpochControls) {
-        // NOTE: super.rollEpoch verifies that the epoch can be rolled
+        // NOTE: it implicitly verifies that the epoch can be rolled
+
+        // ToDo: compute payoff and set it into the vault for its roll epoch computations
+        // ----- Payoff := initial locked liquidity * utilization rate [0,1] * dvp payoff percentage (from formulas)
+        // TBD: track amount of liquidity put aside for the DVP payoff of each epoch ?
+
         IEpochControls(vault).rollEpoch();
         // ToDo: check if vault is dead and react to it
+
+        _liquidity.initial = IVault(vault).getLockedValue();
+        // _liquidity.initial = 1000; // TMP
+
         super.rollEpoch();
     }
 

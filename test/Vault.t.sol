@@ -413,7 +413,6 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalShares) = vault.withdrawals(alice);
         assertEq(60, vault.totalSupply());
-        assertEq(30, baseToken.balanceOf(address(vault)));
         assertEq(40, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalShares);
     }

@@ -23,6 +23,12 @@ interface IVault is IVaultParams {
     function getPortfolio() external view returns (uint256 baseTokenAmount, uint256 sideTokenAmount);
 
     /**
+        @notice Provides the total portfolio value in base tokens
+        @return value The total portfolio value in base tokens
+     */
+    function getLockedValue() view external returns (uint256);
+
+    /**
         @notice Deposits an `amount` of `baseToken` from msg.sender
         @dev The shares are not directly minted to the user. We need to wait for epoch change in order to know how many
              shares these assets correspond to. So shares are minted to the contract in `rollEpoch()` and owed to the
@@ -67,12 +73,6 @@ interface IVault is IVaultParams {
         @param amount The amount of asset to be moved
      */
     function moveAsset(int256 amount) external;
-
-    /**
-        @notice Used by the DVP in order to signal a paid premium after the vault received that amount of base tokens
-        @param amount The received amount
-     */
-    function notifyLiquidityInjection(uint256 amount) external;
 
     function provideLiquidity(address recipient, uint256 amount) external;
 }

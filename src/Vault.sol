@@ -90,18 +90,14 @@ contract Vault is IVault, ERC20, EpochControls {
         sideTokenAmount = IERC20(sideToken).balanceOf(address(this));
     }
 
-    // TBD: add to the IVault interface
-    /**
-        @notice Provides the total portfolio value in base tokens
-        @return value The total portfolio value in base tokens
-     */
+    /// @inheritdoc IVault
     function getLockedValue() view public returns (uint256) {
-        address exchangeAddress = _addressProvider.exchangeAdapter();
-        IExchange exchange = IExchange(exchangeAddress);
-        (, uint256 sideTokens) = getPortfolio();
-        uint256 valueOfSideTokens = exchange.getSwapAmount(sideToken, baseToken, sideTokens);
+        return _state.liquidity.lockedInitially;
+    }
 
-        return _state.liquidity.locked + valueOfSideTokens;
+    /// @dev the current amount
+    function _getLockedValue() internal view returns (uint256) {
+        return IERC20(baseToken).balanceOf(address(this)) - _state.liquidity.pendingWithdrawals - _state.liquidity.pendingDeposits;
     }
 
     // TBD: add to the IVault interface
@@ -128,6 +124,8 @@ contract Vault is IVault, ERC20, EpochControls {
 
         IERC20(baseToken).transferFrom(creditor, address(this), amount);
         _emitUpdatedDepositReceipt(creditor, amount);
+
+        _state.liquidity.pendingDeposits += amount;
 
         // ToDo emit Deposit event
     }
@@ -259,12 +257,12 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @inheritdoc IEpochControls
     function rollEpoch() public override isNotDead {
-        // NOTE: assume locked liquidity is updated after trades
-
         // Trigger management of vault locked liquidity (inverse rebalance):
         // ToDo [mainnet]: do not swap everything, but only what's needed for the next epoch.
         // NOTE: the penguin says that doing so will let us save money...
         _sellSideTokens();
+
+        uint256 lockedLiquidity = _getLockedValue();
 
         uint256 sharePrice;
         uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
@@ -274,7 +272,7 @@ contract Vault is IVault, ERC20, EpochControls {
         } else {
             // NOTE: if the locked liquidity is 0, the price is set to 0
             // NOTE: if the number of shares is 0, it will revert due to a division by zero
-            sharePrice = VaultLib.pricePerShare(_state.liquidity.locked, outstandingShares);
+            sharePrice = VaultLib.pricePerShare(lockedLiquidity, outstandingShares);
         }
 
         _epochPricePerShare[currentEpoch] = sharePrice;
@@ -290,19 +288,18 @@ contract Vault is IVault, ERC20, EpochControls {
         uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
         _state.withdrawals.newHeldShares = 0;
         _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
+        lockedLiquidity -= newPendingWithdrawals;
+
+        // ToDo: put aside the payoff to be paid
 
         if (!_state.dead) {
-            _state.liquidity.locked -= newPendingWithdrawals;
-            // ToDo: put aside the payoff to be paid
-
-            // NOTE: the balanceOf includes deposits from the ending epoch
-            uint256 availableForNextEpoch = IERC20(baseToken).balanceOf(address(this)) - _state.liquidity.locked - _state.liquidity.pendingWithdrawals;
-            _state.liquidity.locked += availableForNextEpoch;
-            _state.liquidity.lockedInitially = _state.liquidity.locked;
+            _state.liquidity.lockedInitially = lockedLiquidity + _state.liquidity.pendingDeposits;
 
             // Mint shares related to new deposits performed during the closing epoch:
-            uint256 sharesToMint = VaultLib.assetToShares(availableForNextEpoch, sharePrice);
+            uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice);
             _mint(address(this), sharesToMint);
+
+            _state.liquidity.pendingDeposits = 0;
         }
 
         super.rollEpoch();
@@ -324,10 +321,10 @@ contract Vault is IVault, ERC20, EpochControls {
             revert NothingToRescue();
         }
 
-        uint256 amount = depositReceipt.amount;
+        _state.liquidity.pendingDeposits -= depositReceipt.amount;
 
         depositReceipts[msg.sender].amount = 0;
-        IERC20(baseToken).transfer(msg.sender, amount);
+        IERC20(baseToken).transfer(msg.sender, depositReceipt.amount);
     }
 
     /// @inheritdoc IVault
@@ -371,13 +368,13 @@ contract Vault is IVault, ERC20, EpochControls {
         _sellSideTokens();
 
         if (amount > 0) {
-            _state.liquidity.locked = _state.liquidity.locked.add(uint256(amount));
+            // _state.liquidity.locked = _state.liquidity.locked.add(uint256(amount));
             IERC20(baseToken).transferFrom(msg.sender, address(this), uint256(amount));
         } else {
-            if (uint256(-amount) > _state.liquidity.locked) {
+            if (uint256(-amount) > _getLockedValue()) {
                 revert ExceedsAvailable();
             }
-            _state.liquidity.locked = _state.liquidity.locked.sub(uint256(-amount));
+            // _state.liquidity.locked = _state.liquidity.locked.sub(uint256(-amount));
             IERC20(baseToken).transfer(msg.sender, uint256(-amount));
         }
 
@@ -388,11 +385,9 @@ contract Vault is IVault, ERC20, EpochControls {
         address exchangeAddress = _addressProvider.exchangeAdapter();
         IExchange exchange = IExchange(exchangeAddress);
 
-        uint256 amountToSwap = _state.liquidity.locked / 2;
+        uint256 amountToSwap = _getLockedValue() / 2;
         IERC20(baseToken).approve(exchangeAddress, amountToSwap);
-        uint256 swappedAmount = exchange.swap(baseToken, sideToken, amountToSwap);
-
-        _state.liquidity.locked -= swappedAmount;
+        exchange.swap(baseToken, sideToken, amountToSwap);
     }
 
     function _sellSideTokens() internal {
@@ -401,18 +396,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         uint256 amountToSwap = IERC20(sideToken).balanceOf(address(this));
         IERC20(sideToken).approve(exchangeAddress, amountToSwap);
-        uint256 swappedAmount = exchange.swap(sideToken, baseToken, amountToSwap);
-
-        _state.liquidity.locked += swappedAmount;
-    }
-
-    // ToDo: add a modifier so that only the DVP can call it
-    // ToDo: make the contract ownable so that only the Factory can set the DVP address
-    /// @inheritdoc IVault
-    function notifyLiquidityInjection(uint256 amount) external {
-        // TBD: do we need to keep track of the paid premium amounts ?
-        _state.liquidity.locked += amount;
-        // ToDo: rebalance
+        exchange.swap(sideToken, baseToken, amountToSwap);
     }
 
     // ToDo: add a modifier so that only the DVP can call it
@@ -421,11 +405,11 @@ contract Vault is IVault, ERC20, EpochControls {
         if (amount == 0) {
             return;
         }
-        _sellSideTokens();
-
-        _state.liquidity.locked -= amount;
         IERC20(baseToken).transfer(recipient, amount);
-
-        _splitIntoEqualWeightPortfolio();
     }
+
+    // ToDo: f(∆hedge, premium, liquidity) -> fix account & liquidity
+    // ----- split for open/close position
+    // ----- review notifyLiquidityInjection & provideLiquidity
+    // ToDo (for ∆hedge): allows to swap by providing the desired output amount
 }

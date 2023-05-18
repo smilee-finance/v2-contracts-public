@@ -25,10 +25,10 @@ contract TestnetSwapAdapter is IExchange, Ownable {
         return _getAmountOut(tokenIn, tokenOut, amountIn);
     }
 
-    function _getAmountOut(address tokenIn, address TokenOut, uint amountIn) internal view returns (uint) {
+    function _getAmountOut(address tokenIn, address tokenOut, uint amountIn) internal view returns (uint) {
         uint tokenInDecimals = ERC20(tokenIn).decimals();
-        uint TokenOutDecimals = ERC20(TokenOut).decimals();
-        uint TokenOutPrice = priceOracle.getPrice(tokenIn, TokenOut);
+        uint TokenOutDecimals = ERC20(tokenOut).decimals();
+        uint TokenOutPrice = priceOracle.getPrice(tokenIn, tokenOut);
 
         return amountIn.wmul(TokenOutPrice).wdiv(10**tokenInDecimals).wmul(10**TokenOutDecimals);
     }
