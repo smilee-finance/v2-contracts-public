@@ -69,7 +69,6 @@ abstract contract DVP is IDVP, EpochControls {
     //     return IERC20(baseToken).balanceOf(address(this));
     // }
 
-    // ToDo: replace amount with notional instead of premium
     function _mint(
         address recipient,
         uint256 strike,
@@ -80,25 +79,16 @@ abstract contract DVP is IDVP, EpochControls {
             revert AmountZero();
         }
 
-        // TBD: check liquidity availability on liquidity provider
-        // TBD: trigger liquidity rebalance on liquidity provider
-        // TBD: perhaps the DVP needs to know how much premium was paid (in a given epoch ?)...
-
-        // ToDo: compute premium
-        uint256 premium = 1;
-        // Transfer premium:
-        IERC20(baseToken).transferFrom(msg.sender, vault, premium);
-
-        // ToDo: delta hedge
-        // hedge_notional := initial - (amount + used)
-        // ∆hedge := hedge_notional * ig_delta(...)
-        // vault._____(∆hedge)
-
         // Check available liquidity:
         // if (_liquidity.initial - _liquidity.used < amount) {
         //     revert NotEnoughLiquidity();
         // }
-        // TBD: let the vault know that it's locked
+
+        // TBD: perhaps the DVP needs to know how much premium was paid (in a given epoch ?)...
+        _payPremium(strike, strategy, amount);
+
+        _deltaHedge(strike, strategy, amount);
+
         _liquidity.used += amount;
 
         Position.Info storage position = _getPosition(currentEpoch, Position.getID(recipient, strategy, strike));
@@ -111,6 +101,25 @@ abstract contract DVP is IDVP, EpochControls {
 
         leverage = 1;
         emit Mint(msg.sender, recipient);
+    }
+
+    function _payPremium(uint256 strike, bool strategy, uint256 amount) internal {
+        strike;
+        strategy;
+        amount;
+
+        // ToDo: compute price and premium
+        uint256 premium = amount * 1e17; // 10%
+
+        // Transfer premium:
+        IERC20(baseToken).transferFrom(msg.sender, vault, premium);
+    }
+
+    function _deltaHedge(uint256 strike, bool strategy, uint256 amount) internal {
+        // ToDo: delta hedge
+        // uint256 notional = _liquidity.initial - (amount + _liquidity.used);
+        // sideTokensAmount := notional * ig_delta(...)
+        // IVault(vault).deltaHedge(sideTokensAmount);
     }
 
     function _burn(

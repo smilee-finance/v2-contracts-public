@@ -398,6 +398,10 @@ contract Vault is IVault, ERC20, EpochControls {
         if (amount == 0) {
             return;
         }
+        if (amount > _getLockedValue()) {
+            revert ExceedsAvailable();
+        }
+
         IERC20(baseToken).transfer(recipient, amount);
     }
 
@@ -424,6 +428,10 @@ contract Vault is IVault, ERC20, EpochControls {
         IExchange exchange = IExchange(exchangeAddress);
 
         uint256 baseTokensAmount = exchange.getInputAmount(baseToken, sideToken, amount);
+        if (baseTokensAmount > _getLockedValue()) {
+            revert ExceedsAvailable();
+        }
+
         IERC20(baseToken).approve(exchangeAddress, baseTokensAmount);
 
         exchange.swapOut(baseToken, sideToken, amount);
