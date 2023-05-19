@@ -39,19 +39,17 @@ abstract contract DVP is IDVP, EpochControls {
 
     // error NotEnoughLiquidity();
 
-    // ToDo: retrieve tokens from vault
     constructor(
-        address baseToken_,
-        address sideToken_,
         address vault_,
         bool optionType_
     ) EpochControls(IEpochControls(vault_).epochFrequency()) {
-        DVPLogic.valid(DVPLogic.DVPCreateParams(baseToken_, sideToken_));
         factory = msg.sender;
-        baseToken = baseToken_;
-        sideToken = sideToken_;
         optionType = optionType_;
         vault = vault_;
+        IVault vaultCt = IVault(vault);
+        baseToken = vaultCt.baseToken();
+        sideToken = vaultCt.sideToken();
+        DVPLogic.valid(DVPLogic.DVPCreateParams(baseToken, sideToken));
     }
 
     /// @inheritdoc IDVP
@@ -68,6 +66,13 @@ abstract contract DVP is IDVP, EpochControls {
     // function balance() public view returns (uint256) {
     //     return IERC20(baseToken).balanceOf(address(this));
     // }
+
+    function _premium(uint256 strike, bool strategy, uint256 amount) internal view virtual returns (uint256) {
+        strike;
+        strategy;
+        // ToDo: compute price and premium
+        return amount / 10; // 10%
+    }
 
     function _mint(
         address recipient,
@@ -104,12 +109,7 @@ abstract contract DVP is IDVP, EpochControls {
     }
 
     function _payPremium(uint256 strike, bool strategy, uint256 amount) internal {
-        strike;
-        strategy;
-        amount;
-
-        // ToDo: compute price and premium
-        uint256 premium = amount * 1e17; // 10%
+        uint256 premium = _premium(strike, strategy, amount);
 
         // Transfer premium:
         IERC20(baseToken).transferFrom(msg.sender, vault, premium);

@@ -363,28 +363,6 @@ contract Vault is IVault, ERC20, EpochControls {
         revert SecondaryMarkedNotAllowed();
     }
 
-    /**
-        @notice
-        @dev ToDo: replace with something that hedges a side token amount
-     */
-    function moveAsset(int256 amount) public {
-        uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
-        _sellSideTokens(sideTokens);
-
-        if (amount > 0) {
-            // _state.liquidity.locked = _state.liquidity.locked.add(uint256(amount));
-            IERC20(baseToken).transferFrom(msg.sender, address(this), uint256(amount));
-        } else {
-            if (uint256(-amount) > _getLockedValue()) {
-                revert ExceedsAvailable();
-            }
-            // _state.liquidity.locked = _state.liquidity.locked.sub(uint256(-amount));
-            IERC20(baseToken).transfer(msg.sender, uint256(-amount));
-        }
-
-        _splitIntoEqualWeightPortfolio();
-    }
-
     function _splitIntoEqualWeightPortfolio() internal {
         address exchangeAddress = _addressProvider.exchangeAdapter();
         IExchange exchange = IExchange(exchangeAddress);

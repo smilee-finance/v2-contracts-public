@@ -13,10 +13,11 @@ import {AddressProvider} from "../../src/AddressProvider.sol";
 import {Registry} from "../../src/Registry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
+import {MockedVault} from "../mock/MockedVault.sol";
 
 library VaultUtils {
 
-    function createVaultFromNothing(uint256 epochFrequency, address admin, Vm vm) internal returns (Vault) {
+    function createVaultFromNothing(uint256 epochFrequency, address admin, Vm vm) internal returns (address) {
         vm.startPrank(admin);
 
         Registry registry = new Registry();
@@ -40,12 +41,12 @@ library VaultUtils {
         address sideToken = address(token);
         priceOracle.setTokenPrice(sideToken, 1 ether);
 
-        Vault vault = new Vault(baseToken, sideToken, epochFrequency, address(_ap));
+        MockedVault vault = new MockedVault(baseToken, sideToken, epochFrequency, address(_ap));
         registry.register(address(vault));
 
         vm.stopPrank();
 
-        return vault;
+        return address(vault);
     }
 
     /// @dev Builds and returns a `VaultLib.VaultState` with info on current vault state

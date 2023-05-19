@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "../src/interfaces/IDVP.sol";
+import {IVault} from "../src/interfaces/IVault.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
@@ -26,27 +27,28 @@ contract IGTest is Test {
     address bob = address(0x2);
 
     constructor() {
-        vault = VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, address(0x10), vm);
+        vault = Vault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, address(0x10), vm));
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
     }
 
     function setUp() public {}
 
-    function testCantCreate() public {
-        vm.expectRevert(AddressZero);
-        new IG(address(0x0), address(0x0), address(vault));
-    }
+    // ToDo: review with a different vault
+    // function testCantCreate() public {
+    //     vm.expectRevert(AddressZero);
+    //     new IG(address(vault));
+    // }
 
     function testCantUse() public {
-        IDVP ig = new IG(baseToken, sideToken, address(vault));
+        IDVP ig = new IG(address(vault));
 
         vm.expectRevert(NoActiveEpoch);
         ig.mint(address(0x1), 0, OptionStrategy.CALL, 1);
     }
 
     function testCanUse() public {
-        IDVP ig = new IG(baseToken, sideToken, address(vault));
+        IDVP ig = new IG(address(vault));
         ig.rollEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), 1, vm);
@@ -58,7 +60,7 @@ contract IGTest is Test {
     function testMint() public {
         uint256 inputAmount = 1;
 
-        IG ig = new IG(baseToken, sideToken, address(vault));
+        IG ig = new IG(address(vault));
         ig.rollEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
@@ -78,7 +80,7 @@ contract IGTest is Test {
     function testMintSum() public {
         uint256 inputAmount = 1;
 
-        IG ig = new IG(baseToken, sideToken, address(vault));
+        IG ig = new IG(address(vault));
         ig.rollEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
@@ -102,7 +104,7 @@ contract IGTest is Test {
     function testMintAndBurn() public {
         uint256 inputAmount = 1 ether;
 
-        IG ig = new IG(baseToken, sideToken, address(vault));
+        IG ig = new IG(address(vault));
         ig.rollEpoch();
         uint256 currEpoch = ig.currentEpoch();
 
@@ -131,7 +133,7 @@ contract IGTest is Test {
         bool bInputStrategy = OptionStrategy.PUT;
         uint256 inputAmount = 1;
 
-        IG ig = new IG(baseToken, sideToken, address(vault));
+        IG ig = new IG(address(vault));
         ig.rollEpoch();
         uint256 currEpoch = ig.currentEpoch();
 
@@ -177,7 +179,7 @@ contract IGTest is Test {
     }
 
     function testCantMintZero() public {
-        IDVP ig = new IG(baseToken, sideToken, address(vault));
+        IDVP ig = new IG(address(vault));
         ig.rollEpoch();
 
         vm.expectRevert(AmountZero);
@@ -187,7 +189,7 @@ contract IGTest is Test {
     function testCantBurnMoreThanMinted() public {
         uint256 inputAmount = 1;
 
-        IDVP ig = new IG(baseToken, sideToken, address(vault));
+        IDVP ig = new IG(address(vault));
         ig.rollEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);

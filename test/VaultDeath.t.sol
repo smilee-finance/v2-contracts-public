@@ -8,6 +8,7 @@ import {Vault} from "../src/Vault.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
+import {MockedVault} from "./mock/MockedVault.sol";
 
 /**
     @title Test case for underlying asset going to zero
@@ -24,12 +25,12 @@ contract VaultDeathTest is Test {
     address bob = address(0x3);
     TestnetToken baseToken;
     TestnetToken sideToken;
-    Vault vault;
+    MockedVault vault;
 
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
 
-        vault = VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm);
+        vault = MockedVault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
@@ -78,7 +79,7 @@ contract VaultDeathTest is Test {
         vm.stopPrank();
 
         // remove brutally liquidity from Vault.
-        vault.moveAsset(-200);
+        vault.moveValue(-10000);
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -124,7 +125,7 @@ contract VaultDeathTest is Test {
         Utils.skipDay(false, vm);
         vault.rollEpoch();
 
-        vault.moveAsset(-100);
+        vault.moveValue(-10000);
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -158,7 +159,7 @@ contract VaultDeathTest is Test {
         vault.rollEpoch();
 
         // NOTE: cause the locked liquidity to go to zero; this, in turn, cause the vault death
-        vault.moveAsset(-100);
+        vault.moveValue(-10000);
 
         vm.prank(alice);
         vault.deposit(100);
@@ -226,7 +227,7 @@ contract VaultDeathTest is Test {
         assertEq(100, vault.totalSupply());
         assertEq(100, heldByVaultAlice);
 
-        vault.moveAsset(-100);
+        vault.moveValue(-10000);
 
         // assertEq(0, vault.getLockedValue());
 

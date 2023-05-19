@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {IRegistry} from "../src/interfaces/IRegistry.sol";
+import {IVault} from "../src/interfaces/IVault.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
@@ -32,7 +33,7 @@ contract PositionManagerTest is Test {
     IRegistry registry;
 
     constructor() {
-        vault = VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, address(0x10), vm);
+        vault = Vault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, address(0x10), vm));
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
 
@@ -46,7 +47,7 @@ contract PositionManagerTest is Test {
     }
 
     function initAndMint() private returns (uint256 tokenId, IG ig) {
-        ig = new IG(baseToken, sideToken, address(vault));
+        ig = new IG(address(vault));
         ig.rollEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, DEFAULT_SENDER, address(pm), 10 ether, vm);

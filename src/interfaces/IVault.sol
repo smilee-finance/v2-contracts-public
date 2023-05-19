@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IVaultParams} from "./IVaultParams.sol";
+import {IEpochControls} from "./IEpochControls.sol";
 
 interface IVault is IVaultParams {
     function vaultState()
@@ -68,12 +70,6 @@ interface IVault is IVaultParams {
         @return heldByVault The amount of shares owed to the wallet
      */
     function shareBalances(address account) external view returns (uint256 heldByAccount, uint256 heldByVault);
-
-    /**
-        @notice Move base asset to or from the Vault
-        @param amount The amount of asset to be moved
-     */
-    function moveAsset(int256 amount) external;
 
     function provideLiquidity(address recipient, uint256 amount) external;
 

@@ -2,12 +2,14 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
+import {IVault} from "../src/interfaces/IVault.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Vault} from "../src/Vault.sol";
+import {MockedVault} from "./mock/MockedVault.sol";
 
 contract VaultTest is Test {
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
@@ -25,7 +27,7 @@ contract VaultTest is Test {
     address bob = address(0x3);
     TestnetToken baseToken;
     TestnetToken sideToken;
-    Vault vault;
+    MockedVault vault;
 
     /**
      * Setup function for each test.
@@ -33,7 +35,7 @@ contract VaultTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
 
-        vault = VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm);
+        vault = MockedVault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
@@ -442,7 +444,7 @@ contract VaultTest is Test {
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100, vm);
         vm.prank(tokenAdmin);
-        vault.moveAsset(100);
+        vault.moveValue(10000); // +100% Alice
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -459,7 +461,7 @@ contract VaultTest is Test {
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 300, vm);
         vm.prank(tokenAdmin);
-        vault.moveAsset(300);
+        vault.moveValue(10000); // +200% Alice, +100% Bob
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -508,7 +510,7 @@ contract VaultTest is Test {
         vault.deposit(100);
 
         // Remove asset from Vault
-        vault.moveAsset(-50);
+        vault.moveValue(-5000); // -50% Alice
         assertEq(150, vault.getPortfolioValue());
 
         Utils.skipDay(false, vm);
@@ -524,7 +526,7 @@ contract VaultTest is Test {
         vm.prank(bob);
         vault.initiateWithdraw(200);
 
-        vault.moveAsset(-75);
+        vault.moveValue(-5000); // -75% Alice, -50% Bob
         assertEq(75, vault.getPortfolioValue());
 
         Utils.skipDay(false, vm);

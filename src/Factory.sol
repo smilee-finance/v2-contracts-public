@@ -73,7 +73,7 @@ contract Factory is Ownable, Registry {
     external onlyOwner returns (address) 
     {
         address vault = _createVault(baseToken, sideToken, epochFrequency); 
-        IDVP dvp = new IG(baseToken, sideToken, vault);
+        IDVP dvp = new IG(vault);
         register(address(dvp));
         emit IGMarketCreated(address(dvp), vault, baseToken);  
         return address(dvp);

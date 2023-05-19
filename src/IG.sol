@@ -11,17 +11,12 @@ contract IG is DVP {
     uint256 public currentStrike;
 
     constructor(
-        address baseToken_,
-        address sideToken_,
         address vault_
-    ) DVP(baseToken_, sideToken_, vault_, DVPType.IG) {}
+    ) DVP(vault_, DVPType.IG) {}
 
     /// @inheritdoc IDVP
-    function premium(uint256 strike, uint256 strategy, uint256 amount) public pure override returns (uint256) {
-        strike;
-        strategy;
-        amount;
-        return 0.1 ether;
+    function premium(uint256 strike, bool strategy, uint256 amount) public view override returns (uint256) {
+        return _premium(strike, strategy, amount);
     }
 
     /// @inheritdoc IDVP

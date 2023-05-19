@@ -23,7 +23,7 @@ contract VaultStateTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
 
-        vault = VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm);
+        vault = Vault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 

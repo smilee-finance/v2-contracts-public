@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Vault} from "../../src/Vault.sol";
+import {IPriceOracle} from "../../src/interfaces/IPriceOracle.sol";
 
 /**
     @notice a mocked vault to ease the testing of DVPs
@@ -35,8 +37,36 @@ contract MockedVault is Vault {
         return super.getLockedValue();
     }
 
-    // ToDo: replace moveAsset
-    function setBalances(uint256 baseTokenAmount, uint256 sideTokenAmount) public {
-        // TBD vault state
+    // function moveTokens(int256 baseTokenAmount, int256 sideTokenAmount) public {
+    //     _moveToken(baseToken, baseTokenAmount);
+    //     _moveToken(sideToken, sideTokenAmount);
+    // }
+
+    function _moveToken(address token, int256 amount) internal {
+        if (amount > 0) {
+            IERC20(token).transferFrom(msg.sender, address(this), uint256(amount));
+        } else {
+            uint256 absAmount = uint256(-amount);
+            if (token == baseToken && absAmount > _getLockedValue()) {
+                revert ExceedsAvailable();
+            }
+            IERC20(token).transfer(msg.sender, absAmount);
+        }
+    }
+
+    function moveValue(int256 percentage) public {
+        // percentage
+        // 10000 := 100%
+        // 100 := 1%
+        // revert if <= 100 %
+        require(percentage >= -10000);
+
+        uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
+        _sellSideTokens(sideTokens);
+
+        int256 baseDelta = int(_getLockedValue()) * percentage / 10000;
+        _moveToken(baseToken, baseDelta);
+
+        _splitIntoEqualWeightPortfolio();
     }
 }

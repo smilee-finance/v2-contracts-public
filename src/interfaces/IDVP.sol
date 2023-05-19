@@ -36,7 +36,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param amount The amount of options to be paid
         @return premium The amount of base tokens that need to be paid to mint an option
      */
-    function premium(uint256 strike, uint256 strategy, uint256 amount) external view returns (uint256 premium);
+    function premium(uint256 strike, bool strategy, uint256 amount) external view returns (uint256 premium);
 
     /**
         @notice Returns the payoff of the given position
