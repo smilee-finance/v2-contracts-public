@@ -93,7 +93,7 @@ contract Vault is IVault, ERC20, EpochControls {
     }
 
     /// @inheritdoc IVault
-    function getLockedValue() view public returns (uint256) {
+    function getLockedValue() view public virtual returns (uint256) {
         return _state.liquidity.lockedInitially;
     }
 
