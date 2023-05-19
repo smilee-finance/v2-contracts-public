@@ -75,4 +75,6 @@ interface IVault is IVaultParams {
     function moveAsset(int256 amount) external;
 
     function provideLiquidity(address recipient, uint256 amount) external;
+
+    function deltaHedge(int256 sideTokensAmount) external;
 }

@@ -21,20 +21,20 @@ contract TestnetSwapAdapter is IExchange, Ownable {
         priceOracle = IPriceOracle(oracle);
     }
 
-    function getSwapAmount(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint) {
+    function getOutputAmount(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint) {
         return _getAmountOut(tokenIn, tokenOut, amountIn);
     }
 
     function _getAmountOut(address tokenIn, address tokenOut, uint amountIn) internal view returns (uint) {
         uint tokenInDecimals = ERC20(tokenIn).decimals();
-        uint TokenOutDecimals = ERC20(tokenOut).decimals();
-        uint TokenOutPrice = priceOracle.getPrice(tokenIn, tokenOut);
+        uint tokenOutDecimals = ERC20(tokenOut).decimals();
+        uint tokenOutPrice = priceOracle.getPrice(tokenIn, tokenOut);
 
-        return amountIn.wmul(TokenOutPrice).wdiv(10**tokenInDecimals).wmul(10**TokenOutDecimals);
+        return amountIn.wmul(tokenOutPrice).wdiv(10**tokenInDecimals).wmul(10**tokenOutDecimals);
     }
 
     // @inheritdoc IExchange
-    function swap(
+    function swapIn(
         address tokenIn,
         address tokenOut,
         uint256 amountIn
@@ -42,6 +42,32 @@ contract TestnetSwapAdapter is IExchange, Ownable {
         ERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
         TestnetToken(tokenIn).burn(address(this), amountIn);
         amountOut = _getAmountOut(tokenIn, tokenOut, amountIn);
+        TestnetToken(tokenOut).mint(msg.sender, amountOut);
+    }
+
+    // @inheritdoc IExchange
+    function getInputAmount(address tokenIn, address tokenOut, uint256 amountOut) external view returns (uint) {
+        return _getAmountIn(tokenIn, tokenOut, amountOut);
+    }
+
+    function _getAmountIn(address tokenIn, address tokenOut, uint amountOut) internal view returns (uint) {
+        uint tokenInDecimals = ERC20(tokenIn).decimals();
+        uint tokenOutDecimals = ERC20(tokenOut).decimals();
+        uint tokenInPrice = priceOracle.getPrice(tokenOut, tokenIn);
+
+        return amountOut.wmul(tokenInPrice).wdiv(10**tokenOutDecimals).wmul(10**tokenInDecimals);
+    }
+
+    // @inheritdoc IExchange
+    function swapOut(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut
+    ) external returns (uint256 amountIn) {
+        amountIn = _getAmountIn(tokenIn, tokenOut, amountOut);
+        ERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+
+        TestnetToken(tokenIn).burn(address(this), amountIn);
         TestnetToken(tokenOut).mint(msg.sender, amountOut);
     }
 }

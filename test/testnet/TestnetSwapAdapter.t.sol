@@ -73,7 +73,7 @@ contract TestnetSwapAdapterTest is Test {
      * An user tries to get the the Receiving amount of a pair with tokenInAmount equals to 0.  The amount to receive have to be 0.
      */
     function testTestnetSwapAdapterGetSwapAmountOfZero() public {
-        uint256 amountToReceive = swapAdapter.getSwapAmount(address(wETH), address(wBTC), 0);
+        uint256 amountToReceive = swapAdapter.getOutputAmount(address(wETH), address(wBTC), 0);
 
         assertEq(0, amountToReceive);
     }
@@ -87,7 +87,7 @@ contract TestnetSwapAdapterTest is Test {
      * An user wants to get the receiving amount of a pair.
      */
     function testTestnetSwapAdapterGetSwapAmount() public {
-        uint256 amountToReceive = swapAdapter.getSwapAmount(address(wETH), address(wBTC), 1 ether);
+        uint256 amountToReceive = swapAdapter.getOutputAmount(address(wETH), address(wBTC), 1 ether);
 
         assertEq(0.1 ether, amountToReceive);
     }
@@ -96,7 +96,7 @@ contract TestnetSwapAdapterTest is Test {
      *  An user wants to get the receiving amount of a pair. The worthest token has been swapped. 
      */
     function testTestnetSwapAdapterGetSwapAmountMoreWorthFirst() public {
-        uint256 amountToReceive = swapAdapter.getSwapAmount(address(wBTC), address(wETH), 1 ether);
+        uint256 amountToReceive = swapAdapter.getOutputAmount(address(wBTC), address(wETH), 1 ether);
 
         assertEq(10 ether, amountToReceive);
     }
@@ -108,10 +108,10 @@ contract TestnetSwapAdapterTest is Test {
     function testTestnetSwapAdapterSwap() public {
         TokenUtils.provideApprovedTokens(adminWallet, address(wETH), alice, address(swapAdapter), 100 ether, vm);
 
-        uint256 amountToReceive = swapAdapter.getSwapAmount(address(wETH), address(wBTC), 10 ether);
+        uint256 amountToReceive = swapAdapter.getOutputAmount(address(wETH), address(wBTC), 10 ether);
 
         vm.prank(alice);
-        swapAdapter.swap(address(wETH), address(wBTC), 10 ether);
+        swapAdapter.swapIn(address(wETH), address(wBTC), 10 ether);
 
         assertEq(90 ether, wETH.balanceOf(alice));
         assertEq(amountToReceive, wBTC.balanceOf(alice));

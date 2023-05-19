@@ -109,7 +109,7 @@ contract Vault is IVault, ERC20, EpochControls {
         address exchangeAddress = _addressProvider.exchangeAdapter();
         IExchange exchange = IExchange(exchangeAddress);
         (uint256 baseTokens, uint256 sideTokens) = getPortfolio();
-        uint256 valueOfSideTokens = exchange.getSwapAmount(sideToken, baseToken, sideTokens);
+        uint256 valueOfSideTokens = exchange.getOutputAmount(sideToken, baseToken, sideTokens);
 
         return baseTokens + valueOfSideTokens;
     }
@@ -260,7 +260,8 @@ contract Vault is IVault, ERC20, EpochControls {
         // Trigger management of vault locked liquidity (inverse rebalance):
         // ToDo [mainnet]: do not swap everything, but only what's needed for the next epoch.
         // NOTE: the penguin says that doing so will let us save money...
-        _sellSideTokens();
+        uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
+        _sellSideTokens(sideTokens);
 
         uint256 lockedLiquidity = _getLockedValue();
 
@@ -365,7 +366,8 @@ contract Vault is IVault, ERC20, EpochControls {
         @dev ToDo: replace with something that hedges a side token amount
      */
     function moveAsset(int256 amount) public {
-        _sellSideTokens();
+        uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
+        _sellSideTokens(sideTokens);
 
         if (amount > 0) {
             // _state.liquidity.locked = _state.liquidity.locked.add(uint256(amount));
@@ -387,16 +389,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         uint256 amountToSwap = _getLockedValue() / 2;
         IERC20(baseToken).approve(exchangeAddress, amountToSwap);
-        exchange.swap(baseToken, sideToken, amountToSwap);
-    }
-
-    function _sellSideTokens() internal {
-        address exchangeAddress = _addressProvider.exchangeAdapter();
-        IExchange exchange = IExchange(exchangeAddress);
-
-        uint256 amountToSwap = IERC20(sideToken).balanceOf(address(this));
-        IERC20(sideToken).approve(exchangeAddress, amountToSwap);
-        exchange.swap(sideToken, baseToken, amountToSwap);
+        exchange.swapIn(baseToken, sideToken, amountToSwap);
     }
 
     // ToDo: add a modifier so that only the DVP can call it
@@ -408,8 +401,31 @@ contract Vault is IVault, ERC20, EpochControls {
         IERC20(baseToken).transfer(recipient, amount);
     }
 
-    // ToDo: f(∆hedge, premium, liquidity) -> fix account & liquidity
-    // ----- split for open/close position
-    // ----- review notifyLiquidityInjection & provideLiquidity
-    // ToDo (for ∆hedge): allows to swap by providing the desired output amount
+    function deltaHedge(int256 sideTokensAmount) external {
+        if (sideTokensAmount > 0) {
+            uint256 amount = uint256(sideTokensAmount);
+            _buySideTokens(amount);
+        } else {
+            uint256 amount = uint256(-sideTokensAmount);
+            _sellSideTokens(amount);
+        }
+    }
+
+    function _sellSideTokens(uint256 amount) internal {
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+
+        IERC20(sideToken).approve(exchangeAddress, amount);
+        exchange.swapIn(sideToken, baseToken, amount);
+    }
+
+    function _buySideTokens(uint256 amount) internal {
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+
+        uint256 baseTokensAmount = exchange.getInputAmount(baseToken, sideToken, amount);
+        IERC20(baseToken).approve(exchangeAddress, baseTokensAmount);
+
+        exchange.swapOut(baseToken, sideToken, amount);
+    }
 }
