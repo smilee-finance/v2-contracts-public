@@ -8,7 +8,8 @@ interface IVault is IVaultParams {
         external
         view
         returns (
-            uint256 lockedLiquidity,
+            uint256 lockedLiquidityInitially,
+            uint256 pendingDeposits,
             uint256 totalWithdrawAmount,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,

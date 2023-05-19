@@ -51,7 +51,8 @@ library VaultUtils {
     /// @dev Builds and returns a `VaultLib.VaultState` with info on current vault state
     function vaultState(IVault vault) internal view returns (VaultLib.VaultState memory) {
         (
-            uint256 lockedLiquidity,
+            uint256 lockedInitially,
+            uint256 pendingDepositAmount,
             uint256 totalWithdrawAmount,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
@@ -60,9 +61,8 @@ library VaultUtils {
         return
             VaultLib.VaultState(
                 VaultLib.VaultLiquidity(
-                    lockedLiquidity,
-                    0,
-                    0,
+                    lockedInitially,
+                    pendingDepositAmount,
                     totalWithdrawAmount
                 ),
                 VaultLib.VaultWithdrawals(queuedWithdrawShares, currentQueuedWithdrawShares),
@@ -76,7 +76,7 @@ library VaultUtils {
     function getRecoverableAmounts(Vault vault) public view returns (uint256) {
         TestnetToken baseToken = TestnetToken(vault.baseToken());
         uint256 balance = baseToken.balanceOf(address(vault));
-        uint256 locked = vaultState(vault).liquidity.locked;
+        uint256 locked = vault.getLockedValue();
         uint256 pendingWithdrawals = vaultState(vault).liquidity.pendingWithdrawals;
 
         return balance - locked - pendingWithdrawals;

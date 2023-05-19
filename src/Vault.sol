@@ -69,7 +69,8 @@ contract Vault is IVault, ERC20, EpochControls {
         external
         view
         returns (
-            uint256 lockedLiquidity,
+            uint256 lockedLiquidityInitially,
+            uint256 pendingDeposit,
             uint256 totalWithdrawAmount,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
@@ -77,7 +78,8 @@ contract Vault is IVault, ERC20, EpochControls {
         )
     {
         return (
-            _state.liquidity.locked,
+            _state.liquidity.lockedInitially,
+            _state.liquidity.pendingDeposits,
             _state.liquidity.pendingWithdrawals,
             _state.withdrawals.heldShares,
             _state.withdrawals.newHeldShares,

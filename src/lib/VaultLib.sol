@@ -17,8 +17,6 @@ library VaultLib {
     }
 
     struct VaultLiquidity {
-        // Liquidity currently used by associated DVP (without the side tokens value)
-        uint256 locked;
         // Liquidity initially used by the associated DVP
         uint256 lockedInitially;
         // Liquidity from new deposits

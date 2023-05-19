@@ -77,9 +77,8 @@ contract VaultDeathTest is Test {
         vault.initiateWithdraw(100);
         vm.stopPrank();
 
+        // remove brutally liquidity from Vault.
         vault.moveAsset(-200);
-
-        // assertEq(0, vault.getLockedValue());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -91,7 +90,6 @@ contract VaultDeathTest is Test {
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
         assertEq(100, vault.totalSupply());
-        // assertEq(0, vault.getLockedValue());
         assertEq(0, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
         vm.stopPrank();
@@ -101,7 +99,6 @@ contract VaultDeathTest is Test {
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
         assertEq(0, vault.totalSupply());
-        // assertEq(0, vault.getLockedValue());
         assertEq(0, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
         vm.stopPrank();
@@ -129,13 +126,9 @@ contract VaultDeathTest is Test {
 
         vault.moveAsset(-100);
 
-        // assertEq(0, vault.getLockedValue());
-
         Utils.skipDay(false, vm);
         vault.rollEpoch();
 
-        // Check if lockedLiquidity has gone to 0 and the Vault is dead.
-        // assertEq(0, vault.getLockedValue());
         assertEq(true, VaultUtils.vaultState(vault).dead);
 
         // Alice wants to deposit after Vault death. We expect a VaultDead error.
@@ -166,8 +159,6 @@ contract VaultDeathTest is Test {
 
         // NOTE: cause the locked liquidity to go to zero; this, in turn, cause the vault death
         vault.moveAsset(-100);
-        assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
-        // assertEq(0, vault.getLockedValue());
 
         vm.prank(alice);
         vault.deposit(100);
@@ -178,14 +169,12 @@ contract VaultDeathTest is Test {
         assertEq(true, VaultUtils.vaultState(vault).dead);
         // No new shares has been minted:
         assertEq(100, vault.totalSupply());
-        // Locked liquidity is still zero:
-        assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 
         (heldByAccountAlice, heldByVaultAlice) = vault.shareBalances(alice);
         assertEq(0, heldByAccountAlice);
         assertEq(100, heldByVaultAlice);
 
-        assertEq(100, VaultUtils.getRecoverableAmounts(vault));
+        assertEq(100, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
 
         (, uint256 depositReceiptsAliceAmount, ) = vault.depositReceipts(alice);
         assertEq(100, depositReceiptsAliceAmount);
@@ -194,7 +183,7 @@ contract VaultDeathTest is Test {
         vm.prank(alice);
         vault.rescueDeposit();
 
-        assertEq(0, VaultUtils.getRecoverableAmounts(vault));
+        assertEq(0, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
         assertEq(0, baseToken.balanceOf(address(vault)));
         assertEq(100, baseToken.balanceOf(alice));
         (, depositReceiptsAliceAmount, ) = vault.depositReceipts(alice);

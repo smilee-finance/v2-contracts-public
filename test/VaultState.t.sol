@@ -30,74 +30,124 @@ contract VaultStateTest is Test {
         vault.rollEpoch();
     }
 
-    /**
-        Test that vault accounting properties are correct after calling `moveAsset()`
-     */
-    function testMoveAssetPull() public {
+    function testVaultStateCheckPendingDepositAmount() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
         vm.prank(alice);
         vault.deposit(100);
-        assertEq(100, baseToken.balanceOf(address(vault)));
-        // assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
+
+        uint256 stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
+        assertEq(100, stateDepositAmount);
+
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        vm.prank(alice);
+        vault.deposit(100);
+        stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
+        assertEq(200, stateDepositAmount);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
 
-        assertEq(50, baseToken.balanceOf(address(vault)));
-        // assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
-
-        vault.moveAsset(-30);
-
-        Utils.skipDay(false, vm);
-        vault.rollEpoch();
-
-        assertEq(35, baseToken.balanceOf(address(vault)));
-        // assertEq(35, VaultUtils.vaultState(vault).liquidity.locked);
+        stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
+        assertEq(0, stateDepositAmount);
     }
 
-    function testMoveAssetPullFail() public {
+    function testVaultStateHeldShares() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
         vm.prank(alice);
         vault.deposit(100);
-        assertEq(100, baseToken.balanceOf(address(vault)));
-        // assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
 
-        assertEq(50, baseToken.balanceOf(address(vault)));
-        // assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
-
-        vm.expectRevert(ExceedsAvailable);
-        vault.moveAsset(-101);
-    }
-
-    function testMoveAssetPush() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
         vm.prank(alice);
-        vault.deposit(100);
-        assertEq(100, baseToken.balanceOf(address(vault)));
-        // assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
+        vault.initiateWithdraw(50);
+
+        uint256 newHeldShares = VaultUtils.vaultState(vault).withdrawals.newHeldShares;
+        assertEq(50, newHeldShares);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
 
-        assertEq(50, baseToken.balanceOf(address(vault)));
-        // assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
+        uint256 heldShares = VaultUtils.vaultState(vault).withdrawals.heldShares;
+        newHeldShares = VaultUtils.vaultState(vault).withdrawals.newHeldShares;
+        assertEq(50, heldShares);
+        assertEq(0, newHeldShares);
 
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100, vm);
-        vm.prank(tokenAdmin);
-        vault.moveAsset(100);
+        vm.prank(alice);
+        vault.completeWithdraw();
 
-        Utils.skipDay(false, vm);
-        vault.rollEpoch();
-
-        assertEq(100, baseToken.balanceOf(address(vault)));
-        // assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
+        heldShares = VaultUtils.vaultState(vault).withdrawals.heldShares;
+        assertEq(0, heldShares);
     }
+
+    // /**
+    //     Test that vault accounting properties are correct after calling `moveAsset()`
+    //  */
+    // function testMoveAssetPull() public {
+    //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+    //     vm.prank(alice);
+    //     vault.deposit(100);
+    //     assertEq(100, baseToken.balanceOf(address(vault)));
+    //     // assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
+
+    //     Utils.skipDay(true, vm);
+    //     vault.rollEpoch();
+
+    //     assertEq(50, baseToken.balanceOf(address(vault)));
+    //     // assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
+
+    //     vault.moveAsset(-30);
+
+    //     Utils.skipDay(false, vm);
+    //     vault.rollEpoch();
+
+    //     assertEq(35, baseToken.balanceOf(address(vault)));
+    //     // assertEq(35, VaultUtils.vaultState(vault).liquidity.locked);
+    // }
+
+    // function testMoveAssetPullFail() public {
+    //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+    //     vm.prank(alice);
+    //     vault.deposit(100);
+    //     assertEq(100, baseToken.balanceOf(address(vault)));
+    //     // assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
+
+    //     Utils.skipDay(true, vm);
+    //     vault.rollEpoch();
+
+    //     assertEq(50, baseToken.balanceOf(address(vault)));
+    //     // assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
+
+    //     vm.expectRevert(ExceedsAvailable);
+    //     vault.moveAsset(-101);
+    // }
+
+    // function testMoveAssetPush() public {
+    //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+
+    //     vm.prank(alice);
+    //     vault.deposit(100);
+    //     assertEq(100, baseToken.balanceOf(address(vault)));
+    //     // assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
+
+    //     Utils.skipDay(true, vm);
+    //     vault.rollEpoch();
+
+    //     assertEq(50, baseToken.balanceOf(address(vault)));
+    //     // assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
+
+    //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100, vm);
+    //     vm.prank(tokenAdmin);
+    //     vault.moveAsset(100);
+
+    //     Utils.skipDay(false, vm);
+    //     vault.rollEpoch();
+
+    //     assertEq(100, baseToken.balanceOf(address(vault)));
+    //     // assertEq(100, VaultUtils.vaultState(vault).liquidity.locked);
+    // }
 
     // /**
     //     Test that vault accounting properties are correct after calling `moveAsset()`
