@@ -39,10 +39,7 @@ abstract contract DVP is IDVP, EpochControls {
 
     // error NotEnoughLiquidity();
 
-    constructor(
-        address vault_,
-        bool optionType_
-    ) EpochControls(IEpochControls(vault_).epochFrequency()) {
+    constructor(address vault_, bool optionType_) EpochControls(IEpochControls(vault_).epochFrequency()) {
         factory = msg.sender;
         optionType = optionType_;
         vault = vault_;
@@ -61,19 +58,6 @@ abstract contract DVP is IDVP, EpochControls {
         return (position.amount, position.strategy, position.strike, position.epoch);
     }
 
-    // /// @notice The total premium currently paid to the DVP
-    // /// @return The amount of base tokens deposited in the DVP
-    // function balance() public view returns (uint256) {
-    //     return IERC20(baseToken).balanceOf(address(this));
-    // }
-
-    function _premium(uint256 strike, bool strategy, uint256 amount) internal view virtual returns (uint256) {
-        strike;
-        strategy;
-        // ToDo: compute price and premium
-        return amount / 10; // 10%
-    }
-
     function _mint(
         address recipient,
         uint256 strike,
@@ -90,7 +74,7 @@ abstract contract DVP is IDVP, EpochControls {
         // }
 
         // TBD: perhaps the DVP needs to know how much premium was paid (in a given epoch ?)...
-        _payPremium(strike, strategy, amount);
+        _getPremium(strike, strategy, amount);
 
         _deltaHedge(strike, strategy, amount);
 
@@ -106,13 +90,6 @@ abstract contract DVP is IDVP, EpochControls {
 
         leverage = 1;
         emit Mint(msg.sender, recipient);
-    }
-
-    function _payPremium(uint256 strike, bool strategy, uint256 amount) internal {
-        uint256 premium = _premium(strike, strategy, amount);
-
-        // Transfer premium:
-        IERC20(baseToken).transferFrom(msg.sender, vault, premium);
     }
 
     function _deltaHedge(uint256 strike, bool strategy, uint256 amount) internal {
@@ -141,14 +118,10 @@ abstract contract DVP is IDVP, EpochControls {
         _liquidity.used -= amount;
 
         // ToDo: delta hedge
-        paidPayoff = _computePayoff(position);
+        paidPayoff = _payPayoff(position);
         IVault(vault).provideLiquidity(recipient, paidPayoff);
 
         emit Burn(msg.sender);
-    }
-
-    function _getPosition(uint256 epochID, bytes32 positionID) internal view returns (Position.Info storage) {
-        return epochPositions[epochID][positionID];
     }
 
     /// @inheritdoc EpochControls
@@ -169,14 +142,26 @@ abstract contract DVP is IDVP, EpochControls {
     }
 
     /// @inheritdoc IDVP
-    function payoff(uint256 epoch, uint256 strike, bool strategy) public view override returns (uint256) {
-        Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
-        return _computePayoff(position);
+    function premium(uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
+
+    /// @inheritdoc IDVP
+    function payoff(uint256 epoch, uint256 strike, bool strategy) public view virtual returns (uint256);
+
+    function _getPremium(uint256 strike, bool strategy, uint256 amount) internal {
+        uint256 premium_ = premium(strike, strategy, amount);
+
+        // Transfer premium:
+        IERC20(baseToken).transferFrom(msg.sender, vault, premium_);
     }
 
-    function _computePayoff(Position.Info memory position) internal view virtual returns (uint256) {
-        /// @dev: placeholder to be filled by the concrete DVPs.
-        position;
-        return 0;
+    function _payPayoff(Position.Info memory position) internal virtual returns (uint256) {
+        uint256 payoff_ = payoff(position.epoch, position.strike, position.strategy);
+
+        // Transfer premium:
+        IERC20(baseToken).transfer(msg.sender, payoff_);
+    }
+
+    function _getPosition(uint256 epochID, bytes32 positionID) internal view returns (Position.Info storage) {
+        return epochPositions[epochID][positionID];
     }
 }
