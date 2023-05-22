@@ -41,24 +41,6 @@ contract IGTest is Test {
     }
 
     function setUp() public {
-        // ig = new MockedIG(address(vault));
-        // registry.register(address(ig));
-        // ig.useFakeDeltaHedge();
-
-        // // Roll first epoch (this enables deposits)
-        // ig.rollEpoch();
-
-        // // Suppose Vault has already liquidity
-        // TokenUtils.provideApprovedTokens(admin, address(baseToken), address(alice), address(vault), 100 ether, vm);
-        // vm.prank(alice);
-        // vault.deposit(100 ether);
-
-        // Utils.skipDay(true, vm);
-
-        // ig.rollEpoch();
-    }
-
-    function testIno() public {
         ig = new MockedIG(address(vault));
         registry.register(address(ig));
         ig.useFakeDeltaHedge();
