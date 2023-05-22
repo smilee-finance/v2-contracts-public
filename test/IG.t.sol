@@ -8,10 +8,12 @@ import {IDVP} from "../src/interfaces/IDVP.sol";
 import {IVault} from "../src/interfaces/IVault.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
+import {Utils} from "./utils/Utils.sol";
+import {MockedIG} from "./mock/MockedIG.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
+import {Registry} from "../src/Registry.sol";
 import {Vault} from "../src/Vault.sol";
-import {IG} from "../src/IG.sol";
 
 contract IGTest is Test {
     bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
@@ -22,35 +24,72 @@ contract IGTest is Test {
     address baseToken;
     address sideToken;
     Vault vault;
+    Registry registry;
+    MockedIG ig;
 
+    address admin = address(0x10);
     address alice = address(0x1);
     address bob = address(0x2);
 
     constructor() {
-        vault = Vault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, address(0x10), vm));
+        registry = new Registry();
+        //ToDo: Get controller from baseToken as done in PositionManager.t.sol
+        vault = Vault(VaultUtils.createVaultFromNothingWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
+
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
     }
 
-    function setUp() public {}
+    function setUp() public {
+        // ig = new MockedIG(address(vault));
+        // registry.register(address(ig));
+        // ig.useFakeDeltaHedge();
+
+        // // Roll first epoch (this enables deposits)
+        // ig.rollEpoch();
+
+        // // Suppose Vault has already liquidity
+        // TokenUtils.provideApprovedTokens(admin, address(baseToken), address(alice), address(vault), 100 ether, vm);
+        // vm.prank(alice);
+        // vault.deposit(100 ether);
+
+        // Utils.skipDay(true, vm);
+
+        // ig.rollEpoch();
+    }
+
+    function testIno() public {
+        ig = new MockedIG(address(vault));
+        registry.register(address(ig));
+        ig.useFakeDeltaHedge();
+
+        // Roll first epoch (this enables deposits)
+        ig.rollEpoch();
+
+        // Suppose Vault has already liquidity
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), address(alice), address(vault), 100 ether, vm);
+        vm.prank(alice);
+        vault.deposit(100 ether);
+
+        Utils.skipDay(true, vm);
+
+        ig.rollEpoch();
+    }
 
     // ToDo: review with a different vault
     // function testCantCreate() public {
     //     vm.expectRevert(AddressZero);
-    //     new IG(address(vault));
+    //   //     new MockedIG(address(vault));
     // }
 
     function testCantUse() public {
-        IDVP ig = new IG(address(vault));
+        //IDVP ig = new MockedIG(address(vault));
 
         vm.expectRevert(NoActiveEpoch);
         ig.mint(address(0x1), 0, OptionStrategy.CALL, 1);
     }
 
     function testCanUse() public {
-        IDVP ig = new IG(address(vault));
-        ig.rollEpoch();
-
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), 1, vm);
 
         vm.prank(alice);
@@ -59,9 +98,6 @@ contract IGTest is Test {
 
     function testMint() public {
         uint256 inputAmount = 1;
-
-        IG ig = new IG(address(vault));
-        ig.rollEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
 
@@ -79,9 +115,6 @@ contract IGTest is Test {
 
     function testMintSum() public {
         uint256 inputAmount = 1;
-
-        IG ig = new IG(address(vault));
-        ig.rollEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
 
@@ -104,8 +137,7 @@ contract IGTest is Test {
     function testMintAndBurn() public {
         uint256 inputAmount = 1 ether;
 
-        IG ig = new IG(address(vault));
-        ig.rollEpoch();
+        //MockedIG ig = new MockedIG(address(vault));
         uint256 currEpoch = ig.currentEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
@@ -132,9 +164,6 @@ contract IGTest is Test {
         bool aInputStrategy = OptionStrategy.CALL;
         bool bInputStrategy = OptionStrategy.PUT;
         uint256 inputAmount = 1;
-
-        IG ig = new IG(address(vault));
-        ig.rollEpoch();
         uint256 currEpoch = ig.currentEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
@@ -179,18 +208,12 @@ contract IGTest is Test {
     }
 
     function testCantMintZero() public {
-        IDVP ig = new IG(address(vault));
-        ig.rollEpoch();
-
         vm.expectRevert(AmountZero);
         ig.mint(alice, 0, OptionStrategy.CALL, 0);
     }
 
     function testCantBurnMoreThanMinted() public {
         uint256 inputAmount = 1;
-
-        IDVP ig = new IG(address(vault));
-        ig.rollEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
 

@@ -16,11 +16,18 @@ import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
 
 library VaultUtils {
-
     function createVaultFromNothing(uint256 epochFrequency, address admin, Vm vm) internal returns (address) {
-        vm.startPrank(admin);
-
         Registry registry = new Registry();
+        return createVaultFromNothingWithRegistry(epochFrequency, admin, vm, registry);
+    }
+
+    function createVaultFromNothingWithRegistry(
+        uint256 epochFrequency,
+        address admin,
+        Vm vm,
+        IRegistry registry
+    ) internal returns (address) {
+        vm.startPrank(admin);
 
         TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
         address baseToken = address(token);
@@ -45,7 +52,6 @@ library VaultUtils {
         registry.register(address(vault));
 
         vm.stopPrank();
-
         return address(vault);
     }
 
@@ -61,11 +67,7 @@ library VaultUtils {
         ) = vault.vaultState();
         return
             VaultLib.VaultState(
-                VaultLib.VaultLiquidity(
-                    lockedInitially,
-                    pendingDepositAmount,
-                    totalWithdrawAmount
-                ),
+                VaultLib.VaultLiquidity(lockedInitially, pendingDepositAmount, totalWithdrawAmount),
                 VaultLib.VaultWithdrawals(queuedWithdrawShares, currentQueuedWithdrawShares),
                 dead
             );

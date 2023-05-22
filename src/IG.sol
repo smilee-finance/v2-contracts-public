@@ -45,7 +45,8 @@ contract IG is DVP {
 
     function payoff(uint256 epoch, uint256 strike, bool strategy) public view override virtual returns (uint256) {
         Position.Info memory position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
-        return position.amount * 1;
+        //ToDo: Compute Payoff
+        return position.amount / 10;
     }
 
 }

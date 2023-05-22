@@ -92,7 +92,7 @@ abstract contract DVP is IDVP, EpochControls {
         emit Mint(msg.sender, recipient);
     }
 
-    function _deltaHedge(uint256 strike, bool strategy, uint256 amount) internal {
+    function _deltaHedge(uint256 strike, bool strategy, uint256 amount) internal virtual {
         // ToDo: delta hedge
         // uint256 notional = _liquidity.initial - (amount + _liquidity.used);
         // sideTokensAmount := notional * ig_delta(...)
@@ -116,10 +116,10 @@ abstract contract DVP is IDVP, EpochControls {
         position.updateAmount(-int256(amount));
 
         _liquidity.used -= amount;
-
-        // ToDo: delta hedge
-        paidPayoff = _payPayoff(position);
-        IVault(vault).provideLiquidity(recipient, paidPayoff);
+        if (position.epoch == currentEpoch) {
+            _deltaHedge(strike, strategy, amount);
+        }
+        paidPayoff = _payPayoff(position, recipient);
 
         emit Burn(msg.sender);
     }
@@ -154,11 +154,11 @@ abstract contract DVP is IDVP, EpochControls {
         IERC20(baseToken).transferFrom(msg.sender, vault, premium_);
     }
 
-    function _payPayoff(Position.Info memory position) internal virtual returns (uint256) {
-        uint256 payoff_ = payoff(position.epoch, position.strike, position.strategy);
+    function _payPayoff(Position.Info memory position, address recipient) internal virtual returns (uint256 payoff_) {
+        payoff_ = payoff(position.epoch, position.strike, position.strategy);
 
         // Transfer premium:
-        IERC20(baseToken).transfer(msg.sender, payoff_);
+        IVault(vault).provideLiquidity(recipient, payoff_);
     }
 
     function _getPosition(uint256 epochID, bytes32 positionID) internal view returns (Position.Info storage) {
