@@ -12,10 +12,16 @@ contract TestnetPriceOracle is IPriceOracle, Ownable {
     mapping(address => uint) tokenPrices;
     mapping(address => bool) priceSet;
 
+    error AddressZero();
     error TokenNotSupported();
+    error PriceZero();
+    error PriceTooHigh();
 
-    constructor(address _referenceToken) Ownable() {
-        referenceToken = _referenceToken;
+    constructor(address referenceToken_) Ownable() {
+        if (referenceToken_ == address(0)) {
+            revert AddressZero();
+        }
+        referenceToken = referenceToken_;
     }
 
     // @inheritdoc IPriceOracle
@@ -26,11 +32,12 @@ contract TestnetPriceOracle is IPriceOracle, Ownable {
     // NOTE: the price is with 18 decimals and is expected to be in USD
     function setTokenPrice(address token, uint price) external onlyOwner {
         if (token == address(0)) {
-            revert TokenNotSupported();
+            revert AddressZero();
         }
-        // if (token == referenceToken) {
-        //     revert TokenNotSupported();
-        // }
+
+        if (price > type(uint256).max / 1e18) {
+            revert PriceTooHigh();
+        }
 
         tokenPrices[token] = price;
         priceSet[token] = true;
@@ -38,11 +45,11 @@ contract TestnetPriceOracle is IPriceOracle, Ownable {
 
     function getTokenPrice(address token) public view returns (uint) {
         if (token == address(0)) {
-            revert TokenNotSupported();
+            revert AddressZero();
         }
 
         if (token == referenceToken && !priceSet[referenceToken]) {
-            return 10**priceDecimals();
+            return 10 ** priceDecimals();
         }
 
         if (!priceSet[token]) {
@@ -58,15 +65,19 @@ contract TestnetPriceOracle is IPriceOracle, Ownable {
         uint token1Price = getTokenPrice(token1);
 
         if (token1Price == 0) {
-            // TBD: revert
-            return type(uint).max;
+            revert PriceZero();
         }
 
         return token0Price.wdiv(token1Price);
     }
 
     // ToDo: add setter
-    function getImpliedVolatility(address token0, address token1, uint256 strikePrice, uint256 frequency) external returns (uint256 iv) {
+    function getImpliedVolatility(
+        address token0,
+        address token1,
+        uint256 strikePrice,
+        uint256 frequency
+    ) external returns (uint256 iv) {
         token0;
         token1;
         strikePrice;

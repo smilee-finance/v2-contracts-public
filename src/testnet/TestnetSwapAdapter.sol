@@ -13,6 +13,8 @@ contract TestnetSwapAdapter is IExchange, Ownable {
 
     IPriceOracle internal priceOracle;
 
+    error PriceZero();
+
     constructor(address _priceOracle) Ownable() {
         priceOracle = IPriceOracle(_priceOracle);
     }
@@ -26,19 +28,15 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     }
 
     function _getAmountOut(address tokenIn, address tokenOut, uint amountIn) internal view returns (uint) {
+        uint tokenOutPrice = priceOracle.getPrice(tokenIn, tokenOut);
         uint tokenInDecimals = ERC20(tokenIn).decimals();
         uint tokenOutDecimals = ERC20(tokenOut).decimals();
-        uint tokenOutPrice = priceOracle.getPrice(tokenIn, tokenOut);
 
-        return amountIn.wmul(tokenOutPrice).wdiv(10**tokenInDecimals).wmul(10**tokenOutDecimals);
+        return amountIn.wmul(tokenOutPrice).wdiv(10 ** tokenInDecimals).wmul(10 ** tokenOutDecimals);
     }
 
     // @inheritdoc IExchange
-    function swapIn(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external returns (uint256 amountOut) {
+    function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 amountOut) {
         ERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
         TestnetToken(tokenIn).burn(address(this), amountIn);
         amountOut = _getAmountOut(tokenIn, tokenOut, amountIn);
@@ -51,19 +49,22 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     }
 
     function _getAmountIn(address tokenIn, address tokenOut, uint amountOut) internal view returns (uint) {
-        uint tokenInDecimals = ERC20(tokenIn).decimals();
-        uint tokenOutDecimals = ERC20(tokenOut).decimals();
         uint tokenInPrice = priceOracle.getPrice(tokenOut, tokenIn);
 
-        return amountOut.wmul(tokenInPrice).wdiv(10**tokenOutDecimals).wmul(10**tokenInDecimals);
+        if (tokenInPrice == 0) {
+            // Otherwise could mint output tokens for free (no input needed).
+            // It would be correct but we don't want to contemplate the 0 price case.
+            revert PriceZero();
+        }
+
+        uint tokenInDecimals = ERC20(tokenIn).decimals();
+        uint tokenOutDecimals = ERC20(tokenOut).decimals();
+
+        return amountOut.wmul(tokenInPrice).wdiv(10 ** tokenOutDecimals).wmul(10 ** tokenInDecimals);
     }
 
     // @inheritdoc IExchange
-    function swapOut(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountOut
-    ) external returns (uint256 amountIn) {
+    function swapOut(address tokenIn, address tokenOut, uint256 amountOut) external returns (uint256 amountIn) {
         amountIn = _getAmountIn(tokenIn, tokenOut, amountOut);
         ERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
 
