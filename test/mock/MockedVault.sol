@@ -69,4 +69,9 @@ contract MockedVault is Vault {
 
         _splitIntoEqualWeightPortfolio();
     }
+
+     /// @dev the current amount
+    function getVaultLockedValue() public view returns (uint256) {
+        return _getLockedValue();
+    }
 }

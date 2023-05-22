@@ -93,13 +93,16 @@ contract Vault is IVault, ERC20, EpochControls {
     }
 
     /// @inheritdoc IVault
-    function getLockedValue() view public virtual returns (uint256) {
+    function getLockedValue() public view virtual returns (uint256) {
         return _state.liquidity.lockedInitially;
     }
 
     /// @dev the current amount
     function _getLockedValue() internal view returns (uint256) {
-        return IERC20(baseToken).balanceOf(address(this)) - _state.liquidity.pendingWithdrawals - _state.liquidity.pendingDeposits;
+        return
+            IERC20(baseToken).balanceOf(address(this)) -
+            _state.liquidity.pendingWithdrawals -
+            _state.liquidity.pendingDeposits;
     }
 
     // TBD: add to the IVault interface
@@ -311,6 +314,8 @@ contract Vault is IVault, ERC20, EpochControls {
         if (!_state.dead) {
             _splitIntoEqualWeightPortfolio();
         }
+
+        //TBD: what if sideTokenBalance == 0 and lockedValue != 0 ?
     }
 
     /**
@@ -385,6 +390,7 @@ contract Vault is IVault, ERC20, EpochControls {
         IERC20(baseToken).transfer(recipient, amount);
     }
 
+    //ToDo: Make tests
     function deltaHedge(int256 sideTokensAmount) external {
         if (sideTokensAmount > 0) {
             uint256 amount = uint256(sideTokensAmount);
@@ -396,6 +402,10 @@ contract Vault is IVault, ERC20, EpochControls {
     }
 
     function _sellSideTokens(uint256 amount) internal {
+        uint256 sideTokensAmount = IERC20(sideToken).balanceOf(address(this));
+        if (sideTokensAmount < amount) {
+            revert ExceedsAvailable();
+        }
         address exchangeAddress = _addressProvider.exchangeAdapter();
         IExchange exchange = IExchange(exchangeAddress);
 

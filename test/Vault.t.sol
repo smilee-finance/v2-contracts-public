@@ -856,13 +856,13 @@ contract VaultTest is Test {
     }
 
     /**
-     * Test used to retrieve shares of an account before first epoch roll 
+     * Test used to retrieve shares of an account before first epoch roll
      */
     function testVaultShareBalanceZeroEpochNotStarted() public {
         (uint256 heldByVaultAlice, uint256 heldByAlice) = vault.shareBalances(alice);
         assertEq(0, heldByVaultAlice);
         assertEq(0, heldByAlice);
-        
+
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
@@ -871,5 +871,47 @@ contract VaultTest is Test {
         (heldByVaultAlice, heldByAlice) = vault.shareBalances(alice);
         assertEq(0, heldByVaultAlice);
         assertEq(0, heldByAlice);
+    }
+
+    function testVaultDeltaHedge(uint128 amountToDeposit, int128 amountToHedge) public {
+        // An amount should be always deposited
+        //TBD: what if depositAmount < 1 ether ?
+        vm.assume(amountToDeposit > 1 ether);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.rollEpoch();
+
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), amountToDeposit, vm);
+        vm.prank(alice);
+        vault.deposit(amountToDeposit);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        //ToDo: Adjust test when price will be getted from PriceOracle, since the price is 1:1
+        (,uint256 sideTokenAmount) = vault.getPortfolio();
+        uint256 lockedValue = vault.getVaultLockedValue();
+        if(
+            (amountToHedge > 0 && uint256(uint128(amountToHedge)) > lockedValue) ||
+            (amountToHedge < 0 && uint256(-int256(amountToHedge)) > sideTokenAmount)
+        ) {
+            vm.expectRevert(ExceedsAvailable);
+            vault.deltaHedge(amountToHedge);
+            return;
+        }
+
+        vault.deltaHedge(amountToHedge);
+        (,uint256 sideTokenAmountAfterDeltaHedge) = vault.getPortfolio();
+        uint256 lockedValueAfterDeltaHedge = vault.getVaultLockedValue();
+
+        if(amountToHedge < 0) {
+            uint256 amountDeltaHedge = uint256(uint128((-amountToHedge)));
+            assertEq(lockedValue + amountDeltaHedge, lockedValueAfterDeltaHedge);
+            assertEq(sideTokenAmount - amountDeltaHedge, sideTokenAmountAfterDeltaHedge);
+        } else {
+            uint256 amountDeltaHedge = uint256(uint128(amountToHedge));
+            assertEq(lockedValue - amountDeltaHedge, lockedValueAfterDeltaHedge);
+            assertEq(sideTokenAmount + amountDeltaHedge, sideTokenAmountAfterDeltaHedge);
+        }
     }
 }

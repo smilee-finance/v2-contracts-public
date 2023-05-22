@@ -5,6 +5,7 @@ import {IVault} from "../../src/interfaces/IVault.sol";
 import {Position} from "../../src/lib/Position.sol";
 import {IG} from "../../src/IG.sol";
 
+//ToDo: Add comments
 contract MockedIG is IG {
     bool internal _fakePremium;
     bool internal _fakePayoff;
