@@ -41,11 +41,14 @@ contract IGTest is Test {
     }
 
     function setUp() public {
+        vm.warp(EpochFrequency.REF_TS);
+
         ig = new MockedIG(address(vault));
         registry.register(address(ig));
         ig.useFakeDeltaHedge();
 
         // Roll first epoch (this enables deposits)
+        Utils.skipDay(false, vm);
         ig.rollEpoch();
 
         // Suppose Vault has already liquidity
@@ -54,7 +57,6 @@ contract IGTest is Test {
         vault.deposit(100 ether);
 
         Utils.skipDay(true, vm);
-
         ig.rollEpoch();
     }
 
@@ -65,7 +67,7 @@ contract IGTest is Test {
     // }
 
     function testCantUse() public {
-        //IDVP ig = new MockedIG(address(vault));
+        IDVP ig = new MockedIG(address(vault));
 
         vm.expectRevert(NoActiveEpoch);
         ig.mint(address(0x1), 0, OptionStrategy.CALL, 1);
