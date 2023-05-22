@@ -31,6 +31,8 @@ contract TestnetTokenTest is Test {
         token.mint(admin, 100);
     }
 
+    // NOTE: it doesn't make sense to test NotInitialized for burn and transfers as you can't mint.
+
     function testCantInit() public {
         vm.prank(admin);
         TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
@@ -78,10 +80,34 @@ contract TestnetTokenTest is Test {
         vm.prank(swapper);
         token.mint(alice, 100);
         assertEq(200, token.balanceOf(alice));
+    }
 
-        vm.prank(admin);
+    function testCantBurnUnauth() public {
+        vm.startPrank(admin);
+        TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
+        token.setController(controller);
+        token.setSwapper(swapper);
         token.mint(alice, 100);
-        assertEq(300, token.balanceOf(alice));
+        vm.stopPrank();
+
+        vm.prank(alice);
+        vm.expectRevert(Unauthorized);
+        token.burn(alice, 100);
+    }
+
+    function testBurn() public {
+        vm.startPrank(admin);
+        TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
+        token.setController(controller);
+        token.setSwapper(swapper);
+        token.mint(alice, 100);
+        vm.stopPrank();
+
+        assertEq(100, token.balanceOf(alice));
+
+        vm.prank(swapper);
+        token.burn(alice, 100);
+        assertEq(0, token.balanceOf(alice));
     }
 
     function testCantTransfer() public {
@@ -89,15 +115,16 @@ contract TestnetTokenTest is Test {
         TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
         token.setController(controller);
         token.setSwapper(swapper);
-        vm.stopPrank();
-
-        vm.prank(admin);
         token.mint(alice, 100);
-        assertEq(100, token.balanceOf(alice));
+        vm.stopPrank();
 
         vm.prank(alice);
         vm.expectRevert(Unauthorized);
         token.transfer(bob, 100);
+
+        vm.prank(bob);
+        vm.expectRevert(Unauthorized);
+        token.transferFrom(alice, bob, 100);
 
         vm.prank(admin);
         vm.expectRevert("ERC20: insufficient allowance");
@@ -109,17 +136,12 @@ contract TestnetTokenTest is Test {
         TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
         token.setController(controller);
         token.setSwapper(swapper);
+        token.mint(alice, 100);
         vm.stopPrank();
 
-        vm.prank(admin);
-        token.mint(alice, 100);
-        assertEq(100, token.balanceOf(alice));
-
-        vm.prank(alice);
-        token.approve(controller, 100);
+        address vaultAddress = address(0x42);
 
         IRegistry registry = IRegistry(controller);
-        address vaultAddress = address(0x42);
         registry.register(vaultAddress);
 
         vm.prank(alice);
