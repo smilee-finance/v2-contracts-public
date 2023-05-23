@@ -16,7 +16,7 @@ contract TestnetPriceOracleTest is Test {
     address referenceToken = address(0x10000);
     TestnetPriceOracle priceOracle;
 
-    function setUp() public {
+    constructor() {
         vm.prank(admin);
         priceOracle = new TestnetPriceOracle(referenceToken);
     }

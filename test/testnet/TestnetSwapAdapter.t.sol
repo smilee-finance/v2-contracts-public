@@ -2,14 +2,12 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
 import {AmountsMath} from "../../src/lib/AmountsMath.sol";
 import {Registry} from "../../src/Registry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {TokenUtils} from "../utils/TokenUtils.sol";
-import "forge-std/console.sol";
 
 contract TestnetSwapAdapterTest is Test {
     using AmountsMath for uint256;
@@ -27,35 +25,41 @@ contract TestnetSwapAdapterTest is Test {
     TestnetToken WETH;
     TestnetToken WBTC;
     TestnetToken USD;
+    Registry registry;
+
+    constructor() {
+        vm.startPrank(adminWallet);
+        USD = new TestnetToken("Testnet USD", "USD");
+        WETH = new TestnetToken("Testnet WETH", "WETH");
+        WBTC = new TestnetToken("Testnet WBTC", "WBTC");
+        registry = new Registry();
+
+        address controller = address(registry);
+        USD.setController(controller);
+        WETH.setController(controller);
+        WBTC.setController(controller);
+        vm.stopPrank();
+    }
 
     function setUp() public {
         vm.startPrank(adminWallet);
 
-        USD = new TestnetToken("Testnet USD", "USD");
         priceOracle = new TestnetPriceOracle(address(USD));
-        dex = new TestnetSwapAdapter(address(priceOracle));
-
-        Registry registry = new Registry();
-        registry.register(address(dex));
-        address controller = address(registry);
-
-        WETH = new TestnetToken("Testnet WETH", "WETH");
-        WETH.setController(controller);
-        WETH.setSwapper(address(dex));
-
-        WBTC = new TestnetToken("Testnet WBTC", "WBTC");
-        WBTC.setController(controller);
-        WBTC.setSwapper(address(dex));
-
-        USD.setController(controller);
-        USD.setSwapper(address(dex));
-
         priceOracle.setTokenPrice(address(WETH), 2000 * WAD);
         priceOracle.setTokenPrice(address(WBTC), 20000 * WAD);
+
+        dex = new TestnetSwapAdapter(address(priceOracle));
+
+        registry.register(address(dex));
+
+        USD.setSwapper(address(dex));
+        WETH.setSwapper(address(dex));
+        WBTC.setSwapper(address(dex));
+
         vm.stopPrank();
     }
 
-    function testUnauthorized() public {
+    function testCannotChangePriceOracle() public {
         vm.expectRevert("Ownable: caller is not the owner");
         dex.changePriceOracle(address(0x100));
     }
@@ -69,7 +73,7 @@ contract TestnetSwapAdapterTest is Test {
         //assertEq(address(newPriceOracle), dex.priceOracle);
     }
 
-    function testGetSwapAmountOfZero() public {
+    function testGetOutputAmountOfZero() public {
         uint256 amountToReceive = dex.getOutputAmount(address(WETH), address(WBTC), 0);
         assertEq(0, amountToReceive);
     }
@@ -77,18 +81,17 @@ contract TestnetSwapAdapterTest is Test {
     /**
         TBD: What happens when someone tries to swap the same token.
      */
-    function testGetSwapAmountOfSameToken() public {
+    function testGetOutputAmountOfSameToken() public {
         uint256 amountToReceive = dex.getOutputAmount(address(WETH), address(WETH), 1 ether);
         assertEq(1 ether, amountToReceive);
     }
 
-    function testGetSwapAmount() public {
+    function testGetOutputAmount() public {
+        // NOTE: WETH is priced 2000 USD, WBTC is priced 20000 USD.
         uint256 amountToReceive = dex.getOutputAmount(address(WETH), address(WBTC), 1 ether);
         assertEq(0.1 ether, amountToReceive);
-    }
 
-    function testGetSwapAmountReverse() public {
-        uint256 amountToReceive = dex.getOutputAmount(address(WBTC), address(WETH), 1 ether);
+        amountToReceive = dex.getOutputAmount(address(WBTC), address(WETH), 1 ether);
         assertEq(10 ether, amountToReceive);
     }
 
@@ -101,13 +104,34 @@ contract TestnetSwapAdapterTest is Test {
 
         uint256 input = 10 ether; // WETH
         uint256 amountToReceive = dex.getOutputAmount(address(WETH), address(WBTC), input);
-        assertEq(1 ether, amountToReceive);
 
         vm.prank(alice);
         dex.swapIn(address(WETH), address(WBTC), input);
 
         assertEq(90 ether, WETH.balanceOf(alice));
         assertEq(amountToReceive, WBTC.balanceOf(alice));
+    }
+
+    function testGetInputAmountOfZero() public {
+        uint256 amountToProvide = dex.getInputAmount(address(WETH), address(WBTC), 0);
+        assertEq(0, amountToProvide);
+    }
+
+    /**
+        TBD: What happens when someone tries to swap the same token.
+     */
+    function testGetInputAmountOfSameToken() public {
+        uint256 amountToProvide = dex.getInputAmount(address(WETH), address(WETH), 1 ether);
+        assertEq(1 ether, amountToProvide);
+    }
+
+    function testGetInputAmount() public {
+        // NOTE: WETH is priced 2000 USD, WBTC is priced 20000 USD.
+        uint256 amountToProvide = dex.getInputAmount(address(WETH), address(WBTC), 1 ether);
+        assertEq(10 ether, amountToProvide);
+
+        amountToProvide = dex.getInputAmount(address(WBTC), address(WETH), 1 ether);
+        assertEq(0.1 ether, amountToProvide);
     }
 
     /**
