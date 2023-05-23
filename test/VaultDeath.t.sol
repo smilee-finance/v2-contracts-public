@@ -229,7 +229,7 @@ contract VaultDeathTest is Test {
 
         vault.moveValue(-10000);
 
-        // assertEq(0, vault.getLockedValue());
+        // assertEq(0, vault.v0());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -237,7 +237,7 @@ contract VaultDeathTest is Test {
         assertEq(100, vault.totalSupply());
 
         // Check if lockedLiquidity has gone to 0 and the Vault is dead.
-        // assertEq(0, vault.getLockedValue());
+        // assertEq(0, vault.v0());
         assertEq(true, VaultUtils.vaultState(vault).dead);
 
         //Alice starts the rescue procedure. An error is expected

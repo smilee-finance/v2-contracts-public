@@ -16,10 +16,10 @@ import {MockedVault} from "../mock/MockedVault.sol";
 library VaultUtils {
     function createVaultFromNothing(uint256 epochFrequency, address admin, Vm vm) internal returns (address) {
         Registry registry = new Registry();
-        return createVaultFromNothingWithRegistry(epochFrequency, admin, vm, registry);
+        return createVaultWithRegistry(epochFrequency, admin, vm, registry);
     }
 
-    function createVaultFromNothingWithRegistry(
+    function createVaultWithRegistry(
         uint256 epochFrequency,
         address admin,
         Vm vm,
@@ -77,14 +77,12 @@ library VaultUtils {
     function getRecoverableAmounts(Vault vault) public view returns (uint256) {
         TestnetToken baseToken = TestnetToken(vault.baseToken());
         uint256 balance = baseToken.balanceOf(address(vault));
-        uint256 locked = vault.getLockedValue();
+        uint256 locked = vault.v0();
         uint256 pendingWithdrawals = vaultState(vault).liquidity.pendingWithdrawals;
 
         return balance - locked - pendingWithdrawals;
     }
 
-    /**
-     * Function used to skip coverage on this file
-     */
-    function testCoverageSkip() private view {}
+    /// @dev Function used to skip coverage on this file
+    function testCoverageSkip() public view {}
 }

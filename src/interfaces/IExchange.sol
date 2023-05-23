@@ -11,6 +11,7 @@ interface IExchange {
      */
     function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 tokenOutAmount);
 
+    /// ritorna il numero di tokenOut che verranno ricevuti in cambio di amountIn (di tokenIn)
     function getOutputAmount(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint);
 
     /**

@@ -34,7 +34,7 @@ contract IGTest is Test {
     constructor() {
         registry = new Registry();
         //ToDo: Get controller from baseToken as done in PositionManager.t.sol
-        vault = Vault(VaultUtils.createVaultFromNothingWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
+        vault = Vault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
 
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();

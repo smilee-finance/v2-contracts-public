@@ -87,22 +87,9 @@ contract Vault is IVault, ERC20, EpochControls {
         );
     }
 
-    function getPortfolio() public view override returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
-        baseTokenAmount = IERC20(baseToken).balanceOf(address(this));
+    function balances() public view override returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
+        baseTokenAmount = _notionalBaseTokens();
         sideTokenAmount = IERC20(sideToken).balanceOf(address(this));
-    }
-
-    /// @inheritdoc IVault
-    function getLockedValue() public view virtual returns (uint256) {
-        return _state.liquidity.lockedInitially;
-    }
-
-    /// @dev the current amount
-    function _getLockedValue() internal view returns (uint256) {
-        return
-            IERC20(baseToken).balanceOf(address(this)) -
-            _state.liquidity.pendingWithdrawals -
-            _state.liquidity.pendingDeposits;
     }
 
     // TBD: add to the IVault interface
@@ -110,13 +97,19 @@ contract Vault is IVault, ERC20, EpochControls {
         @notice Provides the total portfolio value in base tokens
         @return value The total portfolio value in base tokens
      */
-    function getPortfolioValue() external view returns (uint256) {
+    function notional() public view returns (uint256) {
         address exchangeAddress = _addressProvider.exchangeAdapter();
         IExchange exchange = IExchange(exchangeAddress);
-        (uint256 baseTokens, uint256 sideTokens) = getPortfolio();
+        uint256 baseTokens = _notionalBaseTokens();
+        uint256 sideTokens = _notionalSideTokens();
         uint256 valueOfSideTokens = exchange.getOutputAmount(sideToken, baseToken, sideTokens);
 
         return baseTokens + valueOfSideTokens;
+    }
+
+    /// @inheritdoc IVault
+    function v0() public view virtual returns (uint256) {
+        return _state.liquidity.lockedInitially;
     }
 
     /// @inheritdoc IVault
@@ -262,13 +255,13 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @inheritdoc IEpochControls
     function rollEpoch() public override isNotDead {
-        // Trigger management of vault locked liquidity (inverse rebalance):
-        // ToDo [mainnet]: do not swap everything, but only what's needed for the next epoch.
-        // NOTE: the penguin says that doing so will let us save money...
-        uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
-        _sellSideTokens(sideTokens);
+        // // Trigger management of vault locked liquidity (inverse rebalance):
+        // // TODO [mainnet]: do not swap everything, but only what's needed for the next epoch.
+        // // NOTE: the penguin says that doing so will let us save money...
+        // uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
+        // _sellSideTokens(sideTokens);
 
-        uint256 lockedLiquidity = _getLockedValue();
+        uint256 lockedLiquidity = notional();
 
         uint256 sharePrice;
         uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
@@ -296,7 +289,7 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
         lockedLiquidity -= newPendingWithdrawals;
 
-        // ToDo: put aside the payoff to be paid
+        // TODO: put aside the payoff to be paid
 
         if (!_state.dead) {
             _state.liquidity.lockedInitially = lockedLiquidity + _state.liquidity.pendingDeposits;
@@ -312,7 +305,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         // NOTE: if dead, liquidity went to zero
         if (!_state.dead) {
-            _splitIntoEqualWeightPortfolio();
+            _equalWeightRebalance();
         }
 
         //TBD: what if sideTokenBalance == 0 and lockedValue != 0 ?
@@ -352,46 +345,34 @@ contract Vault is IVault, ERC20, EpochControls {
         return (balanceOf(account), unredeemedShares);
     }
 
-    /**
-        @dev Block shares transfer when not allowed (for testnet purposes)
-     */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal view override {
-        amount;
-        if (from == address(0) || to == address(0)) {
-            // it's a valid mint/burn
-            return;
-        }
-        if (from == address(this) || to == address(this)) {
-            // it's a vault operation
-            return;
-        }
-        revert SecondaryMarkedNotAllowed();
-    }
-
-    function _splitIntoEqualWeightPortfolio() internal {
+    /// @dev ...
+    function _equalWeightRebalance() internal {
         address exchangeAddress = _addressProvider.exchangeAdapter();
         IExchange exchange = IExchange(exchangeAddress);
 
-        uint256 amountToSwap = _getLockedValue() / 2;
-        IERC20(baseToken).approve(exchangeAddress, amountToSwap);
-        exchange.swapIn(baseToken, sideToken, amountToSwap);
+        uint256 halfNotional = notional() / 2;
+        uint256 finalSideTokens = exchange.getOutputAmount(baseToken, sideToken, halfNotional);
+        uint256 sideTokens = _notionalSideTokens();
+        deltaHedge(int256(finalSideTokens) - int256(sideTokens));
     }
 
-    // ToDo: add a modifier so that only the DVP can call it
+    // TODO modifier onlyDvp
+    // TODO change name
     /// @inheritdoc IVault
     function provideLiquidity(address recipient, uint256 amount) external {
         if (amount == 0) {
             return;
         }
-        if (amount > _getLockedValue()) {
+
+        // Should never happen: `deltaHedge()` must always be executed before transfers
+        if (amount > _notionalBaseTokens()) {
             revert ExceedsAvailable();
         }
 
         IERC20(baseToken).transfer(recipient, amount);
     }
 
-    //ToDo: Make tests
-    function deltaHedge(int256 sideTokensAmount) external {
+    function deltaHedge(int256 sideTokensAmount) public {
         if (sideTokensAmount > 0) {
             uint256 amount = uint256(sideTokensAmount);
             _buySideTokens(amount);
@@ -418,12 +399,41 @@ contract Vault is IVault, ERC20, EpochControls {
         IExchange exchange = IExchange(exchangeAddress);
 
         uint256 baseTokensAmount = exchange.getInputAmount(baseToken, sideToken, amount);
-        if (baseTokensAmount > _getLockedValue()) {
+
+        // Should never happen: `deltaHedge()` should call this function with a correct amount of side tokens
+        if (baseTokensAmount > _notionalBaseTokens()) {
             revert ExceedsAvailable();
         }
 
         IERC20(baseToken).approve(exchangeAddress, baseTokensAmount);
 
         exchange.swapOut(baseToken, sideToken, amount);
+    }
+
+    /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
+    function _notionalBaseTokens() internal view returns (uint256) {
+        return
+            IERC20(baseToken).balanceOf(address(this)) -
+            _state.liquidity.pendingWithdrawals -
+            _state.liquidity.pendingDeposits;
+    }
+
+    /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
+    function _notionalSideTokens() internal view returns (uint256) {
+        return IERC20(sideToken).balanceOf(address(this));
+    }
+
+    /// @dev Block shares transfer when not allowed (for testnet purposes)
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal view override {
+        amount;
+        if (from == address(0) || to == address(0)) {
+            // it's a valid mint/burn
+            return;
+        }
+        if (from == address(this) || to == address(this)) {
+            // it's a vault operation
+            return;
+        }
+        revert SecondaryMarkedNotAllowed();
     }
 }

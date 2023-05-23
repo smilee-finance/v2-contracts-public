@@ -4,7 +4,6 @@ pragma solidity ^0.8.15;
 import {IRegistry} from "./interfaces/IRegistry.sol";
 
 contract Registry is IRegistry {
-
     mapping(address => bool) registered;
 
     error MissingAddress();
@@ -21,7 +20,7 @@ contract Registry is IRegistry {
 
     /// @inheritdoc IRegistry
     function unregister(address addr) public {
-        if(!registered[addr]) {
+        if (!registered[addr]) {
             revert MissingAddress();
         }
         delete registered[addr];

@@ -33,7 +33,7 @@ contract VaultTest is Test {
      * Setup function for each test.
      */
     function setUp() public {
-        vm.warp(EpochFrequency.REF_TS);
+        vm.warp(EpochFrequency.REF_TS + 1);
 
         vault = MockedVault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());
@@ -42,9 +42,6 @@ contract VaultTest is Test {
         vault.rollEpoch();
     }
 
-    /**
-     *
-     */
     function testDepositFail() public {
         Vault notActiveVault = new Vault(address(baseToken), address(sideToken), EpochFrequency.DAILY, address(0x1));
 
@@ -55,16 +52,13 @@ contract VaultTest is Test {
         notActiveVault.deposit(100);
     }
 
-    /**
-     *
-     */
     function testDeposit() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         // initial share price is 1:1, so expect 100 shares to be minted
@@ -74,19 +68,16 @@ contract VaultTest is Test {
         assertEq(0, shares);
         assertEq(100, unredeemedShares);
         // check lockedLiquidity
-        uint256 lockedLiquidity = vault.getLockedValue();
+        uint256 lockedLiquidity = vault.v0();
         assertEq(100, lockedLiquidity);
     }
 
-    /**
-     *
-     */
     function testRedeemFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
 
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         vm.prank(alice);
@@ -94,15 +85,12 @@ contract VaultTest is Test {
         vault.redeem(150);
     }
 
-    /**
-     * This test expect a revert when a user call a deposit function with no amount (0).
-     */
-    function testDepositAmountZero() public {
+    function testDepositAmountZeroFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
 
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         vm.prank(alice);
@@ -110,8 +98,7 @@ contract VaultTest is Test {
         vault.deposit(0);
     }
 
-    /** */
-    function testDepositEpochFrozen() public {
+    function testDepositEpochFrozenFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
@@ -119,15 +106,12 @@ contract VaultTest is Test {
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(false, vm);
         vm.expectRevert(EpochFrozen);
         vault.deposit(100);
     }
 
-    /**
-     *
-     */
-    function testInitWithdrawEpochFrozen() public {
+    function testInitWithdrawEpochFrozenFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
@@ -135,22 +119,18 @@ contract VaultTest is Test {
 
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
-        vm.warp(block.timestamp + 1 days + 1);
-
+        Utils.skipDay(false, vm);
         vm.expectRevert(EpochFrozen);
         vault.initiateWithdraw(100);
     }
 
-    /**
-     *
-     */
-    function testCompleteWithdrawEpochFrozen() public {
+    function testCompleteWithdrawEpochFrozenFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
@@ -160,16 +140,16 @@ contract VaultTest is Test {
         vm.prank(alice);
         vault.initiateWithdraw(100);
 
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(false, vm);
         vm.expectRevert(EpochFrozen);
         vault.completeWithdraw();
     }
 
     /**
-     * An user deposit twice (or more) in the same epoch. The amount of the shares minted for the user is the sum of all deposits.
+        Wallet deposits twice (or more) in the same epoch. The amount of the shares minted for the user is the sum of all deposits.
      */
     function testDoubleDepositSameEpoch() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -182,16 +162,13 @@ contract VaultTest is Test {
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        (uint256 vaultBaseTokenBalance, ) = vault.getPortfolio();
+        (uint256 vaultBaseTokenBalance, ) = vault.balances();
         assertEq(100, vault.totalSupply());
         assertEq(50, vaultBaseTokenBalance);
         assertEq(100, heldByVaultAlice);
     }
 
-    /**
-     * An user redeem 0 shares. An AmountZero error is expected.
-     */
-    function testRedeemWithZeroAmount() public {
+    function testRedeemZeroFail() public {
         vm.warp(block.timestamp + 1 days + 1);
         vault.rollEpoch();
 
@@ -200,9 +177,6 @@ contract VaultTest is Test {
         vault.redeem(0);
     }
 
-    /**
-     *
-     */
     function testRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
@@ -220,14 +194,11 @@ contract VaultTest is Test {
         assertEq(50, vault.balanceOf(alice));
 
         // check lockedLiquidity. It still remains the same
-        uint256 lockedLiquidity = vault.getLockedValue();
+        uint256 lockedLiquidity = vault.v0();
         assertEq(100, lockedLiquidity);
     }
 
-    /**
-     * An user tries to deposit for the first time and initiate a withdraw without roll the epoch. An error is expected.
-     */
-    function testInitWithdrawFail() public {
+    function testInitWithdrawWithoutSharesFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.startPrank(alice);
         vault.deposit(100);
@@ -236,10 +207,7 @@ contract VaultTest is Test {
         vault.initiateWithdraw(100);
     }
 
-    /**
-     * An user starts the withdrawal procedure redeeming 0 shares. An AmountZero error is expected.
-     */
-    function testInitWithdrawWithZeroAmount() public {
+    function testInitWithdrawZeroFail() public {
         vm.warp(block.timestamp + 1 days + 1);
         vault.rollEpoch();
 
@@ -249,7 +217,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * An user redeem and start a withdraw of the redemeed shares. Everithing goes ok.
+        Wallet redeems its shares and start a withdraw. Everithing goes ok.
      */
     function testInitWithdrawWithRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -268,9 +236,9 @@ contract VaultTest is Test {
     }
 
     /**
-     *
+        Wallet withdraws without redeeming its shares before. An automatic redeem is executed by the protocol.
      */
-    function testInitWithdrawWithoutRedeem() public {
+    function testInitWithdrawNoRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.startPrank(alice);
         vault.deposit(100);
@@ -285,7 +253,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * An user requests the withdraw twice (or more) in the same epoch. The amount of the shares to withdraw has to be the sum of each.
+        Wallet withdraws twice (or more) in the same epoch. The amount of the shares to withdraw has to be the sum of each.
      */
     function testInitWithdrawTwiceSameEpoch() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -306,7 +274,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * An user requests the withdraw twice (or more) in the same epoch. A ExistingIncompleteWithdraw error is expected.
+        Wallet withdraws twice (or more) in subsequent epochs. A ExistingIncompleteWithdraw error is expected.
      */
     function testInitWithdrawTwiceDifferentEpochs() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -329,9 +297,9 @@ contract VaultTest is Test {
     }
 
     /**
-     * A user tries to complete a withdraw without init it first. A WithdrawNotInitiated error is expected.
+        Wallet completes withdraw without init. A WithdrawNotInitiated error is expected.
      */
-    function testCompleteWithdrawWithoutInit() public {
+    function testCompleteWithdrawWithoutInitFail() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
 
         vm.prank(alice);
@@ -346,7 +314,7 @@ contract VaultTest is Test {
     }
 
     /**
-     * A user tries to init and complete a withdrawal procedure in the same epoch. An WithdrawTooEarly error is expected.
+        Wallet inits and completes a withdrawal procedure in the same epoch. An WithdrawTooEarly error is expected.
      */
     function testInitAndCompleteWithdrawSameEpoch() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -365,7 +333,7 @@ contract VaultTest is Test {
     }
 
     /**
-     *
+        Wallet makes a partial withdraw without redeeming its shares. All shares are automatically redeemed and some of them held by the vault for withdrawal.
      */
     function testInitWithdrawPartWithoutRedeem() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -383,15 +351,12 @@ contract VaultTest is Test {
         assertEq(50, withdrawalShares);
     }
 
-    /**
-     *
-     */
     function testWithdraw() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
 
-        Utils.skipDay(true, vm);
+        Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         vm.prank(alice);
@@ -400,14 +365,14 @@ contract VaultTest is Test {
         assertEq(40, vault.balanceOf(address(vault)));
         assertEq(60, vault.balanceOf(alice));
         // check lockedLiquidity
-        uint256 lockedLiquidity = vault.getLockedValue();
+        uint256 lockedLiquidity = vault.v0();
         assertEq(100, lockedLiquidity);
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
 
         // check lockedLiquidity
-        lockedLiquidity = vault.getLockedValue();
+        lockedLiquidity = vault.v0();
         assertEq(60, lockedLiquidity);
 
         vm.prank(alice);
@@ -471,7 +436,7 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
         assertEq(50, vault.totalSupply());
-        assertEq(200, vault.getPortfolioValue());
+        assertEq(200, vault.notional());
         assertEq(400, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
 
@@ -479,7 +444,7 @@ contract VaultTest is Test {
         vault.completeWithdraw();
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
-        (uint256 vaultBaseTokenBalance, ) = vault.getPortfolio();
+        (uint256 vaultBaseTokenBalance, ) = vault.balances();
         assertEq(0, vault.totalSupply());
         assertEq(0, vaultBaseTokenBalance);
         assertEq(200, baseToken.balanceOf(address(bob)));
@@ -487,13 +452,14 @@ contract VaultTest is Test {
     }
 
     /**
-     * Describe two users, the first (Alice) deposits 100$ in epoch1 receiving 100 shares.
-     * Meanwhile the price of the lockedLiquidity has been divided by 2 (always in epoch1).
-     * Bob deposits 100$ in epoch1, but, since his shares will be delivered in epoch2 and the price in epoch1 is changed, Bob receive 200 shares.
-     * In epoch2, the price has been divided by 2 again. Meanwhile Bob and Alice start a the withdraw procedure for all their shares.
-     * Alice should receive 25$ and Bob 50$ from their shares.
+        - Alice deposits 100 base tokens for epoch 1 (100 shares)
+        - vault notional value halves in epoch 1
+        - Bob deposits 100 during epoch 1 for epoch 2 (200 shares)
+        - vault notional value halves in epoch 2
+        - Bob and Alice start the withdraw procedure for all their shares
+        - Alice should receive 25 (100/4) and Bob 50 (100/2)
      */
-    function testVaultMathHalfLiquidity() public {
+    function testVaultMathHalveLiquidity() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
@@ -511,7 +477,7 @@ contract VaultTest is Test {
 
         // Remove asset from Vault
         vault.moveValue(-5000); // -50% Alice
-        assertEq(150, vault.getPortfolioValue());
+        assertEq(150, vault.notional());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -527,7 +493,7 @@ contract VaultTest is Test {
         vault.initiateWithdraw(200);
 
         vault.moveValue(-5000); // -75% Alice, -50% Bob
-        assertEq(75, vault.getPortfolioValue());
+        assertEq(75, vault.notional());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -537,7 +503,7 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
         assertEq(200, vault.totalSupply());
-        assertEq(50, vault.getPortfolioValue());
+        assertEq(50, vault.notional());
         assertEq(25, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
 
@@ -546,7 +512,7 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
         assertEq(0, vault.totalSupply());
-        assertEq(0, vault.getPortfolioValue());
+        assertEq(0, vault.notional());
         assertEq(50, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
     }
@@ -620,7 +586,7 @@ contract VaultTest is Test {
         assertEq(200, baseToken.balanceOf(bob));
         assertEq(100, vault.totalSupply());
 
-        assertEq(100, vault.getPortfolioValue());
+        assertEq(100, vault.notional());
     }
 
     /**
@@ -697,7 +663,7 @@ contract VaultTest is Test {
 
         assertEq(100, baseToken.balanceOf(alice));
         assertEq(200, baseToken.balanceOf(bob));
-        assertEq(0, vault.getLockedValue());
+        assertEq(0, vault.v0());
         assertEq(0, vault.totalSupply());
     }
 
@@ -829,7 +795,7 @@ contract VaultTest is Test {
 
         assertEq(100, baseToken.balanceOf(alice));
         assertEq(100, baseToken.balanceOf(bob));
-        assertEq(100, vault.getLockedValue());
+        assertEq(100, vault.v0());
         assertEq(100, vault.totalSupply());
         (, heldByVaultBob) = vault.shareBalances(bob);
         assertEq(heldByVaultBob, 100);
@@ -851,7 +817,7 @@ contract VaultTest is Test {
         (, heldByVaultBob) = vault.shareBalances(bob);
         assertEq(0, heldByVaultBob);
         assertEq(0, vault.totalSupply());
-        assertEq(0, vault.getLockedValue());
+        assertEq(0, vault.v0());
         assertEq(200, baseToken.balanceOf(bob));
     }
 
@@ -871,47 +837,5 @@ contract VaultTest is Test {
         (heldByVaultAlice, heldByAlice) = vault.shareBalances(alice);
         assertEq(0, heldByVaultAlice);
         assertEq(0, heldByAlice);
-    }
-
-    function testVaultDeltaHedge(uint128 amountToDeposit, int128 amountToHedge) public {
-        // An amount should be always deposited
-        //TBD: what if depositAmount < 1 ether ?
-        vm.assume(amountToDeposit > 1 ether);
-
-        vm.warp(block.timestamp + 1 days + 1);
-        vault.rollEpoch();
-
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), amountToDeposit, vm);
-        vm.prank(alice);
-        vault.deposit(amountToDeposit);
-
-        Utils.skipDay(true, vm);
-        vault.rollEpoch();
-
-        //ToDo: Adjust test when price will be getted from PriceOracle, since the price is 1:1
-        (,uint256 sideTokenAmount) = vault.getPortfolio();
-        uint256 lockedValue = vault.getVaultLockedValue();
-        if(
-            (amountToHedge > 0 && uint256(uint128(amountToHedge)) > lockedValue) ||
-            (amountToHedge < 0 && uint256(-int256(amountToHedge)) > sideTokenAmount)
-        ) {
-            vm.expectRevert(ExceedsAvailable);
-            vault.deltaHedge(amountToHedge);
-            return;
-        }
-
-        vault.deltaHedge(amountToHedge);
-        (,uint256 sideTokenAmountAfterDeltaHedge) = vault.getPortfolio();
-        uint256 lockedValueAfterDeltaHedge = vault.getVaultLockedValue();
-
-        if(amountToHedge < 0) {
-            uint256 amountDeltaHedge = uint256(uint128((-amountToHedge)));
-            assertEq(lockedValue + amountDeltaHedge, lockedValueAfterDeltaHedge);
-            assertEq(sideTokenAmount - amountDeltaHedge, sideTokenAmountAfterDeltaHedge);
-        } else {
-            uint256 amountDeltaHedge = uint256(uint128(amountToHedge));
-            assertEq(lockedValue - amountDeltaHedge, lockedValueAfterDeltaHedge);
-            assertEq(sideTokenAmount + amountDeltaHedge, sideTokenAmountAfterDeltaHedge);
-        }
     }
 }

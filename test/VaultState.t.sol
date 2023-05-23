@@ -1,44 +1,47 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
+import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
+import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
+import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Utils} from "./utils/Utils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
-import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
-import {TestnetToken} from "../src/testnet/TestnetToken.sol";
-import {Vault} from "../src/Vault.sol";
+import {MockedVault} from "./mock/MockedVault.sol";
 
 contract VaultStateTest is Test {
     bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
 
-    address tokenAdmin = address(0x1);
+    address admin = address(0x1);
     address alice = address(0x2);
     TestnetToken baseToken;
     TestnetToken sideToken;
-    Vault vault;
+    MockedVault vault;
 
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
 
-        vault = Vault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm));
+        vault = MockedVault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, admin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
         vault.rollEpoch();
     }
 
-    function testVaultStateCheckPendingDepositAmount() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+    function testCheckPendingDepositAmount() public {
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
 
         uint256 stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
         assertEq(100, stateDepositAmount);
 
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
         stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
@@ -51,8 +54,8 @@ contract VaultStateTest is Test {
         assertEq(0, stateDepositAmount);
     }
 
-    function testVaultStateHeldShares() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+    function testHeldShares() public {
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
         vault.deposit(100);
 
@@ -80,11 +83,70 @@ contract VaultStateTest is Test {
         assertEq(0, heldShares);
     }
 
+    function testEqualWeightRebalance(uint256 sideTokenPrice) public {
+        uint256 amountToDeposit = 100 ether;
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
+        vm.prank(alice);
+        vault.deposit(amountToDeposit);
+
+        vm.assume(sideTokenPrice > 0 && sideTokenPrice < type(uint64).max);
+        TestnetPriceOracle priceOracle = TestnetPriceOracle(AddressProvider(vault.addressProvider()).priceOracle());
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        uint256 expectedBaseTokens = amountToDeposit / 2;
+        uint256 expectedSideTokens = (expectedBaseTokens * 10 ** priceOracle.priceDecimals()) / sideTokenPrice;
+        (uint256 baseTokens, uint256 sideTokens) = vault.balances();
+
+        assertApproxEqAbs(expectedBaseTokens, baseTokens, 1e3);
+        assertApproxEqAbs(expectedSideTokens, sideTokens, 1e3);
+    }
+
+    /**
+        Check state of the vault after `deltaHedge()` call
+     */
+    // function testDeltaHedge(uint128 amountToDeposit, int128 amountToHedge) public {
+    //     // An amount should be always deposited
+    //     // TBD: what if depositAmount < 1 ether ?
+    //     vm.assume(amountToDeposit > 1 ether && amountToDeposit < type(int256).max);
+
+    //     uint256 amountToHedgeAbs = amountToHedge > 0
+    //         ? uint256(uint128(amountToHedge))
+    //         : uint256(-int256(amountToHedge));
+
+    //     int256 expectedSideTokenDelta = int256(amountToHedge);
+    //     int256 expectedBaseTokenDelta = 0;
+
+    //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
+    //     vm.prank(alice);
+    //     vault.deposit(amountToDeposit);
+
+    //     Utils.skipDay(true, vm);
+    //     vault.rollEpoch();
+
+    //     // TODO: Adjust test when price will be get from PriceOracle, since the price is 1:1
+    //     (uint256 btAmount, uint256 stAmount) = vault.balances();
+    //     if ((amountToHedge > 0 && amountToHedgeAbs > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)) {
+    //         vm.expectRevert(ExceedsAvailable);
+    //         vault.deltaHedge(amountToHedge);
+    //         return;
+    //     }
+
+    //     vault.deltaHedge(amountToHedge);
+    //     (uint256 btAmountAfter, uint256 stAmountAfter) = vault.balances();
+
+    //     assertEq(int256(btAmount) + expectedBaseTokenDelta, btAmountAfter);
+    //     assertEq(int256(stAmount) + expectedSideTokenDelta, stAmountAfter);
+    // }
+
     // /**
     //     Test that vault accounting properties are correct after calling `moveAsset()`
     //  */
     // function testMoveAssetPull() public {
-    //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+    //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
 
     //     vm.prank(alice);
     //     vault.deposit(100);
@@ -107,7 +169,7 @@ contract VaultStateTest is Test {
     // }
 
     // function testMoveAssetPullFail() public {
-    //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+    //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
 
     //     vm.prank(alice);
     //     vault.deposit(100);
@@ -125,7 +187,7 @@ contract VaultStateTest is Test {
     // }
 
     // function testMoveAssetPush() public {
-    //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+    //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
 
     //     vm.prank(alice);
     //     vault.deposit(100);
@@ -138,8 +200,8 @@ contract VaultStateTest is Test {
     //     assertEq(50, baseToken.balanceOf(address(vault)));
     //     // assertEq(50, VaultUtils.vaultState(vault).liquidity.locked);
 
-    //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100, vm);
-    //     vm.prank(tokenAdmin);
+    //     TokenUtils.provideApprovedTokens(admin, address(baseToken), admin, address(vault), 100, vm);
+    //     vm.prank(admin);
     //     vault.moveAsset(100);
 
     //     Utils.skipDay(false, vm);
@@ -156,7 +218,7 @@ contract VaultStateTest is Test {
     //     Vault vault = _createMarket();
     //     vault.rollEpoch();
 
-    //     TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+    //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
 
     //     vm.prank(alice);
     //     vault.deposit(100);

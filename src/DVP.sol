@@ -135,7 +135,7 @@ abstract contract DVP is IDVP, EpochControls {
         IEpochControls(vault).rollEpoch();
         // ToDo: check if vault is dead and react to it
 
-        _liquidity.initial = IVault(vault).getLockedValue();
+        _liquidity.initial = IVault(vault).v0();
         // _liquidity.initial = 1000; // TMP
 
         super.rollEpoch();

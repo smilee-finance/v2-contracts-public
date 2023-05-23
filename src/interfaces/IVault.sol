@@ -23,19 +23,18 @@ interface IVault is IVaultParams {
         @return baseTokenAmount The amount of baseToken currently locked in the vault
         @return sideTokenAmount The amount of sideToken currently locked in the vault
      */
-    function getPortfolio() external view returns (uint256 baseTokenAmount, uint256 sideTokenAmount);
+    function balances() external view returns (uint256 baseTokenAmount, uint256 sideTokenAmount);
 
     /**
-        @notice Provides the total portfolio value in base tokens
-        @return value The total portfolio value in base tokens
+        @notice Gives the initial notional for the current epoch (base tokens)
+        @return v0_ The number of base tokens available for issuing options
      */
-    function getLockedValue() view external returns (uint256);
+    function v0() external view returns (uint256 v0_);
 
     /**
         @notice Deposits an `amount` of `baseToken` from msg.sender
         @dev The shares are not directly minted to the user. We need to wait for epoch change in order to know how many
-             shares these assets correspond to. So shares are minted to the contract in `rollEpoch()` and owed to the
-             depositor.
+        shares these assets correspond to. So shares are minted to the contract in `rollEpoch()` and owed to the depositor.
         @param amount The amount of `baseToken` to deposit
      */
     function deposit(uint256 amount) external;
@@ -71,7 +70,16 @@ interface IVault is IVaultParams {
      */
     function shareBalances(address account) external view returns (uint256 heldByAccount, uint256 heldByVault);
 
+    /**
+        @notice Moves an amount of base tokens to a given wallet
+        @dev Used to directly pay payoff to the given address without transferring it to DVP.
+        @param recipient The address receiving the quantity
+        @param amount The number of base tokens to move
+     */
     function provideLiquidity(address recipient, uint256 amount) external;
 
+    /**
+        TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+     */
     function deltaHedge(int256 sideTokensAmount) external;
 }

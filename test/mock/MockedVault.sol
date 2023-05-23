@@ -6,13 +6,12 @@ import {Vault} from "../../src/Vault.sol";
 import {IPriceOracle} from "../../src/interfaces/IPriceOracle.sol";
 
 /**
-    @notice a mocked vault to ease the testing of DVPs
-
+    @notice Vault with manually managed liquidity, to ease testing of DVPs
     Such vault should allow the test to simulate the presence of enough liquidity for the DVP operations.
  */
 contract MockedVault is Vault {
-    bool internal _fakeLockedValue;
-    uint256 internal _lockedValue;
+    bool internal _fakeV0;
+    uint256 internal _v0;
 
     constructor(
         address baseToken_,
@@ -21,39 +20,29 @@ contract MockedVault is Vault {
         address addressProvider_
     ) Vault(baseToken_, sideToken_, epochFrequency_, addressProvider_) {}
 
-    function setLockedValue(uint256 value) public {
-        _lockedValue = value;
-        _fakeLockedValue = true;
+    function setV0(uint256 value) public {
+        _v0 = value;
+        _fakeV0 = true;
     }
 
-    function useRealLockedValue() public {
-        _fakeLockedValue = false;
+    function useRealV0() public {
+        _fakeV0 = false;
     }
 
-    function getLockedValue() view public override returns (uint256) {
-        if (_fakeLockedValue) {
-            return _lockedValue;
+    /// @dev Overwrite real v0 with the value of manually managed `_v0`
+    function v0() public view override returns (uint256) {
+        if (_fakeV0) {
+            return _v0;
         }
-        return super.getLockedValue();
+        return super.v0();
     }
 
-    // function moveTokens(int256 baseTokenAmount, int256 sideTokenAmount) public {
-    //     _moveToken(baseToken, baseTokenAmount);
-    //     _moveToken(sideToken, sideTokenAmount);
-    // }
-
-    function _moveToken(address token, int256 amount) internal {
-        if (amount > 0) {
-            IERC20(token).transferFrom(msg.sender, address(this), uint256(amount));
-        } else {
-            uint256 absAmount = uint256(-amount);
-            if (token == baseToken && absAmount > _getLockedValue()) {
-                revert ExceedsAvailable();
-            }
-            IERC20(token).transfer(msg.sender, absAmount);
-        }
+    /// @dev Expose address provider
+    function addressProvider() external view returns (address) {
+        return address(_addressProvider);
     }
 
+    /// @notice Increases or decreases underlying portfolio value by the given percentage
     function moveValue(int256 percentage) public {
         // percentage
         // 10000 := 100%
@@ -64,14 +53,30 @@ contract MockedVault is Vault {
         uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
         _sellSideTokens(sideTokens);
 
-        int256 baseDelta = int(_getLockedValue()) * percentage / 10000;
+        int256 baseDelta = (int(_notionalBaseTokens()) * percentage) / 10000;
         _moveToken(baseToken, baseDelta);
 
-        _splitIntoEqualWeightPortfolio();
+        _equalWeightRebalance();
     }
 
-     /// @dev the current amount
-    function getVaultLockedValue() public view returns (uint256) {
-        return _getLockedValue();
+    // function equalWeightRebalance() external {
+    //     _equalWeightRebalance();
+    // }
+
+    function notionalBaseTokens() public view returns (uint256) {
+        return _notionalBaseTokens();
+    }
+
+    /// @notice Gets or gives an amount of token from/to the sender, for testing purposes
+    function _moveToken(address token, int256 amount) internal {
+        if (amount > 0) {
+            IERC20(token).transferFrom(msg.sender, address(this), uint256(amount));
+        } else {
+            uint256 absAmount = uint256(-amount);
+            if (token == baseToken && absAmount > _notionalBaseTokens()) {
+                revert ExceedsAvailable();
+            }
+            IERC20(token).transfer(msg.sender, absAmount);
+        }
     }
 }
