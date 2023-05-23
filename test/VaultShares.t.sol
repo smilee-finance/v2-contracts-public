@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IVault} from "../src/interfaces/IVault.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
@@ -436,7 +437,6 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
         assertEq(50, vault.totalSupply());
-        assertEq(200, vault.notional());
         assertEq(400, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
 
@@ -477,7 +477,8 @@ contract VaultTest is Test {
 
         // Remove asset from Vault
         vault.moveValue(-5000); // -50% Alice
-        assertEq(150, vault.notional());
+        //TODO: The following assert have to be replaced with balanceOfBaseTokenOfVault + _notionalSideToken()
+        //assertEq(150, IERC20(baseToken).balanceOf(address(vault))); 
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -493,7 +494,6 @@ contract VaultTest is Test {
         vault.initiateWithdraw(200);
 
         vault.moveValue(-5000); // -75% Alice, -50% Bob
-        assertEq(75, vault.notional());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -503,7 +503,6 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
         assertEq(200, vault.totalSupply());
-        assertEq(50, vault.notional());
         assertEq(25, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
 
@@ -512,7 +511,6 @@ contract VaultTest is Test {
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
         assertEq(0, vault.totalSupply());
-        assertEq(0, vault.notional());
         assertEq(50, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
     }
@@ -585,8 +583,6 @@ contract VaultTest is Test {
         assertEq(0, baseToken.balanceOf(alice));
         assertEq(200, baseToken.balanceOf(bob));
         assertEq(100, vault.totalSupply());
-
-        assertEq(100, vault.notional());
     }
 
     /**

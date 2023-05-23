@@ -16,6 +16,13 @@ interface IPriceOracle {
      */
     function priceDecimals() external pure returns (uint decimals);
 
+    /**
+        @notice Return Price of token in referenceToken
+        @param token Address of token
+        @return price Price of token in referenceToken
+     */
+    function getTokenPrice(address token) external view returns (uint price);
+
     function getImpliedVolatility(address token0, address token1, uint256 strikePrice, uint256 frequency) external returns (uint256 iv);
 
     function getRiskFreeRate(address token0, address token1) external returns (uint256 rate);

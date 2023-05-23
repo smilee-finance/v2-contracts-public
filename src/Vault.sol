@@ -7,6 +7,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
+import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 import {AddressProvider} from "./AddressProvider.sol";
@@ -100,6 +101,7 @@ contract Vault is IVault, ERC20, EpochControls {
     function notional() public view returns (uint256) {
         address exchangeAddress = _addressProvider.exchangeAdapter();
         IExchange exchange = IExchange(exchangeAddress);
+
         uint256 baseTokens = _notionalBaseTokens();
         uint256 sideTokens = _notionalSideTokens();
         uint256 valueOfSideTokens = exchange.getOutputAmount(sideToken, baseToken, sideTokens);
@@ -285,6 +287,7 @@ contract Vault is IVault, ERC20, EpochControls {
         // NOTE: if sharePrice went to zero, the users will receive zero
         _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
         uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
+         _balancePendingWithdraw(newPendingWithdrawals);
         _state.withdrawals.newHeldShares = 0;
         _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
         lockedLiquidity -= newPendingWithdrawals;
@@ -351,6 +354,7 @@ contract Vault is IVault, ERC20, EpochControls {
         IExchange exchange = IExchange(exchangeAddress);
 
         uint256 halfNotional = notional() / 2;
+
         uint256 finalSideTokens = exchange.getOutputAmount(baseToken, sideToken, halfNotional);
         uint256 sideTokens = _notionalSideTokens();
         deltaHedge(int256(finalSideTokens) - int256(sideTokens));
@@ -421,6 +425,32 @@ contract Vault is IVault, ERC20, EpochControls {
     /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
     function _notionalSideTokens() internal view returns (uint256) {
         return IERC20(sideToken).balanceOf(address(this));
+    }
+
+    /// @notice Value in baseToken of sideToken
+    function _notionalValueSideTokens() internal view returns (uint256) {
+        address priceOracleAddress = _addressProvider.priceOracle();
+        IPriceOracle priceOracle = IPriceOracle(priceOracleAddress);
+
+        return priceOracle.getTokenPrice(sideToken) * _notionalSideTokens();
+    }
+
+    /**
+     *  @dev Rebalance pending withdraw, since they affect the _notionalBaseTokenValue. 
+     *  We need to ensure to have the amount for withdraws for next epoch.
+     */ 
+    function _balancePendingWithdraw(uint256 pendingAmount) private {
+        uint256 baseTokenAmount = _notionalBaseTokens();
+        if(baseTokenAmount < pendingAmount) {
+            uint256 amountBaseTokenToAcquire = pendingAmount - baseTokenAmount;
+
+            address exchangeAddress = _addressProvider.exchangeAdapter();
+            IExchange exchange = IExchange(exchangeAddress);
+
+            int256 deltaHedgeIdx = int256(exchange.getOutputAmount(baseToken, sideToken, amountBaseTokenToAcquire));
+            deltaHedge(-deltaHedgeIdx);
+        }
+
     }
 
     /// @dev Block shares transfer when not allowed (for testnet purposes)
