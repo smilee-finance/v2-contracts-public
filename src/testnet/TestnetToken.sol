@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IRegistry} from "../interfaces/IRegistry.sol";
 import {AdminAccess} from "./AdminAccess.sol";
 import {Factory} from "../Factory.sol";
 
-
 /**
     @notice Token contract to be used under testing condition.
-            Allows admin and dedicated contracts to mint and burn as many tokens as needed.
+    Allows admin and dedicated contracts to mint and burn as many tokens as needed.
     @dev Transfer is blocked between wallets and only allowed from wallets to Liquidity Vaults and DVPs and viceversa.
-         A Swapper contract is authorized to mint and burn tokens to simulate an exchange.
+    A Swapper contract is authorized to mint and burn tokens to simulate an exchange.
  */
 contract TestnetToken is ERC20, AdminAccess {
     IRegistry private _controller;

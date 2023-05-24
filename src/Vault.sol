@@ -288,8 +288,6 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
         uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
 
-         _balancePendingWithdraw(newPendingWithdrawals);
-        
         // TODO - make one call to exchange (unify with ew rebalance)
         _reserveBaseTokens(newPendingWithdrawals);
         _state.withdrawals.newHeldShares = 0;
@@ -325,7 +323,7 @@ contract Vault is IVault, ERC20, EpochControls {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[msg.sender];
 
         // User enabled to rescue only if the user has deposited in the last epoch before the Vault died.
-        if (depositReceipt.epoch != getLastRolledEpoch()) {
+        if (depositReceipt.epoch != _lastRolledEpoch()) {
             revert NothingToRescue();
         }
 

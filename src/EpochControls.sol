@@ -7,10 +7,14 @@ import {EpochFrequency} from "./lib/EpochFrequency.sol";
 abstract contract EpochControls is IEpochControls {
     uint256[] private _epochs;
 
-    /// @inheritdoc IEpochControls
+    /**
+        @inheritdoc IEpochControls
+     */
     uint256 public immutable override epochFrequency;
 
-    /// @inheritdoc IEpochControls
+    /**
+        @inheritdoc IEpochControls
+     */
     uint256 public override currentEpoch = 0;
 
     constructor(uint256 epochFrequency_) {
@@ -18,16 +22,21 @@ abstract contract EpochControls is IEpochControls {
         epochFrequency = epochFrequency_;
     }
 
-    /// Draft modifiers ///
+    /// MODIFIERS ///
 
-    /// @notice Ensure the vault is active and current timestamp is in the active epoch
+    /**
+        @notice Ensures the current epoch holds a valid value
+     */
     modifier epochActive() {
         if (currentEpoch == 0) {
-            revert NoActiveEpoch();
+            revert EpochNotActive();
         }
         _;
     }
 
+    /**
+        @notice Ensures the given epoch is concluded
+     */
     modifier epochFinished(uint256 epoch) {
         // if currentEpoch == 0 consider it finished
         if (currentEpoch > 0 && block.timestamp <= epoch) {
@@ -43,18 +52,18 @@ abstract contract EpochControls is IEpochControls {
         _;
     }
 
-    /// implementation ///
+    /// LOGIC ///
 
-    /// @inheritdoc IEpochControls
+    /**
+        @inheritdoc IEpochControls
+     */
     function epochs() public view override returns (uint256[] memory) {
         return _epochs;
     }
 
-    function getLastRolledEpoch() internal view returns(uint256 lastEpoch) {
-        lastEpoch = _epochs[_epochs.length - 2];
-    } 
-
-    /// @inheritdoc IEpochControls
+    /**
+        @inheritdoc IEpochControls
+     */
     function rollEpoch() public virtual override epochFinished(currentEpoch) {
         uint256 nextEpoch = EpochFrequency.nextExpiry(block.timestamp, epochFrequency);
 
@@ -67,8 +76,17 @@ abstract contract EpochControls is IEpochControls {
         _epochs.push(currentEpoch);
     }
 
-    /// @inheritdoc IEpochControls
-    function timeToNextEpoch() view public returns (uint256) {
+    /**
+        @inheritdoc IEpochControls
+     */
+    function timeToNextEpoch() public view returns (uint256) {
         return currentEpoch - block.timestamp;
+    }
+
+    /**
+        @dev Second last timestamp
+     */
+    function _lastRolledEpoch() internal view returns (uint256 lastEpoch) {
+        lastEpoch = _epochs[_epochs.length - 2];
     }
 }

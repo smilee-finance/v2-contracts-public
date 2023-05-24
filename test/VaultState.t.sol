@@ -15,7 +15,6 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 
 contract VaultStateTest is Test {
-    bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
 
     address admin = address(0x1);
@@ -120,12 +119,14 @@ contract VaultStateTest is Test {
 
         AddressProvider ap = AddressProvider(vault.addressProvider());
         IExchange exchange = IExchange(ap.exchangeAdapter());
-        uint256 baseTokenSwapAmount = exchange.getOutputAmount(address(sideToken), address(baseToken), amountToHedgeAbs);
-
+        uint256 baseTokenSwapAmount = exchange.getOutputAmount(
+            address(sideToken),
+            address(baseToken),
+            amountToHedgeAbs
+        );
 
         int256 expectedSideTokenDelta = int256(amountToHedge);
         int256 expectedBaseTokenDelta = amountToHedge > 0 ? -int256(baseTokenSwapAmount) : int256(baseTokenSwapAmount);
-
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
         vm.prank(alice);

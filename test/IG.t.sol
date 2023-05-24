@@ -16,7 +16,7 @@ import {Registry} from "../src/Registry.sol";
 import {Vault} from "../src/Vault.sol";
 
 contract IGTest is Test {
-    bytes4 constant NoActiveEpoch = bytes4(keccak256("NoActiveEpoch()"));
+    bytes4 constant EpochNotActive = bytes4(keccak256("EpochNotActive()"));
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
@@ -69,7 +69,7 @@ contract IGTest is Test {
     function testCantUse() public {
         IDVP ig = new MockedIG(address(vault));
 
-        vm.expectRevert(NoActiveEpoch);
+        vm.expectRevert(EpochNotActive);
         ig.mint(address(0x1), 0, OptionStrategy.CALL, 1);
     }
 
