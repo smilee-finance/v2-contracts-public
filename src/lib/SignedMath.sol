@@ -6,9 +6,15 @@ import {AmountsMath} from "./AmountsMath.sol";
 library SignedMath {
     using AmountsMath for uint256;
 
-    uint256 private constant MAX_INT = 57896044618658097711785492504343953926634992332820282019728792003956564819967;
+    error Overflow(uint256 val);
 
-    error Overflow(string name, uint256 val);
+    /// @dev Utility to safely cast a uint to a int
+    function castInt(uint256 n) public pure returns (int256 z) {
+        if (n > uint256(type(int256).max)) {
+            revert Overflow(n);
+        }
+        return int256(n);
+    }
 
     /// @dev Utility to square a signed value
     function pow2(int256 n) public pure returns (uint256 res) {
@@ -18,20 +24,12 @@ library SignedMath {
 
     /// @dev Utility to negate an unsigned value
     function neg(uint256 n) public pure returns (int256 z) {
-        if ((z = int256(n)) > type(int256).max) {
-            revert Overflow("_neg_n", n);
-        }
-
-        z = -z;
+        return -castInt(n);
     }
 
     /// @dev Utility to sum an int and a uint into a uint, returning the abs value of the sum and the sign
     function sum(int256 a, uint256 b) public pure returns (uint256 q, bool p) {
-        if (b > MAX_INT) {
-            revert Overflow("_sum_b", b);
-        }
-
-        int256 s = a + int256(b);
+        int256 s = a + castInt(b);
         q = abs(s);
         p = s >= 0;
     }
@@ -45,10 +43,8 @@ library SignedMath {
     }
 
     /// @dev Reverses an absolute unsigned value into an integer
-    function revabs(uint256 n, bool p) internal pure returns (int256) {
-        if (n > MAX_INT) {
-            revert Overflow("_revabs_n", n);
-        }
-        return p ? int256(n) : -int256(n);
+    function revabs(uint256 n, bool p) internal pure returns (int256 z) {
+        z = castInt(n);
+        z = p ? z : -z;
     }
 }
