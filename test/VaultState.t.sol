@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
+import {IExchange} from "../src/interfaces/IExchange.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
 import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
@@ -108,39 +109,45 @@ contract VaultStateTest is Test {
     /**
         Check state of the vault after `deltaHedge()` call
      */
-    // function testDeltaHedge(uint128 amountToDeposit, int128 amountToHedge) public {
-    //     // An amount should be always deposited
-    //     // TBD: what if depositAmount < 1 ether ?
-    //     vm.assume(amountToDeposit > 1 ether && amountToDeposit < type(int256).max);
+    function testDeltaHedge(uint128 amountToDeposit, int128 amountToHedge) public {
+        // An amount should be always deposited
+        // TBD: what if depositAmount < 1 ether ?
+        vm.assume(amountToDeposit > 1 ether);
 
-    //     uint256 amountToHedgeAbs = amountToHedge > 0
-    //         ? uint256(uint128(amountToHedge))
-    //         : uint256(-int256(amountToHedge));
+        uint256 amountToHedgeAbs = amountToHedge > 0
+            ? uint256(uint128(amountToHedge))
+            : uint256(-int256(amountToHedge));
 
-    //     int256 expectedSideTokenDelta = int256(amountToHedge);
-    //     int256 expectedBaseTokenDelta = 0;
+        AddressProvider ap = AddressProvider(vault.addressProvider());
+        IExchange exchange = IExchange(ap.exchangeAdapter());
+        uint256 baseTokenSwapAmount = exchange.getOutputAmount(address(sideToken), address(baseToken), amountToHedgeAbs);
 
-    //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
-    //     vm.prank(alice);
-    //     vault.deposit(amountToDeposit);
 
-    //     Utils.skipDay(true, vm);
-    //     vault.rollEpoch();
+        int256 expectedSideTokenDelta = int256(amountToHedge);
+        int256 expectedBaseTokenDelta = amountToHedge > 0 ? -int256(baseTokenSwapAmount) : int256(baseTokenSwapAmount);
 
-    //     // TODO: Adjust test when price will be get from PriceOracle, since the price is 1:1
-    //     (uint256 btAmount, uint256 stAmount) = vault.balances();
-    //     if ((amountToHedge > 0 && amountToHedgeAbs > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)) {
-    //         vm.expectRevert(ExceedsAvailable);
-    //         vault.deltaHedge(amountToHedge);
-    //         return;
-    //     }
 
-    //     vault.deltaHedge(amountToHedge);
-    //     (uint256 btAmountAfter, uint256 stAmountAfter) = vault.balances();
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
+        vm.prank(alice);
+        vault.deposit(amountToDeposit);
 
-    //     assertEq(int256(btAmount) + expectedBaseTokenDelta, btAmountAfter);
-    //     assertEq(int256(stAmount) + expectedSideTokenDelta, stAmountAfter);
-    // }
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        // TODO: Adjust test when price will be get from PriceOracle, since the price is 1:1
+        (uint256 btAmount, uint256 stAmount) = vault.balances();
+        if ((amountToHedge > 0 && amountToHedgeAbs > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)) {
+            vm.expectRevert(ExceedsAvailable);
+            vault.deltaHedge(amountToHedge);
+            return;
+        }
+
+        vault.deltaHedge(amountToHedge);
+        (uint256 btAmountAfter, uint256 stAmountAfter) = vault.balances();
+
+        assertEq(int256(btAmount) + expectedBaseTokenDelta, int256(btAmountAfter));
+        assertEq(int256(stAmount) + expectedSideTokenDelta, int256(stAmountAfter));
+    }
 
     // /**
     //     Test that vault accounting properties are correct after calling `moveAsset()`

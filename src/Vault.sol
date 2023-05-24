@@ -287,6 +287,9 @@ contract Vault is IVault, ERC20, EpochControls {
         // NOTE: if sharePrice went to zero, the users will receive zero
         _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
         uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
+
+         _balancePendingWithdraw(newPendingWithdrawals);
+        
         // TODO - make one call to exchange (unify with ew rebalance)
         _reserveBaseTokens(newPendingWithdrawals);
         _state.withdrawals.newHeldShares = 0;
