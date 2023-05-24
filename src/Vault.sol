@@ -287,7 +287,8 @@ contract Vault is IVault, ERC20, EpochControls {
         // NOTE: if sharePrice went to zero, the users will receive zero
         _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
         uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
-         _balancePendingWithdraw(newPendingWithdrawals);
+        // TODO - make one call to exchange (unify with ew rebalance)
+        _reserveBaseTokens(newPendingWithdrawals);
         _state.withdrawals.newHeldShares = 0;
         _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
         lockedLiquidity -= newPendingWithdrawals;
@@ -427,22 +428,11 @@ contract Vault is IVault, ERC20, EpochControls {
         return IERC20(sideToken).balanceOf(address(this));
     }
 
-    /// @notice Value in baseToken of sideToken
-    function _notionalValueSideTokens() internal view returns (uint256) {
-        address priceOracleAddress = _addressProvider.priceOracle();
-        IPriceOracle priceOracle = IPriceOracle(priceOracleAddress);
-
-        return priceOracle.getTokenPrice(sideToken) * _notionalSideTokens();
-    }
-
-    /**
-     *  @dev Rebalance pending withdraw, since they affect the _notionalBaseTokenValue. 
-     *  We need to ensure to have the amount for withdraws for next epoch.
-     */ 
-    function _balancePendingWithdraw(uint256 pendingAmount) private {
+    /// @dev Ensure we have enough base token to pay for withdraws
+    function _reserveBaseTokens(uint256 amount) private {
         uint256 baseTokenAmount = _notionalBaseTokens();
-        if(baseTokenAmount < pendingAmount) {
-            uint256 amountBaseTokenToAcquire = pendingAmount - baseTokenAmount;
+        if (baseTokenAmount < amount) {
+            uint256 amountBaseTokenToAcquire = amount - baseTokenAmount;
 
             address exchangeAddress = _addressProvider.exchangeAdapter();
             IExchange exchange = IExchange(exchangeAddress);
@@ -450,7 +440,6 @@ contract Vault is IVault, ERC20, EpochControls {
             int256 deltaHedgeIdx = int256(exchange.getOutputAmount(baseToken, sideToken, amountBaseTokenToAcquire));
             deltaHedge(-deltaHedgeIdx);
         }
-
     }
 
     /// @dev Block shares transfer when not allowed (for testnet purposes)

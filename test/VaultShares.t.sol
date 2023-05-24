@@ -386,11 +386,12 @@ contract VaultTest is Test {
     }
 
     /**
-     * Describe two users, the first (Alice) deposits 100$ in epoch1 receiving 100 shares.
-     * Meanwhile the price of the lockedLiquidity has been multiplied by 2 (always in epoch1).
-     * Bob deposits 100$ in epoch1, but, since his shares will be delivered in epoch2 and the price in epoch1 is changed, Bob receive 50 shares.
-     * In epoch2, the price has been multiplied by 2 again. Meanwhile Bob and Alice start a the withdraw procedure for all their shares.
-     * Alice should receive 400$ and Bob 200$ from their shares.
+        - Alice deposits 100 in epoch 1 (100 shares)
+        - vault notional value doubles in epoch 1
+        - Bob deposit 100 in epoch 1 for epoch 2 (50 shares)
+        - vault notional value doubles in epoch 2
+        - Bob and Alice start a the withdraw procedure for all their shares
+        - Alice should receive 400 (100*4) and Bob 200 (100*2).
      */
     function testVaultMathDoubleLiquidity() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
@@ -411,6 +412,7 @@ contract VaultTest is Test {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100, vm);
         vm.prank(tokenAdmin);
         vault.moveValue(10000); // +100% Alice
+        assertEq(200, vault.notional());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -428,9 +430,12 @@ contract VaultTest is Test {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 300, vm);
         vm.prank(tokenAdmin);
         vault.moveValue(10000); // +200% Alice, +100% Bob
+        assertEq(600, vault.notional());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
+
+        assertEq(0, vault.notional()); // everyone withdraws, notional is 0
 
         vm.prank(alice);
         vault.completeWithdraw();
@@ -444,9 +449,7 @@ contract VaultTest is Test {
         vault.completeWithdraw();
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
-        (uint256 vaultBaseTokenBalance, ) = vault.balances();
         assertEq(0, vault.totalSupply());
-        assertEq(0, vaultBaseTokenBalance);
         assertEq(200, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
     }
@@ -475,10 +478,8 @@ contract VaultTest is Test {
         vm.prank(bob);
         vault.deposit(100);
 
-        // Remove asset from Vault
         vault.moveValue(-5000); // -50% Alice
-        //TODO: The following assert have to be replaced with balanceOfBaseTokenOfVault + _notionalSideToken()
-        //assertEq(150, IERC20(baseToken).balanceOf(address(vault))); 
+        assertEq(50, vault.notional());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -494,9 +495,12 @@ contract VaultTest is Test {
         vault.initiateWithdraw(200);
 
         vault.moveValue(-5000); // -75% Alice, -50% Bob
+        assertEq(75, vault.notional());
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
+
+        assertEq(0, vault.notional()); // everyone withdraws, notional is 0
 
         vm.prank(alice);
         vault.completeWithdraw();
