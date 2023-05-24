@@ -66,6 +66,8 @@ contract IGTest is Test {
     //   //     new MockedIG(address(vault));
     // }
 
+    // ToDo: Add test for rollEpoch before will become active
+
     function testCantUse() public {
         IDVP ig = new MockedIG(address(vault));
 

@@ -21,11 +21,7 @@ abstract contract DVP is IDVP, EpochControls {
     }
 
     /// @inheritdoc IDVPImmutables
-    address public immutable override factory;
-    /// @inheritdoc IDVPImmutables
     address public immutable override baseToken;
-    /// @inheritdoc IDVPImmutables
-    address public immutable override sideToken;
     /// @inheritdoc IDVPImmutables
     bool public immutable override optionType;
 
@@ -37,16 +33,13 @@ abstract contract DVP is IDVP, EpochControls {
 
     mapping(uint256 => mapping(bytes32 => Position.Info)) public epochPositions;
 
-    // error NotEnoughLiquidity();
+    error NotEnoughLiquidity();
 
     constructor(address vault_, bool optionType_) EpochControls(IEpochControls(vault_).epochFrequency()) {
-        factory = msg.sender;
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);
         baseToken = vaultCt.baseToken();
-        sideToken = vaultCt.sideToken();
-        DVPLogic.valid(DVPLogic.DVPCreateParams(baseToken, sideToken));
     }
 
     /// @inheritdoc IDVP
@@ -69,9 +62,9 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         // Check available liquidity:
-        // if (_liquidity.initial - _liquidity.used < amount) {
-        //     revert NotEnoughLiquidity();
-        // }
+        if (_liquidity.initial - _liquidity.used < amount) {
+            revert NotEnoughLiquidity();
+        }
 
         // TBD: perhaps the DVP needs to know how much premium was paid (in a given epoch ?)...
         _getPremium(strike, strategy, amount);
@@ -113,6 +106,7 @@ abstract contract DVP is IDVP, EpochControls {
         // TBD: trigger liquidity rebalance on liquidity provider
 
         Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
+
         position.updateAmount(-int256(amount));
 
         _liquidity.used -= amount;
@@ -145,6 +139,7 @@ abstract contract DVP is IDVP, EpochControls {
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
 
     /// @inheritdoc IDVP
+    // TBD : What if user wants to burn a portion of position (of course if the burn will be done in the same epoch)? 
     function payoff(uint256 epoch, uint256 strike, bool strategy) public view virtual returns (uint256);
 
     function _getPremium(uint256 strike, bool strategy, uint256 amount) internal {

@@ -82,7 +82,7 @@ contract VaultStateTest is Test {
         heldShares = VaultUtils.vaultState(vault).withdrawals.heldShares;
         assertEq(0, heldShares);
     }
-
+    // ToDo: Add comments
     function testEqualWeightRebalance(uint256 sideTokenPrice) public {
         uint256 amountToDeposit = 100 ether;
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
@@ -108,16 +108,22 @@ contract VaultStateTest is Test {
     /**
         Check state of the vault after `deltaHedge()` call
      */
-    function testDeltaHedge(uint128 amountToDeposit, int128 amountToHedge) public {
+    function testDeltaHedge(uint128 amountToDeposit, int128 amountToHedge, uint32 sideTokenPrice) public {
         // An amount should be always deposited
         // TBD: what if depositAmount < 1 ether ?
         vm.assume(amountToDeposit > 1 ether);
+        vm.assume(sideTokenPrice > 0); 
 
         uint256 amountToHedgeAbs = amountToHedge > 0
             ? uint256(uint128(amountToHedge))
             : uint256(-int256(amountToHedge));
 
         AddressProvider ap = AddressProvider(vault.addressProvider());
+        TestnetPriceOracle priceOracle = TestnetPriceOracle(ap.priceOracle());
+
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+        
         IExchange exchange = IExchange(ap.exchangeAdapter());
         uint256 baseTokenSwapAmount = exchange.getOutputAmount(
             address(sideToken),
@@ -135,9 +141,8 @@ contract VaultStateTest is Test {
         Utils.skipDay(true, vm);
         vault.rollEpoch();
 
-        // TODO: Adjust test when price will be get from PriceOracle, since the price is 1:1
         (uint256 btAmount, uint256 stAmount) = vault.balances();
-        if ((amountToHedge > 0 && amountToHedgeAbs > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)) {
+        if ((amountToHedge > 0 && baseTokenSwapAmount > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)) {
             vm.expectRevert(ExceedsAvailable);
             vault.deltaHedge(amountToHedge);
             return;
