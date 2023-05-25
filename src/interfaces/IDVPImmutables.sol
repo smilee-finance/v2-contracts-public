@@ -6,11 +6,6 @@ pragma solidity ^0.8.15;
     @notice These parameters are fixed for a DVP forever, i.e., the methods will always return the same values
  */
 interface IDVPImmutables {
-    /**
-        @notice The contract that deployed the DVP
-        @return The contract address
-     */
-    function factory() external view returns (address);
 
     /**
         @notice The base token in the pair of the DVP

@@ -63,7 +63,6 @@ contract IGVaultTest is Test {
     // Verificare sempre la liquidità in tutti i test
     // Assert su cosa ci aspettiamo nella Vault
     // Implement CALL & PUT
-    // C & D comprano posizioni e D chiude prima della scadenza (parziale o totale) // solo totale
     // C & D comprano posizioni e chiudono alla scadenza => Accertarsi che il payoff venga spostato nella DVP
     // C & D comprano posizioni e perdono
     // C & D comprano posizioni e perdono, cosa succede ad Alice & Bob che vogliono uscire dalla Vault (parziale o totale)
@@ -121,7 +120,8 @@ contract IGVaultTest is Test {
         uint64 aliceAmount,
         uint64 bobAmount,
         uint64 charlieAmount,
-        uint64 davidAmount //,bool partialBurn
+        uint64 davidAmount,
+        bool partialBurn
     ) public {
         vm.assume(aliceAmount > 0.01 ether);
         vm.assume(bobAmount > 0.01 ether);
@@ -136,11 +136,13 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         ig.rollEpoch();
 
-        uint256 premium = _assurePremium(charlie, 0, OptionStrategy.CALL, charlieAmount);
+        uint256 charliePremium = _assurePremium(charlie, 0, OptionStrategy.CALL, charlieAmount);
         vm.prank(charlie);
         ig.mint(charlie, 0, OptionStrategy.CALL, charlieAmount);
 
-        premium += _assurePremium(david, 0, OptionStrategy.CALL, davidAmount);
+
+        uint256 davidPremium = _assurePremium(david, 0, OptionStrategy.CALL, davidAmount);
+         
         vm.prank(david);
         ig.mint(david, 0, OptionStrategy.CALL, davidAmount);
 
@@ -150,24 +152,30 @@ contract IGVaultTest is Test {
 
         (uint256 amountBeforeBurn, , , ) = ig.positions(posId);
 
-        uint256 davidPayoff = ig.payoff(ig.currentEpoch(), 0, OptionStrategy.CALL);
-
         assertEq(davidAmount, amountBeforeBurn);
 
-        // if(partialBurn) {
-        //     davidAmount = davidAmount / 2;
-        // }
+        uint256 davidAmountToBurn = davidAmount;
+        if(partialBurn) {
+            davidAmountToBurn = davidAmountToBurn / 10;
+        }
+
+        uint256 davidPayoff = ig.payoff(ig.currentEpoch(), 0, OptionStrategy.CALL, davidAmountToBurn);
+
         vm.startPrank(david);
-        ig.burn(ig.currentEpoch(), david, 0, OptionStrategy.CALL, davidAmount);
+        ig.burn(ig.currentEpoch(), david, 0, OptionStrategy.CALL, davidAmountToBurn);
         vm.stopPrank();
 
         uint256 vaultNotionalAfterBurn = vault.notional();
         (uint256 amountAfterBurn, , , ) = ig.positions(posId);
 
+        assert()
         assertEq(davidPayoff, baseToken.balanceOf(david));
-        assertEq(amountBeforeBurn - davidAmount, amountAfterBurn);
+        assertEq(amountBeforeBurn - davidAmountToBurn, amountAfterBurn);
         assertEq(vaultNotionalBeforeBurn, vaultNotionalAfterBurn + davidPayoff);
     }
+
+    
+
 
     function _addVaultDeposit(address user, uint256 amount) private {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), user, address(vault), amount, vm);

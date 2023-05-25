@@ -22,9 +22,10 @@ abstract contract DVP is IDVP, EpochControls {
 
     /// @inheritdoc IDVPImmutables
     address public immutable override baseToken;
+    // @inheritdoc IDVPImmutables
+    address public immutable override sideToken;
     /// @inheritdoc IDVPImmutables
     bool public immutable override optionType;
-
     /// @inheritdoc IDVP
     address public override vault;
     // ToDo: index by epoch and add payoff (mapping of struct)
@@ -34,12 +35,14 @@ abstract contract DVP is IDVP, EpochControls {
     mapping(uint256 => mapping(bytes32 => Position.Info)) public epochPositions;
 
     error NotEnoughLiquidity();
+    error OptionMatured();
 
     constructor(address vault_, bool optionType_) EpochControls(IEpochControls(vault_).epochFrequency()) {
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);
         baseToken = vaultCt.baseToken();
+        sideToken = vaultCt.sideToken();
     }
 
     /// @inheritdoc IDVP
@@ -99,13 +102,20 @@ abstract contract DVP is IDVP, EpochControls {
         bool strategy,
         uint256 amount
     ) internal epochActive epochNotFrozen(currentEpoch) returns (uint256 paidPayoff) {
-        if (amount == 0) {
-            revert AmountZero();
-        }
+
         // TBD: check liquidity availability on liquidity provider
         // TBD: trigger liquidity rebalance on liquidity provider
 
         Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
+
+        // Option matured, the user have to close the entire position
+        if (position.epoch != currentEpoch) {
+            amount = position.amount;
+        }
+        
+        if (amount == 0) {
+            revert AmountZero();
+        }
 
         position.updateAmount(-int256(amount));
 
@@ -113,7 +123,7 @@ abstract contract DVP is IDVP, EpochControls {
         if (position.epoch == currentEpoch) {
             _deltaHedge(strike, strategy, amount);
         }
-        paidPayoff = _payPayoff(position, recipient);
+        paidPayoff = _payPayoff(position, recipient, amount);
 
         emit Burn(msg.sender);
     }
@@ -139,8 +149,8 @@ abstract contract DVP is IDVP, EpochControls {
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
 
     /// @inheritdoc IDVP
-    // TBD : What if user wants to burn a portion of position (of course if the burn will be done in the same epoch)? 
-    function payoff(uint256 epoch, uint256 strike, bool strategy) public view virtual returns (uint256);
+    // TBD : What if user wants to burn a portion of position (of course if the burn will be done in the same epoch)?
+    function payoff(uint256 epoch, uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
 
     function _getPremium(uint256 strike, bool strategy, uint256 amount) internal {
         uint256 premium_ = premium(strike, strategy, amount);
@@ -149,8 +159,12 @@ abstract contract DVP is IDVP, EpochControls {
         IERC20(baseToken).transferFrom(msg.sender, vault, premium_);
     }
 
-    function _payPayoff(Position.Info memory position, address recipient) internal virtual returns (uint256 payoff_) {
-        payoff_ = payoff(position.epoch, position.strike, position.strategy);
+    function _payPayoff(
+        Position.Info memory position,
+        address recipient,
+        uint256 amount
+    ) internal virtual returns (uint256 payoff_) {
+        payoff_ = payoff(position.epoch, position.strike, position.strategy, amount);
 
         // Transfer premium:
         IVault(vault).provideLiquidity(recipient, payoff_);
