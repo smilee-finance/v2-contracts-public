@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
 library OptionStrategy {
-    bool public constant CALL = true;
-    bool public constant PUT = false;
+    bool public constant CALL = true; // UP strategy
+    bool public constant PUT = false; // DOWN strategy
 }

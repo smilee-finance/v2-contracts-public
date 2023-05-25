@@ -6,19 +6,13 @@ import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {DVPLogic} from "./lib/DVPLogic.sol";
-import {OptionStrategy} from "./lib/OptionStrategy.sol";
+import {Notional} from "./lib/Notional.sol";
 import {Position} from "./lib/Position.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 abstract contract DVP is IDVP, EpochControls {
     using Position for Position.Info;
-    using OptionStrategy for uint256;
-
-    // NOTE: used come residuo da ritirare post fine epoca ?
-    struct Liquidity {
-        uint256 initial;
-        uint256 used;
-    }
+    using Notional for Notional.Info;
 
     /// @inheritdoc IDVPImmutables
     address public immutable override baseToken;
@@ -28,14 +22,14 @@ abstract contract DVP is IDVP, EpochControls {
     bool public immutable override optionType;
     /// @inheritdoc IDVP
     address public override vault;
-    // ToDo: index by epoch and add payoff (mapping of struct)
-    /// @notice Liquidity of the current epoch
-    Liquidity internal _liquidity;
+
+    // ToDo: add payoff (mapping of struct)
+    /// @notice Available liquidity for options indexed by epoch
+    mapping(uint256 => Notional.Info) internal _liquidity;
 
     mapping(uint256 => mapping(bytes32 => Position.Info)) public epochPositions;
 
     error NotEnoughLiquidity();
-    error OptionMatured();
 
     constructor(address vault_, bool optionType_) EpochControls(IEpochControls(vault_).epochFrequency()) {
         optionType = optionType_;
@@ -60,22 +54,23 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochActive epochNotFrozen(currentEpoch) returns (uint256 leverage) {
+    ) internal epochActive epochNotFrozen(currentEpoch) returns (uint256 premium_) {
         if (amount == 0) {
             revert AmountZero();
         }
 
-        // Check available liquidity:
-        if (_liquidity.initial - _liquidity.used < amount) {
+        // Check available liquidity
+        if (_liquidity[currentEpoch].available(strike, strategy) < amount) {
             revert NotEnoughLiquidity();
         }
 
-        // TBD: perhaps the DVP needs to know how much premium was paid (in a given epoch ?)...
-        _getPremium(strike, strategy, amount);
+        _liquidity[currentEpoch].increaseUsage(strike, strategy, amount);
+
+        // Get premium from sender
+        premium_ = premium(strike, strategy, amount);
+        IERC20(baseToken).transferFrom(msg.sender, vault, premium_);
 
         _deltaHedge(strike, strategy, amount);
-
-        _liquidity.used += amount;
 
         Position.Info storage position = _getPosition(currentEpoch, Position.getID(recipient, strategy, strike));
 
@@ -85,7 +80,6 @@ abstract contract DVP is IDVP, EpochControls {
         position.strategy = strategy;
         position.updateAmount(int256(amount));
 
-        leverage = 1;
         emit Mint(msg.sender, recipient);
     }
 
@@ -103,7 +97,6 @@ abstract contract DVP is IDVP, EpochControls {
         bool strategy,
         uint256 amount
     ) internal epochActive epochNotFrozen(currentEpoch) returns (uint256 paidPayoff) {
-
         // TBD: check liquidity availability on liquidity provider
         // TBD: trigger liquidity rebalance on liquidity provider
 
@@ -113,14 +106,15 @@ abstract contract DVP is IDVP, EpochControls {
         if (position.epoch != currentEpoch) {
             amount = position.amount;
         }
-        
+
         if (amount == 0) {
             revert AmountZero();
         }
 
         position.updateAmount(-int256(amount));
 
-        _liquidity.used -= amount;
+        _liquidity[epoch].decreaseUsage(strike, strategy, amount);
+
         if (position.epoch == currentEpoch) {
             _deltaHedge(strike, strategy, amount);
         }
@@ -136,15 +130,21 @@ abstract contract DVP is IDVP, EpochControls {
         // ToDo: compute payoff and set it into the vault for its roll epoch computations
         // ----- Payoff := initial locked liquidity * utilization rate [0,1] * dvp payoff percentage (from formulas)
         // TBD: track amount of liquidity put aside for the DVP payoff of each epoch ?
+        uint256 residualPayoff = _residualPayoff();
+        /* TODO - IVault(vault.reservePayoff(residualPayoff)); */
 
-        IEpochControls(vault).rollEpoch();
         // ToDo: check if vault is dead and react to it
 
-        _liquidity.initial = IVault(vault).v0();
-        // _liquidity.initial = 1000; // TMP
-
+        IEpochControls(vault).rollEpoch();
         super.rollEpoch();
+
+        _initLiquidity();
     }
+
+    // TODO
+    function _initLiquidity() internal virtual;
+
+    function _residualPayoff() internal virtual returns (uint256);
 
     /// @inheritdoc IDVP
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
@@ -153,21 +153,12 @@ abstract contract DVP is IDVP, EpochControls {
     // TBD : What if user wants to burn a portion of position (of course if the burn will be done in the same epoch)?
     function payoff(uint256 epoch, uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
 
-    function _getPremium(uint256 strike, bool strategy, uint256 amount) internal {
-        uint256 premium_ = premium(strike, strategy, amount);
-
-        // Transfer premium:
-        IERC20(baseToken).transferFrom(msg.sender, vault, premium_);
-    }
-
     function _payPayoff(
         Position.Info memory position,
         address recipient,
         uint256 amount
     ) internal virtual returns (uint256 payoff_) {
         payoff_ = payoff(position.epoch, position.strike, position.strategy, amount);
-
-        // Transfer premium:
         IVault(vault).provideLiquidity(recipient, payoff_);
     }
 

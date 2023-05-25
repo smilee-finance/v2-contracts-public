@@ -5,12 +5,16 @@ pragma solidity ^0.8.15;
     @title library to manage Smilee positions
  */
 library Position {
-    // info stored for each user's position
+    // Stored info for each user's position
     struct Info {
-        uint256 amount; // the number of options owned by this position
-        bool strategy; // the strategy held by this position (if its up / down IG, ...)
-        uint256 strike; // the strike price of the position
-        uint256 epoch; // the timestamp corresponding to the maturity of this position epoch
+        // The number of options owned by this position
+        uint256 amount;
+        // the strategy held by this position (if its up / down IG, ...)
+        bool strategy;
+        // the strike price of the position
+        uint256 strike;
+        // the timestamp corresponding to the maturity of this position epoch
+        uint256 epoch;
     }
 
     error CantBurnMoreThanMinted();
