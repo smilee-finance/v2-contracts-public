@@ -168,7 +168,6 @@ contract IGVaultTest is Test {
         uint256 vaultNotionalAfterBurn = vault.notional();
         (uint256 amountAfterBurn, , , ) = ig.positions(posId);
 
-        assert()
         assertEq(davidPayoff, baseToken.balanceOf(david));
         assertEq(amountBeforeBurn - davidAmountToBurn, amountAfterBurn);
         assertEq(vaultNotionalBeforeBurn, vaultNotionalAfterBurn + davidPayoff);

@@ -8,6 +8,7 @@ import {IRegistry} from "../src/interfaces/IRegistry.sol";
 import {IVault} from "../src/interfaces/IVault.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
+import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Vault} from "../src/Vault.sol";
@@ -33,6 +34,7 @@ contract PositionManagerTest is Test {
     IRegistry registry;
 
     constructor() {
+        vm.warp(EpochFrequency.REF_TS + 1);
         vault = Vault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, address(0x10), vm));
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
@@ -44,10 +46,30 @@ contract PositionManagerTest is Test {
         pm = new PositionManager(address(0x0));
         // NOTE: done in order to work with the limited transferability of the testnet tokens
         registry.register(address(pm));
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        // Suppose Vault has already liquidity
+        TokenUtils.provideApprovedTokens(
+            address(0x10),
+            address(baseToken),
+            address(alice),
+            address(vault),
+            100 ether,
+            vm
+        );
+        vm.prank(alice);
+        vault.deposit(100 ether);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
     }
 
     function initAndMint() private returns (uint256 tokenId, IG ig) {
         ig = new IG(address(vault));
+        
+        Utils.skipDay(true, vm);
         ig.rollEpoch();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, DEFAULT_SENDER, address(pm), 10 ether, vm);

@@ -43,6 +43,7 @@ abstract contract DVP is IDVP, EpochControls {
         IVault vaultCt = IVault(vault);
         baseToken = vaultCt.baseToken();
         sideToken = vaultCt.sideToken();
+        DVPLogic.valid(DVPLogic.DVPCreateParams(sideToken, baseToken));
     }
 
     /// @inheritdoc IDVP

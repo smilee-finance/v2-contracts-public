@@ -207,6 +207,8 @@ contract IGTest is Test {
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
         uint256 epoch = ig.currentEpoch();
+        
+        vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
         ig.burn(epoch, alice, 0, OptionStrategy.CALL, inputAmount + 1);
     }
