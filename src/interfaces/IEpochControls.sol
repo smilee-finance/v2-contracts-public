@@ -27,6 +27,7 @@ interface IEpochControls {
     */
     function currentEpoch() external view returns (uint256);
 
+
     /**
         @notice Regenerates the epoch-related processes, moving currentEpoch to the next one
         @dev Need to call this also as a setup function on vault creation

@@ -43,10 +43,10 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param epoch The epoch
         @param strike The strike price of the option
         @param strategy The selected strategy
-        @param amount The amount to payoff
+        @param positionAmount The position amount used to compute payoff
         @return payoff The current value of the position
      */
-    function payoff(uint256 epoch, uint256 strike, bool strategy, uint256 amount) external view returns (uint256);
+    function payoff(uint256 epoch, uint256 strike, bool strategy, uint256 positionAmount) external view returns (uint256);
 
     ////// USER ACTIONS
 

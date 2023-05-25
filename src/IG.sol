@@ -52,12 +52,12 @@ contract IG is DVP {
         uint256 epoch,
         uint256 strike,
         bool strategy,
-        uint256 amount
+        uint256 positionAmount
     ) public view virtual override returns (uint256) {
         Position.Info memory position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
         position;
         // ToDo: Compute real payoff
-        return amount / 10;
+        return positionAmount / 10;
     }
 
     function _initLiquidity() internal virtual override {

@@ -79,7 +79,8 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
                 position.cumulatedPayoff
             );
     }
-
+    
+    // ToDo: Change premium with notional
     /// @inheritdoc IPositionManager
     function mint(MintParams calldata params) external override returns (uint256 tokenId, uint256 notional) {
         IDVP dvp = IDVP(params.dvpAddr);

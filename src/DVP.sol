@@ -54,7 +54,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochActive epochNotFrozen(currentEpoch) returns (uint256 premium_) {
+    ) internal epochInitialized epochNotFrozen returns (uint256 premium_) {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -96,11 +96,12 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochActive epochNotFrozen(currentEpoch) returns (uint256 paidPayoff) {
+    ) internal epochInitialized epochNotFrozen returns (uint256 paidPayoff) {
         // TBD: check liquidity availability on liquidity provider
         // TBD: trigger liquidity rebalance on liquidity provider
 
         Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
+        // ToDo: Revert if position.amount = 0
 
         // Option matured, the user have to close the entire position
         if (position.epoch != currentEpoch) {
@@ -127,11 +128,10 @@ abstract contract DVP is IDVP, EpochControls {
     function rollEpoch() public override(EpochControls, IEpochControls) {
         // NOTE: it implicitly verifies that the epoch can be rolled
 
-        // ToDo: compute payoff and set it into the vault for its roll epoch computations
-        // ----- Payoff := initial locked liquidity * utilization rate [0,1] * dvp payoff percentage (from formulas)
-        // TBD: track amount of liquidity put aside for the DVP payoff of each epoch ?
-        uint256 residualPayoff = _residualPayoff();
-        /* TODO - IVault(vault.reservePayoff(residualPayoff)); */
+        if (isEpochInitialized()) {
+            uint256 residualPayoff = _residualPayoff();
+            /* TODO - IVault(vault.reservePayoff(residualPayoff)); */
+        }
 
         // ToDo: check if vault is dead and react to it
 
@@ -151,14 +151,25 @@ abstract contract DVP is IDVP, EpochControls {
 
     /// @inheritdoc IDVP
     // TBD : What if user wants to burn a portion of position (of course if the burn will be done in the same epoch)?
-    function payoff(uint256 epoch, uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
+    function payoff(
+        uint256 epoch,
+        uint256 strike,
+        bool strategy,
+        uint256 positionAmount
+    ) public view virtual returns (uint256);
 
     function _payPayoff(
         Position.Info memory position,
         address recipient,
-        uint256 amount
+        uint256 positionAmount
     ) internal virtual returns (uint256 payoff_) {
-        payoff_ = payoff(position.epoch, position.strike, position.strategy, amount);
+        if (isEpochFinished(position.epoch)) {
+            payoff_ = _liquidity[position.epoch].payoffShares(position.strike, position.strategy, positionAmount);
+            _liquidity[position.epoch].decreasePayoff(position.strike, position.strategy, payoff_);
+        } else {
+            payoff_ = payoff(position.epoch, position.strike, position.strategy, positionAmount);
+        }
+
         IVault(vault).provideLiquidity(recipient, payoff_);
     }
 

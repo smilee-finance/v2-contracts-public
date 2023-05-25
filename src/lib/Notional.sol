@@ -2,11 +2,14 @@
 pragma solidity ^0.8.15;
 
 import {OptionStrategy} from "./OptionStrategy.sol";
+import {AmountsMath} from "./AmountsMath.sol";
 
 /**
     @title Simple lib to ease DVP liquidity access and modification
  */
 library Notional {
+    using AmountsMath for uint256;
+
     struct Info {
         // initial value of the notional (at epoch begin) by strike
         mapping(uint256 => uint256[]) initial;
@@ -56,11 +59,22 @@ library Notional {
         optioned_[_strategyIdx(strategy)] -= amount;
     }
 
+    function decreasePayoff(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
+        self.payoff[strike][_strategyIdx(strategy)] -= amount;
+    }
+
     function getOptioned(Info storage self, uint256 strike, bool strategy) public view returns (uint256) {
         return self.optioned[strike][_strategyIdx(strategy)];
     }
 
     function accountPayoff(Info storage self, uint256 strike, bool strategy, uint256 payoff_) public {
         self.payoff[strike][_strategyIdx(strategy)] = payoff_;
+    }
+
+    function payoffShares(Info storage self, uint256 strike, bool strategy, uint256 amount) public view returns (uint256) {
+        uint256 optioned = getOptioned(self, strike, strategy);
+        uint256 payoff = self.payoff[strike][_strategyIdx(strategy)]; 
+        // ToDo: use token decimal instead of WAD
+        return amount.wmul(payoff).wdiv(optioned);
     }
 }

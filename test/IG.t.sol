@@ -41,7 +41,7 @@ contract IGTest is Test {
     }
 
     function setUp() public {
-        vm.warp(EpochFrequency.REF_TS);
+        vm.warp(EpochFrequency.REF_TS + 1);
 
         ig = new MockedIG(address(vault));
         registry.register(address(ig));
@@ -207,7 +207,7 @@ contract IGTest is Test {
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
         uint256 epoch = ig.currentEpoch();
-        
+
         vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
         ig.burn(epoch, alice, 0, OptionStrategy.CALL, inputAmount + 1);

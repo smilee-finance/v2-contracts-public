@@ -23,12 +23,12 @@ abstract contract EpochControls is IEpochControls {
     }
 
     /// MODIFIERS ///
-
     /**
         @notice Ensures the current epoch holds a valid value
      */
-    modifier epochActive() {
-        if (currentEpoch == 0) {
+    modifier epochInitialized() {
+        if (!isEpochInitialized()) {
+            //TODO: Change name
             revert EpochNotActive();
         }
         _;
@@ -39,14 +39,14 @@ abstract contract EpochControls is IEpochControls {
      */
     modifier epochFinished(uint256 epoch) {
         // if currentEpoch == 0 consider it finished
-        if (currentEpoch > 0 && block.timestamp <= epoch) {
+        if (!isEpochFinished(epoch)) {
             revert EpochNotFinished();
         }
         _;
     }
 
-    modifier epochNotFrozen(uint256 epoch) {
-        if (currentEpoch > 0 && block.timestamp >= epoch) {
+    modifier epochNotFrozen() {
+        if (isEpochInitialized() && block.timestamp >= currentEpoch) {
             revert EpochFrozen();
         }
         _;
@@ -81,6 +81,26 @@ abstract contract EpochControls is IEpochControls {
      */
     function timeToNextEpoch() public view returns (uint256) {
         return currentEpoch - block.timestamp;
+    }
+
+    /**
+        @notice Check if an epoch is already rolled
+        @param epoch The epoch to check
+        @return True if epoch is finished, false otherwise
+     */
+    function isEpochFinished(uint256 epoch) internal view returns (bool) {
+        if(!isEpochInitialized()) {
+            return true;
+        }
+        return block.timestamp > epoch;
+    }
+
+    /**
+        @notice Check if has been rolled the first epoch
+        @return True if the first epoch has been rolled, false otherwise
+     */
+    function isEpochInitialized() internal view returns (bool) {
+        return currentEpoch > 0;
     }
 
     /**
