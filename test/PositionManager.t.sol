@@ -79,7 +79,7 @@ contract PositionManagerTest is Test {
         (tokenId, ) = pm.mint(
             IPositionManager.MintParams({
                 dvpAddr: address(ig),
-                premium: 10 ether,
+                notional: 10 ether,
                 strike: 0,
                 strategy: OptionStrategy.CALL,
                 recipient: alice
@@ -102,9 +102,9 @@ contract PositionManagerTest is Test {
         assertEq(ig.currentStrike(), pos.strike);
         assertEq(OptionStrategy.CALL, pos.strategy);
         assertEq(ig.currentEpoch(), pos.expiry);
-        assertEq(10 ether, pos.premium);
-        assertEq(1, pos.leverage);
-        assertEq(1 * 10 ether, pos.notional);
+        assertEq(10 ether, pos.notional);
+        assertEq(10, pos.leverage);
+        assertEq(1 ether, pos.premium);
         assertEq(0, pos.cumulatedPayoff);
     }
 
@@ -137,6 +137,8 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         pm.burn(tokenId);
+
+        // ToDo: improve checks
         vm.expectRevert(InvalidTokenID);
         pm.positions(tokenId);
     }

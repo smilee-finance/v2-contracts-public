@@ -136,12 +136,11 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         ig.rollEpoch();
 
-        uint256 charliePremium = _assurePremium(charlie, 0, optionStrategy, charlieAmount);
+        _assurePremium(charlie, 0, optionStrategy, charlieAmount);
         vm.prank(charlie);
         ig.mint(charlie, 0, optionStrategy, charlieAmount);
 
-        uint256 davidPremium = _assurePremium(david, 0, optionStrategy, davidAmount);
-
+        _assurePremium(david, 0, optionStrategy, davidAmount);
         vm.prank(david);
         ig.mint(david, 0, optionStrategy, davidAmount);
 
@@ -196,32 +195,25 @@ contract IGVaultTest is Test {
         ig.mint(charlie, 0, optionStrategy, charlieAmount);
 
         _assurePremium(david, 0, optionStrategy, davidAmount);
-
         vm.prank(david);
         ig.mint(david, 0, optionStrategy, davidAmount);
 
         uint256 vaultNotionalBeforeRollEpoch = vault.notional();
-
         uint256 positionEpoch = ig.currentEpoch();
-        uint256 positionStrike = ig.currentStrike();
+
         Utils.skipDay(true, vm);
         ig.rollEpoch();
 
         uint256 charliePayoff = ig.payoff(positionEpoch, 0, optionStrategy, charlieAmount);
-
         assertEq(charlieAmount / 10, charliePayoff);
 
-        bytes32 davidPosId = keccak256(abi.encodePacked(david, optionStrategy, positionStrike));
         uint256 davidPayoff = ig.payoff(positionEpoch, 0, optionStrategy, davidAmount);
         assertEq(davidAmount / 10, davidPayoff);
 
         vm.prank(david);
         ig.burn(positionEpoch, david, 0, optionStrategy, davidAmount);
 
-        (uint256 amountAfterBurn, , , ) = ig.positions(davidPosId);
-
         assertApproxEqAbs(vaultNotionalBeforeRollEpoch - davidPayoff - charliePayoff, vault.notional(), 1e3);
-
         assertApproxEqAbs(davidPayoff, baseToken.balanceOf(david), 1e3);
     }
 

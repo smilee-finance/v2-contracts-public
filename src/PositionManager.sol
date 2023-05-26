@@ -55,7 +55,7 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     }
 
     /// @inheritdoc IPositionManager
-    function positions(uint256 tokenId) external view override returns (PositionDetail memory) {
+    function positions(uint256 tokenId) external view override returns (IPositionManager.PositionDetail memory) {
         ManagedPosition memory position = _positions[tokenId];
         if (position.dvpAddr == address(0)) {
             revert InvalidTokenID();
@@ -64,7 +64,7 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
         IDVP dvp = IDVP(position.dvpAddr);
 
         return
-            PositionDetail(
+            IPositionManager.PositionDetail(
                 position.dvpAddr,
                 dvp.baseToken(),
                 dvp.sideToken(),
@@ -82,18 +82,19 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     
     // ToDo: Change premium with notional
     /// @inheritdoc IPositionManager
-    function mint(MintParams calldata params) external override returns (uint256 tokenId, uint256 notional) {
+    function mint(IPositionManager.MintParams calldata params) external override returns (uint256 tokenId, uint256 premium) {
         IDVP dvp = IDVP(params.dvpAddr);
 
         // Transfer premium:
         // NOTE: done in this inefficient way in order to let the DVP work without the PositionManager
+        premium = dvp.premium(params.strike, params.strategy, params.notional);
         IERC20 baseToken = IERC20(dvp.baseToken());
-        baseToken.transferFrom(msg.sender, address(this), params.premium);
-        baseToken.approve(params.dvpAddr, params.premium);
+        baseToken.transferFrom(msg.sender, address(this), premium);
+        baseToken.approve(params.dvpAddr, premium);
 
         // Buy option:
-        uint256 leverage = dvp.mint(address(this), params.strike, params.strategy, params.premium);
-        notional = params.premium * leverage;
+        premium = dvp.mint(address(this), params.strike, params.strategy, params.notional);
+        uint256 leverage = params.notional / premium;
 
         // Mint token:
         tokenId = _nextId++;
@@ -105,13 +106,13 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
             strike: params.strike,
             strategy: params.strategy,
             expiry: dvp.currentEpoch(),
-            premium: params.premium,
+            premium: premium,
             leverage: leverage,
-            notional: notional,
+            notional: params.notional,
             cumulatedPayoff: 0
         });
 
-        emit BuyedDVP(tokenId, _positions[tokenId].expiry, notional);
+        emit BuyedDVP(tokenId, _positions[tokenId].expiry, params.notional);
     }
 
     // function tokenURI(uint256 tokenId) public view override(ERC721, IERC721Metadata) returns (string memory) {
@@ -199,9 +200,8 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
             revert CantBurnMoreThanMinted();
         }
 
+        // NOTE: the payoff is transferred directly from the DVP
         payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional);
-
-        // ToDo: handle payoff
 
         position.cumulatedPayoff += payoff;
         // NOTE: subtraction is safe because we already checked position.notional is gte burn notional

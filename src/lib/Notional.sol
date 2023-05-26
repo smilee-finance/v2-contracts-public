@@ -56,8 +56,7 @@ library Notional {
         @dev Assume overflow checks done externally
      */
     function decreaseUsage(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
-        uint256[] storage optioned_ = self.optioned[strike];
-        optioned_[_strategyIdx(strategy)] -= amount;
+        self.optioned[strike][_strategyIdx(strategy)] -= amount;
     }
 
     function decreasePayoff(Info storage self, uint256 strike, bool strategy, uint256 amount) public {

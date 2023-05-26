@@ -69,10 +69,10 @@ contract IGTest is Test {
     // ToDo: Add test for rollEpoch before will become active
 
     function testCantUse() public {
-        IDVP ig = new MockedIG(address(vault));
+        IDVP ig_ = new MockedIG(address(vault));
 
         vm.expectRevert(EpochNotActive);
-        ig.mint(address(0x1), 0, OptionStrategy.CALL, 1);
+        ig_.mint(address(0x1), 0, OptionStrategy.CALL, 1);
     }
 
     function testCanUse() public {

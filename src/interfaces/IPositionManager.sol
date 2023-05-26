@@ -10,7 +10,7 @@ import {IERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions
 interface IPositionManager is IERC721Metadata, IERC721Enumerable {
     struct MintParams {
         address dvpAddr;
-        uint256 premium;
+        uint256 notional;
         uint256 strike;
         bool strategy;
         address recipient;

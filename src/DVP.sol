@@ -121,8 +121,6 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         paidPayoff = _payPayoff(position, recipient, amount);
-        position.updateAmount(-int256(amount));
-        _liquidity[epoch].decreaseUsage(strike, strategy, amount);
 
         emit Burn(msg.sender);
     }
@@ -175,12 +173,16 @@ abstract contract DVP is IDVP, EpochControls {
         }
     }
 
+    // TBD: split into "process payoff" and "transfer payoff"
     function _payPayoff(
-        Position.Info memory position,
+        Position.Info storage position,
         address recipient,
         uint256 positionAmount
     ) internal virtual returns (uint256 payoffAmount) {
         payoffAmount = payoff(position.epoch, position.strike, position.strategy, positionAmount);
+
+        position.updateAmount(-int256(positionAmount));
+        _liquidity[position.epoch].decreaseUsage(position.strike, position.strategy, positionAmount);
 
         bool pastEpoch = isEpochFinished(position.epoch);
         if (pastEpoch) {
