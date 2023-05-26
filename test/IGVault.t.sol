@@ -53,6 +53,7 @@ contract IGVaultTest is Test {
 
         ig = new MockedIG(address(vault));
         ig.setOptionPrice(1000);
+        ig.setPayoffPerc(1000);
         ig.useFakeDeltaHedge();
 
         registry.register(address(ig));
@@ -92,7 +93,7 @@ contract IGVaultTest is Test {
         vm.assume(aliceAmount > 0.01 ether);
         vm.assume(bobAmount > 0.01 ether);
         vm.assume(optionAmount > 0.01 ether);
-        vm.assume((uint128(aliceAmount) + uint128(bobAmount)) >= optionAmount);
+        vm.assume(((uint128(aliceAmount) + uint128(bobAmount))) / 2 >= optionAmount);
 
         _addVaultDeposit(alice, aliceAmount);
         _addVaultDeposit(bob, bobAmount);
@@ -115,20 +116,19 @@ contract IGVaultTest is Test {
         assertEq(vaultNotionalBeforeMint + premium, vaultNotionalAfterMint);
     }
 
-    // ToDo: Same test with portion of burn
     function testBuyTwoOptionOneBurn(
-        uint64 aliceAmount,
-        uint64 bobAmount,
         uint64 charlieAmount,
         uint64 davidAmount,
-        bool partialBurn
+        bool partialBurn,
+        bool optionStrategy
     ) public {
-        vm.assume(aliceAmount > 0.01 ether);
-        vm.assume(bobAmount > 0.01 ether);
-        vm.assume(charlieAmount > 0.01 ether);
-        vm.assume(davidAmount > 0.01 ether);
+        vm.assume(charlieAmount > 0.01 ether && charlieAmount < 5 ether);
+        vm.assume(davidAmount > 0.01 ether && davidAmount < 5 ether);
 
-        vm.assume(uint256(aliceAmount) + uint256(bobAmount) >= uint256(charlieAmount) + uint256(davidAmount));
+        uint256 aliceAmount = 10 ether;
+        uint256 bobAmount = 10 ether;
+
+        vm.assume((aliceAmount + bobAmount) / 2 >= uint256(charlieAmount) + uint256(davidAmount));
 
         _addVaultDeposit(alice, aliceAmount);
         _addVaultDeposit(bob, bobAmount);
@@ -136,33 +136,32 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         ig.rollEpoch();
 
-        uint256 charliePremium = _assurePremium(charlie, 0, OptionStrategy.CALL, charlieAmount);
+        uint256 charliePremium = _assurePremium(charlie, 0, optionStrategy, charlieAmount);
         vm.prank(charlie);
-        ig.mint(charlie, 0, OptionStrategy.CALL, charlieAmount);
+        ig.mint(charlie, 0, optionStrategy, charlieAmount);
 
+        uint256 davidPremium = _assurePremium(david, 0, optionStrategy, davidAmount);
 
-        uint256 davidPremium = _assurePremium(david, 0, OptionStrategy.CALL, davidAmount);
-         
         vm.prank(david);
-        ig.mint(david, 0, OptionStrategy.CALL, davidAmount);
+        ig.mint(david, 0, optionStrategy, davidAmount);
 
         uint256 vaultNotionalBeforeBurn = vault.notional();
 
-        bytes32 posId = keccak256(abi.encodePacked(david, OptionStrategy.CALL, ig.currentStrike()));
+        bytes32 posId = keccak256(abi.encodePacked(david, optionStrategy, ig.currentStrike()));
 
         (uint256 amountBeforeBurn, , , ) = ig.positions(posId);
 
         assertEq(davidAmount, amountBeforeBurn);
 
         uint256 davidAmountToBurn = davidAmount;
-        if(partialBurn) {
+        if (partialBurn) {
             davidAmountToBurn = davidAmountToBurn / 10;
         }
 
-        uint256 davidPayoff = ig.payoff(ig.currentEpoch(), 0, OptionStrategy.CALL, davidAmountToBurn);
+        uint256 davidPayoff = ig.payoff(ig.currentEpoch(), 0, optionStrategy, davidAmountToBurn);
 
         vm.startPrank(david);
-        ig.burn(ig.currentEpoch(), david, 0, OptionStrategy.CALL, davidAmountToBurn);
+        ig.burn(ig.currentEpoch(), david, 0, optionStrategy, davidAmountToBurn);
         vm.stopPrank();
 
         uint256 vaultNotionalAfterBurn = vault.notional();
@@ -173,8 +172,58 @@ contract IGVaultTest is Test {
         assertEq(vaultNotionalBeforeBurn, vaultNotionalAfterBurn + davidPayoff);
     }
 
-    
+    function testBuyTwoOptionOneBurnAfterMaturity(
+        uint64 charlieAmount,
+        uint64 davidAmount,
+        bool optionStrategy
+    ) public {
+        vm.assume(charlieAmount > 0.01 ether && charlieAmount < 5 ether);
+        vm.assume(davidAmount > 0.01 ether && davidAmount < 5 ether);
 
+        uint256 aliceAmount = 10 ether;
+        uint256 bobAmount = 10 ether;
+
+        vm.assume((aliceAmount + bobAmount) / 2 >= uint256(charlieAmount) + uint256(davidAmount));
+
+        _addVaultDeposit(alice, aliceAmount);
+        _addVaultDeposit(bob, bobAmount);
+
+        Utils.skipDay(true, vm);
+        ig.rollEpoch();
+
+        _assurePremium(charlie, 0, optionStrategy, charlieAmount);
+        vm.prank(charlie);
+        ig.mint(charlie, 0, optionStrategy, charlieAmount);
+
+        _assurePremium(david, 0, optionStrategy, davidAmount);
+
+        vm.prank(david);
+        ig.mint(david, 0, optionStrategy, davidAmount);
+
+        uint256 vaultNotionalBeforeRollEpoch = vault.notional();
+
+        uint256 positionEpoch = ig.currentEpoch();
+        uint256 positionStrike = ig.currentStrike();
+        Utils.skipDay(true, vm);
+        ig.rollEpoch();
+
+        uint256 charliePayoff = ig.payoff(positionEpoch, 0, optionStrategy, charlieAmount);
+
+        assertEq(charlieAmount / 10, charliePayoff);
+
+        bytes32 davidPosId = keccak256(abi.encodePacked(david, optionStrategy, positionStrike));
+        uint256 davidPayoff = ig.payoff(positionEpoch, 0, optionStrategy, davidAmount);
+        assertEq(davidAmount / 10, davidPayoff);
+
+        vm.prank(david);
+        ig.burn(positionEpoch, david, 0, optionStrategy, davidAmount);
+
+        (uint256 amountAfterBurn, , , ) = ig.positions(davidPosId);
+
+        assertApproxEqAbs(vaultNotionalBeforeRollEpoch - davidPayoff - charliePayoff, vault.notional(), 1e3);
+
+        assertApproxEqAbs(davidPayoff, baseToken.balanceOf(david), 1e3);
+    }
 
     function _addVaultDeposit(address user, uint256 amount) private {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), user, address(vault), amount, vm);

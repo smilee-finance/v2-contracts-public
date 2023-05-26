@@ -13,6 +13,7 @@ interface IVault is IVaultParams {
             uint256 lockedLiquidityInitially,
             uint256 pendingDeposits,
             uint256 totalWithdrawAmount,
+            uint256 pendingPayoffs,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
             bool dead
@@ -82,4 +83,16 @@ interface IVault is IVaultParams {
         TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
      */
     function deltaHedge(int256 sideTokensAmount) external;
+
+    /**
+        @notice Update Vault State with the amount of reserved payoff
+     */
+    function reservePayoff(uint256 residualPayoff) external;
+
+    /**
+        @notice Tranfer an amount of reserved payoff to the user
+        @param recipient The address receiving the quantity
+        @param amount The number of base tokens to move
+     */
+    function transferPayoff(address recipient, uint256 amount) external;
 }

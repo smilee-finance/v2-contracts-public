@@ -65,7 +65,7 @@ contract IG is DVP {
     }
 
     function _residualPayoff() internal virtual override returns (uint256 residualPayoff) {
-        (uint256 pCallPerc, uint256 pPutPerc) = (0, 1e16); // igPayoffPerc(currentStrike, oracle.getPrice(...))
+        (uint256 pCallPerc, uint256 pPutPerc) = (1e17, 1e17); // igPayoffPerc(currentStrike, oracle.getPrice(...))
 
         uint256 pCall = (pCallPerc * _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.CALL)) / 1e18;
         uint256 pPut = (pPutPerc * _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.PUT)) / 1e18;

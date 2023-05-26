@@ -114,12 +114,12 @@ abstract contract DVP is IDVP, EpochControls {
 
         position.updateAmount(-int256(amount));
 
-        _liquidity[epoch].decreaseUsage(strike, strategy, amount);
-
         if (position.epoch == currentEpoch) {
             _deltaHedge(strike, strategy, amount);
         }
         paidPayoff = _payPayoff(position, recipient, amount);
+
+        _liquidity[epoch].decreaseUsage(strike, strategy, amount);
 
         emit Burn(msg.sender);
     }
@@ -130,7 +130,7 @@ abstract contract DVP is IDVP, EpochControls {
 
         if (isEpochInitialized()) {
             uint256 residualPayoff = _residualPayoff();
-            /* TODO - IVault(vault.reservePayoff(residualPayoff)); */
+            IVault(vault).reservePayoff(residualPayoff);
         }
 
         // ToDo: check if vault is dead and react to it
@@ -166,11 +166,11 @@ abstract contract DVP is IDVP, EpochControls {
         if (isEpochFinished(position.epoch)) {
             payoff_ = _liquidity[position.epoch].payoffShares(position.strike, position.strategy, positionAmount);
             _liquidity[position.epoch].decreasePayoff(position.strike, position.strategy, payoff_);
+            IVault(vault).transferPayoff(recipient, payoff_);
         } else {
             payoff_ = payoff(position.epoch, position.strike, position.strategy, positionAmount);
+            IVault(vault).provideLiquidity(recipient, payoff_);
         }
-
-        IVault(vault).provideLiquidity(recipient, payoff_);
     }
 
     function _getPosition(uint256 epochID, bytes32 positionID) internal view returns (Position.Info storage) {

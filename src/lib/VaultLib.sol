@@ -23,6 +23,8 @@ library VaultLib {
         uint256 pendingDeposits;
         // Liquidity reserved for withdrawals
         uint256 pendingWithdrawals;
+        // Liquindity reserved for payoffs
+        uint256 pendingPayoffs;
     }
 
     struct VaultWithdrawals {

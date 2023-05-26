@@ -58,6 +58,7 @@ library VaultUtils {
         (
             uint256 lockedInitially,
             uint256 pendingDepositAmount,
+            uint256 pendingPayoffs,
             uint256 totalWithdrawAmount,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
@@ -65,7 +66,7 @@ library VaultUtils {
         ) = vault.vaultState();
         return
             VaultLib.VaultState(
-                VaultLib.VaultLiquidity(lockedInitially, pendingDepositAmount, totalWithdrawAmount),
+                VaultLib.VaultLiquidity(lockedInitially, pendingDepositAmount, totalWithdrawAmount, pendingPayoffs),
                 VaultLib.VaultWithdrawals(queuedWithdrawShares, currentQueuedWithdrawShares),
                 dead
             );

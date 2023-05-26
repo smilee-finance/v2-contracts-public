@@ -73,6 +73,7 @@ contract Vault is IVault, ERC20, EpochControls {
             uint256 lockedLiquidityInitially,
             uint256 pendingDeposit,
             uint256 totalWithdrawAmount,
+            uint256 pendingPayoffs,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
             bool dead
@@ -82,6 +83,7 @@ contract Vault is IVault, ERC20, EpochControls {
             _state.liquidity.lockedInitially,
             _state.liquidity.pendingDeposits,
             _state.liquidity.pendingWithdrawals,
+            _state.liquidity.pendingPayoffs,
             _state.withdrawals.heldShares,
             _state.withdrawals.newHeldShares,
             _state.dead
@@ -295,6 +297,7 @@ contract Vault is IVault, ERC20, EpochControls {
         lockedLiquidity -= newPendingWithdrawals;
 
         // TODO: put aside the payoff to be paid
+        _reserveBaseTokens(_state.liquidity.pendingPayoffs);
 
         if (!_state.dead) {
             _state.liquidity.lockedInitially = lockedLiquidity + _state.liquidity.pendingDeposits;
@@ -365,7 +368,7 @@ contract Vault is IVault, ERC20, EpochControls {
     // TODO modifier onlyDvp
     // TODO change name
     /// @inheritdoc IVault
-    function provideLiquidity(address recipient, uint256 amount) external {
+    function provideLiquidity(address recipient, uint256 amount) public {
         if (amount == 0) {
             return;
         }
@@ -386,6 +389,18 @@ contract Vault is IVault, ERC20, EpochControls {
             uint256 amount = uint256(-sideTokensAmount);
             _sellSideTokens(amount);
         }
+    }
+
+    function reservePayoff(uint256 residualPayoff) external {
+        _state.liquidity.pendingPayoffs += residualPayoff;
+    }
+
+    function transferPayoff(address recipient, uint256 amount) external {
+        if(amount > _state.liquidity.pendingPayoffs) {
+            revert ExceedsAvailable();
+        }
+        _state.liquidity.pendingPayoffs -= amount;
+        IERC20(baseToken).transfer(recipient, amount);
     }
 
     function _sellSideTokens(uint256 amount) internal {
@@ -421,7 +436,8 @@ contract Vault is IVault, ERC20, EpochControls {
         return
             IERC20(baseToken).balanceOf(address(this)) -
             _state.liquidity.pendingWithdrawals -
-            _state.liquidity.pendingDeposits;
+            _state.liquidity.pendingDeposits - 
+            _state.liquidity.pendingPayoffs;
     }
 
     /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
