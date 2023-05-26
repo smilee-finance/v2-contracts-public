@@ -72,14 +72,6 @@ interface IVault is IVaultParams {
     function shareBalances(address account) external view returns (uint256 heldByAccount, uint256 heldByVault);
 
     /**
-        @notice Moves an amount of base tokens to a given wallet
-        @dev Used to directly pay payoff to the given address without transferring it to DVP.
-        @param recipient The address receiving the quantity
-        @param amount The number of base tokens to move
-     */
-    function provideLiquidity(address recipient, uint256 amount) external;
-
-    /**
         TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
      */
     function deltaHedge(int256 sideTokensAmount) external;
@@ -93,6 +85,7 @@ interface IVault is IVaultParams {
         @notice Tranfer an amount of reserved payoff to the user
         @param recipient The address receiving the quantity
         @param amount The number of base tokens to move
+        @param isPastEpoch TODO
      */
-    function transferPayoff(address recipient, uint256 amount) external;
+    function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external;
 }

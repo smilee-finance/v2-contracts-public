@@ -30,6 +30,7 @@ abstract contract DVP is IDVP, EpochControls {
     mapping(uint256 => mapping(bytes32 => Position.Info)) public epochPositions;
 
     error NotEnoughLiquidity();
+    error PositionNotFound();
 
     constructor(address vault_, bool optionType_) EpochControls(IEpochControls(vault_).epochFrequency()) {
         optionType = optionType_;
@@ -101,24 +102,26 @@ abstract contract DVP is IDVP, EpochControls {
         // TBD: trigger liquidity rebalance on liquidity provider
 
         Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
-        // ToDo: Revert if position.amount = 0
+        if (position.amount == 0) {
+            revert AmountZero();
+        }
 
         // Option matured, the user have to close the entire position
         if (position.epoch != currentEpoch) {
             amount = position.amount;
         }
 
+        // TODO remove, check together with the other
         if (amount == 0) {
             revert AmountZero();
         }
 
-        position.updateAmount(-int256(amount));
-
         if (position.epoch == currentEpoch) {
             _deltaHedge(strike, strategy, amount);
         }
-        paidPayoff = _payPayoff(position, recipient, amount);
 
+        paidPayoff = _payPayoff(position, recipient, amount);
+        position.updateAmount(-int256(amount));
         _liquidity[epoch].decreaseUsage(strike, strategy, amount);
 
         emit Burn(msg.sender);
@@ -149,6 +152,8 @@ abstract contract DVP is IDVP, EpochControls {
     /// @inheritdoc IDVP
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
 
+    function payoffPerc() public view virtual returns (uint256 callPerc, uint256 putPerc);
+
     /// @inheritdoc IDVP
     // TBD : What if user wants to burn a portion of position (of course if the burn will be done in the same epoch)?
     function payoff(
@@ -156,21 +161,33 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         bool strategy,
         uint256 positionAmount
-    ) public view virtual returns (uint256);
+    ) public view virtual returns (uint256 payoff_) {
+        Position.Info memory position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
+        if (position.epoch == 0) {
+            revert PositionNotFound();
+        }
+
+        if (isEpochFinished(position.epoch)) {
+            payoff_ = _liquidity[position.epoch].payoffShares(position.strike, position.strategy, positionAmount);
+        } else {
+            (uint256 callPerc, uint256 putPerc) = payoffPerc();
+            payoff_ = (positionAmount * (strategy ? callPerc : putPerc)) / 1e18;
+        }
+    }
 
     function _payPayoff(
         Position.Info memory position,
         address recipient,
         uint256 positionAmount
-    ) internal virtual returns (uint256 payoff_) {
-        if (isEpochFinished(position.epoch)) {
-            payoff_ = _liquidity[position.epoch].payoffShares(position.strike, position.strategy, positionAmount);
-            _liquidity[position.epoch].decreasePayoff(position.strike, position.strategy, payoff_);
-            IVault(vault).transferPayoff(recipient, payoff_);
-        } else {
-            payoff_ = payoff(position.epoch, position.strike, position.strategy, positionAmount);
-            IVault(vault).provideLiquidity(recipient, payoff_);
+    ) internal virtual returns (uint256 payoffAmount) {
+        payoffAmount = payoff(position.epoch, position.strike, position.strategy, positionAmount);
+
+        bool pastEpoch = isEpochFinished(position.epoch);
+        if (pastEpoch) {
+            _liquidity[position.epoch].decreasePayoff(position.strike, position.strategy, payoffAmount);
         }
+
+        IVault(vault).transferPayoff(recipient, payoffAmount, pastEpoch);
     }
 
     function _getPosition(uint256 epochID, bytes32 positionID) internal view returns (Position.Info storage) {

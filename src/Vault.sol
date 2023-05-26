@@ -117,7 +117,7 @@ contract Vault is IVault, ERC20, EpochControls {
     }
 
     /// @inheritdoc IVault
-    function deposit(uint256 amount) external override epochInitialized() isNotDead epochNotFrozen() {
+    function deposit(uint256 amount) external override epochInitialized isNotDead epochNotFrozen {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -365,22 +365,6 @@ contract Vault is IVault, ERC20, EpochControls {
         deltaHedge(int256(finalSideTokens) - int256(sideTokens));
     }
 
-    // TODO modifier onlyDvp
-    // TODO change name
-    /// @inheritdoc IVault
-    function provideLiquidity(address recipient, uint256 amount) public {
-        if (amount == 0) {
-            return;
-        }
-
-        // Should never happen: `deltaHedge()` must always be executed before transfers
-        if (amount > _notionalBaseTokens()) {
-            revert ExceedsAvailable();
-        }
-
-        IERC20(baseToken).transfer(recipient, amount);
-    }
-
     function deltaHedge(int256 sideTokensAmount) public {
         if (sideTokensAmount > 0) {
             uint256 amount = uint256(sideTokensAmount);
@@ -395,11 +379,23 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.liquidity.pendingPayoffs += residualPayoff;
     }
 
-    function transferPayoff(address recipient, uint256 amount) external {
-        if(amount > _state.liquidity.pendingPayoffs) {
-            revert ExceedsAvailable();
+    function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external {
+        if (amount == 0) {
+            return;
         }
-        _state.liquidity.pendingPayoffs -= amount;
+
+        if (isPastEpoch) {
+            if (amount > _state.liquidity.pendingPayoffs) {
+                revert ExceedsAvailable();
+            }
+            _state.liquidity.pendingPayoffs -= amount;
+        } else {
+            // Should never happen: `deltaHedge()` must always be executed before transfers
+            if (amount > _notionalBaseTokens()) {
+                revert ExceedsAvailable();
+            }
+        }
+
         IERC20(baseToken).transfer(recipient, amount);
     }
 
@@ -436,7 +432,7 @@ contract Vault is IVault, ERC20, EpochControls {
         return
             IERC20(baseToken).balanceOf(address(this)) -
             _state.liquidity.pendingWithdrawals -
-            _state.liquidity.pendingDeposits - 
+            _state.liquidity.pendingDeposits -
             _state.liquidity.pendingPayoffs;
     }
 

@@ -48,16 +48,8 @@ contract IG is DVP {
         return amount / 10; // 10%
     }
 
-    function payoff(
-        uint256 epoch,
-        uint256 strike,
-        bool strategy,
-        uint256 positionAmount
-    ) public view virtual override returns (uint256) {
-        Position.Info memory position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
-        position;
-        // ToDo: Compute real payoff
-        return positionAmount / 10;
+    function payoffPerc() public view virtual override returns (uint256 callPerc, uint256 putPerc) {
+        return (1e17, 1e17); // igPayoffPerc(currentStrike, oracle.getPrice(...))
     }
 
     function _initLiquidity() internal virtual override {
@@ -65,10 +57,14 @@ contract IG is DVP {
     }
 
     function _residualPayoff() internal virtual override returns (uint256 residualPayoff) {
-        (uint256 pCallPerc, uint256 pPutPerc) = (1e17, 1e17); // igPayoffPerc(currentStrike, oracle.getPrice(...))
+        (uint256 callPerc, uint256 putPerc) = payoffPerc();
 
-        uint256 pCall = (pCallPerc * _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.CALL)) / 1e18;
-        uint256 pPut = (pPutPerc * _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.PUT)) / 1e18;
+        uint256 callOptioned = _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.CALL);
+        uint256 putOptioned = _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.PUT);
+
+        uint256 pCall = (callPerc * _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.CALL)) / 1e18;
+        uint256 pPut = (putPerc * _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.PUT)) / 1e18;
+
         _liquidity[currentEpoch].accountPayoff(currentStrike, OptionStrategy.CALL, pCall);
         _liquidity[currentEpoch].accountPayoff(currentStrike, OptionStrategy.PUT, pPut);
 
