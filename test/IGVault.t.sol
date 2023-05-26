@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
-
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
@@ -24,7 +23,7 @@ import {MockedVault} from "./mock/MockedVault.sol";
 contract IGVaultTest is Test {
     bytes4 constant NotEnoughLiquidity = bytes4(keccak256("NotEnoughLiquidity()"));
 
-    address tokenAdmin = address(0x1);
+    address admin = address(0x1);
 
     // User of Vault
     address alice = address(0x2);
@@ -46,14 +45,14 @@ contract IGVaultTest is Test {
         vm.warp(EpochFrequency.REF_TS);
         //ToDo: Replace with Factory
         registry = new Registry();
-        vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, tokenAdmin, vm, registry));
+        vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
 
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
         ig = new MockedIG(address(vault));
-        ig.setOptionPrice(1000);
-        ig.setPayoffPerc(1000);
+        ig.setOptionPrice(1e3);
+        ig.setPayoffPerc(1e17);
         ig.useFakeDeltaHedge();
 
         registry.register(address(ig));
@@ -145,9 +144,7 @@ contract IGVaultTest is Test {
         ig.mint(david, 0, optionStrategy, davidAmount);
 
         uint256 vaultNotionalBeforeBurn = vault.notional();
-
         bytes32 posId = keccak256(abi.encodePacked(david, optionStrategy, ig.currentStrike()));
-
         (uint256 amountBeforeBurn, , , ) = ig.positions(posId);
 
         assertEq(davidAmount, amountBeforeBurn);
@@ -157,11 +154,12 @@ contract IGVaultTest is Test {
             davidAmountToBurn = davidAmountToBurn / 10;
         }
 
-        uint256 davidPayoff = ig.payoff(ig.currentEpoch(), 0, optionStrategy, davidAmountToBurn);
+        uint256 positionEpoch = ig.currentEpoch();
+        vm.prank(david);
+        uint256 davidPayoff = ig.payoff(positionEpoch, 0, optionStrategy, davidAmountToBurn);
 
-        vm.startPrank(david);
-        ig.burn(ig.currentEpoch(), david, 0, optionStrategy, davidAmountToBurn);
-        vm.stopPrank();
+        vm.prank(david);
+        ig.burn(positionEpoch, david, 0, optionStrategy, davidAmountToBurn);
 
         uint256 vaultNotionalAfterBurn = vault.notional();
         (uint256 amountAfterBurn, , , ) = ig.positions(posId);
@@ -204,11 +202,15 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         ig.rollEpoch();
 
+        vm.prank(charlie);
         uint256 charliePayoff = ig.payoff(positionEpoch, 0, optionStrategy, charlieAmount);
-        assertEq(charlieAmount / 10, charliePayoff);
 
+        assertApproxEqAbs(charlieAmount / 10, charliePayoff, 1e2);
+
+        vm.prank(david);
         uint256 davidPayoff = ig.payoff(positionEpoch, 0, optionStrategy, davidAmount);
-        assertEq(davidAmount / 10, davidPayoff);
+
+        assertApproxEqAbs(davidAmount / 10, davidPayoff, 1e2);
 
         vm.prank(david);
         ig.burn(positionEpoch, david, 0, optionStrategy, davidAmount);
@@ -218,7 +220,7 @@ contract IGVaultTest is Test {
     }
 
     function _addVaultDeposit(address user, uint256 amount) private {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), user, address(vault), amount, vm);
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), user, address(vault), amount, vm);
         vm.prank(user);
         vault.deposit(amount);
     }
@@ -230,6 +232,6 @@ contract IGVaultTest is Test {
         uint256 amount
     ) private returns (uint256 premium_) {
         premium_ = ig.premium(strike, strategy, amount);
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), user, address(ig), premium_, vm);
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), user, address(ig), premium_, vm);
     }
 }

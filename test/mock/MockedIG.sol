@@ -50,14 +50,11 @@ contract MockedIG is IG {
         return super.premium(strike, strategy, amount);
     }
 
-    function payoff(uint256 epoch, uint256 strike, bool strategy, uint256 positionAmount) public view override returns (uint256) {
-        Position.Info memory position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
-        position;
-
+    function payoffPerc() public view virtual override returns (uint256 callPerc, uint256 putPerc) {
         if (_fakePayoff) {
-            return (positionAmount * _payoffPerc) / 10000;
+            return (_payoffPerc, _payoffPerc);
         }
-        return super.payoff(epoch, strike, strategy, positionAmount);
+        return super.payoffPerc();
     }
 
     function _deltaHedge(uint256 strike, bool strategy, uint256 amount) internal override {
