@@ -77,7 +77,7 @@ contract IGVaultTest is Test {
         vm.expectRevert(NotEnoughLiquidity);
         ig.mint(charlie, 0, OptionStrategy.CALL, 1 ether);
 
-        VaultUtils.addVaultDeposit(alice, 0.5 ether, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 0.5 ether, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();
@@ -96,8 +96,8 @@ contract IGVaultTest is Test {
         vm.assume(optionAmount > 0.01 ether);
         vm.assume(((uint128(aliceAmount) + uint128(bobAmount))) / 2 >= optionAmount);
 
-        VaultUtils.addVaultDeposit(alice, aliceAmount, tokenAdmin, address(vault), vm);
-        VaultUtils.addVaultDeposit(bob, bobAmount, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, bobAmount, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();
@@ -131,8 +131,8 @@ contract IGVaultTest is Test {
 
         vm.assume((aliceAmount + bobAmount) / 2 >= uint256(charlieAmount) + uint256(davidAmount));
 
-        VaultUtils.addVaultDeposit(alice, aliceAmount, tokenAdmin, address(vault), vm);
-        VaultUtils.addVaultDeposit(bob, bobAmount, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, bobAmount, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();
@@ -185,8 +185,8 @@ contract IGVaultTest is Test {
         vm.assume((aliceAmount + bobAmount) / 2 >= uint256(charlieAmount) + uint256(davidAmount));
 
 
-        VaultUtils.addVaultDeposit(alice, aliceAmount, tokenAdmin, address(vault), vm);
-        VaultUtils.addVaultDeposit(bob, bobAmount, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, bobAmount, admin, address(vault), vm);
 
 
         Utils.skipDay(true, vm);
