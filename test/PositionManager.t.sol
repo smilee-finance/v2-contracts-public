@@ -68,6 +68,8 @@ contract PositionManagerTest is Test {
 
     function initAndMint() private returns (uint256 tokenId, IG ig) {
         ig = new IG(address(vault));
+        vm.prank(address(0x10));
+        Vault(vault).setAllowedDVP(address(ig));
         
         Utils.skipDay(true, vm);
         ig.rollEpoch();

@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
@@ -13,7 +14,7 @@ import {VaultLib} from "./lib/VaultLib.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
-contract Vault is IVault, ERC20, EpochControls {
+contract Vault is IVault, ERC20, EpochControls, Ownable {
     using SafeMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
 
@@ -22,11 +23,14 @@ contract Vault is IVault, ERC20, EpochControls {
 
     VaultLib.VaultState internal _state;
     AddressProvider _addressProvider;
+    address internal _dvp;
 
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
     mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
     mapping(uint256 => uint256) internal _epochPricePerShare;
 
+    error DVPNotSet();
+    error OnlyDVPAllowed();
     error AmountZero();
     error ExceedsAvailable();
     error ExistingIncompleteWithdraw();
@@ -42,7 +46,7 @@ contract Vault is IVault, ERC20, EpochControls {
         address sideToken_,
         uint256 epochFrequency_,
         address addressProvider_
-    ) EpochControls(epochFrequency_) ERC20("", "") {
+    ) EpochControls(epochFrequency_) ERC20("", "") Ownable() {
         baseToken = baseToken_;
         sideToken = sideToken_;
 
@@ -63,6 +67,20 @@ contract Vault is IVault, ERC20, EpochControls {
             revert VaultNotDead();
         }
         _;
+    }
+
+    modifier onlyDVP() {
+        if (_dvp == address(0)) {
+            revert DVPNotSet();
+        }
+        if (msg.sender != _dvp) {
+            revert OnlyDVPAllowed();
+        }
+        _;
+    }
+
+    function setAllowedDVP(address dvp) external onlyOwner {
+        _dvp = dvp;
     }
 
     // TBD: currently used only by tests
@@ -382,7 +400,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         uint256 amountBaseTokenToAcquire = amount - baseTokenAmount;
         int256 deltaHedgeIdx = int256(exchange.getOutputAmount(baseToken, sideToken, amountBaseTokenToAcquire));
-        deltaHedge(-deltaHedgeIdx);
+        _deltaHedge(-deltaHedgeIdx);
     }
 
     /// @dev ...
@@ -394,10 +412,14 @@ contract Vault is IVault, ERC20, EpochControls {
 
         uint256 finalSideTokens = exchange.getOutputAmount(baseToken, sideToken, halfNotional);
         uint256 sideTokens = _notionalSideTokens();
-        deltaHedge(int256(finalSideTokens) - int256(sideTokens));
+        _deltaHedge(int256(finalSideTokens) - int256(sideTokens));
     }
 
-    function deltaHedge(int256 sideTokensAmount) public {
+    function deltaHedge(int256 sideTokensAmount) external onlyDVP {
+        _deltaHedge(sideTokensAmount);
+    }
+
+    function _deltaHedge(int256 sideTokensAmount) internal {
         if (sideTokensAmount > 0) {
             uint256 amount = uint256(sideTokensAmount);
             _buySideTokens(amount);
@@ -413,7 +435,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         uint256 baseTokensAmount = exchange.getInputAmount(baseToken, sideToken, amount);
 
-        // Should never happen: `deltaHedge()` should call this function with a correct amount of side tokens
+        // Should never happen: `_deltaHedge()` should call this function with a correct amount of side tokens
         if (baseTokensAmount > _notionalBaseTokens()) {
             revert ExceedsAvailable();
         }
@@ -435,11 +457,11 @@ contract Vault is IVault, ERC20, EpochControls {
         exchange.swapIn(sideToken, baseToken, amount);
     }
 
-    function reservePayoff(uint256 residualPayoff) external {
+    function reservePayoff(uint256 residualPayoff) external onlyDVP {
         _state.liquidity.pendingPayoffs += residualPayoff;
     }
 
-    function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external {
+    function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external onlyDVP {
         if (amount == 0) {
             return;
         }
@@ -450,7 +472,7 @@ contract Vault is IVault, ERC20, EpochControls {
             }
             _state.liquidity.pendingPayoffs -= amount;
         } else {
-            // NOTE: it should never happen as `deltaHedge()` must always be executed before transfers
+            // NOTE: it should never happen as `_deltaHedge()` must always be executed before transfers
             if (amount > _notionalBaseTokens()) {
                 revert ExceedsAvailable();
             }

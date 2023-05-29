@@ -56,6 +56,8 @@ contract IGVaultTest is Test {
         ig.useFakeDeltaHedge();
 
         registry.register(address(ig));
+        vm.prank(admin);
+        MockedVault(vault).setAllowedDVP(address(ig));
 
         ig.rollEpoch();
     }

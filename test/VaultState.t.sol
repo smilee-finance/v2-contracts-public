@@ -27,6 +27,8 @@ contract VaultStateTest is Test {
         vm.warp(EpochFrequency.REF_TS);
 
         vault = MockedVault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, admin, vm));
+        vm.prank(admin);
+        vault.setAllowedDVP(admin);
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
@@ -144,10 +146,12 @@ contract VaultStateTest is Test {
         (uint256 btAmount, uint256 stAmount) = vault.balances();
         if ((amountToHedge > 0 && baseTokenSwapAmount > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)) {
             vm.expectRevert(ExceedsAvailable);
+            vm.prank(admin);
             vault.deltaHedge(amountToHedge);
             return;
         }
 
+        vm.prank(admin);
         vault.deltaHedge(amountToHedge);
         (uint256 btAmountAfter, uint256 stAmountAfter) = vault.balances();
 

@@ -3,12 +3,13 @@ pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
-import {DVPType} from "./lib/DVPType.sol";
+// import {DVPType} from "./lib/DVPType.sol";
+import {AddressProvider} from "./AddressProvider.sol";
 import {IG} from "./IG.sol";
 import {Registry} from "./Registry.sol";
 import {Vault} from "./Vault.sol";
-import {AddressProvider} from "./AddressProvider.sol";
 
+// ToDo: externalize the registry
 contract Factory is Ownable, Registry {
 
     AddressProvider internal _addressProvider;
@@ -53,8 +54,12 @@ contract Factory is Ownable, Registry {
         internal returns (address)  
     {
         Vault vault = new Vault(baseToken, sideToken, epochFrequency, address(_addressProvider));
-        register(address(vault));
         return address(vault);
+    }
+
+    function _createImpermanentGainDVP(address vault) internal returns (address) {
+        IDVP dvp = new IG(vault);
+        return address(dvp);
     }
 
     /**
@@ -69,14 +74,18 @@ contract Factory is Ownable, Registry {
         address baseToken,
         address sideToken,
         uint256 epochFrequency
-    ) 
+    )
     external onlyOwner returns (address) 
     {
         address vault = _createVault(baseToken, sideToken, epochFrequency); 
-        IDVP dvp = new IG(vault);
-        register(address(dvp));
-        emit IGMarketCreated(address(dvp), vault, baseToken);  
-        return address(dvp);
+        register(vault);
+        address dvp = _createImpermanentGainDVP(vault);
+        register(dvp);
+
+        Vault(vault).setAllowedDVP(dvp);
+
+        emit IGMarketCreated(dvp, vault, baseToken);  
+        return dvp;
     }
 
     /**

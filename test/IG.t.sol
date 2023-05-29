@@ -45,6 +45,8 @@ contract IGTest is Test {
 
         ig = new MockedIG(address(vault));
         registry.register(address(ig));
+        vm.prank(admin);
+        Vault(vault).setAllowedDVP(address(ig));
         ig.useFakeDeltaHedge();
 
         // Roll first epoch (this enables deposits)
