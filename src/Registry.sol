@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {IRegistry} from "./interfaces/IRegistry.sol";
 
+// TBD: move into the testnet directory
 contract Registry is IRegistry {
     mapping(address => bool) registered;
 

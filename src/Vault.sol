@@ -65,6 +65,7 @@ contract Vault is IVault, ERC20, EpochControls {
         _;
     }
 
+    // TBD: currently used only by tests
     /// @inheritdoc IVault
     function vaultState()
         external
@@ -90,6 +91,7 @@ contract Vault is IVault, ERC20, EpochControls {
         );
     }
 
+    // TBD: currently used only by tests
     function balances() public view override returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
         baseTokenAmount = _notionalBaseTokens();
         sideTokenAmount = IERC20(sideToken).balanceOf(address(this));
@@ -111,10 +113,29 @@ contract Vault is IVault, ERC20, EpochControls {
         return baseTokens + valueOfSideTokens;
     }
 
+    /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
+    function _notionalBaseTokens() internal view returns (uint256) {
+        return
+            IERC20(baseToken).balanceOf(address(this)) -
+            _state.liquidity.pendingWithdrawals -
+            _state.liquidity.pendingDeposits -
+            _state.liquidity.pendingPayoffs;
+    }
+
+    /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
+    function _notionalSideTokens() internal view returns (uint256) {
+        return IERC20(sideToken).balanceOf(address(this));
+    }
+
+    // TBD: rename to initial notional
     /// @inheritdoc IVault
     function v0() public view virtual returns (uint256) {
         return _state.liquidity.lockedInitially;
     }
+
+    // ------------------------------------------------------------------------
+    // USER OPERATIONS
+    // ------------------------------------------------------------------------
 
     /// @inheritdoc IVault
     function deposit(uint256 amount) external override epochInitialized isNotDead epochNotFrozen {
@@ -257,68 +278,6 @@ contract Vault is IVault, ERC20, EpochControls {
         // ToDo: emit Withdraw event
     }
 
-    /// @inheritdoc IEpochControls
-    function rollEpoch() public override isNotDead {
-        // // Trigger management of vault locked liquidity (inverse rebalance):
-        // // TODO [mainnet]: do not swap everything, but only what's needed for the next epoch.
-        // // NOTE: the penguin says that doing so will let us save money...
-        // uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
-        // _sellSideTokens(sideTokens);
-
-        uint256 lockedLiquidity = notional();
-
-        uint256 sharePrice;
-        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
-        if (outstandingShares == 0) {
-            // First time mint 1 share for each token
-            sharePrice = VaultLib.UNIT_PRICE;
-        } else {
-            // NOTE: if the locked liquidity is 0, the price is set to 0
-            // NOTE: if the number of shares is 0, it will revert due to a division by zero
-            sharePrice = VaultLib.pricePerShare(lockedLiquidity, outstandingShares);
-        }
-
-        _epochPricePerShare[currentEpoch] = sharePrice;
-
-        if (sharePrice == 0) {
-            // if vault underlying asset disappear, don't mint any shares.
-            // Pending deposits will be enabled for withdrawal - see rescueDeposit()
-            _state.dead = true;
-        }
-
-        // NOTE: if sharePrice went to zero, the users will receive zero
-        _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
-        uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
-
-        // TODO - make one call to exchange (unify with ew rebalance)
-        _reserveBaseTokens(newPendingWithdrawals);
-        _state.withdrawals.newHeldShares = 0;
-        _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
-        lockedLiquidity -= newPendingWithdrawals;
-
-        // TODO: put aside the payoff to be paid
-        _reserveBaseTokens(_state.liquidity.pendingPayoffs);
-
-        if (!_state.dead) {
-            _state.liquidity.lockedInitially = lockedLiquidity + _state.liquidity.pendingDeposits;
-
-            // Mint shares related to new deposits performed during the closing epoch:
-            uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice);
-            _mint(address(this), sharesToMint);
-
-            _state.liquidity.pendingDeposits = 0;
-        }
-
-        super.rollEpoch();
-
-        // NOTE: if dead, liquidity went to zero
-        if (!_state.dead) {
-            _equalWeightRebalance();
-        }
-
-        //TBD: what if sideTokenBalance == 0 and lockedValue != 0 ?
-    }
-
     /**
         @notice Enables user withdrawal of a deposits executed during an epoch causing Vault death
      */
@@ -353,6 +312,79 @@ contract Vault is IVault, ERC20, EpochControls {
         return (balanceOf(account), unredeemedShares);
     }
 
+    // ------------------------------------------------------------------------
+    // VAULT OPERATIONS
+    // ------------------------------------------------------------------------
+
+    /// @inheritdoc IEpochControls
+    function rollEpoch() public override isNotDead {
+        // ToDo: review variable name
+        uint256 lockedLiquidity = notional();
+
+        uint256 sharePrice;
+        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
+        // NOTE: if the number of shares is 0, pricePerShare will revert due to a division by zero
+        if (outstandingShares == 0) {
+            // First time mint 1 share for each token
+            sharePrice = VaultLib.UNIT_PRICE;
+        } else {
+            // NOTE: if the locked liquidity is 0, the price is set to 0
+            sharePrice = VaultLib.pricePerShare(lockedLiquidity, outstandingShares);
+        }
+
+        _epochPricePerShare[currentEpoch] = sharePrice;
+
+        if (sharePrice == 0) {
+            // if vault underlying asset disappear, don't mint any shares.
+            // Pending deposits will be enabled for withdrawal - see rescueDeposit()
+            _state.dead = true;
+        }
+
+        // NOTE: if sharePrice went to zero, the users will receive zero
+        _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
+        uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
+        // TODO - make one call to exchange (unify with ew rebalance)
+        _reserveBaseTokens(newPendingWithdrawals);
+        // NOTE: the internal state must be updated after the call to `_reserveBaseTokens`
+        _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
+        _state.withdrawals.newHeldShares = 0;
+
+        lockedLiquidity -= newPendingWithdrawals;
+
+        // TODO: put aside the payoff to be paid
+        _reserveBaseTokens(_state.liquidity.pendingPayoffs);
+
+        if (!_state.dead) {
+            // Mint shares related to new deposits performed during the closing epoch:
+            uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice);
+            _mint(address(this), sharesToMint);
+
+            _state.liquidity.lockedInitially = lockedLiquidity + _state.liquidity.pendingDeposits;
+            _state.liquidity.pendingDeposits = 0;
+
+            _equalWeightRebalance();
+        }
+
+        super.rollEpoch();
+
+        // TBD: what if sideTokenBalance == 0 and lockedValue != 0 ?
+    }
+
+    /// @dev Ensure we have enough base token to pay for withdraws
+    function _reserveBaseTokens(uint256 amount) private {
+        uint256 baseTokenAmount = _notionalBaseTokens();
+        if (baseTokenAmount >= amount) {
+            return;
+        }
+
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+
+        uint256 amountBaseTokenToAcquire = amount - baseTokenAmount;
+        int256 deltaHedgeIdx = int256(exchange.getOutputAmount(baseToken, sideToken, amountBaseTokenToAcquire));
+        deltaHedge(-deltaHedgeIdx);
+    }
+
     /// @dev ...
     function _equalWeightRebalance() internal {
         address exchangeAddress = _addressProvider.exchangeAdapter();
@@ -375,42 +407,6 @@ contract Vault is IVault, ERC20, EpochControls {
         }
     }
 
-    function reservePayoff(uint256 residualPayoff) external {
-        _state.liquidity.pendingPayoffs += residualPayoff;
-    }
-
-    function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external {
-        if (amount == 0) {
-            return;
-        }
-
-        if (isPastEpoch) {
-            if (amount > _state.liquidity.pendingPayoffs) {
-                revert ExceedsAvailable();
-            }
-            _state.liquidity.pendingPayoffs -= amount;
-        } else {
-            // Should never happen: `deltaHedge()` must always be executed before transfers
-            if (amount > _notionalBaseTokens()) {
-                revert ExceedsAvailable();
-            }
-        }
-
-        IERC20(baseToken).transfer(recipient, amount);
-    }
-
-    function _sellSideTokens(uint256 amount) internal {
-        uint256 sideTokensAmount = IERC20(sideToken).balanceOf(address(this));
-        if (sideTokensAmount < amount) {
-            revert ExceedsAvailable();
-        }
-        address exchangeAddress = _addressProvider.exchangeAdapter();
-        IExchange exchange = IExchange(exchangeAddress);
-
-        IERC20(sideToken).approve(exchangeAddress, amount);
-        exchange.swapIn(sideToken, baseToken, amount);
-    }
-
     function _buySideTokens(uint256 amount) internal {
         address exchangeAddress = _addressProvider.exchangeAdapter();
         IExchange exchange = IExchange(exchangeAddress);
@@ -427,32 +423,40 @@ contract Vault is IVault, ERC20, EpochControls {
         exchange.swapOut(baseToken, sideToken, amount);
     }
 
-    /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
-    function _notionalBaseTokens() internal view returns (uint256) {
-        return
-            IERC20(baseToken).balanceOf(address(this)) -
-            _state.liquidity.pendingWithdrawals -
-            _state.liquidity.pendingDeposits -
-            _state.liquidity.pendingPayoffs;
-    }
-
-    /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
-    function _notionalSideTokens() internal view returns (uint256) {
-        return IERC20(sideToken).balanceOf(address(this));
-    }
-
-    /// @dev Ensure we have enough base token to pay for withdraws
-    function _reserveBaseTokens(uint256 amount) private {
-        uint256 baseTokenAmount = _notionalBaseTokens();
-        if (baseTokenAmount < amount) {
-            uint256 amountBaseTokenToAcquire = amount - baseTokenAmount;
-
-            address exchangeAddress = _addressProvider.exchangeAdapter();
-            IExchange exchange = IExchange(exchangeAddress);
-
-            int256 deltaHedgeIdx = int256(exchange.getOutputAmount(baseToken, sideToken, amountBaseTokenToAcquire));
-            deltaHedge(-deltaHedgeIdx);
+    function _sellSideTokens(uint256 amount) internal {
+        uint256 sideTokensAmount = IERC20(sideToken).balanceOf(address(this));
+        if (sideTokensAmount < amount) {
+            revert ExceedsAvailable();
         }
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+
+        IERC20(sideToken).approve(exchangeAddress, amount);
+        exchange.swapIn(sideToken, baseToken, amount);
+    }
+
+    function reservePayoff(uint256 residualPayoff) external {
+        _state.liquidity.pendingPayoffs += residualPayoff;
+    }
+
+    function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external {
+        if (amount == 0) {
+            return;
+        }
+
+        if (isPastEpoch) {
+            if (amount > _state.liquidity.pendingPayoffs) {
+                revert ExceedsAvailable();
+            }
+            _state.liquidity.pendingPayoffs -= amount;
+        } else {
+            // NOTE: it should never happen as `deltaHedge()` must always be executed before transfers
+            if (amount > _notionalBaseTokens()) {
+                revert ExceedsAvailable();
+            }
+        }
+
+        IERC20(baseToken).transfer(recipient, amount);
     }
 
     /// @dev Block shares transfer when not allowed (for testnet purposes)
