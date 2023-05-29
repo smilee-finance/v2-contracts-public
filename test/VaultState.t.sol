@@ -12,6 +12,7 @@ import {Utils} from "./utils/Utils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
+import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 
 contract VaultStateTest is Test {
@@ -27,8 +28,6 @@ contract VaultStateTest is Test {
         vm.warp(EpochFrequency.REF_TS);
 
         vault = MockedVault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, admin, vm));
-        vm.prank(admin);
-        vault.setAllowedDVP(admin);
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
@@ -84,6 +83,7 @@ contract VaultStateTest is Test {
         heldShares = VaultUtils.vaultState(vault).withdrawals.heldShares;
         assertEq(0, heldShares);
     }
+
     // ToDo: Add comments
     function testEqualWeightRebalance(uint256 sideTokenPrice) public {
         uint256 amountToDeposit = 100 ether;
@@ -114,7 +114,8 @@ contract VaultStateTest is Test {
         // An amount should be always deposited
         // TBD: what if depositAmount < 1 ether ?
         vm.assume(amountToDeposit > 1 ether);
-        vm.assume(sideTokenPrice > 0); 
+        vm.assume(sideTokenPrice > 0);
+
 
         uint256 amountToHedgeAbs = amountToHedge > 0
             ? uint256(uint128(amountToHedge))
@@ -125,7 +126,7 @@ contract VaultStateTest is Test {
 
         vm.prank(admin);
         priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
-        
+
         IExchange exchange = IExchange(ap.exchangeAdapter());
         uint256 baseTokenSwapAmount = exchange.getOutputAmount(
             address(sideToken),
@@ -144,15 +145,15 @@ contract VaultStateTest is Test {
         vault.rollEpoch();
 
         (uint256 btAmount, uint256 stAmount) = vault.balances();
-        if ((amountToHedge > 0 && baseTokenSwapAmount > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)) {
+        if (
+            (amountToHedge > 0 && baseTokenSwapAmount > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)
+        ) {
             vm.expectRevert(ExceedsAvailable);
-            vm.prank(admin);
-            vault.deltaHedge(amountToHedge);
+            vault.deltaHedgeMock(amountToHedge);
             return;
         }
 
-        vm.prank(admin);
-        vault.deltaHedge(amountToHedge);
+        vault.deltaHedgeMock(amountToHedge);
         (uint256 btAmountAfter, uint256 stAmountAfter) = vault.balances();
 
         assertEq(int256(btAmount) + expectedBaseTokenDelta, int256(btAmountAfter));
@@ -163,7 +164,39 @@ contract VaultStateTest is Test {
         Check how initialLiquidity change after roll epoch due to operation done.
      */
     function testInitialLiquidity() public {
+        uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        assertEq(0, initialLiquidity);
 
+        VaultUtils.addVaultDeposit(alice, 1 ether, admin, address(vault), vm);
+        // initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        // assertEq(0, initialLiquidity);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        assertEq(1 ether, initialLiquidity);
+
+        VaultUtils.addVaultDeposit(address(0x3), 0.5 ether, admin, address(vault), vm);
+
+        vm.prank(alice);
+        // Alice want to withdraw half of her shares.
+        vault.initiateWithdraw(0.5 ether);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+        // Alice 0.5 ether + bob 0.5 ether 
+        initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        assertEq(1 ether, initialLiquidity);
+
+        vm.prank(alice);
+        vault.completeWithdraw();
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+        // Complete withdraw without any operation cannot update the initialLiquidity state
+        initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        assertEq(1 ether, initialLiquidity);
     }
 
     // /**

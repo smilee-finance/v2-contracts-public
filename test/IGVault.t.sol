@@ -137,9 +137,16 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         ig.rollEpoch();
 
+        uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        assertEq(aliceAmount + bobAmount, initialLiquidity);
+
         _assurePremium(charlie, 0, optionStrategy, charlieAmount);
         vm.prank(charlie);
         ig.mint(charlie, 0, optionStrategy, charlieAmount);
+
+        initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        // Mint without rolling epoch doesn't change the vaule of initialLiquidity
+        assertEq(aliceAmount + bobAmount, initialLiquidity);
 
         _assurePremium(david, 0, optionStrategy, davidAmount);
         vm.prank(david);
@@ -162,6 +169,10 @@ contract IGVaultTest is Test {
 
         vm.prank(david);
         ig.burn(positionEpoch, david, 0, optionStrategy, davidAmountToBurn);
+
+        initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        // Mint without rolling epoch doesn't change the vaule of initialLiquidity
+        assertEq(aliceAmount + bobAmount, initialLiquidity);
 
         uint256 vaultNotionalAfterBurn = vault.notional();
         (uint256 amountAfterBurn, , , ) = ig.positions(posId);
@@ -192,6 +203,9 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         ig.rollEpoch();
 
+        uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        assertEq(aliceAmount + bobAmount, initialLiquidity);
+
         _assurePremium(charlie, 0, optionStrategy, charlieAmount);
         vm.prank(charlie);
         ig.mint(charlie, 0, optionStrategy, charlieAmount);
@@ -206,6 +220,11 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         ig.rollEpoch();
 
+        initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        // Since the position have the same premium and payoff perc, the initialLiquidity state shouldn't change.
+        assertApproxEqAbs(aliceAmount + bobAmount, initialLiquidity, 1e2);
+
+
         vm.prank(charlie);
         uint256 charliePayoff = ig.payoff(positionEpoch, 0, optionStrategy, charlieAmount);
 
@@ -216,8 +235,14 @@ contract IGVaultTest is Test {
 
         assertApproxEqAbs(davidAmount / 10, davidPayoff, 1e2);
 
+        uint256 pendingPayoff = VaultUtils.vaultState(vault).liquidity.pendingPayoffs;
+        assertApproxEqAbs(charliePayoff + davidPayoff, pendingPayoff, 1e2);
+
         vm.prank(david);
         ig.burn(positionEpoch, david, 0, optionStrategy, davidAmount);
+
+        pendingPayoff = VaultUtils.vaultState(vault).liquidity.pendingPayoffs;
+        assertApproxEqAbs(charliePayoff, pendingPayoff, 1e2);
 
         assertApproxEqAbs(vaultNotionalBeforeRollEpoch - davidPayoff - charliePayoff, vault.notional(), 1e3);
         assertApproxEqAbs(davidPayoff, baseToken.balanceOf(david), 1e3);

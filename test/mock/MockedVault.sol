@@ -25,6 +25,10 @@ contract MockedVault is Vault {
         _fakeV0 = true;
     }
 
+    function deltaHedgeMock(int256 delta) public {
+        _deltaHedge(delta);
+    }
+
     function useRealV0() public {
         _fakeV0 = false;
     }
