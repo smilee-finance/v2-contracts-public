@@ -51,16 +51,8 @@ contract PositionManagerTest is Test {
         vault.rollEpoch();
 
         // Suppose Vault has already liquidity
-        TokenUtils.provideApprovedTokens(
-            address(0x10),
-            address(baseToken),
-            address(alice),
-            address(vault),
-            100 ether,
-            vm
-        );
-        vm.prank(alice);
-        vault.deposit(100 ether);
+        VaultUtils.addVaultDeposit(alice, 100 ether, address(0x10), address(vault), vm);
+
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();

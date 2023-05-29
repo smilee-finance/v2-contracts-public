@@ -159,6 +159,13 @@ contract VaultStateTest is Test {
         assertEq(int256(stAmount) + expectedSideTokenDelta, int256(stAmountAfter));
     }
 
+    /**
+        Check how initialLiquidity change after roll epoch due to operation done.
+     */
+    function testInitialLiquidity() public {
+
+    }
+
     // /**
     //     Test that vault accounting properties are correct after calling `moveAsset()`
     //  */

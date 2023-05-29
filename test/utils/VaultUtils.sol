@@ -12,6 +12,7 @@ import {Registry} from "../../src/Registry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
+import {TokenUtils} from "./TokenUtils.sol";
 
 library VaultUtils {
     function createVaultFromNothing(uint256 epochFrequency, address admin, Vm vm) internal returns (address) {
@@ -58,8 +59,8 @@ library VaultUtils {
         (
             uint256 lockedInitially,
             uint256 pendingDepositAmount,
-            uint256 pendingPayoffs,
             uint256 totalWithdrawAmount,
+            uint256 pendingPayoffs,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
             bool dead
@@ -82,6 +83,12 @@ library VaultUtils {
         uint256 pendingWithdrawals = vaultState(vault).liquidity.pendingWithdrawals;
 
         return balance - locked - pendingWithdrawals;
+    }
+
+    function addVaultDeposit(address user, uint256 amount, address tokenAdmin, address vault, Vm vm) internal {
+        TokenUtils.provideApprovedTokens(tokenAdmin, IVault(vault).baseToken(), user, address(vault), amount, vm);
+        vm.prank(user);
+        IVault(vault).deposit(amount);
     }
 
     /// @dev Function used to skip coverage on this file

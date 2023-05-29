@@ -54,9 +54,7 @@ contract IGTest is Test {
         ig.rollEpoch();
 
         // Suppose Vault has already liquidity
-        TokenUtils.provideApprovedTokens(admin, address(baseToken), address(alice), address(vault), 100 ether, vm);
-        vm.prank(alice);
-        vault.deposit(100 ether);
+        VaultUtils.addVaultDeposit(alice, 100 ether, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();

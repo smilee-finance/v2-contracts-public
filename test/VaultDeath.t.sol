@@ -45,12 +45,7 @@ contract VaultDeathTest is Test {
      * Bob and Alice could complete the withdraw procedure receiving both 0$.
      */
     function testVaultMathLiquidityGoesToZero() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), bob, address(vault), 100, vm);
-
-        vm.startPrank(alice);
-        vault.deposit(100);
-        vm.stopPrank();
+        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
@@ -59,9 +54,8 @@ contract VaultDeathTest is Test {
         assertEq(100, vault.totalSupply());
         assertEq(100, heldByVaultAlice);
 
-        vm.startPrank(bob);
-        vault.deposit(100);
-        vm.stopPrank();
+        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -109,11 +103,8 @@ contract VaultDeathTest is Test {
      * Describe the case of deposit after Vault Death. In this case is expected an error.
      */
     function testVaultMathLiquidityGoesToZeroWithDepositAfterDieFail() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
+        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
-        vm.startPrank(alice);
-        vault.deposit(100);
-        vm.stopPrank();
         Utils.skipDay(true, vm);
 
         vault.rollEpoch();
@@ -133,6 +124,7 @@ contract VaultDeathTest is Test {
         assertEq(true, VaultUtils.vaultState(vault).dead);
 
         // Alice wants to deposit after Vault death. We expect a VaultDead error.
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.startPrank(alice);
         vm.expectRevert(VaultDead);
         vault.deposit(100);
@@ -143,10 +135,7 @@ contract VaultDeathTest is Test {
      *
      */
     function testVaultMathLiquidityGoesToZeroWithDepositBeforeDie() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
-
-        vm.prank(alice);
-        vault.deposit(100);
+        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
@@ -161,8 +150,7 @@ contract VaultDeathTest is Test {
         // NOTE: cause the locked liquidity to go to zero; this, in turn, cause the vault death
         vault.moveValue(-10000);
 
-        vm.prank(alice);
-        vault.deposit(100);
+        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -192,10 +180,9 @@ contract VaultDeathTest is Test {
     }
 
     function testVaultRescueDepositVaultNotDeath() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 200, vm);
+        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
         vm.startPrank(alice);
-        vault.deposit(100);
         vm.expectRevert(VaultNotDead);
         vault.rescueDeposit();
         vm.stopPrank();
@@ -215,10 +202,7 @@ contract VaultDeathTest is Test {
      * An user tries to call rescueDeposit function when a vault is dead, but without nothing to rescue. A NothingToRescue error is expected.
      */
     function testVaultRescueDepositNothingToRescue() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
-
-        vm.prank(alice);
-        vault.deposit(100);
+        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
         Utils.skipDay(true, vm);
 
         vault.rollEpoch();

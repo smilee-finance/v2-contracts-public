@@ -77,7 +77,7 @@ contract IGVaultTest is Test {
         vm.expectRevert(NotEnoughLiquidity);
         ig.mint(charlie, 0, OptionStrategy.CALL, 1 ether);
 
-        _addVaultDeposit(alice, 0.5 ether);
+        VaultUtils.addVaultDeposit(alice, 0.5 ether, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();
@@ -96,8 +96,8 @@ contract IGVaultTest is Test {
         vm.assume(optionAmount > 0.01 ether);
         vm.assume(((uint128(aliceAmount) + uint128(bobAmount))) / 2 >= optionAmount);
 
-        _addVaultDeposit(alice, aliceAmount);
-        _addVaultDeposit(bob, bobAmount);
+        VaultUtils.addVaultDeposit(alice, aliceAmount, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, bobAmount, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();
@@ -131,8 +131,8 @@ contract IGVaultTest is Test {
 
         vm.assume((aliceAmount + bobAmount) / 2 >= uint256(charlieAmount) + uint256(davidAmount));
 
-        _addVaultDeposit(alice, aliceAmount);
-        _addVaultDeposit(bob, bobAmount);
+        VaultUtils.addVaultDeposit(alice, aliceAmount, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, bobAmount, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();
@@ -184,8 +184,10 @@ contract IGVaultTest is Test {
 
         vm.assume((aliceAmount + bobAmount) / 2 >= uint256(charlieAmount) + uint256(davidAmount));
 
-        _addVaultDeposit(alice, aliceAmount);
-        _addVaultDeposit(bob, bobAmount);
+
+        VaultUtils.addVaultDeposit(alice, aliceAmount, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, bobAmount, tokenAdmin, address(vault), vm);
+
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();
@@ -221,11 +223,7 @@ contract IGVaultTest is Test {
         assertApproxEqAbs(davidPayoff, baseToken.balanceOf(david), 1e3);
     }
 
-    function _addVaultDeposit(address user, uint256 amount) private {
-        TokenUtils.provideApprovedTokens(admin, address(baseToken), user, address(vault), amount, vm);
-        vm.prank(user);
-        vault.deposit(amount);
-    }
+
 
     function _assurePremium(
         address user,
