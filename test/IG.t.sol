@@ -40,7 +40,7 @@ contract IGTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS + 1);
 
-        ig = new MockedIG(address(vault));
+        ig = new MockedIG(address(vault), address(0x42));
         registry.register(address(ig));
         vm.prank(admin);
         MockedVault(vault).setAllowedDVP(address(ig));
@@ -66,7 +66,7 @@ contract IGTest is Test {
     // ToDo: Add test for rollEpoch before will become active
 
     function testCantUse() public {
-        IDVP ig_ = new MockedIG(address(vault));
+        IDVP ig_ = new MockedIG(address(vault), address(0x42));
 
         vm.expectRevert(EpochNotActive);
         ig_.mint(address(0x1), 0, OptionStrategy.CALL, 1);

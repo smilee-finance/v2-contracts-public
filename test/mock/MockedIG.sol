@@ -14,7 +14,7 @@ contract MockedIG is IG {
     uint256 internal _optionPrice; // expressed in basis point (1% := 100)
     uint256 internal _payoffPercentage; // expressed in basis point (1% := 100)
 
-    constructor(address vault_) IG(vault_) {}
+    constructor(address vault_, address addressProvider_) IG(vault_, addressProvider_) {}
 
     function setOptionPrice(uint256 value) public {
         _optionPrice = value;

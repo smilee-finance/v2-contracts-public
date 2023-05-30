@@ -14,7 +14,7 @@ contract IG is DVP {
     /// @notice Common strike price for all impermanent gain positions in this DVP, set at epoch start
     uint256 public currentStrike;
 
-    constructor(address vault_) DVP(vault_, DVPType.IG) {}
+    constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {}
 
     /// @inheritdoc IDVP
     function mint(
@@ -65,14 +65,18 @@ contract IG is DVP {
 
     /// @inheritdoc DVP
     function _residualPayoff() internal virtual override returns (uint256 residualPayoff) {
-        (uint256 pCall, uint256 pPut) = _computeResidualPayoff(currentStrike);
-
+        uint256 pCall = _computeResidualPayoff(currentStrike, OptionStrategy.CALL);
         _liquidity[currentEpoch].accountPayoff(currentStrike, OptionStrategy.CALL, pCall);
+
+        uint256 pPut = _computeResidualPayoff(currentStrike, OptionStrategy.PUT);
         _liquidity[currentEpoch].accountPayoff(currentStrike, OptionStrategy.PUT, pPut);
 
         residualPayoff = pCall + pPut;
     }
 
-    // ToDo: override rollEpoch in order to set the current strike
-    // ----- TBD: perhaps it's better to provide some hooks due to _allocateLiquidity...
+    function _afterRollEpoch() internal virtual override {
+        // ToDo: set the current strike
+        super._afterRollEpoch();
+    }
+
 }

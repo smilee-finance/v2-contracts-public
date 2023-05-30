@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import {OptionStrategy} from "./OptionStrategy.sol";
 import {AmountsMath} from "./AmountsMath.sol";
-import "forge-std/console.sol";
 
 /**
     @title Simple lib to ease DVP liquidity access and modification
@@ -62,12 +60,12 @@ library Notional {
         self.optioned[strike][_strategyIdx(strategy)] -= amount;
     }
 
-    function decreasePayoff(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
-        self.payoff[strike][_strategyIdx(strategy)] -= amount;
-    }
-
     function getOptioned(Info storage self, uint256 strike, bool strategy) public view returns (uint256) {
         return self.optioned[strike][_strategyIdx(strategy)];
+    }
+
+    function decreasePayoff(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
+        self.payoff[strike][_strategyIdx(strategy)] -= amount;
     }
 
     function accountPayoff(Info storage self, uint256 strike, bool strategy, uint256 payoff_) public {
@@ -82,6 +80,7 @@ library Notional {
     ) public view returns (uint256) {
         uint256 optioned = getOptioned(self, strike, strategy);
         uint256 payoff = self.payoff[strike][_strategyIdx(strategy)];
+
         // ToDo: use token decimal instead of WAD
         return amount.wmul(payoff).wdiv(optioned);
     }

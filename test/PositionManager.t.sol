@@ -51,13 +51,12 @@ contract PositionManagerTest is Test {
         // Suppose Vault has already liquidity
         VaultUtils.addVaultDeposit(alice, 100 ether, address(0x10), address(vault), vm);
 
-
         Utils.skipDay(true, vm);
         vault.rollEpoch();
     }
 
     function initAndMint() private returns (uint256 tokenId, IG ig) {
-        ig = new IG(address(vault));
+        ig = new IG(address(vault), address(0x42));
         vm.prank(address(0x10));
         vault.setAllowedDVP(address(ig));
         

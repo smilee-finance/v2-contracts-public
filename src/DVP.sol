@@ -9,6 +9,7 @@ import {DVPLogic} from "./lib/DVPLogic.sol";
 import {Notional} from "./lib/Notional.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
+import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 abstract contract DVP is IDVP, EpochControls {
@@ -17,32 +18,36 @@ abstract contract DVP is IDVP, EpochControls {
 
     /// @inheritdoc IDVPImmutables
     address public immutable override baseToken;
-    // @inheritdoc IDVPImmutables
+    /// @inheritdoc IDVPImmutables
     address public immutable override sideToken;
     /// @inheritdoc IDVPImmutables
-    bool public immutable override optionType;
+    bool public immutable override optionType; // ToDo: review (it's a DVPType) (also see IDVPImmutables)
     /// @inheritdoc IDVP
-    address public override vault;
+    address public immutable override vault;
+    AddressProvider internal immutable _addressProvider;
 
-    // ToDo: add payoff (mapping of struct)
-    /// @notice Available liquidity for options indexed by epoch
+    // TBD: extract payoff from Notional.Info
+    /// @notice liquidity for options indexed by epoch
     mapping(uint256 => Notional.Info) internal _liquidity;
 
     mapping(uint256 => mapping(bytes32 => Position.Info)) public epochPositions;
 
     error NotEnoughLiquidity();
     error PositionNotFound();
+    error CantBurnMoreThanMinted();
 
-    // ToDo: also receive an AddressProvider
-    constructor(address vault_, bool optionType_) EpochControls(IEpochControls(vault_).epochFrequency()) {
+    constructor(address vault_, bool optionType_, address addressProvider_) EpochControls(IEpochControls(vault_).epochFrequency()) {
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);
         baseToken = vaultCt.baseToken();
         sideToken = vaultCt.sideToken();
+        _addressProvider = AddressProvider(addressProvider_);
+        // ToDo: review
         DVPLogic.valid(DVPLogic.DVPCreateParams(sideToken, baseToken));
     }
 
+    // ToDo: review usage
     /// @inheritdoc IDVP
     function positions(
         bytes32 positionID
@@ -86,6 +91,7 @@ abstract contract DVP is IDVP, EpochControls {
         emit Mint(msg.sender, recipient);
     }
 
+    // TBD: review as it seems strange that there's no direction (mint/burn)
     function _deltaHedge(uint256 strike, bool strategy, uint256 amount) internal virtual {
         // ToDo: delta hedge
         // uint256 notional = _liquidity.initial - (amount + _liquidity.used);
@@ -100,20 +106,18 @@ abstract contract DVP is IDVP, EpochControls {
         bool strategy,
         uint256 amount
     ) internal epochInitialized epochNotFrozen returns (uint256 paidPayoff) {
-        // TBD: check liquidity availability on liquidity provider
-        // TBD: trigger liquidity rebalance on liquidity provider
-
         Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
-        if (position.amount == 0) {
-            revert AmountZero();
+        if (!position.exists()) {
+            revert PositionNotFound();
         }
-
-        // Option matured, the user have to close the entire position
+        // Option reached maturity, hence the user have to close the entire position
         if (position.epoch != currentEpoch) {
             amount = position.amount;
+        } else {
+            if (amount > position.amount) {
+                revert CantBurnMoreThanMinted();
+            }
         }
-
-        // TODO remove, check together with the other
         if (amount == 0) {
             revert AmountZero();
         }
@@ -127,8 +131,7 @@ abstract contract DVP is IDVP, EpochControls {
         emit Burn(msg.sender);
     }
 
-    /// @inheritdoc EpochControls
-    function rollEpoch() public override(EpochControls, IEpochControls) {
+    function _beforeRollEpoch() internal virtual override {
         if (isEpochInitialized()) {
             uint256 residualPayoff = _residualPayoff();
             IVault(vault).reservePayoff(residualPayoff);
@@ -136,9 +139,9 @@ abstract contract DVP is IDVP, EpochControls {
 
         IEpochControls(vault).rollEpoch();
         // ToDo: check if vault is dead and react to it
+    }
 
-        super.rollEpoch();
-
+    function _afterRollEpoch() internal virtual override {
         uint256 notional = IVault(vault).v0();
         _allocateLiquidity(notional);
     }
@@ -149,25 +152,27 @@ abstract contract DVP is IDVP, EpochControls {
      */
     function _allocateLiquidity(uint256 notional) internal virtual;
 
+    // TBD: split in two functions
     /**
         @notice computes and stores the payoffs for the closing epoch (on the various strikes and strategies).
         @return residualPayoff the overall payoff to be set aside for the closing epoch.
      */
     function _residualPayoff() internal virtual returns (uint256 residualPayoff);
 
-    // TBD: take the strategy as parameter as different DVPs may have different needs...
     /**
-        @notice computes the payoffs for the provided strike (of the closing epoch).
+        @notice computes the payoff to be put aside at the end of the epoch for the provided strike and strategy.
         @param strike the reference strike.
-        @return pCall the payoff of the call strategy.
-        @return pPut the payoff of the put strategy.
+        @param strategy the reference strategy.
+        @return payoff_ the residual payoff.
      */
-    function _computeResidualPayoff(uint256 strike) internal view returns (uint256 pCall, uint256 pPut)  {
-        uint256 percentage = _payoffPerc(strike, OptionStrategy.CALL);
-        pCall = (percentage * _liquidity[currentEpoch].getOptioned(strike, OptionStrategy.CALL)) / 1e18;
+    function _computeResidualPayoff(uint256 strike, bool strategy) internal view returns (uint256 payoff_)  {
+        uint256 residualAmount = _liquidity[currentEpoch].getOptioned(strike, strategy);
+        payoff_ = _computePayoff(strike, strategy, residualAmount);
+    }
 
-        percentage = _payoffPerc(strike, OptionStrategy.PUT);
-        pPut = (percentage * _liquidity[currentEpoch].getOptioned(strike, OptionStrategy.PUT)) / 1e18;
+    function _computePayoff(uint256 strike, bool strategy, uint256 amount) internal view returns (uint256 payoff_) {
+        uint256 percentage = _payoffPerc(strike, strategy);
+        payoff_ = (amount * percentage) / 1e18;
     }
 
     /// @inheritdoc IDVP
@@ -181,7 +186,6 @@ abstract contract DVP is IDVP, EpochControls {
      */
     function _payoffPerc(uint256 strike, bool strategy) internal view virtual returns (uint256 percentage);
 
-    // TBD : What if user wants to burn a portion of position (of course if the burn will be done in the same epoch)?
     /// @inheritdoc IDVP
     function payoff(
         uint256 epoch,
@@ -191,18 +195,19 @@ abstract contract DVP is IDVP, EpochControls {
     ) public view virtual returns (uint256 payoff_) {
         Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
         if (!position.exists()) {
+            // TBD: return 0
             revert PositionNotFound();
         }
 
         if (isEpochFinished(position.epoch)) {
+            // ToDo: add comments
             payoff_ = _liquidity[position.epoch].payoffShares(position.strike, position.strategy, positionAmount);
         } else {
-            uint256 perc = _payoffPerc(strike, strategy);
-            payoff_ = (positionAmount * perc) / 1e18;
+            payoff_ = _computePayoff(strike, strategy, positionAmount);
         }
     }
 
-    // TBD: split into "process payoff" and "transfer payoff"
+    // TBD: move implementation back into _burn
     function _payPayoff(
         Position.Info storage position,
         address recipient,

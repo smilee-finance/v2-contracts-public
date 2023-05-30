@@ -8,7 +8,7 @@ import {IG} from "./IG.sol";
 import {Registry} from "./Registry.sol";
 import {Vault} from "./Vault.sol";
 
-// ToDo: externalize the registry
+// ToDo: review and externalize the registry
 contract Factory is Ownable, Registry {
 
     AddressProvider internal _addressProvider;
@@ -57,7 +57,7 @@ contract Factory is Ownable, Registry {
     }
 
     function _createImpermanentGainDVP(address vault) internal returns (address) {
-        IG dvp = new IG(vault);
+        IG dvp = new IG(vault, address(_addressProvider));
         return address(dvp);
     }
 

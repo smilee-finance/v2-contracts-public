@@ -50,7 +50,7 @@ contract IGVaultTest is Test {
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
-        ig = new MockedIG(address(vault));
+        ig = new MockedIG(address(vault), address(0x42));
         ig.setOptionPrice(1e3);
         ig.setPayoffPerc(1e17);
         ig.useFakeDeltaHedge();

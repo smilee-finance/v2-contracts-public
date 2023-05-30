@@ -17,8 +17,6 @@ library Position {
         uint256 epoch;
     }
 
-    error CantBurnMoreThanMinted();
-
     /**
         @notice Returns the unique ID of a position (for a given epoch)
         @param owner The address of the position owner
@@ -38,9 +36,6 @@ library Position {
     function updateAmount(Info storage self, int256 delta) public {
         if (delta < 0) {
             // It's a burn
-            if (uint256(-delta) > self.amount) {
-                revert CantBurnMoreThanMinted();
-            }
             self.amount = self.amount - uint256(-delta);
         } else {
             // It's a mint

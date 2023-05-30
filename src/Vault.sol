@@ -22,7 +22,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     address public immutable sideToken;
 
     VaultLib.VaultState internal _state;
-    AddressProvider _addressProvider;
+    AddressProvider internal immutable _addressProvider;
     address internal _dvp;
 
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
@@ -363,8 +363,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     // VAULT OPERATIONS
     // ------------------------------------------------------------------------
 
-    /// @inheritdoc IEpochControls
-    function rollEpoch() public override isNotDead {
+    function _beforeRollEpoch() internal virtual override isNotDead {
         // ToDo: review variable name
         uint256 lockedLiquidity = notional();
 
@@ -411,10 +410,6 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
 
             _equalWeightRebalance();
         }
-
-        super.rollEpoch();
-
-        // TBD: what if sideTokenBalance == 0 and lockedValue != 0 ?
     }
 
     /// @dev Ensure we have enough base token to pay for withdraws
