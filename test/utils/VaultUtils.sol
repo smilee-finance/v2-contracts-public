@@ -3,8 +3,6 @@ pragma solidity ^0.8.15;
 
 import {Vm} from "forge-std/Vm.sol";
 import {IRegistry} from "../../src/interfaces/IRegistry.sol";
-import {IVault} from "../../src/interfaces/IVault.sol";
-import {Vault} from "../../src/Vault.sol";
 import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
@@ -55,7 +53,7 @@ library VaultUtils {
     }
 
     /// @dev Builds and returns a `VaultLib.VaultState` with info on current vault state
-    function vaultState(IVault vault) internal view returns (VaultLib.VaultState memory) {
+    function vaultState(MockedVault vault) internal view returns (VaultLib.VaultState memory) {
         (
             uint256 lockedInitially,
             uint256 pendingDepositAmount,
@@ -76,7 +74,7 @@ library VaultUtils {
     /**
         @notice Computes the amount of recoverable tokens when the vault die.
      */
-    function getRecoverableAmounts(Vault vault) public view returns (uint256) {
+    function getRecoverableAmounts(MockedVault vault) public view returns (uint256) {
         TestnetToken baseToken = TestnetToken(vault.baseToken());
         uint256 balance = baseToken.balanceOf(address(vault));
         uint256 locked = vault.v0();
@@ -85,10 +83,12 @@ library VaultUtils {
         return balance - locked - pendingWithdrawals;
     }
 
-    function addVaultDeposit(address user, uint256 amount, address tokenAdmin, address vault, Vm vm) internal {
-        TokenUtils.provideApprovedTokens(tokenAdmin, IVault(vault).baseToken(), user, address(vault), amount, vm);
+    function addVaultDeposit(address user, uint256 amount, address tokenAdmin, address vaultAddress, Vm vm) internal {
+        MockedVault vault = MockedVault(vaultAddress);
+        TokenUtils.provideApprovedTokens(tokenAdmin, vault.baseToken(), user, vaultAddress, amount, vm);
+
         vm.prank(user);
-        IVault(vault).deposit(amount);
+        vault.deposit(amount);
     }
 
     /// @dev Function used to skip coverage on this file

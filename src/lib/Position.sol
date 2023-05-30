@@ -47,4 +47,13 @@ library Position {
             self.amount = self.amount + uint256(delta);
         }
     }
+
+    /**
+        @notice Checks if the position exists.
+        @param self The position to update.
+        @dev a position exists if its epoch is set.
+     */
+    function exists(Info storage self) public view returns (bool) {
+        return self.epoch != 0;
+    }
 }

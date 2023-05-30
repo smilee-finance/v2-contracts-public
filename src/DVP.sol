@@ -7,6 +7,7 @@ import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {DVPLogic} from "./lib/DVPLogic.sol";
 import {Notional} from "./lib/Notional.sol";
+import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
 import {EpochControls} from "./EpochControls.sol";
 
@@ -32,6 +33,7 @@ abstract contract DVP is IDVP, EpochControls {
     error NotEnoughLiquidity();
     error PositionNotFound();
 
+    // ToDo: also receive an AddressProvider
     constructor(address vault_, bool optionType_) EpochControls(IEpochControls(vault_).epochFrequency()) {
         optionType = optionType_;
         vault = vault_;
@@ -127,49 +129,76 @@ abstract contract DVP is IDVP, EpochControls {
 
     /// @inheritdoc EpochControls
     function rollEpoch() public override(EpochControls, IEpochControls) {
-        // NOTE: it implicitly verifies that the epoch can be rolled
-
         if (isEpochInitialized()) {
             uint256 residualPayoff = _residualPayoff();
             IVault(vault).reservePayoff(residualPayoff);
         }
 
+        IEpochControls(vault).rollEpoch();
         // ToDo: check if vault is dead and react to it
 
-        IEpochControls(vault).rollEpoch();
         super.rollEpoch();
 
-        _initLiquidity();
+        uint256 notional = IVault(vault).v0();
+        _allocateLiquidity(notional);
     }
 
-    // TODO
-    function _initLiquidity() internal virtual;
+    /**
+        @notice Setup initial notional for a new epoch.
+        @dev The concrete DVP must allocate the initial notional on the various strikes and strategies.
+     */
+    function _allocateLiquidity(uint256 notional) internal virtual;
 
-    function _residualPayoff() internal virtual returns (uint256);
+    /**
+        @notice computes and stores the payoffs for the closing epoch (on the various strikes and strategies).
+        @return residualPayoff the overall payoff to be set aside for the closing epoch.
+     */
+    function _residualPayoff() internal virtual returns (uint256 residualPayoff);
+
+    // TBD: take the strategy as parameter as different DVPs may have different needs...
+    /**
+        @notice computes the payoffs for the provided strike (of the closing epoch).
+        @param strike the reference strike.
+        @return pCall the payoff of the call strategy.
+        @return pPut the payoff of the put strategy.
+     */
+    function _computeResidualPayoff(uint256 strike) internal view returns (uint256 pCall, uint256 pPut)  {
+        uint256 percentage = _payoffPerc(strike, OptionStrategy.CALL);
+        pCall = (percentage * _liquidity[currentEpoch].getOptioned(strike, OptionStrategy.CALL)) / 1e18;
+
+        percentage = _payoffPerc(strike, OptionStrategy.PUT);
+        pPut = (percentage * _liquidity[currentEpoch].getOptioned(strike, OptionStrategy.PUT)) / 1e18;
+    }
 
     /// @inheritdoc IDVP
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
 
-    function payoffPerc() public view virtual returns (uint256 callPerc, uint256 putPerc);
+    /**
+        @notice computes the payoff percentage for the given strike and strategy
+        @param strike the reference strike.
+        @param strategy the reference strategy.
+        @return percentage the payoff percentage.
+     */
+    function _payoffPerc(uint256 strike, bool strategy) internal view virtual returns (uint256 percentage);
 
-    /// @inheritdoc IDVP
     // TBD : What if user wants to burn a portion of position (of course if the burn will be done in the same epoch)?
+    /// @inheritdoc IDVP
     function payoff(
         uint256 epoch,
         uint256 strike,
         bool strategy,
         uint256 positionAmount
     ) public view virtual returns (uint256 payoff_) {
-        Position.Info memory position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
-        if (position.epoch == 0) {
+        Position.Info storage position = _getPosition(epoch, Position.getID(msg.sender, strategy, strike));
+        if (!position.exists()) {
             revert PositionNotFound();
         }
 
         if (isEpochFinished(position.epoch)) {
             payoff_ = _liquidity[position.epoch].payoffShares(position.strike, position.strategy, positionAmount);
         } else {
-            (uint256 callPerc, uint256 putPerc) = payoffPerc();
-            payoff_ = (positionAmount * (strategy ? callPerc : putPerc)) / 1e18;
+            uint256 perc = _payoffPerc(strike, strategy);
+            payoff_ = (positionAmount * perc) / 1e18;
         }
     }
 

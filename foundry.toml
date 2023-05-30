@@ -2,5 +2,9 @@
 src = "src"
 out = "out"
 libs = ["lib"]
+revert_strings = "debug"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
+
+# Custom additions:
+# - revert_strings: injects strings for compiler-generated internal reverts (and require) reason strings.

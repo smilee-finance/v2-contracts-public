@@ -20,19 +20,23 @@ library Notional {
     }
 
     function _strategyIdx(bool strategy) private pure returns (uint256) {
-        return strategy ? 0 : 1;
+        return strategy ? 1 : 0;
     }
 
     /**
-        @notice
+        @notice Prepare the Notional.Info struct for the new epoch for the two strategies of the provided strike.
+        @param self the Notional.Info struct for the new epoch.
+        @param strike the reference strike.
+        @dev must be called before any usage of the struct for each needed strike
      */
-    function setup(Info storage self, uint256 strikeIni, uint256 notional) public {
-        self.initial[strikeIni] = new uint256[](2);
-        self.optioned[strikeIni] = new uint256[](2);
-        self.payoff[strikeIni] = new uint256[](2);
-        uint256[] storage initial = self.initial[strikeIni];
-        initial[_strategyIdx(OptionStrategy.CALL)] = notional / 2;
-        initial[_strategyIdx(OptionStrategy.PUT)] = notional / 2;
+    function setup(Info storage self, uint256 strike) public {
+        self.initial[strike] = new uint256[](2);
+        self.optioned[strike] = new uint256[](2);
+        self.payoff[strike] = new uint256[](2);
+    }
+
+    function setInitial(Info storage self, uint256 strike, bool strategy, uint256 notional) public {
+        self.initial[strike][_strategyIdx(strategy)] = notional;
     }
 
     /**
@@ -47,8 +51,7 @@ library Notional {
         @dev Assume overflow checks done externally
      */
     function increaseUsage(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
-        uint256[] storage optioned_ = self.optioned[strike];
-        optioned_[_strategyIdx(strategy)] += amount;
+        self.optioned[strike][_strategyIdx(strategy)] += amount;
     }
 
     /**

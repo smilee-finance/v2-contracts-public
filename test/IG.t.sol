@@ -2,18 +2,15 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "../src/interfaces/IDVP.sol";
-import {IVault} from "../src/interfaces/IVault.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {Utils} from "./utils/Utils.sol";
-import {MockedIG} from "./mock/MockedIG.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
+import {MockedIG} from "./mock/MockedIG.sol";
+import {MockedVault} from "./mock/MockedVault.sol";
 import {Registry} from "../src/Registry.sol";
-import {Vault} from "../src/Vault.sol";
 
 contract IGTest is Test {
     bytes4 constant EpochNotActive = bytes4(keccak256("EpochNotActive()"));
@@ -23,7 +20,7 @@ contract IGTest is Test {
 
     address baseToken;
     address sideToken;
-    Vault vault;
+    MockedVault vault;
     Registry registry;
     MockedIG ig;
 
@@ -33,8 +30,8 @@ contract IGTest is Test {
 
     constructor() {
         registry = new Registry();
-        //ToDo: Get controller from baseToken as done in PositionManager.t.sol
-        vault = Vault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
+        // TBD: get the registry from baseToken as done in PositionManager.t.sol
+        vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
 
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
@@ -46,7 +43,7 @@ contract IGTest is Test {
         ig = new MockedIG(address(vault));
         registry.register(address(ig));
         vm.prank(admin);
-        Vault(vault).setAllowedDVP(address(ig));
+        MockedVault(vault).setAllowedDVP(address(ig));
         ig.useFakeDeltaHedge();
 
         // Roll first epoch (this enables deposits)

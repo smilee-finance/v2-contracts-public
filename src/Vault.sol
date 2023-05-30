@@ -83,7 +83,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         _dvp = dvp;
     }
 
-    // TBD: currently used only by tests
+    // ToDo: review as it's currently used only by tests
     /// @inheritdoc IVault
     function vaultState()
         external
@@ -109,8 +109,13 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         );
     }
 
-    // TBD: currently used only by tests
-    function balances() public view override returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
+    // ToDo: review as it's currently used only by tests
+    /**
+        @notice Gives portfolio composition for currently active epoch
+        @return baseTokenAmount The amount of baseToken currently locked in the vault
+        @return sideTokenAmount The amount of sideToken currently locked in the vault
+     */
+    function balances() public view returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
         baseTokenAmount = _notionalBaseTokens();
         sideTokenAmount = IERC20(sideToken).balanceOf(address(this));
     }
@@ -155,8 +160,13 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     // USER OPERATIONS
     // ------------------------------------------------------------------------
 
-    /// @inheritdoc IVault
-    function deposit(uint256 amount) external override epochInitialized isNotDead epochNotFrozen {
+    /**
+        @notice Deposits an `amount` of `baseToken` from msg.sender
+        @dev The shares are not directly minted to the user. We need to wait for epoch change in order to know how many
+        shares these assets correspond to. So shares are minted to the contract in `rollEpoch()` and owed to the depositor.
+        @param amount The amount of `baseToken` to deposit
+     */
+    function deposit(uint256 amount) external epochInitialized isNotDead epochNotFrozen {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -193,7 +203,17 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         });
     }
 
-    /// @inheritdoc IVault
+    // /**
+    //      @notice Enables withdraw assets deposited in the same epoch (withdraws using the outstanding
+    //              `DepositReceipt.amount`)
+    //      @param amount is the amount to withdraw
+    //  */
+    // function withdrawInstantly(uint256 amount) external;
+
+    /**
+        @notice Redeems shares held by the vault for the calling wallet
+        @param shares is the number of shares to redeem
+     */
     function redeem(uint256 shares) external {
         if (shares == 0) {
             revert AmountZero();
@@ -231,7 +251,10 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         // ToDo emit Redeem event
     }
 
-    /// @inheritdoc IVault
+    /**
+        @notice Initiates a withdrawal that can be executed on epoch roll on
+        @param shares is the number of shares to withdraw
+     */
     function initiateWithdraw(uint256 shares) external epochNotFrozen {
         if (shares == 0) {
             revert AmountZero();
@@ -266,7 +289,9 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         // TBD: emit InitiateWithdraw event
     }
 
-    /// @inheritdoc IVault
+    /**
+        @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
+     */
     function completeWithdraw() external epochNotFrozen {
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
@@ -313,7 +338,11 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         IERC20(baseToken).transfer(msg.sender, depositReceipt.amount);
     }
 
-    /// @inheritdoc IVault
+    /**
+        @notice Get wallet balance of actual owned shares and owed shares.
+        @return heldByAccount The amount of shares owned by the wallet
+        @return heldByVault The amount of shares owed to the wallet
+     */
     function shareBalances(address account) public view returns (uint256 heldByAccount, uint256 heldByVault) {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[account];
 
@@ -415,6 +444,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         _deltaHedge(int256(finalSideTokens) - int256(sideTokens));
     }
 
+    /// @inheritdoc IVault
     function deltaHedge(int256 sideTokensAmount) external onlyDVP {
         _deltaHedge(sideTokensAmount);
     }
@@ -457,10 +487,12 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         exchange.swapIn(sideToken, baseToken, amount);
     }
 
+    /// @inheritdoc IVault
     function reservePayoff(uint256 residualPayoff) external onlyDVP {
         _state.liquidity.pendingPayoffs += residualPayoff;
     }
 
+    /// @inheritdoc IVault
     function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external onlyDVP {
         if (amount == 0) {
             return;

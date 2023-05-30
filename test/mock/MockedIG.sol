@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {IVault} from "../../src/interfaces/IVault.sol";
-import {Position} from "../../src/lib/Position.sol";
 import {IG} from "../../src/IG.sol";
 
 //ToDo: Add comments
@@ -13,7 +12,7 @@ contract MockedIG is IG {
     bool internal _fakeDeltaHedge;
 
     uint256 internal _optionPrice; // expressed in basis point (1% := 100)
-    uint256 internal _payoffPerc; // expressed in basis point (1% := 100)
+    uint256 internal _payoffPercentage; // expressed in basis point (1% := 100)
 
     constructor(address vault_) IG(vault_) {}
 
@@ -23,7 +22,7 @@ contract MockedIG is IG {
     }
 
     function setPayoffPerc(uint256 value) public {
-        _payoffPerc = value;
+        _payoffPercentage = value;
         _fakePayoff = true;
     }
 
@@ -50,11 +49,11 @@ contract MockedIG is IG {
         return super.premium(strike, strategy, amount);
     }
 
-    function payoffPerc() public view virtual override returns (uint256 callPerc, uint256 putPerc) {
+    function _payoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256 percentage) {
         if (_fakePayoff) {
-            return (_payoffPerc, _payoffPerc);
+            return _payoffPercentage;
         }
-        return super.payoffPerc();
+        return super._payoffPerc(strike, strategy);
     }
 
     function _deltaHedge(uint256 strike, bool strategy, uint256 amount) internal override {

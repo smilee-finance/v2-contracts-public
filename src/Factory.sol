@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IDVP} from "./interfaces/IDVP.sol";
 // import {DVPType} from "./lib/DVPType.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {IG} from "./IG.sol";
@@ -58,7 +57,7 @@ contract Factory is Ownable, Registry {
     }
 
     function _createImpermanentGainDVP(address vault) internal returns (address) {
-        IDVP dvp = new IG(vault);
+        IG dvp = new IG(vault);
         return address(dvp);
     }
 
@@ -103,7 +102,7 @@ contract Factory is Ownable, Registry {
     )
     external returns (address) {
         address vault = _createVault(baseToken, sideToken, epochFrequency); 
-        IDVP dvp = new VanillaDVP(baseToken, sideToken, vault);
+        VanillaDVP dvp = new VanillaDVP(baseToken, sideToken, vault);
         
         return address(dvp);
     }

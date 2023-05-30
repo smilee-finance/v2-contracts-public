@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {DVPType} from "./lib/DVPType.sol";
 import {Notional} from "./lib/Notional.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
-import {Position} from "./lib/Position.sol";
 import {DVP} from "./DVP.sol";
 
 contract IG is DVP {
@@ -44,27 +42,37 @@ contract IG is DVP {
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual override returns (uint256) {
         strike;
         strategy;
-        // ToDo: compute price and premium
+        // ToDo: compute premium
         return amount / 10; // 10%
     }
 
-    function payoffPerc() public view virtual override returns (uint256 callPerc, uint256 putPerc) {
-        return (1e17, 1e17); // igPayoffPerc(currentStrike, oracle.getPrice(...))
+    /// @inheritdoc DVP
+    function _payoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256) {
+        strike;
+        strategy;
+        // igPayoffPerc(currentStrike, oracle.getPrice(...))
+        return 1e17;
     }
 
-    function _initLiquidity() internal virtual override {
-        _liquidity[currentEpoch].setup(currentStrike, IVault(vault).v0());
+    /// @inheritdoc DVP
+    function _allocateLiquidity(uint256 notional) internal virtual override {
+        _liquidity[currentEpoch].setup(currentStrike);
+
+        uint256 halfNotional = notional / 2;
+        _liquidity[currentEpoch].setInitial(currentStrike, OptionStrategy.CALL, halfNotional);
+        _liquidity[currentEpoch].setInitial(currentStrike, OptionStrategy.PUT, notional - halfNotional);
     }
 
+    /// @inheritdoc DVP
     function _residualPayoff() internal virtual override returns (uint256 residualPayoff) {
-        (uint256 callPerc, uint256 putPerc) = payoffPerc();
-
-        uint256 pCall = (callPerc * _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.CALL)) / 1e18;
-        uint256 pPut = (putPerc * _liquidity[currentEpoch].getOptioned(currentStrike, OptionStrategy.PUT)) / 1e18;
+        (uint256 pCall, uint256 pPut) = _computeResidualPayoff(currentStrike);
 
         _liquidity[currentEpoch].accountPayoff(currentStrike, OptionStrategy.CALL, pCall);
         _liquidity[currentEpoch].accountPayoff(currentStrike, OptionStrategy.PUT, pPut);
 
         residualPayoff = pCall + pPut;
     }
+
+    // ToDo: override rollEpoch in order to set the current strike
+    // ----- TBD: perhaps it's better to provide some hooks due to _allocateLiquidity...
 }
