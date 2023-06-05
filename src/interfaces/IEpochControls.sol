@@ -6,7 +6,7 @@ pragma solidity ^0.8.15;
  */
 interface IEpochControls {
     error EpochFrozen();
-    error EpochNotActive();
+    error EpochNotInitialized();
     error EpochNotFinished();
 
     /**
@@ -26,7 +26,6 @@ interface IEpochControls {
         @return The epoch end (timestamp) of the cureent epoch
     */
     function currentEpoch() external view returns (uint256);
-
 
     /**
         @notice Regenerates the epoch-related processes, moving currentEpoch to the next one

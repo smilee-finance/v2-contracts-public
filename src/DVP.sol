@@ -27,6 +27,7 @@ abstract contract DVP is IDVP, EpochControls {
     AddressProvider internal immutable _addressProvider;
 
     // TBD: extract payoff from Notional.Info
+    // TBD: move strike and strategy outside of struct as indexes
     /// @notice liquidity for options indexed by epoch
     mapping(uint256 => Notional.Info) internal _liquidity;
 
@@ -86,12 +87,12 @@ abstract contract DVP is IDVP, EpochControls {
         position.epoch = currentEpoch;
         position.strike = strike;
         position.strategy = strategy;
-        position.updateAmount(int256(amount));
+        position.amount += amount;
 
         emit Mint(msg.sender, recipient);
     }
 
-    // TBD: review as it seems strange that there's no direction (mint/burn)
+    // ToDo: review as it seems strange that there's no direction (mint/burn)
     function _deltaHedge(uint256 strike, bool strategy, uint256 amount) internal virtual {
         // ToDo: delta hedge
         // uint256 notional = _liquidity.initial - (amount + _liquidity.used);
@@ -126,13 +127,24 @@ abstract contract DVP is IDVP, EpochControls {
             _deltaHedge(strike, strategy, amount);
         }
 
-        paidPayoff = _payPayoff(position, recipient, amount);
+        paidPayoff = payoff(position.epoch, position.strike, position.strategy, amount);
+
+        position.amount -= amount;
+        bool pastEpoch = _isEpochFinished(position.epoch);
+
+        _liquidity[position.epoch].decreaseUsage(position.strike, position.strategy, amount);
+        if (pastEpoch) {
+            _liquidity[position.epoch].decreasePayoff(position.strike, position.strategy, paidPayoff);
+        }
+
+        IVault(vault).transferPayoff(recipient, paidPayoff, pastEpoch);
 
         emit Burn(msg.sender);
     }
 
+    /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override {
-        if (isEpochInitialized()) {
+        if (_isEpochInitialized()) {
             uint256 residualPayoff = _residualPayoff();
             IVault(vault).reservePayoff(residualPayoff);
         }
@@ -141,6 +153,7 @@ abstract contract DVP is IDVP, EpochControls {
         // ToDo: check if vault is dead and react to it
     }
 
+    /// @inheritdoc EpochControls
     function _afterRollEpoch() internal virtual override {
         uint256 notional = IVault(vault).v0();
         _allocateLiquidity(notional);
@@ -154,8 +167,9 @@ abstract contract DVP is IDVP, EpochControls {
 
     // TBD: split in two functions
     /**
-        @notice computes and stores the payoffs for the closing epoch (on the various strikes and strategies).
+        @notice computes and stores the payoffs for the closing epoch.
         @return residualPayoff the overall payoff to be set aside for the closing epoch.
+        @dev The concrete DVP must compute and account the payoff for the various strikes and strategies.
      */
     function _residualPayoff() internal virtual returns (uint256 residualPayoff);
 
@@ -199,33 +213,15 @@ abstract contract DVP is IDVP, EpochControls {
             revert PositionNotFound();
         }
 
-        if (isEpochFinished(position.epoch)) {
-            // ToDo: add comments
-            payoff_ = _liquidity[position.epoch].payoffShares(position.strike, position.strategy, positionAmount);
+        if (_isEpochFinished(position.epoch)) {
+            // The position is eligible for a share of the <epoch, strike, strategy> payoff put aside at epoch end
+            payoff_ = _liquidity[position.epoch].shareOfPayoff(position.strike, position.strategy, positionAmount);
         } else {
             payoff_ = _computePayoff(strike, strategy, positionAmount);
         }
     }
 
-    // TBD: move implementation back into _burn
-    function _payPayoff(
-        Position.Info storage position,
-        address recipient,
-        uint256 positionAmount
-    ) internal virtual returns (uint256 payoffAmount) {
-        payoffAmount = payoff(position.epoch, position.strike, position.strategy, positionAmount);
-
-        position.updateAmount(-int256(positionAmount));
-        _liquidity[position.epoch].decreaseUsage(position.strike, position.strategy, positionAmount);
-
-        bool pastEpoch = isEpochFinished(position.epoch);
-        if (pastEpoch) {
-            _liquidity[position.epoch].decreasePayoff(position.strike, position.strategy, payoffAmount);
-        }
-
-        IVault(vault).transferPayoff(recipient, payoffAmount, pastEpoch);
-    }
-
+    // TBD: compute the positionID within the function
     function _getPosition(uint256 epochID, bytes32 positionID) internal view returns (Position.Info storage) {
         return epochPositions[epochID][positionID];
     }

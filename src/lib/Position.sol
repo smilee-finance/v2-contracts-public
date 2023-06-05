@@ -29,21 +29,6 @@ library Position {
     }
 
     /**
-        @notice Updates the amount of options for a given position
-        @param self The position to update
-        @param delta The increment/decrement of options for the given position
-     */
-    function updateAmount(Info storage self, int256 delta) public {
-        if (delta < 0) {
-            // It's a burn
-            self.amount = self.amount - uint256(-delta);
-        } else {
-            // It's a mint
-            self.amount = self.amount + uint256(delta);
-        }
-    }
-
-    /**
         @notice Checks if the position exists.
         @param self The position to update.
         @dev a position exists if its epoch is set.

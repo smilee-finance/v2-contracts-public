@@ -15,7 +15,7 @@ contract VaultTest is Test {
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
     bytes4 constant ExistingIncompleteWithdraw = bytes4(keccak256("ExistingIncompleteWithdraw()"));
-    bytes4 constant EpochNotActive = bytes4(keccak256("EpochNotActive()"));
+    bytes4 constant EpochNotInitialized = bytes4(keccak256("EpochNotInitialized()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
     bytes4 constant EpochFrozen = bytes4(keccak256("EpochFrozen()"));
@@ -48,7 +48,7 @@ contract VaultTest is Test {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(notActiveVault), 100, vm);
 
         vm.prank(alice);
-        vm.expectRevert(EpochNotActive);
+        vm.expectRevert(EpochNotInitialized);
         notActiveVault.deposit(100);
     }
 

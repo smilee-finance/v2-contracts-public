@@ -5,8 +5,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IDVP} from "./interfaces/IDVP.sol";
-import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
@@ -218,6 +216,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         if (shares == 0) {
             revert AmountZero();
         }
+        // NOTE: if the epoch has not been initialized, it reverts with ExceedsAvailable.
+        // ----- TBD: add the epochInitialized modifier
         _redeem(shares, false);
     }
 
@@ -363,6 +363,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     // VAULT OPERATIONS
     // ------------------------------------------------------------------------
 
+    /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override isNotDead {
         // ToDo: review variable name
         uint256 lockedLiquidity = notional();
@@ -413,7 +414,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     }
 
     /// @dev Ensure we have enough base token to pay for withdraws
-    function _reserveBaseTokens(uint256 amount) private {
+    function _reserveBaseTokens(uint256 amount) internal {
         uint256 baseTokenAmount = _notionalBaseTokens();
         if (baseTokenAmount >= amount) {
             return;

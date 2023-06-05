@@ -23,30 +23,34 @@ abstract contract EpochControls is IEpochControls {
     }
 
     /// MODIFIERS ///
+
     /**
-        @notice Ensures the current epoch holds a valid value
+        @notice Ensures that the current epoch holds a valid value
      */
     modifier epochInitialized() {
-        if (!isEpochInitialized()) {
-            //TODO: Change name
-            revert EpochNotActive();
+        if (!_isEpochInitialized()) {
+            revert EpochNotInitialized();
         }
         _;
     }
 
     /**
-        @notice Ensures the given epoch is concluded
+        @notice Ensures that the current epoch is concluded
      */
-    modifier epochFinished(uint256 epoch) {
-        // if currentEpoch == 0 consider it finished
-        if (!isEpochFinished(epoch)) {
+    modifier epochFinished() {
+        if (!_isEpochFinished(currentEpoch)) {
             revert EpochNotFinished();
         }
         _;
     }
 
+    /**
+        @notice Ensures that the current epoch is not concluded
+     */
     modifier epochNotFrozen() {
-        if (isEpochInitialized() && block.timestamp >= currentEpoch) {
+        // if (_isEpochInitialized() && block.timestamp >= currentEpoch) {
+        if (_isEpochFinished(currentEpoch)) {
+            // NOTE: reverts also if the epoch has not been initialized
             revert EpochFrozen();
         }
         _;
@@ -64,13 +68,16 @@ abstract contract EpochControls is IEpochControls {
     /**
         @inheritdoc IEpochControls
      */
-    function rollEpoch() public virtual override epochFinished(currentEpoch) {
+    function rollEpoch() public virtual override epochFinished() {
         _beforeRollEpoch();
 
+        // ToDo: review as the custom timestamps are not done properly...
         uint256 nextEpoch = EpochFrequency.nextExpiry(block.timestamp, epochFrequency);
 
         // If next epoch expiry is in the past (should not happen...) go to next of the next
         while (block.timestamp > nextEpoch) {
+            // TBD: recursively call rollEpoch for each missed epoch that has not been rolled ?
+            // ---- should not be needed as every relevant operation should be freezed by using the epochNotFrozen modifier...
             nextEpoch = EpochFrequency.nextExpiry(nextEpoch, epochFrequency);
         }
 
@@ -80,33 +87,41 @@ abstract contract EpochControls is IEpochControls {
         _afterRollEpoch();
     }
 
+    /**
+        @notice Hook that is called before rolling the epoch.
+     */
     function _beforeRollEpoch() internal virtual {}
+
+    /**
+        @notice Hook that is called after rolling the epoch.
+     */
     function _afterRollEpoch() internal virtual {}
 
     /**
         @inheritdoc IEpochControls
      */
     function timeToNextEpoch() public view returns (uint256) {
+        if (block.timestamp > currentEpoch) {
+            return 0;
+        }
         return currentEpoch - block.timestamp;
     }
 
     /**
-        @notice Check if an epoch is already rolled
+        @notice Check if an epoch should be considered ended
         @param epoch The epoch to check
         @return True if epoch is finished, false otherwise
+        @dev it is expected to receive epochs that are <= currentEpoch
      */
-    function isEpochFinished(uint256 epoch) internal view returns (bool) {
-        if(!isEpochInitialized()) {
-            return true;
-        }
-        return block.timestamp > epoch;
+    function _isEpochFinished(uint256 epoch) internal view returns (bool) {
+        return epoch < block.timestamp;
     }
 
     /**
         @notice Check if has been rolled the first epoch
         @return True if the first epoch has been rolled, false otherwise
      */
-    function isEpochInitialized() internal view returns (bool) {
+    function _isEpochInitialized() internal view returns (bool) {
         return currentEpoch > 0;
     }
 

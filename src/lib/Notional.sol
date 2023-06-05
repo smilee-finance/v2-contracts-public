@@ -45,7 +45,6 @@ library Notional {
     }
 
     /**
-        @notice
         @dev Assume overflow checks done externally
      */
     function increaseUsage(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
@@ -53,8 +52,7 @@ library Notional {
     }
 
     /**
-        @notice
-        @dev Assume overflow checks done externally
+        @dev Assume underflow checks done externally
      */
     function decreaseUsage(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
         self.optioned[strike][_strategyIdx(strategy)] -= amount;
@@ -72,7 +70,7 @@ library Notional {
         self.payoff[strike][_strategyIdx(strategy)] = payoff_;
     }
 
-    function payoffShares(
+    function shareOfPayoff(
         Info storage self,
         uint256 strike,
         bool strategy,
@@ -82,6 +80,7 @@ library Notional {
         uint256 payoff = self.payoff[strike][_strategyIdx(strategy)];
 
         // ToDo: use token decimal instead of WAD
+        // NOTE: amount : optioned = share : payoff
         return amount.wmul(payoff).wdiv(optioned);
     }
 }

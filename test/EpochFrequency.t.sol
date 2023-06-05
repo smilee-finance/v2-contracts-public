@@ -2,15 +2,14 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 
 contract EpochFrequencyTest is Test {
     bytes4 constant MissingNextEpoch = bytes4(keccak256("MissingNextEpoch()"));
 
-    uint256 constant dailyPeriod = 0;
-    uint256 constant weeklyPeriod = 1;
-    uint256 constant customPeriod = 2;
+    uint256 constant dailyPeriod = EpochFrequency.DAILY;
+    uint256 constant weeklyPeriod = EpochFrequency.WEEKLY;
+    uint256 constant customPeriod = EpochFrequency.TRD_FRI_MONTH;
 
     uint256 fri20230421 = 1682064000;
 
