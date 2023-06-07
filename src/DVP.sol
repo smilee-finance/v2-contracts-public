@@ -165,7 +165,7 @@ abstract contract DVP is IDVP, EpochControls {
      */
     function _allocateLiquidity(uint256 notional) internal virtual;
 
-    // TBD: split in two functions
+    // ToDo: split in two functions
     /**
         @notice computes and stores the payoffs for the closing epoch.
         @return residualPayoff the overall payoff to be set aside for the closing epoch.

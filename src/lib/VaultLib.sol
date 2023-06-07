@@ -12,7 +12,9 @@ library VaultLib {
     struct VaultState {
         VaultLiquidity liquidity;
         VaultWithdrawals withdrawals;
+        // The Vault is alive until a certain amount of underlying asset is available to give value to outstanding shares
         // Vault dies if ever the locked liquidity goes to zero (outstanding shares are worth 0, can't mint new shares ever)
+        // The Vault is dead if underlying locked liquidity goes to zero because we can't mint new shares since then
         bool dead;
     }
 
@@ -25,6 +27,8 @@ library VaultLib {
         uint256 pendingWithdrawals;
         // Liquindity reserved for payoffs
         uint256 pendingPayoffs;
+        // Liquidity to put aside before the next epoch
+        uint256 newPendingPayoffs;
     }
 
     struct VaultWithdrawals {

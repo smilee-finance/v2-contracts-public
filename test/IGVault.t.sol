@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
+
+import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
@@ -248,7 +250,43 @@ contract IGVaultTest is Test {
         assertApproxEqAbs(davidPayoff, baseToken.balanceOf(david), 1e3);
     }
 
+    /**
+        Test what happen in the roll epoch of the vault when the payoff exceeds the notional
+     */
+    function testRollEpochWhenPayoffExceedsNotional() public {
+        ig.setPayoffPerc(15e17); // 150%
+        ig.setOptionPrice(0);
+        ig.useRealDeltaHedge();
 
+        // Provide 1000 liquidity:
+        // console.log("Provide 1000 liquidity:");
+        uint256 aliceAmount = 1000e18;
+        VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        ig.rollEpoch();
+        // VaultUtils.logState(vault);
+
+        // Initiate half withdraw (500):
+        // console.log("Initiate half withdraw (500):");
+        vm.prank(alice);
+        vault.initiateWithdraw(500e18);
+
+        Utils.skipDay(true, vm);
+        ig.rollEpoch();
+        // VaultUtils.logState(vault);
+
+        // Mint option of 250:
+        // console.log("Mint option of 250:");
+        uint256 optionAmount = 250e18;
+        _assurePremium(charlie, 0, OptionStrategy.CALL, optionAmount);
+        vm.prank(charlie);
+        ig.mint(charlie, 0, OptionStrategy.CALL, optionAmount);
+
+        Utils.skipDay(true, vm);
+        ig.rollEpoch();
+        // VaultUtils.logState(vault);
+    }
 
     function _assurePremium(
         address user,

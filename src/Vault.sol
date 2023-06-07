@@ -3,11 +3,12 @@ pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
+import {IVaultParams} from "./interfaces/IVaultParams.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
@@ -16,14 +17,21 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     using SafeMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
 
+    /// @inheritdoc IVaultParams
     address public immutable baseToken;
+    /// @inheritdoc IVaultParams
     address public immutable sideToken;
 
     VaultLib.VaultState internal _state;
     AddressProvider internal immutable _addressProvider;
+    /// @notice The address of the DVP paired with this vault
     address internal _dvp;
+    /// @notice Whether the transfer of shares between wallets is allowed or not
+    bool internal _secondaryMarkedAllowed;
 
+    // TBD: add to the IVault interface
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
+    // TBD: add to the IVault interface
     mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
     mapping(uint256 => uint256) internal _epochPricePerShare;
 
@@ -49,9 +57,9 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         sideToken = sideToken_;
 
         _addressProvider = AddressProvider(addressProvider_);
+        _secondaryMarkedAllowed = false;
     }
 
-    /// @dev The Vault is alive until a certain amount of underlying asset is available to give value to outstanding shares
     modifier isNotDead() {
         if (_state.dead) {
             revert VaultDead();
@@ -59,7 +67,6 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         _;
     }
 
-    /// @dev The Vault is dead if underlying locked liquidity goes to zero because we can't mint new shares since then
     modifier isDead() {
         if (!_state.dead) {
             revert VaultNotDead();
@@ -77,6 +84,10 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         _;
     }
 
+    /**
+        @notice Allows the contract's owner to set the DVP paired with this vault.
+        @dev The address is injected after-build, because the DVP needs an already built vault as constructor-injected dependency.
+     */
     function setAllowedDVP(address dvp) external onlyOwner {
         _dvp = dvp;
     }
@@ -134,8 +145,12 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         return baseTokens + valueOfSideTokens;
     }
 
-    /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
-    function _notionalBaseTokens() internal view returns (uint256) {
+    /**
+        @notice Provides the current amount of base tokens available for DVP operations in the current epoch.
+        @return amount_ The current amount of available base tokens
+        @dev In the current epoch, that amount is everything except the amounts putted aside.
+     */
+    function _notionalBaseTokens() internal view returns (uint256 amount_) {
         return
             IERC20(baseToken).balanceOf(address(this)) -
             _state.liquidity.pendingWithdrawals -
@@ -143,8 +158,11 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
             _state.liquidity.pendingPayoffs;
     }
 
-    /// @dev Gives the current amount of base tokens available to make options related operations (payoff payments, portfolio hedging)
-    function _notionalSideTokens() internal view returns (uint256) {
+    /**
+        @notice Provides the amount of side tokens from the portfolio of the current epoch.
+        @return amount_ The amount of side tokens
+     */
+    function _notionalSideTokens() internal view returns (uint256 amount_) {
         return IERC20(sideToken).balanceOf(address(this));
     }
 
@@ -159,10 +177,12 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     // ------------------------------------------------------------------------
 
     /**
-        @notice Deposits an `amount` of `baseToken` from msg.sender
+        @notice Allows to provide liquidity for the next epoch.
+        @param amount The amount of base token to deposit.
         @dev The shares are not directly minted to the user. We need to wait for epoch change in order to know how many
         shares these assets correspond to. So shares are minted to the contract in `rollEpoch()` and owed to the depositor.
-        @param amount The amount of `baseToken` to deposit
+        @dev The liquidity provider can redeem its shares after the next epoch is rolled.
+        @dev The user must approve the vault on the base token contract before attempting this operation.
      */
     function deposit(uint256 amount) external epochInitialized isNotDead epochNotFrozen {
         if (amount == 0) {
@@ -179,11 +199,17 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         // ToDo emit Deposit event
     }
 
+    /**
+        @notice Create or update a deposit receipt for a given deposit operation.
+        @param creditor The wallet of the creditor
+        @param amount The deposited amount
+        @dev The deposit receipt allows the creditor to redeem its shares or withdraw liquidity.
+     */
     function _emitUpdatedDepositReceipt(address creditor, uint256 amount) internal {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[creditor];
 
         // Get the number of unredeemed shares from previous deposits, if any.
-        // That number will be used in order to update the user's receipt.
+        // NOTE: the amount of unredeemed shares is the one of the previous epochs, as we still don't know the share price.
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
             currentEpoch,
             _epochPricePerShare[depositReceipt.epoch]
@@ -201,12 +227,34 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         });
     }
 
+    // ToDo: review
     // /**
     //      @notice Enables withdraw assets deposited in the same epoch (withdraws using the outstanding
     //              `DepositReceipt.amount`)
     //      @param amount is the amount to withdraw
     //  */
     // function withdrawInstantly(uint256 amount) external;
+
+    /**
+        @notice Get wallet balance of actual owned shares and owed shares.
+        @return heldByAccount The amount of shares owned by the wallet
+        @return heldByVault The amount of shares owed to the wallet
+     */
+    function shareBalances(address account) public view returns (uint256 heldByAccount, uint256 heldByVault) {
+        VaultLib.DepositReceipt memory depositReceipt = depositReceipts[account];
+
+        // TBD: wrap in a function
+        if (depositReceipt.epoch == 0) {
+            return (0, 0);
+        }
+
+        uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
+            currentEpoch,
+            _epochPricePerShare[depositReceipt.epoch]
+        );
+
+        return (balanceOf(account), unredeemedShares);
+    }
 
     /**
         @notice Redeems shares held by the vault for the calling wallet
@@ -252,8 +300,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     }
 
     /**
-        @notice Initiates a withdrawal that can be executed on epoch roll on
-        @param shares is the number of shares to withdraw
+        @notice Pre-order a withdrawal that can be executed after the end of the current epoch
+        @param shares is the number of shares to convert in withdrawed liquidity
      */
     function initiateWithdraw(uint256 shares) external epochNotFrozen {
         if (shares == 0) {
@@ -338,27 +386,6 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         IERC20(baseToken).transfer(msg.sender, depositReceipt.amount);
     }
 
-    /**
-        @notice Get wallet balance of actual owned shares and owed shares.
-        @return heldByAccount The amount of shares owned by the wallet
-        @return heldByVault The amount of shares owed to the wallet
-     */
-    function shareBalances(address account) public view returns (uint256 heldByAccount, uint256 heldByVault) {
-        VaultLib.DepositReceipt memory depositReceipt = depositReceipts[account];
-
-        // TBD: wrap in a function
-        if (depositReceipt.epoch == 0) {
-            return (0, 0);
-        }
-
-        uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
-            currentEpoch,
-            _epochPricePerShare[depositReceipt.epoch]
-        );
-
-        return (balanceOf(account), unredeemedShares);
-    }
-
     // ------------------------------------------------------------------------
     // VAULT OPERATIONS
     // ------------------------------------------------------------------------
@@ -368,17 +395,11 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         // ToDo: review variable name
         uint256 lockedLiquidity = notional();
 
-        uint256 sharePrice;
-        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
-        // NOTE: if the number of shares is 0, pricePerShare will revert due to a division by zero
-        if (outstandingShares == 0) {
-            // First time mint 1 share for each token
-            sharePrice = VaultLib.UNIT_PRICE;
-        } else {
-            // NOTE: if the locked liquidity is 0, the price is set to 0
-            sharePrice = VaultLib.pricePerShare(lockedLiquidity, outstandingShares);
-        }
+        // NOTE: the share price needs to account also the payoffs
+        lockedLiquidity -= _state.liquidity.newPendingPayoffs;
 
+        // TBD: rename to shareValue
+        uint256 sharePrice = _computeSharePrice(lockedLiquidity);
         _epochPricePerShare[currentEpoch] = sharePrice;
 
         if (sharePrice == 0) {
@@ -387,57 +408,85 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
             _state.dead = true;
         }
 
-        // NOTE: if sharePrice went to zero, the users will receive zero
+        // Increase shares hold due to initiated withdrawals:
         _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
-        uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
-        // TODO - make one call to exchange (unify with ew rebalance)
-        _reserveBaseTokens(newPendingWithdrawals);
-        // NOTE: the internal state must be updated after the call to `_reserveBaseTokens`
-        _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
-        _state.withdrawals.newHeldShares = 0;
 
+        // Reserve the liquidity needed to cover the withdrawals initiated in the current epoch:
+        // NOTE: here we just account the amounts and we delay all the actual swaps to the final one in order to optimize them.
+        // NOTE: if sharePrice is zero, the users will receive zero from withdrawals
+        uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
+        _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
         lockedLiquidity -= newPendingWithdrawals;
 
-        // TODO: put aside the payoff to be paid
-        _reserveBaseTokens(_state.liquidity.pendingPayoffs);
+        // Reset the counter for the next epoch:
+        _state.withdrawals.newHeldShares = 0;
+
+        // Put aside the payoff to be paid:
+        _state.liquidity.pendingPayoffs += _state.liquidity.newPendingPayoffs;
+        _state.liquidity.newPendingPayoffs = 0;
 
         if (!_state.dead) {
             // Mint shares related to new deposits performed during the closing epoch:
             uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice);
             _mint(address(this), sharesToMint);
 
-            _state.liquidity.lockedInitially = lockedLiquidity + _state.liquidity.pendingDeposits;
+            lockedLiquidity += _state.liquidity.pendingDeposits;
             _state.liquidity.pendingDeposits = 0;
 
-            _equalWeightRebalance();
+            _state.liquidity.lockedInitially = lockedLiquidity;
+            _adjustBalances();
+            // TBD: re-compute here the lockedInitially
         }
     }
 
-    /// @dev Ensure we have enough base token to pay for withdraws
-    function _reserveBaseTokens(uint256 amount) internal {
-        uint256 baseTokenAmount = _notionalBaseTokens();
-        if (baseTokenAmount >= amount) {
-            return;
+    /**
+        @notice Computes the share price for the ending epoch
+        @param notional_ The DVP portfolio value at the end of the epoch
+        @return sharePrice the price of one share
+     */
+    function _computeSharePrice(uint256 notional_) internal view returns (uint256 sharePrice) {
+        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
+        // NOTE: if the number of shares is 0, pricePerShare will revert due to a division by zero
+        if (outstandingShares == 0) {
+            // First time mint 1 share for each token
+            sharePrice = VaultLib.UNIT_PRICE;
+        } else {
+            // NOTE: if the locked liquidity is 0, the price is set to 0
+            sharePrice = VaultLib.pricePerShare(notional_, outstandingShares);
         }
-
-        address exchangeAddress = _addressProvider.exchangeAdapter();
-        IExchange exchange = IExchange(exchangeAddress);
-
-        uint256 amountBaseTokenToAcquire = amount - baseTokenAmount;
-        int256 deltaHedgeIdx = int256(exchange.getOutputAmount(baseToken, sideToken, amountBaseTokenToAcquire));
-        _deltaHedge(-deltaHedgeIdx);
     }
 
-    /// @dev ...
-    function _equalWeightRebalance() internal {
+    /**
+        @notice Adjust the balances in order to cover the liquidity locked for pending operations and obtain an equal weight portfolio.
+        @dev We are ignoring fees...
+     */
+    function _adjustBalances() internal {
         address exchangeAddress = _addressProvider.exchangeAdapter();
+        // TBD: check that the address is not zero
         IExchange exchange = IExchange(exchangeAddress);
 
-        uint256 halfNotional = notional() / 2;
+        uint256 baseTokens = IERC20(baseToken).balanceOf(address(this));
+        uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
+        uint256 pendings = _state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs;
 
-        uint256 finalSideTokens = exchange.getOutputAmount(baseToken, sideToken, halfNotional);
-        uint256 sideTokens = _notionalSideTokens();
-        _deltaHedge(int256(finalSideTokens) - int256(sideTokens));
+        if (baseTokens < pendings) {
+            // We must cover the missing base tokens by selling an amount of side tokens:
+            uint256 baseTokensToReserve = pendings - baseTokens;
+            uint256 sideTokensToSellForCoveringMissingBaseTokens = exchange.getInputAmount(sideToken, baseToken, baseTokensToReserve);
+
+            // Once we covered the missing base tokens, we still have to reach
+            // an equal weight portfolio of unlocked liquidity, so we also have
+            // to sell half of the remaining side tokens.
+            uint256 halfOfRemainingSideTokens = (sideTokens - sideTokensToSellForCoveringMissingBaseTokens) / 2;
+
+            uint256 sideTokensToSell = sideTokensToSellForCoveringMissingBaseTokens + halfOfRemainingSideTokens;
+            _sellSideTokens(sideTokensToSell);
+        } else {
+            uint256 halfNotional = notional() / 2;
+            uint256 targetSideTokens = exchange.getOutputAmount(baseToken, sideToken, halfNotional);
+
+            _deltaHedge(int256(targetSideTokens) - int256(sideTokens));
+        }
     }
 
     /// @inheritdoc IVault
@@ -445,6 +494,10 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         _deltaHedge(sideTokensAmount);
     }
 
+    /**
+        @notice Adjust the portfolio by trading the given amount of side tokens.
+        @param sideTokensAmount The amount of side tokens to buy (positive value) / sell (negative value).
+     */
     function _deltaHedge(int256 sideTokensAmount) internal {
         if (sideTokensAmount > 0) {
             uint256 amount = uint256(sideTokensAmount);
@@ -455,13 +508,20 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         }
     }
 
+    // TBD: return the amount of exchanged base tokens
+    /**
+        @notice Swap some of the available base tokens in order to obtain the provided amount of side tokens.
+        @param amount The amount of side tokens to buy.
+     */
     function _buySideTokens(uint256 amount) internal {
         address exchangeAddress = _addressProvider.exchangeAdapter();
+        // TBD: check that the address is not zero
         IExchange exchange = IExchange(exchangeAddress);
 
         uint256 baseTokensAmount = exchange.getInputAmount(baseToken, sideToken, amount);
 
         // Should never happen: `_deltaHedge()` should call this function with a correct amount of side tokens
+        // But the DVP client of `deltaHedge()` may not... (ToDo: verify!)
         if (baseTokensAmount > _notionalBaseTokens()) {
             revert ExceedsAvailable();
         }
@@ -471,12 +531,19 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         exchange.swapOut(baseToken, sideToken, amount);
     }
 
+    // TBD: return the amount of exchanged base tokens
+    /**
+        @notice Swap the provided amount of side tokens in exchange for base tokens.
+        @param amount The amount of side tokens to sell.
+     */
     function _sellSideTokens(uint256 amount) internal {
-        uint256 sideTokensAmount = IERC20(sideToken).balanceOf(address(this));
-        if (sideTokensAmount < amount) {
+        uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
+        if (amount > sideTokens) {
             revert ExceedsAvailable();
         }
+
         address exchangeAddress = _addressProvider.exchangeAdapter();
+        // TBD: check that the address is not zero
         IExchange exchange = IExchange(exchangeAddress);
 
         IERC20(sideToken).approve(exchangeAddress, amount);
@@ -485,7 +552,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
 
     /// @inheritdoc IVault
     function reservePayoff(uint256 residualPayoff) external onlyDVP {
-        _state.liquidity.pendingPayoffs += residualPayoff;
+        _state.liquidity.newPendingPayoffs = residualPayoff;
     }
 
     /// @inheritdoc IVault
@@ -509,7 +576,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         IERC20(baseToken).transfer(recipient, amount);
     }
 
-    /// @dev Block shares transfer when not allowed (for testnet purposes)
+    /// @inheritdoc ERC20
+    /// @dev Block transfer of shares when not allowed (for testnet purposes)
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal view override {
         amount;
         if (from == address(0) || to == address(0)) {
@@ -520,6 +588,15 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
             // it's a vault operation
             return;
         }
-        revert SecondaryMarkedNotAllowed();
+        if (!_secondaryMarkedAllowed) {
+            revert SecondaryMarkedNotAllowed();
+        }
+    }
+
+    /**
+        @notice Allows the contract's owner to enable or disable the secondary market for the vault's shares.
+     */
+    function setAllowedSecondaryMarked(bool allowed) external onlyOwner {
+        _secondaryMarkedAllowed = allowed;
     }
 }

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.15;
 
 import {Vm} from "forge-std/Vm.sol";
+import {console} from "forge-std/console.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
@@ -65,7 +67,7 @@ library VaultUtils {
         ) = vault.vaultState();
         return
             VaultLib.VaultState(
-                VaultLib.VaultLiquidity(lockedInitially, pendingDepositAmount, totalWithdrawAmount, pendingPayoffs),
+                VaultLib.VaultLiquidity(lockedInitially, pendingDepositAmount, totalWithdrawAmount, pendingPayoffs, 0),
                 VaultLib.VaultWithdrawals(queuedWithdrawShares, currentQueuedWithdrawShares),
                 dead
             );
@@ -89,6 +91,31 @@ library VaultUtils {
 
         vm.prank(user);
         vault.deposit(amount);
+    }
+
+    function logState(MockedVault vault) public view {
+        VaultLib.VaultState memory state_ = VaultUtils.vaultState(vault);
+
+        console.log("current epoch", vault.currentEpoch());
+        uint256 baseBalance = IERC20(vault.baseToken()).balanceOf(address(vault));
+        uint256 sideBalance = IERC20(vault.sideToken()).balanceOf(address(vault));
+        console.log("baseToken balance", baseBalance);
+        console.log("sideToken balance", sideBalance);
+        console.log("dead", state_.dead);
+        console.log("lockedInitially", state_.liquidity.lockedInitially);
+        console.log("pendingDeposits", state_.liquidity.pendingDeposits);
+        console.log("pendingWithdrawals", state_.liquidity.pendingWithdrawals);
+        console.log("pendingPayoffs", state_.liquidity.pendingPayoffs);
+        console.log("heldShares", state_.withdrawals.heldShares);
+        console.log("newHeldShares", state_.withdrawals.newHeldShares);
+
+        // console.log("notional");
+        // console.log(vault.notional());
+
+        (uint256 btAmount, uint256 stAmount) = vault.balances();
+        console.log("base token notional", btAmount);
+        console.log("side token notional", stAmount);
+        console.log("----------------------------------------");
     }
 
     /// @dev Function used to skip coverage on this file

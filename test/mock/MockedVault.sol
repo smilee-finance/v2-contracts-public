@@ -2,8 +2,9 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Vault} from "../../src/Vault.sol";
+import {IExchange} from "../../src/interfaces/IExchange.sol";
 import {IPriceOracle} from "../../src/interfaces/IPriceOracle.sol";
+import {Vault} from "../../src/Vault.sol";
 
 /**
     @notice Vault with manually managed liquidity, to ease testing of DVPs
@@ -60,7 +61,16 @@ contract MockedVault is Vault {
         int256 baseDelta = (int(_notionalBaseTokens()) * percentage) / 10000;
         _moveToken(baseToken, baseDelta);
 
-        _equalWeightRebalance();
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        IExchange exchange = IExchange(exchangeAddress);
+
+        // Equal weight rebalance:
+        sideTokens = IERC20(sideToken).balanceOf(address(this));
+        uint256 halfNotional = notional() / 2;
+        uint256 targetSideTokens = exchange.getOutputAmount(baseToken, sideToken, halfNotional);
+        _deltaHedge(int256(targetSideTokens) - int256(sideTokens));
+
+        // _equalWeightRebalance();
     }
 
     // function equalWeightRebalance() external {
