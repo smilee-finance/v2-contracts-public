@@ -11,16 +11,16 @@ import {TestnetToken} from "../testnet/TestnetToken.sol";
 contract TestnetSwapAdapter is IExchange, Ownable {
     using AmountsMath for uint256;
 
-    IPriceOracle internal priceOracle;
+    IPriceOracle internal _priceOracle;
 
     error PriceZero();
 
-    constructor(address _priceOracle) Ownable() {
-        priceOracle = IPriceOracle(_priceOracle);
+    constructor(address priceOracle) Ownable() {
+        _priceOracle = IPriceOracle(priceOracle);
     }
 
     function changePriceOracle(address oracle) external onlyOwner {
-        priceOracle = IPriceOracle(oracle);
+        _priceOracle = IPriceOracle(oracle);
     }
 
     function getOutputAmount(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint) {
@@ -28,7 +28,7 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     }
 
     function _getAmountOut(address tokenIn, address tokenOut, uint amountIn) internal view returns (uint) {
-        uint tokenOutPrice = priceOracle.getPrice(tokenIn, tokenOut);
+        uint tokenOutPrice = _priceOracle.getPrice(tokenIn, tokenOut);
         uint tokenInDecimals = ERC20(tokenIn).decimals();
         uint tokenOutDecimals = ERC20(tokenOut).decimals();
 
@@ -49,7 +49,7 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     }
 
     function _getAmountIn(address tokenIn, address tokenOut, uint amountOut) internal view returns (uint) {
-        uint tokenInPrice = priceOracle.getPrice(tokenOut, tokenIn);
+        uint tokenInPrice = _priceOracle.getPrice(tokenOut, tokenIn);
 
         if (tokenInPrice == 0) {
             // Otherwise could mint output tokens for free (no input needed).

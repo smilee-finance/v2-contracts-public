@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
+import {IMarketOracle} from "../interfaces/IMarketOracle.sol";
 import {AmountsMath} from "../lib/AmountsMath.sol";
 
-contract TestnetPriceOracle is IPriceOracle, Ownable {
+contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
     using AmountsMath for uint;
 
     address referenceToken;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+// ToDo: Evaluate to split IPriceOracle and IMarketOracle
 interface IPriceOracle {
     /**
      * @notice Return token0 price in token1
@@ -14,7 +15,7 @@ interface IPriceOracle {
      * @notice Return the number of decimals for the prices
      * @return decimals Number of decimals for the prices
      */
-    function priceDecimals() external pure returns (uint decimals);
+    function priceDecimals() external view returns (uint decimals);
 
     /**
         @notice Return Price of token in referenceToken
@@ -22,8 +23,4 @@ interface IPriceOracle {
         @return price Price of token in referenceToken
      */
     function getTokenPrice(address token) external view returns (uint price);
-
-    function getImpliedVolatility(address token0, address token1, uint256 strikePrice, uint256 frequency) external returns (uint256 iv);
-
-    function getRiskFreeRate(address token0, address token1) external returns (uint256 rate);
 }
