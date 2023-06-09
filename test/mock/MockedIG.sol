@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {IVault} from "../../src/interfaces/IVault.sol";
+import {Position} from "../../src/lib/Position.sol";
 import {IG} from "../../src/IG.sol";
 
 //ToDo: Add comments
@@ -56,11 +57,20 @@ contract MockedIG is IG {
         return super._payoffPerc(strike, strategy);
     }
 
-    function _deltaHedge(uint256 strike, bool strategy, uint256 amount) internal override {
+    function _deltaHedge(uint256 strike, bool strategy, int256 amount) internal override {
         if (_fakeDeltaHedge) {
             IVault(vault).deltaHedge(-int256(amount / 4));
             return;
         }
         super._deltaHedge(strike, strategy, amount);
+    }
+
+    // ToDo: review usage
+    function positions(
+        bytes32 positionID
+    ) public view returns (uint256 amount, bool strategy, uint256 strike, uint256 epoch) {
+        Position.Info storage position = _epochPositions[currentEpoch][positionID];
+
+        return (position.amount, position.strategy, position.strike, position.epoch);
     }
 }

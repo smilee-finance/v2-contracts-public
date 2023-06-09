@@ -47,6 +47,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     error WithdrawNotInitiated();
     error WithdrawTooEarly();
 
+    // TBD: create ERC20 name and symbol from the underlying tokens
     constructor(
         address baseToken_,
         address sideToken_,
@@ -390,8 +391,10 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     // VAULT OPERATIONS
     // ------------------------------------------------------------------------
 
+    // ToDo: must be called only by the DVP after a DVP has been set.
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override isNotDead {
+        // TBD: a dead vault can be revived ?
         // ToDo: review variable name
         uint256 lockedLiquidity = notional();
 
@@ -421,22 +424,26 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         // Reset the counter for the next epoch:
         _state.withdrawals.newHeldShares = 0;
 
-        // Put aside the payoff to be paid:
+        // Set aside the payoff to be paid:
         _state.liquidity.pendingPayoffs += _state.liquidity.newPendingPayoffs;
         _state.liquidity.newPendingPayoffs = 0;
 
-        if (!_state.dead) {
-            // Mint shares related to new deposits performed during the closing epoch:
-            uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice);
-            _mint(address(this), sharesToMint);
-
-            lockedLiquidity += _state.liquidity.pendingDeposits;
-            _state.liquidity.pendingDeposits = 0;
-
-            _state.liquidity.lockedInitially = lockedLiquidity;
-            _adjustBalances();
-            // TBD: re-compute here the lockedInitially
+        if (_state.dead) {
+            // ToDo: review
+            _state.liquidity.lockedInitially = 0;
+            return;
         }
+
+        // Mint shares related to new deposits performed during the closing epoch:
+        uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice);
+        _mint(address(this), sharesToMint);
+
+        lockedLiquidity += _state.liquidity.pendingDeposits;
+        _state.liquidity.pendingDeposits = 0;
+
+        _state.liquidity.lockedInitially = lockedLiquidity;
+        _adjustBalances();
+        // TBD: re-compute here the lockedInitially
     }
 
     /**

@@ -42,7 +42,7 @@ contract IG is DVP {
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual override returns (uint256) {
         strike;
         strategy;
-        // ToDo: compute premium
+        // ToDo: compute
         return amount / 10; // 10%
     }
 
@@ -50,28 +50,38 @@ contract IG is DVP {
     function _payoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256) {
         strike;
         strategy;
+        // ToDo: compute
         // igPayoffPerc(currentStrike, oracle.getPrice(...))
         return 1e17;
     }
 
     /// @inheritdoc DVP
-    function _allocateLiquidity(uint256 notional) internal virtual override {
-        _liquidity[currentEpoch].setup(currentStrike);
+    function _residualPayoff() internal view virtual override returns (uint256 residualPayoff) {
+        Notional.Info storage liquidity = _liquidity[currentEpoch];
 
-        uint256 halfNotional = notional / 2;
-        _liquidity[currentEpoch].setInitial(currentStrike, OptionStrategy.CALL, halfNotional);
-        _liquidity[currentEpoch].setInitial(currentStrike, OptionStrategy.PUT, notional - halfNotional);
+        uint256 pCall = liquidity.getAccountedPayoff(currentStrike, OptionStrategy.CALL);
+        uint256 pPut = liquidity.getAccountedPayoff(currentStrike, OptionStrategy.PUT);
+
+        residualPayoff = pCall + pPut;
     }
 
     /// @inheritdoc DVP
-    function _residualPayoff() internal virtual override returns (uint256 residualPayoff) {
-        uint256 pCall = _computeResidualPayoff(currentStrike, OptionStrategy.CALL);
-        _liquidity[currentEpoch].accountPayoff(currentStrike, OptionStrategy.CALL, pCall);
+    function _accountResidualPayoffs() internal virtual override {
+        _accountResidualPayoff(currentStrike, OptionStrategy.CALL);
+        _accountResidualPayoff(currentStrike, OptionStrategy.PUT);
+    }
 
-        uint256 pPut = _computeResidualPayoff(currentStrike, OptionStrategy.PUT);
-        _liquidity[currentEpoch].accountPayoff(currentStrike, OptionStrategy.PUT, pPut);
+    /// @inheritdoc DVP
+    function _allocateLiquidity(uint256 initialCapital) internal virtual override {
+        Notional.Info storage liquidity = _liquidity[currentEpoch];
 
-        residualPayoff = pCall + pPut;
+        // The impermanent gain DVP only has one strike:
+        liquidity.setup(currentStrike);
+
+        // The initialCapital is split 50:50 on the two strategies:
+        uint256 halfInitialCapital = initialCapital / 2;
+        liquidity.setInitial(currentStrike, OptionStrategy.CALL, halfInitialCapital);
+        liquidity.setInitial(currentStrike, OptionStrategy.PUT, initialCapital - halfInitialCapital);
     }
 
     function _afterRollEpoch() internal virtual override {

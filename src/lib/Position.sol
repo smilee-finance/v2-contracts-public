@@ -17,6 +17,7 @@ library Position {
         uint256 epoch;
     }
 
+    // ToDo: integrate the epoch and evaluate the risk of collisions
     /**
         @notice Returns the unique ID of a position (for a given epoch)
         @param owner The address of the position owner

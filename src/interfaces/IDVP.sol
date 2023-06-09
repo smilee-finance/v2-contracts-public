@@ -12,16 +12,16 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
     error AmountZero();
     error InvalidStrategy();
 
-    /**
-        @notice Returns the information about a position by the position's key
-        @param positionID The position's key [TODO]
-        @return amount The amount of liquidity in the position,
-        @return strategy The strategy of the position,
-        @return strike The strike price of the position
-     */
-    function positions(
-        bytes32 positionID
-    ) external view returns (uint256 amount, bool strategy, uint256 strike, uint256 epoch);
+    // /**
+    //     @notice Returns the information about a position by the position's key
+    //     @param positionID The position's key [TODO]
+    //     @return amount The amount of liquidity in the position,
+    //     @return strategy The strategy of the position,
+    //     @return strike The strike price of the position
+    //  */
+    // function positions(
+    //     bytes32 positionID
+    // ) external view returns (uint256 amount, bool strategy, uint256 strike, uint256 epoch);
 
     /**
         @notice Returns the pool providing liquidity for these DVP options
@@ -54,15 +54,23 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @notice Creates an option with the given strategy
         @param recipient The address for which the option will be created
         @param strike The strike price for the minted option
-        @dev strike param is ignored for IG vaults, can pass 0
         @param strategy The selected strategy
         @param amount The integer quantity of options recipient wants to mint
         @return leverage The multiplier to obtain position notional from paid premium
+        @dev strike param is ignored for IG vaults, can pass 0
      */
     function mint(address recipient, uint256 strike, bool strategy, uint256 amount) external returns (uint256 leverage);
 
-    /// @notice Burns an option transferring back the payoff to the owner
-    /// TODO
+    /**
+        @notice Burns an option transferring back the payoff to the owner.
+        @param epoch The maturity timestamp of the option.
+        @param recipient The address of the wallet that will receive the payoff, if any.
+        @param strike The strike price of the burned option.
+        @param strategy The strategy of the burned option.
+        @param amount The amount of notional to be burned.
+        @return paidPayoff The amount of paid payoff.
+        @dev After maturity, the amount parameter is ignored and all the option is burned.
+     */
     function burn(
         uint256 epoch,
         address recipient,
