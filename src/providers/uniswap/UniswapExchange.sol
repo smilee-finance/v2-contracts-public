@@ -3,15 +3,13 @@ pragma solidity ^0.8.15;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IQuoter} from "@uniswap/v3-periphery/interfaces/IQuoter.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {ISwapRouter} from "@uniswap/v3-periphery/interfaces/ISwapRouter.sol";
-import {Path} from "./lib/Path.sol";
-import {IExchange} from "./interfaces/IExchange.sol";
-import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {TransferHelper} from "@uniswap/v3-periphery/libraries/TransferHelper.sol";
+import {IExchange} from "../../interfaces/IExchange.sol";
+import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
+import {Path} from "./lib/Path.sol";
 
 contract UniswapExchange is IExchange, Ownable {
     using Path for bytes;
@@ -270,7 +268,7 @@ contract UniswapExchange is IExchange, Ownable {
         @notice Reverse Path to be used for swap-out MultiHop
         @param path A path to reverse
      */
-    function _reversePath(bytes memory path) internal view returns (bytes memory) {
+    function _reversePath(bytes memory path) internal pure returns (bytes memory) {
         address tokenA;
         address tokenB;
         uint24 fee;

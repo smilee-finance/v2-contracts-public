@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {StdChains} from "forge-std/StdChains.sol";
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IExchange} from "../src/interfaces/IExchange.sol";
-import {UniswapExchange} from "../src/UniswapExchange.sol";
-import {UniswapPriceOracle} from "../src/UniswapPriceOracle.sol";
+import {UniswapExchange} from "../src/providers/uniswap/UniswapExchange.sol";
+import {UniswapPriceOracle} from "../src/providers/uniswap/UniswapPriceOracle.sol";
 
 /**
  * @title UniwapEchangeTest
@@ -28,9 +29,10 @@ contract UniswapExchangeTest is Test {
     uint256 internal constant _SLIPPAGE_PERC = 10000; // 100%
     uint256 internal constant _SLIPPAGE = 500; // 5%
 
-
-
     constructor() {
+        uint256 forkId = vm.createFork("https://arb-mainnet.g.alchemy.com/v2/KpB5mO_nzL6eYfzzx9bcBHq8oO8mjcx4");
+        vm.selectFork(forkId);
+
         _priceOracle = new UniswapPriceOracle(address(_tokenUSDC), 0x1F98431c8aD98523631AE4a59f267346ea31F984);
 
         _uniswap = new UniswapExchange(

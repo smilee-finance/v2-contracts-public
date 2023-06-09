@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import {FixedPoint96} from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
-import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
-import {AmountsMath} from "./lib/AmountsMath.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
+import {AmountsMath} from "../../lib/AmountsMath.sol";
 
 contract UniswapPriceOracle is IPriceOracle {
     using AmountsMath for uint;

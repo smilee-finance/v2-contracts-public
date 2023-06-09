@@ -2,7 +2,6 @@
 // Source: https://github.com/Uniswap/v3-periphery/blob/main/contracts/libraries/Path.sol
 pragma solidity >0.8.0;
 
-import "forge-std/console.sol";
 import "./BytesLib.sol";
 
 /// @title Functions for manipulating path data for multihop swaps
