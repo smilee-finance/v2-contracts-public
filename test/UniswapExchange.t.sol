@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import {StdChains} from "forge-std/StdChains.sol";
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -32,6 +31,7 @@ contract UniswapExchangeTest is Test {
     constructor() {
         uint256 forkId = vm.createFork("https://arb-mainnet.g.alchemy.com/v2/KpB5mO_nzL6eYfzzx9bcBHq8oO8mjcx4");
         vm.selectFork(forkId);
+        // ToDo: select block to fork
 
         _priceOracle = new UniswapPriceOracle(address(_tokenUSDC), 0x1F98431c8aD98523631AE4a59f267346ea31F984);
 
@@ -64,7 +64,6 @@ contract UniswapExchangeTest is Test {
     }
 
     function testSwapInWETHtoUSDC() public {
-
         _swapInTest(_tokenWETH, _tokenUSDC, _WETH_HOLDER, 0.1 ether);
     }
 
@@ -84,13 +83,11 @@ contract UniswapExchangeTest is Test {
         uint256 tokenInBalanceBeforeSwap = tokenIn.balanceOf(tokenInHolder);
         uint256 tokenOutBalanceBeforeSwap = tokenOut.balanceOf(tokenInHolder);
 
-
         uint256 tokenOutSwappedAmount = _uniswap.getOutputAmount(
             address(tokenIn),
             address(tokenOut),
             amountTokenIntoSwap
         );
-
 
         vm.startPrank(tokenInHolder);
         tokenIn.approve(address(_uniswap), tokenIn.balanceOf(tokenInHolder));
@@ -99,7 +96,6 @@ contract UniswapExchangeTest is Test {
 
         uint256 tokenInBalanceAfterSwap = tokenIn.balanceOf(tokenInHolder);
         uint256 tokenOutBalanceAfterSwap = tokenOut.balanceOf(tokenInHolder);
-
 
         uint256 tokenInSlippageDelta = ((amountTokenIntoSwap * (_SLIPPAGE_PERC + _SLIPPAGE)) / _SLIPPAGE_PERC) -
             amountTokenIntoSwap;
@@ -127,7 +123,6 @@ contract UniswapExchangeTest is Test {
         uint256 tokenInBalanceBeforeSwap = tokenIn.balanceOf(tokenInHolder);
         uint256 tokenOutBalanceBeforeSwap = tokenOut.balanceOf(tokenInHolder);
 
-
         uint256 tokenInToSwap = _uniswap.getInputAmount(address(tokenIn), address(tokenOut), amountOutTokenOutWanted);
 
         vm.startPrank(tokenInHolder);
@@ -137,7 +132,6 @@ contract UniswapExchangeTest is Test {
 
         uint256 tokenInBalanceAfterSwap = tokenIn.balanceOf(tokenInHolder);
         uint256 tokenOutBalanceAfterSwap = tokenOut.balanceOf(tokenInHolder);
-
 
         uint256 tokenInSlippageDelta = ((tokenInToSwap * (_SLIPPAGE_PERC + _SLIPPAGE)) / _SLIPPAGE_PERC) -
             tokenInToSwap;

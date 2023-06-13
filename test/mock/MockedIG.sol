@@ -57,12 +57,12 @@ contract MockedIG is IG {
         return super._payoffPerc(strike, strategy);
     }
 
-    function _deltaHedge(uint256 strike, bool strategy, int256 amount) internal override {
+    function _deltaHedgePosition(uint256 strike, bool strategy, int256 amount) internal override {
         if (_fakeDeltaHedge) {
             IVault(vault).deltaHedge(-int256(amount / 4));
             return;
         }
-        super._deltaHedge(strike, strategy, amount);
+        super._deltaHedgePosition(strike, strategy, amount);
     }
 
     // ToDo: review usage

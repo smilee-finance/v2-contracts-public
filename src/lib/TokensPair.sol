@@ -10,6 +10,10 @@ library TokensPair {
         address sideToken;
     }
 
+    error AddressZero();
+    error SameToken();
+    error InvalidToken(address token);
+
     function getBalances(Pair memory pair, address wallet) internal view returns (uint baseTokenBalance, uint sideTokenBalance) {
         baseTokenBalance = IERC20(pair.baseToken).balanceOf(wallet);
         sideTokenBalance = IERC20(pair.sideToken).balanceOf(wallet);
@@ -18,5 +22,24 @@ library TokensPair {
     function getDecimals(Pair memory pair) internal view returns (uint baseTokenDecimals, uint sideTokenDecimals) {
         baseTokenDecimals = ERC20(pair.baseToken).decimals();
         sideTokenDecimals = ERC20(pair.sideToken).decimals();
+    }
+
+    function validate(Pair memory pair) public view {
+        if (pair.baseToken == address(0) || pair.sideToken == address(0)) {
+            revert AddressZero();
+        }
+        if (pair.baseToken == pair.sideToken) {
+            revert SameToken();
+        }
+        try IERC20(pair.baseToken).balanceOf(address(this)) returns (uint) {
+            // no-op
+        } catch {
+            revert InvalidToken(pair.baseToken);
+        }
+        try IERC20(pair.sideToken).balanceOf(address(this)) returns (uint) {
+            // no-op
+        } catch {
+            revert InvalidToken(pair.sideToken);
+        }
     }
 }

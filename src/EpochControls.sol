@@ -114,7 +114,7 @@ abstract contract EpochControls is IEpochControls {
         @dev it is expected to receive epochs that are <= currentEpoch
      */
     function _isEpochFinished(uint256 epoch) internal view returns (bool) {
-        return epoch < block.timestamp;
+        return block.timestamp > epoch;
     }
 
     /**

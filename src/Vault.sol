@@ -6,9 +6,9 @@ import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
-import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
+import {TokensPair} from "./lib/TokensPair.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
@@ -54,6 +54,10 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         uint256 epochFrequency_,
         address addressProvider_
     ) EpochControls(epochFrequency_) ERC20("", "") Ownable() {
+        TokensPair.validate(TokensPair.Pair({
+            baseToken: baseToken_,
+            sideToken: sideToken_
+        }));
         baseToken = baseToken_;
         sideToken = sideToken_;
 

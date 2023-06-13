@@ -5,7 +5,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IVault} from "./interfaces/IVault.sol";
-import {DVPLogic} from "./lib/DVPLogic.sol";
 import {Notional} from "./lib/Notional.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
@@ -58,14 +57,12 @@ abstract contract DVP is IDVP, EpochControls {
         baseToken = vaultCt.baseToken();
         sideToken = vaultCt.sideToken();
         _addressProvider = AddressProvider(addressProvider_);
-        // ToDo: review
-        DVPLogic.valid(DVPLogic.DVPCreateParams(sideToken, baseToken));
     }
 
     /**
         @notice Mint or increase a position.
         @param recipient The wallet of the recipient for the opened position.
-        @param strike The strike
+        @param strike The strike.
         @param strategy The OptionStrategy strategy (i.e. Call or Put).
         @param amount The notional.
         @return premium_ The paid premium.
@@ -95,8 +92,8 @@ abstract contract DVP is IDVP, EpochControls {
         // Decrease available liquidity:
         liquidity.increaseUsage(strike, strategy, amount);
 
-        // TBD: accept premium
-        _deltaHedge(strike, strategy, int256(amount));
+        // TBD: add comments
+        _deltaHedgePosition(strike, strategy, int256(amount));
 
         // Create or update position:
         Position.Info storage position = _getPosition(currentEpoch, recipient, strategy, strike);
@@ -108,10 +105,17 @@ abstract contract DVP is IDVP, EpochControls {
         emit Mint(msg.sender, recipient);
     }
 
-    function _deltaHedge(uint256 strike, bool strategy, int256 amount) internal virtual {
+    /**
+        @notice It attempts to flat the DVP's delta by selling/buying an amount of side tokens in order to hedge the position.
+        @notice By hedging the position, we avoid the impermanent loss.
+        @param strike The position strike.
+        @param strategy The position strategy.
+        @param notional The position notional; positive if buyed by a user, negative otherwise.
+     */
+    function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional) internal virtual {
         // ToDo: delta hedge
-        // uint256 notional = _liquidity.initial - (amount + _liquidity.used);
-        // sideTokensAmount := notional * ig_delta(...)
+        // uint256 totalNotional = _liquidity.initial - (notional + _liquidity.used);
+        // sideTokensAmount := totalNotional * ig_delta(...)
         // IVault(vault).deltaHedge(sideTokensAmount);
     }
 
@@ -141,26 +145,32 @@ abstract contract DVP is IDVP, EpochControls {
             amount = position.amount;
         }
         if (amount == 0) {
+            // NOTE: a zero amount may have some parasite effect, henct we proactively protect against it.
+            // ToDo: review
             revert AmountZero();
         }
         if (amount > position.amount) {
             revert CantBurnMoreThanMinted();
         }
 
+        bool pastEpoch = true;
         if (position.epoch == currentEpoch) {
-            // ToDo: add comments
-            // TBD: accept paid payoff
-            _deltaHedge(strike, strategy, -int256(amount));
+            pastEpoch = false;
+            // TBD: add comments
+            _deltaHedgePosition(strike, strategy, -int256(amount));
         }
 
+        // Compute the payoff to be paid:
+        // NOTE: must be computed here, before the next account of used liquidity.
         paidPayoff = payoff(position.epoch, position.strike, position.strategy, amount);
 
+        // Account change of used liquidity between wallet and protocol:
         position.amount -= amount;
-        bool pastEpoch = _isEpochFinished(position.epoch); // ToDo: review in order to check if it's safe
-
         Notional.Info storage liquidity = _liquidity[position.epoch];
         liquidity.decreaseUsage(position.strike, position.strategy, amount);
+
         if (pastEpoch) {
+            // Account transfer of setted aside payoff:
             liquidity.decreasePayoff(position.strike, position.strategy, paidPayoff);
         }
 
@@ -221,7 +231,7 @@ abstract contract DVP is IDVP, EpochControls {
      */
     function _computeResidualPayoff(uint256 strike, bool strategy) internal view returns (uint256 payoff_) {
         Notional.Info storage liquidity = _liquidity[currentEpoch];
-        uint256 residualAmount = liquidity.getOptioned(strike, strategy);
+        uint256 residualAmount = liquidity.getUsed(strike, strategy);
         payoff_ = _computePayoff(strike, strategy, residualAmount);
     }
 
@@ -238,6 +248,7 @@ abstract contract DVP is IDVP, EpochControls {
         @param strategy the position strategy.
         @param amount the position notional.
         @return payoff_ The payoff value.
+        @dev It's also used for the DVP's overall position at maturity.
      */
     function _computePayoff(uint256 strike, bool strategy, uint256 amount) internal view returns (uint256 payoff_) {
         uint256 percentage = _payoffPerc(strike, strategy);

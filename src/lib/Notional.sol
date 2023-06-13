@@ -16,7 +16,7 @@ library Notional {
         // initial capital
         mapping(uint256 => uint256[]) initial;
         // liquidity used by options
-        mapping(uint256 => uint256[]) optioned; // TBD: rename "used"
+        mapping(uint256 => uint256[]) used;
         // payoff set aside
         mapping(uint256 => uint256[]) payoff; // TBD: rename "residualPayoff"
     }
@@ -33,7 +33,7 @@ library Notional {
      */
     function setup(Info storage self, uint256 strike) public {
         self.initial[strike] = new uint256[](2);
-        self.optioned[strike] = new uint256[](2);
+        self.used[strike] = new uint256[](2);
         self.payoff[strike] = new uint256[](2);
     }
 
@@ -54,7 +54,7 @@ library Notional {
         @return available_ The available liquidity.
      */
     function available(Info storage self, uint256 strike, bool strategy) public view returns (uint256 available_) {
-        return self.initial[strike][_strategyIdx(strategy)] - self.optioned[strike][_strategyIdx(strategy)];
+        return self.initial[strike][_strategyIdx(strategy)] - self.used[strike][_strategyIdx(strategy)];
     }
 
     /**
@@ -65,7 +65,7 @@ library Notional {
         @dev Overflow checks must be done externally.
      */
     function increaseUsage(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
-        self.optioned[strike][_strategyIdx(strategy)] += amount;
+        self.used[strike][_strategyIdx(strategy)] += amount;
     }
 
     /**
@@ -76,7 +76,7 @@ library Notional {
         @dev Underflow checks must be done externally.
      */
     function decreaseUsage(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
-        self.optioned[strike][_strategyIdx(strategy)] -= amount;
+        self.used[strike][_strategyIdx(strategy)] -= amount;
     }
 
     /**
@@ -85,8 +85,8 @@ library Notional {
         @param strategy the reference strategy.
         @return optioned_ The used liquidity.
      */
-    function getOptioned(Info storage self, uint256 strike, bool strategy) public view returns (uint256 optioned_) {
-        return self.optioned[strike][_strategyIdx(strategy)];
+    function getUsed(Info storage self, uint256 strike, bool strategy) public view returns (uint256 optioned_) {
+        return self.used[strike][_strategyIdx(strategy)];
     }
 
     /**
@@ -96,6 +96,7 @@ library Notional {
         @param payoff_ the payoff set aside.
      */
     function accountPayoff(Info storage self, uint256 strike, bool strategy, uint256 payoff_) public {
+        // TBD: revert if already done
         self.payoff[strike][_strategyIdx(strategy)] = payoff_;
     }
 
@@ -125,6 +126,7 @@ library Notional {
         @param strategy the position strategy.
         @param amount the position notional.
         @return payoff_ the owed payoff.
+        @dev It relies on the calls of decreaseUsage and decreasePayoff after each position is decreased.
      */
     function shareOfPayoff(
         Info storage self,
@@ -132,11 +134,11 @@ library Notional {
         bool strategy,
         uint256 amount
     ) public view returns (uint256 payoff_) {
-        uint256 optioned = getOptioned(self, strike, strategy);
+        uint256 used = getUsed(self, strike, strategy);
         uint256 payoff = getAccountedPayoff(self, strike, strategy);
 
         // ToDo: use token decimals instead of WAD
-        // NOTE: amount : optioned = share : payoff
-        return amount.wmul(payoff).wdiv(optioned);
+        // amount : used = share : payoff
+        return amount.wmul(payoff).wdiv(used);
     }
 }
