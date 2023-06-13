@@ -22,14 +22,14 @@ contract UniswapExchangeTest is Test {
     IERC20 _tokenUSDC = IERC20(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
 
     // The balance of the holders may change on each run of the test suite. 
-    address constant _WETH_HOLDER = 0xC6d973B31BB135CaBa83cf0574c0347BD763ECc5;
+    address constant _WETH_HOLDER = 0x940a7ed683A60220dE573AB702Ec8F789ef0A402;
     address constant _WBTC_HOLDER = 0x3B7424D5CC87dc2B670F4c99540f7380de3D5880;
 
     uint256 internal constant _SLIPPAGE_PERC = 10000; // 100%
     uint256 internal constant _SLIPPAGE = 500; // 5%
 
     constructor() {
-        uint256 forkId = vm.createFork("https://arb-mainnet.g.alchemy.com/v2/KpB5mO_nzL6eYfzzx9bcBHq8oO8mjcx4");
+        uint256 forkId = vm.createFork("https://arb-mainnet.g.alchemy.com/v2/KpB5mO_nzL6eYfzzx9bcBHq8oO8mjcx4", 100768497);
         vm.selectFork(forkId);
         // ToDo: select block to fork
 

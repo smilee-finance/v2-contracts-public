@@ -16,7 +16,7 @@ import {MockedVault} from "./mock/MockedVault.sol";
 
 contract PositionManagerTest is Test {
     bytes4 constant NotOwner = bytes4(keccak256("NotOwner()"));
-    bytes4 constant CantBurnZero = bytes4(keccak256("CantBurnZero()"));
+    bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant InvalidTokenID = bytes4(keccak256("InvalidTokenID()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
 
@@ -41,7 +41,7 @@ contract PositionManagerTest is Test {
     }
 
     function setUp() public {
-        pm = new PositionManager(address(0x0));
+        pm = new PositionManager();
         // NOTE: done in order to work with the limited transferability of the testnet tokens
         registry.register(address(pm));
 
@@ -83,13 +83,13 @@ contract PositionManagerTest is Test {
 
         assertEq(1, tokenId);
 
-        IPositionManager.PositionDetail memory pos = pm.positions(tokenId);
+        IPositionManager.PositionDetail memory pos = pm.positionDetail(tokenId);
 
         assertEq(address(ig), pos.dvpAddr);
         assertEq(baseToken, pos.baseToken);
         assertEq(sideToken, pos.sideToken);
         assertEq(EpochFrequency.DAILY, pos.dvpFreq);
-        assertEq(0, pos.dvpType);
+        assertEq(false, pos.dvpType);
         assertEq(ig.currentStrike(), pos.strike);
         assertEq(OptionStrategy.CALL, pos.strategy);
         assertEq(ig.currentEpoch(), pos.expiry);
@@ -111,7 +111,7 @@ contract PositionManagerTest is Test {
         (uint256 tokenId, ) = initAndMint();
 
         vm.prank(alice);
-        vm.expectRevert(CantBurnZero);
+        vm.expectRevert(AmountZero);
         pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 0}));
     }
 
@@ -131,6 +131,6 @@ contract PositionManagerTest is Test {
 
         // ToDo: improve checks
         vm.expectRevert(InvalidTokenID);
-        pm.positions(tokenId);
+        pm.positionDetail(tokenId);
     }
 }

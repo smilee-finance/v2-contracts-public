@@ -4,40 +4,47 @@ pragma solidity ^0.8.15;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IPositionManager} from "./interfaces/IPositionManager.sol";
 import {Position} from "./lib/Position.sol";
 
-contract PositionManager is ERC721Enumerable, IPositionManager {
-    // details about the Smilee position
+contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     struct ManagedPosition {
         address dvpAddr;
         bool strategy;
         uint256 strike;
         uint256 expiry;
-        uint256 premium;
-        uint256 leverage;
         uint256 notional;
-        uint256 cumulatedPayoff;
+        uint256 premium; // TBD: should we keep it ?
+        uint256 leverage; // TBD: should we keep it ?
+        uint256 cumulatedPayoff; // TBD: should we keep it ?
     }
 
-    /// @dev The token ID position data
-    address private immutable _factory;
+    /// @notice Whether the transfer of tokens between wallets is allowed or not
+    bool internal _secondaryMarkedAllowed;
 
     /// @dev The token ID position data
-    mapping(uint256 => ManagedPosition) private _positions;
+    mapping(uint256 => ManagedPosition) internal _positions;
 
     /// @dev The ID of the next token that will be minted. Skips 0
     uint256 private _nextId;
 
     error NotOwner();
-    error CantBurnZero();
-    error CantBurnMoreThanMinted();
+    // error CantBurnZero();
+    // error CantBurnMoreThanMinted();
     error InvalidTokenID();
+    error SecondaryMarkedNotAllowed();
 
-    constructor(address factory_) ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") {
-        _factory = factory_;
+    constructor() ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") Ownable() {
         _nextId = 1;
+    }
+
+    modifier isOwner(uint256 tokenId) {
+        if (ownerOf(tokenId) != msg.sender) {
+            revert NotOwner();
+        }
+        _;
     }
 
     // modifier isAuthorizedForToken(uint256 tokenId) {
@@ -47,15 +54,8 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
     //     _;
     // }
 
-    modifier isOwner(uint256 tokenId) {
-        if (ownerOf(tokenId) != msg.sender) {
-            revert NotOwner();
-        }
-        _;
-    }
-
     /// @inheritdoc IPositionManager
-    function positions(uint256 tokenId) external view override returns (IPositionManager.PositionDetail memory) {
+    function positionDetail(uint256 tokenId) external view override returns (IPositionManager.PositionDetail memory) {
         ManagedPosition memory position = _positions[tokenId];
         if (position.dvpAddr == address(0)) {
             revert InvalidTokenID();
@@ -69,7 +69,7 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
                 dvp.baseToken(),
                 dvp.sideToken(),
                 dvp.epochFrequency(),
-                0, // dvp.dvpType(),
+                dvp.optionType(),
                 position.strike,
                 position.strategy,
                 position.expiry,
@@ -80,19 +80,19 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
             );
     }
     
-    // ToDo: Change premium with notional
     /// @inheritdoc IPositionManager
     function mint(IPositionManager.MintParams calldata params) external override returns (uint256 tokenId, uint256 premium) {
         IDVP dvp = IDVP(params.dvpAddr);
 
-        // Transfer premium:
-        // NOTE: done in this inefficient way in order to let the DVP work without the PositionManager
         premium = dvp.premium(params.strike, params.strategy, params.notional);
+
+        // Transfer premium:
+        // NOTE: The PositionManager is just a middleman between the user and the DVP
         IERC20 baseToken = IERC20(dvp.baseToken());
         baseToken.transferFrom(msg.sender, address(this), premium);
         baseToken.approve(params.dvpAddr, premium);
 
-        // Buy option:
+        // Buy the option:
         premium = dvp.mint(address(this), params.strike, params.strategy, params.notional);
         uint256 leverage = params.notional / premium;
 
@@ -113,6 +113,73 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
         });
 
         emit BuyedDVP(tokenId, _positions[tokenId].expiry, params.notional);
+    }
+
+    /// @inheritdoc IPositionManager
+    function burn(uint256 tokenId) external override isOwner(tokenId) returns (uint256 payoff) {
+        ManagedPosition storage position = _positions[tokenId];
+        payoff = _sell(tokenId, position.notional);
+    }
+
+    // ToDo: review usage and signature
+    function sell(SellParams calldata params) external returns (uint256 payoff) {
+        // TBD: burn if params.notional == 0 ?
+        payoff = _sell(params.tokenId, params.notional);
+    }
+
+    function _sell(uint256 tokenId, uint256 notional) internal returns (uint256 payoff) {
+        // if (notional == 0) {
+        //     revert CantBurnZero();
+        // }
+
+        // // ToDo: review as the check is already done by the DVP
+        // if (notional > position.notional) {
+        //     revert CantBurnMoreThanMinted();
+        // }
+
+        ManagedPosition storage position = _positions[tokenId];
+
+        // NOTE: the DVP already checks that the burned notional is lesser or equal to the position notional.
+        // NOTE: the payoff is transferred directly from the DVP
+        payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional);
+
+        position.cumulatedPayoff += payoff;
+        position.notional -= notional;
+
+        if (position.notional == 0) {
+            delete _positions[tokenId];
+            _burn(tokenId);
+        }
+
+        emit SoldDVP(tokenId, notional, payoff);
+    }
+
+    /// @inheritdoc ERC721Enumerable
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 firstTokenId,
+        uint256 batchSize
+    ) internal virtual override {
+        if (from == address(0) || to == address(0)) {
+            // it's a valid mint/burn
+            return;
+        }
+        // if (from == address(this) || to == address(this)) {
+        //     // it's a valid operation
+        //     return;
+        // }
+        if (!_secondaryMarkedAllowed) {
+            revert SecondaryMarkedNotAllowed();
+        }
+        super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
+    }
+
+    /**
+        @notice Allows the contract's owner to enable or disable the secondary market for the position's tokens.
+     */
+    function setAllowedSecondaryMarked(bool allowed) external onlyOwner {
+        _secondaryMarkedAllowed = allowed;
     }
 
     // function tokenURI(uint256 tokenId) public view override(ERC721, IERC721Metadata) returns (string memory) {
@@ -179,40 +246,5 @@ contract PositionManager is ERC721Enumerable, IPositionManager {
 
     //     emit IncreaseLiquidity(params.tokenId, liquidity, amount0, amount1);
     // }
-
-    /// @inheritdoc IPositionManager
-    function burn(uint256 tokenId) external override isOwner(tokenId) returns (uint256 payoff) {
-        ManagedPosition storage position = _positions[tokenId];
-        payoff = _sell(tokenId, position.notional);
-    }
-
-    function sell(SellParams calldata params) external returns (uint256 payoff) {
-        payoff = _sell(params.tokenId, params.notional);
-    }
-
-    function _sell(uint256 tokenId, uint256 notional) internal returns (uint256 payoff) {
-        if (notional <= 0) {
-            revert CantBurnZero();
-        }
-
-        ManagedPosition storage position = _positions[tokenId];
-        if (notional > position.notional) {
-            revert CantBurnMoreThanMinted();
-        }
-
-        // NOTE: the payoff is transferred directly from the DVP
-        payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional);
-
-        position.cumulatedPayoff += payoff;
-        // NOTE: subtraction is safe because we already checked position.notional is gte burn notional
-        position.notional -= notional;
-
-        if (position.notional == 0) {
-            delete _positions[tokenId];
-            _burn(tokenId);
-        }
-
-        emit SoldDVP(tokenId, notional, payoff);
-    }
 
 }

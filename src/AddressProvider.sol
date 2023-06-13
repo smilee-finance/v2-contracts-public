@@ -9,6 +9,7 @@ contract AddressProvider is Ownable {
     address public exchangeAdapter;
     address public priceOracle;
     address public marketOracle;
+    address public registry;
 
     constructor() Ownable() {}
 
@@ -22,5 +23,9 @@ contract AddressProvider is Ownable {
 
     function setMarketOracle(address marketOracle_) public onlyOwner {
         marketOracle = marketOracle_;
+    }
+
+    function setRegistry(address registry_) public onlyOwner {
+        registry = registry_;
     }
 }

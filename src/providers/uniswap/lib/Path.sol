@@ -6,6 +6,9 @@ import "./BytesLib.sol";
 
 /// @title Functions for manipulating path data for multihop swaps
 library Path {
+
+    // function testCoverageSkip() public view {}
+
     using BytesLib for bytes;
 
     /// @dev The length of the bytes encoded address

@@ -9,6 +9,8 @@ interface IRegistry {
      */
     function register(address addr) external;
 
+    function registerPair(address dvp, address vault) external;
+
     /**
      * @notice Checks wheather an address is a DVP or not
      * @param  addr A generic address

@@ -26,7 +26,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         address baseToken;
         address sideToken;
         uint256 dvpFreq;
-        uint256 dvpType;
+        bool dvpType;
         uint256 strike;
         bool strategy;
         uint256 expiry;
@@ -59,7 +59,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         @param tokenId The ID of the token that represents the position
         @return position The struct holding all position data
      */
-    function positions(uint256 tokenId) external view returns (PositionDetail memory position);
+    function positionDetail(uint256 tokenId) external view returns (PositionDetail memory position);
 
     /**
         @notice Creates a new position wrapped in a NFT

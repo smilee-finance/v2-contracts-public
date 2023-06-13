@@ -10,6 +10,9 @@
 pragma solidity >0.8.0;
 
 library BytesLib {
+
+    // function testCoverageSkip() public view {}
+
     function slice(
         bytes memory _bytes,
         uint256 _start,

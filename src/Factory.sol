@@ -2,14 +2,13 @@
 pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IRegistry} from "./interfaces/IRegistry.sol";
 // import {DVPType} from "./lib/DVPType.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {IG} from "./IG.sol";
-import {Registry} from "./Registry.sol";
 import {Vault} from "./Vault.sol";
 
-// ToDo: review and externalize the registry
-contract Factory is Ownable, Registry {
+contract Factory is Ownable {
 
     AddressProvider internal _addressProvider;
 
@@ -77,11 +76,12 @@ contract Factory is Ownable, Registry {
     external onlyOwner returns (address) 
     {
         address vault = _createVault(baseToken, sideToken, epochFrequency); 
-        register(vault);
         address dvp = _createImpermanentGainDVP(vault);
-        register(dvp);
 
         Vault(vault).setAllowedDVP(dvp);
+
+        IRegistry registry = IRegistry(_addressProvider.registry());
+        registry.registerPair(dvp, vault);
 
         emit IGMarketCreated(dvp, vault, baseToken);  
         return dvp;

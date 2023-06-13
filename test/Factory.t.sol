@@ -8,6 +8,7 @@ import {Factory} from "../src/Factory.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {DVP} from "../src/DVP.sol";
 import {DVPType} from "../src/lib/DVPType.sol";
+import {Registry} from "../src/Registry.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
@@ -20,10 +21,15 @@ contract FactoryTest is Test {
     TestnetToken baseToken;
     TestnetToken sideToken;
     uint256 epochFrequency;
+    Registry registry;
     Factory factory;
 
     function setUp() public {
-        address controller = address(factory);
+        AddressProvider ap = new AddressProvider();
+
+        registry = new Registry();
+        ap.setRegistry(address(registry));
+        address controller = address(registry);
         address swapper = address(0x5);
 
         vm.startPrank(tokenAdmin);
@@ -37,7 +43,6 @@ contract FactoryTest is Test {
         token.setSwapper(swapper);
         sideToken = token;
 
-        AddressProvider ap = new AddressProvider();
         factory = new Factory(address(ap));
 
         vm.stopPrank();

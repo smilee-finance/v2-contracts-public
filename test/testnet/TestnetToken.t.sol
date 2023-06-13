@@ -6,6 +6,7 @@ import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {Factory} from "../../src/Factory.sol";
+import {Registry} from "../../src/Registry.sol";
 
 contract TestnetTokenTest is Test {
     bytes4 constant NotInitialized = bytes4(keccak256("NotInitialized()"));
@@ -20,8 +21,7 @@ contract TestnetTokenTest is Test {
     address bob = address(0x5);
 
     function setUp() public {
-        AddressProvider ap = new AddressProvider();
-        controller = address(new Factory(address(ap)));
+        controller = address(new Registry());
     }
 
     function testCantMintNotInit() public {

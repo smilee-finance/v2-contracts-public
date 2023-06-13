@@ -4,7 +4,6 @@ pragma solidity ^0.8.15;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IRegistry} from "../interfaces/IRegistry.sol";
 import {AdminAccess} from "./AdminAccess.sol";
-import {Factory} from "../Factory.sol";
 
 /**
     @notice Token contract to be used under testing condition.
@@ -64,7 +63,7 @@ contract TestnetToken is ERC20, AdminAccess {
     }
 
     function setController(address controllerAddr) external onlyAdmin {
-        _controller = Factory(controllerAddr);
+        _controller = IRegistry(controllerAddr);
     }
 
     function setSwapper(address swapper) external onlyAdmin {

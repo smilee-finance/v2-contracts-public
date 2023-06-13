@@ -5,25 +5,31 @@ import {IRegistry} from "./interfaces/IRegistry.sol";
 
 // TBD: move into the testnet directory
 contract Registry is IRegistry {
-    mapping(address => bool) registered;
+    mapping(address => bool) internal _registered;
 
     error MissingAddress();
 
     /// @inheritdoc IRegistry
     function register(address addr) public {
-        registered[addr] = true;
+        _registered[addr] = true;
+    }
+
+    /// @inheritdoc IRegistry
+    function registerPair(address dvp, address vault) external {
+        register(dvp);
+        register(vault);
     }
 
     /// @inheritdoc IRegistry
     function isRegistered(address dvpAddr) external view returns (bool ok) {
-        return registered[dvpAddr];
+        return _registered[dvpAddr];
     }
 
     /// @inheritdoc IRegistry
     function unregister(address addr) public {
-        if (!registered[addr]) {
+        if (!_registered[addr]) {
             revert MissingAddress();
         }
-        delete registered[addr];
+        delete _registered[addr];
     }
 }
