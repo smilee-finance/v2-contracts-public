@@ -16,6 +16,7 @@ import {TokenUtils} from "./TokenUtils.sol";
 
 library VaultUtils {
     function createVaultFromNothing(uint256 epochFrequency, address admin, Vm vm) internal returns (address) {
+        vm.prank(admin);
         Registry registry = new Registry();
         return createVaultWithRegistry(epochFrequency, admin, vm, registry);
     }

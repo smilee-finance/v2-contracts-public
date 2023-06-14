@@ -46,6 +46,7 @@ contract IGVaultTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
         //ToDo: Replace with Factory
+        vm.prank(admin);
         registry = new Registry();
         vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
 
@@ -57,6 +58,7 @@ contract IGVaultTest is Test {
         ig.setPayoffPerc(1e17);
         ig.useFakeDeltaHedge();
 
+        vm.prank(admin);
         registry.register(address(ig));
         vm.prank(admin);
         MockedVault(vault).setAllowedDVP(address(ig));

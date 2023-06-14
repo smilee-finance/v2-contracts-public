@@ -43,6 +43,7 @@ contract PositionManagerTest is Test {
     function setUp() public {
         pm = new PositionManager();
         // NOTE: done in order to work with the limited transferability of the testnet tokens
+        vm.prank(address(0x10));
         registry.register(address(pm));
 
         Utils.skipDay(true, vm);

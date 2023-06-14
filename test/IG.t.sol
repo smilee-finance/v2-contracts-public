@@ -29,6 +29,7 @@ contract IGTest is Test {
     address bob = address(0x2);
 
     constructor() {
+        vm.prank(admin);
         registry = new Registry();
         // TBD: get the registry from baseToken as done in PositionManager.t.sol
         vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
@@ -41,6 +42,7 @@ contract IGTest is Test {
         vm.warp(EpochFrequency.REF_TS + 1);
 
         ig = new MockedIG(address(vault), address(0x42));
+        vm.prank(admin);
         registry.register(address(ig));
         vm.prank(admin);
         MockedVault(vault).setAllowedDVP(address(ig));

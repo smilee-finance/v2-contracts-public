@@ -100,6 +100,9 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         tokenId = _nextId++;
         _mint(params.recipient, tokenId);
 
+        // TBD: support an increase of position as done in the DVP and keep the average premium
+        // ---- right now it will be another token (thus position)
+
         // Save position:
         _positions[tokenId] = ManagedPosition({
             dvpAddr: params.dvpAddr,
@@ -122,7 +125,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     }
 
     // ToDo: review usage and signature
-    function sell(SellParams calldata params) external returns (uint256 payoff) {
+    function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff) {
         // TBD: burn if params.notional == 0 ?
         payoff = _sell(params.tokenId, params.notional);
     }

@@ -27,6 +27,7 @@ contract FactoryTest is Test {
     function setUp() public {
         AddressProvider ap = new AddressProvider();
 
+        vm.prank(tokenAdmin);
         registry = new Registry();
         ap.setRegistry(address(registry));
         address controller = address(registry);
@@ -44,6 +45,7 @@ contract FactoryTest is Test {
         sideToken = token;
 
         factory = new Factory(address(ap));
+        registry.grantRole(registry.ADMIN_ROLE(), address(factory));
 
         vm.stopPrank();
         vm.warp(EpochFrequency.REF_TS);
