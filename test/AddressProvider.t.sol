@@ -41,4 +41,18 @@ contract AddressProviderTest is Test {
 
         assertEq(address(0x101), addressProvider.priceOracle());
     }
+
+    function testAddressProviderSetMarketOracle() public {
+        vm.prank(tokenAdmin);
+        addressProvider.setMarketOracle(address(0x102));
+
+        assertEq(address(0x102), addressProvider.marketOracle());
+    }
+
+    function testAddressProviderSetRegistry() public {
+        vm.prank(tokenAdmin);
+        addressProvider.setRegistry(address(0x103));
+
+        assertEq(address(0x103), addressProvider.registry());
+    }
 }

@@ -81,7 +81,7 @@ contract Factory is Ownable {
         Vault(vault).setAllowedDVP(dvp);
 
         IRegistry registry = IRegistry(_addressProvider.registry());
-        registry.registerPair(dvp, vault);
+        registry.register(dvp);
 
         emit IGMarketCreated(dvp, vault, baseToken);  
         return dvp;

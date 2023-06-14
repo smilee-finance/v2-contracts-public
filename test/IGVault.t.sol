@@ -8,7 +8,7 @@ import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {IRegistry} from "../src/interfaces/IRegistry.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
-import {Registry} from "../src/Registry.sol";
+import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {Vault} from "../src/Vault.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
@@ -38,7 +38,7 @@ contract IGVaultTest is Test {
     TestnetToken baseToken;
     TestnetToken sideToken;
 
-    IRegistry registry;
+    TestnetRegistry registry;
 
     MockedVault vault;
     MockedIG ig;
@@ -47,7 +47,7 @@ contract IGVaultTest is Test {
         vm.warp(EpochFrequency.REF_TS);
         //ToDo: Replace with Factory
         vm.prank(admin);
-        registry = new Registry();
+        registry = new TestnetRegistry();
         vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
 
         baseToken = TestnetToken(vault.baseToken());
@@ -59,7 +59,7 @@ contract IGVaultTest is Test {
         ig.useFakeDeltaHedge();
 
         vm.prank(admin);
-        registry.register(address(ig));
+        registry.registerDVP(address(ig));
         vm.prank(admin);
         MockedVault(vault).setAllowedDVP(address(ig));
 

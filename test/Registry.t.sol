@@ -2,15 +2,23 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {Registry} from "../src/Registry.sol";
+import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
+import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
+import {VaultUtils} from "./utils/VaultUtils.sol";
+import {MockedIG} from "./mock/MockedIG.sol";
+import {MockedVault} from "./mock/MockedVault.sol";
 
 contract RegistryTest is Test {
     bytes4 constant MissingAddress = bytes4(keccak256("MissingAddress()"));
-    Registry registry;
+    TestnetRegistry registry;
+    MockedIG dvp;
+    address admin = address(0x21);
 
-    function setUp() public {
-        registry = new Registry();
+    constructor() {
+        vm.prank(admin);
+        registry = new TestnetRegistry();
+        MockedVault vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
+        dvp = new MockedIG(address(vault), address(0x42));
     }
 
     function testNotRegisteredAddress() public {
@@ -20,23 +28,37 @@ contract RegistryTest is Test {
     }
 
     function testRegisterAddress() public {
-        address addrToRegister = address(0x150);
-        registry.register(addrToRegister);
+        address addrToRegister = address(dvp);
+
         bool isAddressRegistered = registry.isRegistered(addrToRegister);
+        assertEq(isAddressRegistered, false);
+
+        vm.prank(admin);
+        registry.register(addrToRegister);
+
+        isAddressRegistered = registry.isRegistered(addrToRegister);
         assertEq(isAddressRegistered, true);
     }
 
     function testUnregisterAddressFail() public {
         address addrToUnregister = address(0x150);
         vm.expectRevert(MissingAddress);
+        vm.prank(admin);
         registry.unregister(addrToUnregister);
     }
 
     function testUnregisterAddress() public {
-        address addrToUnregister = address(0x150);
+        address addrToUnregister = address(dvp);
+
+        vm.prank(admin);
         registry.register(addrToUnregister);
-        registry.unregister(addrToUnregister);
         bool isAddressRegistered = registry.isRegistered(addrToUnregister);
+        assertEq(isAddressRegistered, true);
+
+        vm.prank(admin);
+        registry.unregister(addrToUnregister);
+
+        isAddressRegistered = registry.isRegistered(addrToUnregister);
         assertEq(isAddressRegistered, false);
     }
 }

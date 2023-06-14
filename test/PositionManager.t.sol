@@ -13,6 +13,7 @@ import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
+import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 
 contract PositionManagerTest is Test {
     bytes4 constant NotOwner = bytes4(keccak256("NotOwner()"));
@@ -29,7 +30,7 @@ contract PositionManagerTest is Test {
     address bob = address(0x2);
 
     IPositionManager pm;
-    IRegistry registry;
+    TestnetRegistry registry;
 
     constructor() {
         vm.warp(EpochFrequency.REF_TS + 1);
@@ -37,14 +38,14 @@ contract PositionManagerTest is Test {
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
 
-        registry = IRegistry(TestnetToken(baseToken).getController());
+        registry = TestnetRegistry(TestnetToken(baseToken).getController());
     }
 
     function setUp() public {
         pm = new PositionManager();
         // NOTE: done in order to work with the limited transferability of the testnet tokens
         vm.prank(address(0x10));
-        registry.register(address(pm));
+        registry.registerPositionManager(address(pm));
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();

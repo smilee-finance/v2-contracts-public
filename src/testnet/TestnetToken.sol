@@ -42,8 +42,8 @@ contract TestnetToken is ERC20, AdminAccess {
     modifier transferAuth(address from, address to) {
         if (
             msg.sender != Admin &&
-            from != address(_controller) &&
-            to != address(_controller) &&
+            from != address(_swapper) &&
+            to != address(_swapper) &&
             !_controller.isRegistered(from) &&
             !_controller.isRegistered(to)
         ) {

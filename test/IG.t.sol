@@ -10,7 +10,7 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
-import {Registry} from "../src/Registry.sol";
+import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 
 contract IGTest is Test {
     bytes4 constant EpochNotInitialized = bytes4(keccak256("EpochNotInitialized()"));
@@ -21,7 +21,7 @@ contract IGTest is Test {
     address baseToken;
     address sideToken;
     MockedVault vault;
-    Registry registry;
+    TestnetRegistry registry;
     MockedIG ig;
 
     address admin = address(0x10);
@@ -30,7 +30,7 @@ contract IGTest is Test {
 
     constructor() {
         vm.prank(admin);
-        registry = new Registry();
+        registry = new TestnetRegistry();
         // TBD: get the registry from baseToken as done in PositionManager.t.sol
         vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
 

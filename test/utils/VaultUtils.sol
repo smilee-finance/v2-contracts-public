@@ -4,11 +4,10 @@ pragma solidity ^0.8.15;
 import {Vm} from "forge-std/Vm.sol";
 import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
-import {Registry} from "../../src/Registry.sol";
+import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
@@ -17,7 +16,7 @@ import {TokenUtils} from "./TokenUtils.sol";
 library VaultUtils {
     function createVaultFromNothing(uint256 epochFrequency, address admin, Vm vm) internal returns (address) {
         vm.prank(admin);
-        Registry registry = new Registry();
+        TestnetRegistry registry = new TestnetRegistry();
         return createVaultWithRegistry(epochFrequency, admin, vm, registry);
     }
 
@@ -25,7 +24,7 @@ library VaultUtils {
         uint256 epochFrequency,
         address admin,
         Vm vm,
-        IRegistry registry
+        TestnetRegistry registry
     ) internal returns (address) {
         vm.startPrank(admin);
 
@@ -49,7 +48,7 @@ library VaultUtils {
         priceOracle.setTokenPrice(sideToken, 1 ether);
 
         MockedVault vault = new MockedVault(baseToken, sideToken, epochFrequency, address(_ap));
-        registry.register(address(vault));
+        registry.registerVault(address(vault));
 
         vm.stopPrank();
         return address(vault);

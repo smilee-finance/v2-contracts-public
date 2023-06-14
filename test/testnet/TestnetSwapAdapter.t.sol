@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {AmountsMath} from "../../src/lib/AmountsMath.sol";
-import {Registry} from "../../src/Registry.sol";
+import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
@@ -25,14 +25,14 @@ contract TestnetSwapAdapterTest is Test {
     TestnetToken WETH;
     TestnetToken WBTC;
     TestnetToken USD;
-    Registry registry;
+    TestnetRegistry registry;
 
     constructor() {
         vm.startPrank(adminWallet);
         USD = new TestnetToken("Testnet USD", "USD");
         WETH = new TestnetToken("Testnet WETH", "WETH");
         WBTC = new TestnetToken("Testnet WBTC", "WBTC");
-        registry = new Registry();
+        registry = new TestnetRegistry();
 
         address controller = address(registry);
         USD.setController(controller);
@@ -50,7 +50,7 @@ contract TestnetSwapAdapterTest is Test {
 
         dex = new TestnetSwapAdapter(address(priceOracle));
 
-        registry.register(address(dex));
+        registry.registerSwapper(address(dex));
 
         USD.setSwapper(address(dex));
         WETH.setSwapper(address(dex));

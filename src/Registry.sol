@@ -2,12 +2,13 @@
 pragma solidity ^0.8.15;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IDVP} from "./interfaces/IDVP.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
 
-// TBD: move into the testnet directory
-// ToDo: do something that can ease the managerment of the bot who triggers the rolling of the epochs (on the DVPs).
+// ToDo: do something that can ease the management of the bot who triggers the rolling of the epochs (on the DVPs).
 contract Registry is AccessControl, IRegistry {
-    mapping(address => bool) internal _registered;
+    mapping(address => bool) internal _registeredDVPs;
+    mapping(address => bool) internal _registeredVaults;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
@@ -19,26 +20,22 @@ contract Registry is AccessControl, IRegistry {
     }
 
     /// @inheritdoc IRegistry
-    function register(address addr) public onlyRole(ADMIN_ROLE) {
-        _registered[addr] = true;
+    function register(address dvpAddr) public onlyRole(ADMIN_ROLE) {
+        _registeredDVPs[dvpAddr] = true;
+        _registeredVaults[IDVP(dvpAddr).vault()] = true;
     }
 
     /// @inheritdoc IRegistry
-    function registerPair(address dvp, address vault) external onlyRole(ADMIN_ROLE) {
-        register(dvp);
-        register(vault);
-    }
-
-    /// @inheritdoc IRegistry
-    function isRegistered(address dvpAddr) external view returns (bool ok) {
-        return _registered[dvpAddr];
+    function isRegistered(address addr) external view virtual returns (bool ok) {
+        return _registeredDVPs[addr] || _registeredVaults[addr];
     }
 
     /// @inheritdoc IRegistry
     function unregister(address addr) public onlyRole(ADMIN_ROLE) {
-        if (!_registered[addr]) {
+        if (!_registeredDVPs[addr]) {
             revert MissingAddress();
         }
-        delete _registered[addr];
+        delete _registeredDVPs[addr];
+        delete _registeredVaults[IDVP(addr).vault()];
     }
 }
