@@ -395,9 +395,13 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     // VAULT OPERATIONS
     // ------------------------------------------------------------------------
 
-    // ToDo: must be called only by the DVP after a DVP has been set.
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override isNotDead {
+        if (_dvp != address(0) && msg.sender != _dvp) {
+            // NOTE: must be called only by the DVP after a DVP has been set.
+            revert OnlyDVPAllowed();
+        }
+
         // TBD: a dead vault can be revived ?
         // ToDo: review variable name
         uint256 lockedLiquidity = notional();

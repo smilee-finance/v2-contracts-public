@@ -140,10 +140,11 @@ abstract contract DVP is IDVP, EpochControls {
             revert PositionNotFound();
         }
 
-        // If the position reached maturity, the user must close the entire position
-        if (position.epoch != currentEpoch) {
-            amount = position.amount;
-        }
+        // // If the position reached maturity, the user must close the entire position
+        // // NOTE: we have to avoid this due to the PositionManager that holds positions for multiple tokens.
+        // if (position.epoch != currentEpoch) {
+        //     amount = position.amount;
+        // }
         if (amount == 0) {
             // NOTE: a zero amount may have some parasite effect, henct we proactively protect against it.
             // ToDo: review
@@ -283,8 +284,9 @@ abstract contract DVP is IDVP, EpochControls {
             // The user wants to know how much it can receive from selling the position before its maturity:
             payoff_ = _computePayoff(strike, strategy, positionAmount);
         } else {
-            // The position reached maturity, hence the user must close the entire position:
-            positionAmount = position.amount;
+            // // The position reached maturity, hence the user must close the entire position:
+            // // NOTE: we have to avoid this due to the PositionManager that holds positions for multiple tokens.
+            // positionAmount = position.amount;
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
             payoff_ = _liquidity[position.epoch].shareOfPayoff(position.strike, position.strategy, positionAmount);
         }

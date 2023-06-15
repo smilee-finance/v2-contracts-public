@@ -75,7 +75,8 @@ contract PositionManagerTest is Test {
                 notional: 10 ether,
                 strike: 0,
                 strategy: OptionStrategy.CALL,
-                recipient: alice
+                recipient: alice,
+                tokenId: 0
             })
         );
     }

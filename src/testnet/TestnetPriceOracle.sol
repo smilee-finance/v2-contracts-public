@@ -80,7 +80,7 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
         address token1,
         uint256 strikePrice,
         uint256 frequency
-    ) external returns (uint256 iv) {
+    ) external pure returns (uint256 iv) {
         token0;
         token1;
         strikePrice;
@@ -89,7 +89,7 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
     }
 
     // ToDo: add setter
-    function getRiskFreeRate(address token0, address token1) external returns (uint256 rate) {
+    function getRiskFreeRate(address token0, address token1) external pure returns (uint256 rate) {
         token0;
         token1;
         return 2e16; // 0.02

@@ -16,9 +16,9 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         uint256 strike;
         uint256 expiry;
         uint256 notional;
-        uint256 premium; // TBD: should we keep it ?
+        uint256 premium;
         uint256 leverage; // TBD: should we keep it ?
-        uint256 cumulatedPayoff; // TBD: should we keep it ?
+        uint256 cumulatedPayoff; // TBD: should we keep it ? (payoff already paid)
     }
 
     /// @notice Whether the transfer of tokens between wallets is allowed or not
@@ -32,9 +32,10 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
     error NotOwner();
     // error CantBurnZero();
-    // error CantBurnMoreThanMinted();
+    error CantBurnMoreThanMinted();
     error InvalidTokenID();
     error SecondaryMarkedNotAllowed();
+    error PositionExpired();
 
     constructor() ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") Ownable() {
         _nextId = 1;
@@ -63,26 +64,42 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         IDVP dvp = IDVP(position.dvpAddr);
 
-        return
-            IPositionManager.PositionDetail(
-                position.dvpAddr,
-                dvp.baseToken(),
-                dvp.sideToken(),
-                dvp.epochFrequency(),
-                dvp.optionType(),
-                position.strike,
-                position.strategy,
-                position.expiry,
-                position.premium,
-                position.leverage,
-                position.notional,
-                position.cumulatedPayoff
-            );
+        // TBD: add payoff
+        return IPositionManager.PositionDetail({
+            dvpAddr: position.dvpAddr,
+            baseToken: dvp.baseToken(),
+            sideToken: dvp.sideToken(),
+            dvpFreq: dvp.epochFrequency(),
+            dvpType: dvp.optionType(),
+            strike: position.strike,
+            strategy: position.strategy,
+            expiry: position.expiry,
+            premium: position.premium,
+            leverage: position.leverage,
+            notional: position.notional,
+            cumulatedPayoff: position.cumulatedPayoff
+        });
     }
     
     /// @inheritdoc IPositionManager
     function mint(IPositionManager.MintParams calldata params) external override returns (uint256 tokenId, uint256 premium) {
         IDVP dvp = IDVP(params.dvpAddr);
+
+        if (params.tokenId != 0) {
+            tokenId = params.tokenId;
+            ManagedPosition storage position = _positions[tokenId];
+
+            if (ownerOf(tokenId) != msg.sender) {
+                revert NotOwner();
+            }
+            // Check token compatibility:
+            if (position.dvpAddr != params.dvpAddr || position.strike != params.strike || position.strategy != params.strategy) {
+                revert InvalidTokenID();
+            }
+            if (position.expiry != dvp.currentEpoch()) {
+                revert PositionExpired();
+            }
+        }
 
         premium = dvp.premium(params.strike, params.strategy, params.notional);
 
@@ -94,26 +111,32 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         // Buy the option:
         premium = dvp.mint(address(this), params.strike, params.strategy, params.notional);
-        uint256 leverage = params.notional / premium;
 
-        // Mint token:
-        tokenId = _nextId++;
-        _mint(params.recipient, tokenId);
+        if (params.tokenId == 0) {
+            // Mint token:
+            tokenId = _nextId++;
+            _mint(params.recipient, tokenId);
 
-        // TBD: support an increase of position as done in the DVP and keep the average premium
-        // ---- right now it will be another token (thus position)
-
-        // Save position:
-        _positions[tokenId] = ManagedPosition({
-            dvpAddr: params.dvpAddr,
-            strike: params.strike,
-            strategy: params.strategy,
-            expiry: dvp.currentEpoch(),
-            premium: premium,
-            leverage: leverage,
-            notional: params.notional,
-            cumulatedPayoff: 0
-        });
+            // Save position:
+            _positions[tokenId] = ManagedPosition({
+                dvpAddr: params.dvpAddr,
+                strike: params.strike,
+                strategy: params.strategy,
+                expiry: dvp.currentEpoch(),
+                premium: premium,
+                leverage: params.notional / premium,
+                notional: params.notional,
+                cumulatedPayoff: 0
+            });
+        } else {
+            ManagedPosition storage position = _positions[tokenId];
+            // Increase position:
+            position.premium += premium;
+            position.notional += params.notional;
+            // ToDo: review if we need to consider the cumulatedPayoff when we sell part of the notional in the same epoch and then buy more
+            // ----- HINT: adjust premium when we sell by using the DVP number of batches and their size.
+            position.leverage = position.notional / position.premium;
+        }
 
         emit BuyedDVP(tokenId, _positions[tokenId].expiry, params.notional);
     }
@@ -127,20 +150,16 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     // ToDo: review usage and signature
     function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff) {
         // TBD: burn if params.notional == 0 ?
+        // TBD: burn if position is expired ?
         payoff = _sell(params.tokenId, params.notional);
     }
 
     function _sell(uint256 tokenId, uint256 notional) internal returns (uint256 payoff) {
-        // if (notional == 0) {
-        //     revert CantBurnZero();
-        // }
-
-        // // ToDo: review as the check is already done by the DVP
-        // if (notional > position.notional) {
-        //     revert CantBurnMoreThanMinted();
-        // }
-
         ManagedPosition storage position = _positions[tokenId];
+        // NOTE: as the positions within the DVP are all of the PositionManager, we must replicate this check here.
+        if (notional > position.notional) {
+            revert CantBurnMoreThanMinted();
+        }
 
         // NOTE: the DVP already checks that the burned notional is lesser or equal to the position notional.
         // NOTE: the payoff is transferred directly from the DVP
@@ -168,10 +187,6 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             // it's a valid mint/burn
             return;
         }
-        // if (from == address(this) || to == address(this)) {
-        //     // it's a valid operation
-        //     return;
-        // }
         if (!_secondaryMarkedAllowed) {
             revert SecondaryMarkedNotAllowed();
         }
