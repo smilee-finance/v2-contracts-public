@@ -133,8 +133,12 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             // Increase position:
             position.premium += premium;
             position.notional += params.notional;
-            // ToDo: review if we need to consider the cumulatedPayoff when we sell part of the notional in the same epoch and then buy more
-            // ----- HINT: adjust premium when we sell by using the DVP number of batches and their size.
+            /* NOTE:
+                When, within the same epoch, a user wants to buy, sell partially
+                and then buy again, the leverage computation can fail due to
+                decreased notional; in order to avoid this issue, we have to
+                also adjust (decrease) the premium in the burn flow.
+             */
             position.leverage = position.notional / position.premium;
         }
 
@@ -165,6 +169,10 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         // NOTE: the payoff is transferred directly from the DVP
         payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional);
 
+        // NOTE: premium fix for the leverage issue annotated in the mint flow.
+        // notional : position.notional = fix : position.premium
+        uint256 premiumFix = notional * position.premium / position.notional;
+        position.premium -= premiumFix;
         position.cumulatedPayoff += payoff;
         position.notional -= notional;
 
