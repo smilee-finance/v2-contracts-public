@@ -5,7 +5,6 @@ import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
-import {IRegistry} from "../src/interfaces/IRegistry.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";

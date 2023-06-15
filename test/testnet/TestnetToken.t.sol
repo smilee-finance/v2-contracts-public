@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {Factory} from "../../src/Factory.sol";

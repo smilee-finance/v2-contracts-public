@@ -12,6 +12,7 @@ import {AdminAccess} from "./AdminAccess.sol";
     A Swapper contract is authorized to mint and burn tokens to simulate an exchange.
  */
 contract TestnetToken is ERC20, AdminAccess {
+    // TBD: just use the TestnetRegistry contract...
     IRegistry private _controller;
     address private _swapper;
 

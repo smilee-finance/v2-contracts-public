@@ -5,10 +5,9 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
 
-// ToDo: do something that can ease the management of the bot who triggers the rolling of the epochs (on the DVPs).
 contract Registry is AccessControl, IRegistry {
+    address[] internal _dvps;
     mapping(address => bool) internal _registeredDVPs;
-    mapping(address => bool) internal _registeredVaults;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
@@ -20,22 +19,46 @@ contract Registry is AccessControl, IRegistry {
     }
 
     /// @inheritdoc IRegistry
-    function register(address dvpAddr) public onlyRole(ADMIN_ROLE) {
+    function register(address dvpAddr) public onlyRole(ADMIN_ROLE) virtual {
+        _dvps.push(dvpAddr);
         _registeredDVPs[dvpAddr] = true;
-        _registeredVaults[IDVP(dvpAddr).vault()] = true;
     }
 
     /// @inheritdoc IRegistry
     function isRegistered(address addr) external view virtual returns (bool ok) {
-        return _registeredDVPs[addr] || _registeredVaults[addr];
+        return _registeredDVPs[addr];
     }
 
     /// @inheritdoc IRegistry
-    function unregister(address addr) public onlyRole(ADMIN_ROLE) {
+    function unregister(address addr) public onlyRole(ADMIN_ROLE) virtual {
         if (!_registeredDVPs[addr]) {
             revert MissingAddress();
         }
         delete _registeredDVPs[addr];
-        delete _registeredVaults[IDVP(addr).vault()];
+
+        uint256 index;
+        for (uint256 i = 0; i < _dvps.length; i++) {
+            if (_dvps[i] == addr) {
+                index = i;
+                break;
+            }
+        }
+        uint256 last = _dvps.length - 1;
+        _dvps[index] = _dvps[last];
+        _dvps.pop();
+    }
+
+    // TBD: add to IRegistry interface...
+    function getUnrolledDVPs() external view returns (address[] memory list, uint256 number) {
+        list = new address[](_dvps.length);
+        for (uint256 i = 0; i < _dvps.length; i++) {
+            IDVP dvp = IDVP(_dvps[i]);
+            if (dvp.timeToNextEpoch() != 0) {
+                continue;
+            }
+            // TBD: filter out the DVPs whose vault is in a dead state.
+            list[number] = _dvps[i];
+            number++;
+        }
     }
 }
