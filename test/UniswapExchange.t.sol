@@ -11,7 +11,6 @@ import {UniswapPriceOracle} from "../src/providers/uniswap/UniswapPriceOracle.so
 /**
  * @title UniwapEchangeTest
  * @notice The test suite must be runned forking arbitrum mainnet
- * TBD: Evaluate to use always the same block number during the fork
  */
 contract UniswapExchangeTest is Test {
     UniswapExchange _uniswap;
@@ -29,9 +28,8 @@ contract UniswapExchangeTest is Test {
     uint256 internal constant _SLIPPAGE = 500; // 5%
 
     constructor() {
-        uint256 forkId = vm.createFork("https://arb-mainnet.g.alchemy.com/v2/KpB5mO_nzL6eYfzzx9bcBHq8oO8mjcx4", 100768497);
+        uint256 forkId = vm.createFork(vm.rpcUrl("arbitrum_mainnet"), 100768497);
         vm.selectFork(forkId);
-        // ToDo: select block to fork
 
         _priceOracle = new UniswapPriceOracle(address(_tokenUSDC), 0x1F98431c8aD98523631AE4a59f267346ea31F984);
 

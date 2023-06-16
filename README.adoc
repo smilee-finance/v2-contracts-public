@@ -1,0 +1,11 @@
+= Smilee
+
+This repository contains the source code for the v2 of Smilee.
+
+== Dependencies
+
+* link:https://github.com/dverso/foundry-env[Foundry environment]
+
+== Installation
+
+You have to create and fill a `.env` file from the `.env.template` one.
