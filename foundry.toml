@@ -3,6 +3,7 @@ src = "src"
 out = "out"
 libs = ["lib"]
 revert_strings = "debug"
+fs_permissions = [{ access = "read", path = "./broadcast/"}]
 
 # Define RPC aliases:
 [rpc_endpoints]
@@ -13,3 +14,4 @@ arbitrum_mainnet = "${RPC_MAINNET}"
 # Custom additions:
 # - revert_strings: injects strings for compiler-generated internal reverts (and require) reason strings.
 # - arbitrum_mainnet: used for testing the UniswapExchange contract.
+# - fs_permissions: allows the EnhancedScript utility contract to read the transaction logs.

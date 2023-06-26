@@ -9,3 +9,15 @@ This repository contains the source code for the v2 of Smilee.
 == Installation
 
 You have to create and fill a `.env` file from the `.env.template` one.
+
+== Deployment
+
+=== Local testnet
+
+. `make chain`
+. `make shell`
+. `source .env`
+. `forge script script/testnet/01_CoreFoundations.s.sol:DeployCoreFoundations --fork-url $RPC_LOCALNET --broadcast -vvvv`
+. `forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv`
+. `forge script script/testnet/03_Factory.s.sol:DeployDVP --fork-url $RPC_LOCALNET --broadcast -vvvv`
+. `exit`

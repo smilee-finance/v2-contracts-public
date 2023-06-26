@@ -14,12 +14,12 @@ library TokensPair {
     error SameToken();
     error InvalidToken(address token);
 
-    function getBalances(Pair memory pair, address wallet) internal view returns (uint baseTokenBalance, uint sideTokenBalance) {
+    function getBalances(Pair memory pair, address wallet) public view returns (uint baseTokenBalance, uint sideTokenBalance) {
         baseTokenBalance = IERC20(pair.baseToken).balanceOf(wallet);
         sideTokenBalance = IERC20(pair.sideToken).balanceOf(wallet);
     }
 
-    function getDecimals(Pair memory pair) internal view returns (uint baseTokenDecimals, uint sideTokenDecimals) {
+    function getDecimals(Pair memory pair) public view returns (uint baseTokenDecimals, uint sideTokenDecimals) {
         baseTokenDecimals = ERC20(pair.baseToken).decimals();
         sideTokenDecimals = ERC20(pair.sideToken).decimals();
     }

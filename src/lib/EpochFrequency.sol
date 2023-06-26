@@ -48,7 +48,7 @@ library EpochFrequency {
         @param timeSpan the number of seconds in the timespan.
         @return nextExpiry_ the timestamp for the next epoch expiry.
      */
-    function _nextTimeSpanExpiry(uint256 ts, uint256 timeSpan) internal pure returns (uint256 nextExpiry_) {
+    function _nextTimeSpanExpiry(uint256 ts, uint256 timeSpan) private pure returns (uint256 nextExpiry_) {
         if (ts < REF_TS) {
             return REF_TS;
         }
@@ -58,11 +58,11 @@ library EpochFrequency {
 
     /// @notice Rounds up n / d adding 1 in case n / d = 0
     /// @notice This gives the next timestamp index even when remainder is 0
-    function _upDiv(uint n, uint d) internal pure returns (uint256) {
+    function _upDiv(uint n, uint d) private pure returns (uint256) {
         return n / d + 1;
     }
 
-    function _customTimestamps(uint256 frequency) internal pure returns (uint256[2] memory tss) {
+    function _customTimestamps(uint256 frequency) private pure returns (uint256[2] memory tss) {
         if (frequency == TRD_FRI_MONTH) {
             // 3rd friday for next months
             return [
@@ -73,7 +73,7 @@ library EpochFrequency {
         revert UnsupportedFrequency();
     }
 
-    function _nextCustomExpiry(uint256 ts, uint256 periodType) internal pure returns (uint256) {
+    function _nextCustomExpiry(uint256 ts, uint256 periodType) private pure returns (uint256) {
         if (ts < REF_TS) {
             return REF_TS;
         }
