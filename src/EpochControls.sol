@@ -71,10 +71,12 @@ abstract contract EpochControls is IEpochControls {
     function rollEpoch() public virtual override epochFinished() {
         _beforeRollEpoch();
 
+        if (!_isEpochInitialized()) {
+            // ToDo: review as we probably want a more specific/precise reference timestamp!
+            currentEpoch = block.timestamp;
+        }
         // ToDo: review as the custom timestamps are not done properly...
-        // NOTE: if we use block.timestamp as a reference, the nextEpoch timestamp may be more in the future than expected by the previous epoch.
-        // ----- this may impact external automation systems...
-        uint256 nextEpoch = EpochFrequency.nextExpiry(block.timestamp, epochFrequency);
+        uint256 nextEpoch = EpochFrequency.nextExpiry(currentEpoch, epochFrequency);
 
         // If next epoch expiry is in the past (should not happen...) go to next of the next
         while (block.timestamp > nextEpoch) {
