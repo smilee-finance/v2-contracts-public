@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import {console} from "forge-std/console.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
 
 /*
@@ -35,10 +36,17 @@ contract DeployToken is EnhancedScript {
     }
 
     function run() external {
-        deployToken("ETH");
+        address sETH = _deployToken("ETH");
+        console.log(string.concat("Token sETH deployed at"), sETH);
+        setTokenPrice(sETH, 10**18);
     }
 
     function deployToken(string memory symbol) public {
+        address sToken = _deployToken(symbol);
+        console.log(string.concat("Token s", symbol, " deployed at"), sToken);
+    }
+
+    function _deployToken(string memory symbol) internal returns (address) {
         string memory tokenName = string.concat("Smilee ", symbol);
         string memory tokenSymbol = string.concat("s", symbol);
 
@@ -55,7 +63,13 @@ contract DeployToken is EnhancedScript {
         // TBD: mint tokens to owner ?
 
         vm.stopBroadcast();
+    }
 
-        console.log(string.concat("Token ", tokenSymbol, " deployed at"), address(sToken));
+    function setTokenPrice(address token, uint256 price) public {
+        TestnetPriceOracle priceOracle = TestnetPriceOracle(_ap.priceOracle());
+
+        vm.startBroadcast(_deployerPrivateKey);
+        priceOracle.setTokenPrice(token, price);
+        vm.stopBroadcast();
     }
 }
