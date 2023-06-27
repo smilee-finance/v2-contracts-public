@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {console} from "forge-std/console.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
@@ -15,10 +16,10 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
         # To deploy [and verify] the contracts
         # - On a local network:
         #   NOTE: Make sue that the local node (anvil) is running...
-        forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv
+        forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'deployToken(string memory)' <SYMBOL>
         # - On a real network:
         #   ToDo: see https://book.getfoundry.sh/reference/forge/forge-script#wallet-options---raw
-        forge script script/testnet/02_Token.s.sol:DeployToken --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv
+        forge script script/testnet/02_Token.s.sol:DeployToken --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv --sig 'deployToken(string memory)' <SYMBOL>
  */
 contract DeployToken is EnhancedScript {
 
@@ -33,23 +34,28 @@ contract DeployToken is EnhancedScript {
         _ap = AddressProvider(_readAddress(txLogs, "AddressProvider"));
     }
 
-    // NOTE: this is the script entrypoint
-    // TBD: this should be able to accept parameters from the CLI
     function run() external {
-        // The broadcast will records the calls and contract creations made and will replay them on-chain.
-        // For reference, the broadcast transaction logs will be stored in the broadcast directory.
-        vm.startBroadcast(_deployerPrivateKey);
-        _doSomething();
-        vm.stopBroadcast();
+        deployToken("ETH");
     }
 
-    function _doSomething() internal {
-        TestnetToken sToken = new TestnetToken("Smilee ETH", "sETH");
+    function deployToken(string memory symbol) public {
+        string memory tokenName = string.concat("Smilee ", symbol);
+        string memory tokenSymbol = string.concat("s", symbol);
+
+        vm.startBroadcast(_deployerPrivateKey);
+
+        TestnetToken sToken = new TestnetToken(tokenName, tokenSymbol);
 
         address priceOracle = _ap.priceOracle();
         sToken.setController(priceOracle);
 
         address swapper = _ap.exchangeAdapter();
         sToken.setSwapper(swapper);
+
+        // TBD: mint tokens to owner ?
+
+        vm.stopBroadcast();
+
+        console.log(string.concat("Token ", tokenSymbol, " deployed at"), address(sToken));
     }
 }

@@ -18,6 +18,6 @@ You have to create and fill a `.env` file from the `.env.template` one.
 . `make shell`
 . `source .env`
 . `forge script script/testnet/01_CoreFoundations.s.sol:DeployCoreFoundations --fork-url $RPC_LOCALNET --broadcast -vvvv`
-. `forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv`
-. `forge script script/testnet/03_Factory.s.sol:DeployDVP --fork-url $RPC_LOCALNET --broadcast -vvvv`
+. `forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'deployToken(string memory)' <SYMBOL>`
+. `forge script script/testnet/03_Factory.s.sol:DeployDVP --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'createIGMarket(address,address,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <INT_OF_FREQUENCY>`
 . `exit`

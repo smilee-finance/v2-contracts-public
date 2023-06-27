@@ -72,6 +72,8 @@ abstract contract EpochControls is IEpochControls {
         _beforeRollEpoch();
 
         // ToDo: review as the custom timestamps are not done properly...
+        // NOTE: if we use block.timestamp as a reference, the nextEpoch timestamp may be more in the future than expected by the previous epoch.
+        // ----- this may impact external automation systems...
         uint256 nextEpoch = EpochFrequency.nextExpiry(block.timestamp, epochFrequency);
 
         // If next epoch expiry is in the past (should not happen...) go to next of the next
