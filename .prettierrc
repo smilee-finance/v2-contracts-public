@@ -1,5 +1,15 @@
 {
-  "tabWidth": 4,
-  "useTabs": false,
-  "printWidth": 120
+    "tabWidth": 4,
+    "useTabs": false,
+    "printWidth": 120,
+    "overrides": [
+        {
+            "files": [
+                "test/FinanceLib.t.sol"
+            ],
+            "options": {
+                "printWidth": 500
+            }
+        }
+    ]
 }
