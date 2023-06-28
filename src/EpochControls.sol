@@ -15,11 +15,12 @@ abstract contract EpochControls is IEpochControls {
     /**
         @inheritdoc IEpochControls
      */
-    uint256 public override currentEpoch = 0;
+    uint256 public override currentEpoch;
 
     constructor(uint256 epochFrequency_) {
         EpochFrequency.validityCheck(epochFrequency_);
         epochFrequency = epochFrequency_;
+        currentEpoch = 0;
     }
 
     /// MODIFIERS ///
@@ -62,6 +63,7 @@ abstract contract EpochControls is IEpochControls {
         @inheritdoc IEpochControls
      */
     function epochs() public view override returns (uint256[] memory) {
+        // ToDo: review as the interface states that those should be the completed ones!
         return _epochs;
     }
 
@@ -132,7 +134,10 @@ abstract contract EpochControls is IEpochControls {
     /**
         @dev Second last timestamp
      */
-    function _lastRolledEpoch() internal view returns (uint256 lastEpoch) {
+    function _lastRolledEpoch() internal view epochInitialized returns (uint256 lastEpoch) {
+        if (_epochs.length == 1) {
+            return 0;
+        }
         lastEpoch = _epochs[_epochs.length - 2];
     }
 }

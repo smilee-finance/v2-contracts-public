@@ -123,15 +123,10 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         );
     }
 
-    // ToDo: review as it's currently used only by tests
-    /**
-        @notice Gives portfolio composition for currently active epoch
-        @return baseTokenAmount The amount of baseToken currently locked in the vault
-        @return sideTokenAmount The amount of sideToken currently locked in the vault
-     */
+    /// @inheritdoc IVault
     function balances() public view returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
         baseTokenAmount = _notionalBaseTokens();
-        sideTokenAmount = IERC20(sideToken).balanceOf(address(this));
+        sideTokenAmount = _notionalSideTokens();
     }
 
     // TBD: add to the IVault interface

@@ -23,6 +23,15 @@ interface IVault is IVaultParams {
             bool dead
         );
 
+    // TBD: rename with something more suitable...
+    /**
+        @notice Gives portfolio composition for currently active epoch
+        @return baseTokenAmount The amount of baseToken currently locked in the vault
+        @return sideTokenAmount The amount of sideToken currently locked in the vault
+     */
+    function balances() external view returns (uint256 baseTokenAmount, uint256 sideTokenAmount);
+
+    // TBD: rename with something more suitable...
     /**
         @notice Gives the initial notional for the current epoch (base tokens)
         @return v0_ The number of base tokens available for issuing options
@@ -30,7 +39,7 @@ interface IVault is IVaultParams {
     function v0() external view returns (uint256 v0_);
 
     /**
-        TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+        ToDo
      */
     function deltaHedge(int256 sideTokensAmount) external;
 

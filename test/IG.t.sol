@@ -124,23 +124,24 @@ contract IGTest is Test {
 
         //MockedIG ig = new MockedIG(address(vault));
         uint256 currEpoch = ig.currentEpoch();
+        uint256 strike = ig.currentStrike();
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
         vm.prank(alice);
-        ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
+        ig.mint(alice, strike, OptionStrategy.CALL, inputAmount);
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
         vm.prank(alice);
-        ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
+        ig.mint(alice, strike, OptionStrategy.CALL, inputAmount);
 
         vm.prank(alice);
-        ig.burn(currEpoch, alice, 0, OptionStrategy.CALL, inputAmount);
+        ig.burn(currEpoch, alice, strike, OptionStrategy.CALL, inputAmount);
 
         bytes32 posId = keccak256(abi.encodePacked(alice, OptionStrategy.CALL, ig.currentStrike()));
 
-        (uint256 amount, bool strategy, uint256 strike, uint256 epoch) = ig.positions(posId);
+        (uint256 amount, bool strategy, uint256 pStrike, uint256 epoch) = ig.positions(posId);
         assertEq(OptionStrategy.CALL, strategy);
-        assertEq(ig.currentStrike(), strike);
+        assertEq(strike, pStrike);
         assertEq(inputAmount, amount);
         assertEq(currEpoch, epoch);
     }
@@ -161,8 +162,10 @@ contract IGTest is Test {
         vm.prank(bob);
         ig.mint(bob, 0, bInputStrategy, inputAmount);
 
-        bytes32 posId1 = keccak256(abi.encodePacked(alice, aInputStrategy, ig.currentStrike()));
-        bytes32 posId2 = keccak256(abi.encodePacked(bob, bInputStrategy, ig.currentStrike()));
+        uint256 strike = ig.currentStrike();
+
+        bytes32 posId1 = keccak256(abi.encodePacked(alice, aInputStrategy, strike));
+        bytes32 posId2 = keccak256(abi.encodePacked(bob, bInputStrategy, strike));
 
         {
             (uint256 amount1, bool strategy1, , ) = ig.positions(posId1);
@@ -177,9 +180,9 @@ contract IGTest is Test {
         }
 
         vm.prank(alice);
-        ig.burn(currEpoch, alice, 0, aInputStrategy, inputAmount);
+        ig.burn(currEpoch, alice, strike, aInputStrategy, inputAmount);
         vm.prank(bob);
-        ig.burn(currEpoch, bob, 0, bInputStrategy, inputAmount);
+        ig.burn(currEpoch, bob, strike, bInputStrategy, inputAmount);
 
         {
             (uint256 amount1, , , ) = ig.positions(posId1);
@@ -206,9 +209,10 @@ contract IGTest is Test {
         ig.mint(alice, 0, OptionStrategy.CALL, inputAmount);
 
         uint256 epoch = ig.currentEpoch();
+        uint256 strike = ig.currentStrike();
 
         vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
-        ig.burn(epoch, alice, 0, OptionStrategy.CALL, inputAmount + 1);
+        ig.burn(epoch, alice, strike, OptionStrategy.CALL, inputAmount + 1);
     }
 }

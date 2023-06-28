@@ -71,6 +71,20 @@ contract IG is DVP {
         _accountResidualPayoff(currentStrike, OptionStrategy.PUT);
     }
 
+    function _afterRollEpoch() internal virtual override {
+        if (_lastRolledEpoch() != 0) {
+            // Update strike price:
+            // NOTE: both amounts are after equal weight rebalance, hence we can just compute their ratio.
+            (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
+            // ToDo: fix decimals
+            // ToDo: check division by zero
+            // ----- TBD: check if vault is dead
+            currentStrike = sideTokenAmount / baseTokenAmount;
+        }
+
+        super._afterRollEpoch();
+    }
+
     /// @inheritdoc DVP
     function _allocateLiquidity(uint256 initialCapital) internal virtual override {
         Notional.Info storage liquidity = _liquidity[currentEpoch];
@@ -82,11 +96,6 @@ contract IG is DVP {
         uint256 halfInitialCapital = initialCapital / 2;
         liquidity.setInitial(currentStrike, OptionStrategy.CALL, halfInitialCapital);
         liquidity.setInitial(currentStrike, OptionStrategy.PUT, initialCapital - halfInitialCapital);
-    }
-
-    function _afterRollEpoch() internal virtual override {
-        // ToDo: set the current strike
-        super._afterRollEpoch();
     }
 
 }
