@@ -7,7 +7,9 @@ import {IRegistry} from "./interfaces/IRegistry.sol";
 
 contract Registry is AccessControl, IRegistry {
     address[] internal _dvps;
+    address[] internal _tokens;
     mapping(address => bool) internal _registeredDVPs;
+    mapping(address => address[]) internal _DVPsBySideToken;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
@@ -22,6 +24,8 @@ contract Registry is AccessControl, IRegistry {
     function register(address dvpAddr) public onlyRole(ADMIN_ROLE) virtual {
         _dvps.push(dvpAddr);
         _registeredDVPs[dvpAddr] = true;
+
+        _indexBySideToken(dvpAddr);
     }
 
     /// @inheritdoc IRegistry
@@ -46,6 +50,8 @@ contract Registry is AccessControl, IRegistry {
         uint256 last = _dvps.length - 1;
         _dvps[index] = _dvps[last];
         _dvps.pop();
+
+        _removeIndexBySideToken(addr);
     }
 
     // TBD: add to IRegistry interface...
@@ -60,5 +66,77 @@ contract Registry is AccessControl, IRegistry {
             list[number] = _dvps[i];
             number++;
         }
+    }
+
+    function _indexBySideToken(address dvp) internal {
+        address sideToken = IDVP(dvp).sideToken();
+
+        bool found = false;
+        for (uint256 i = 0; i < _tokens.length; i++) {
+            if (_tokens[i] == sideToken) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            _tokens.push(sideToken);
+        }
+
+        address[] storage list = _DVPsBySideToken[sideToken];
+        if (list.length == 0) {
+            return;
+        }
+        found = false;
+        for (uint256 i = 0; i < list.length; i++) {
+            if (list[i] == dvp) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            return;
+        }
+        _DVPsBySideToken[sideToken].push(dvp);
+    }
+
+    function _removeIndexBySideToken(address dvp) internal {
+        address sideToken = IDVP(dvp).sideToken();
+        address[] storage list = _DVPsBySideToken[sideToken];
+        bool found = false;
+        uint256 index;
+        for (uint256 i = 0; i < list.length; i++) {
+            if (list[i] == dvp) {
+                index = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return;
+        }
+        uint256 last = list.length - 1;
+        list[index] = list[last];
+        list.pop();
+
+        if (list.length == 0) {
+            found = false;
+            for (uint256 i = 0; i < _tokens.length; i++) {
+                if (_tokens[i] == sideToken) {
+                    index = i;
+                    break;
+                }
+            }
+            last = _tokens.length - 1;
+            _tokens[index] = _tokens[last];
+            _tokens.pop();
+        }
+    }
+
+    function getDVPsBySideToken(address sideToken) external view returns (address[] memory) {
+        return _DVPsBySideToken[sideToken];
+    }
+
+    function getSideTokens() external view returns (address[] memory) {
+        return _tokens;
     }
 }

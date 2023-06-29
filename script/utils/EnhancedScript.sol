@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Script} from "forge-std/Script.sol";
-import {stdJson} from "forge-std/stdJson.sol";
+import {stdJson} from "forge-std/StdJson.sol";
 
 // NOTE: it has to be a contract; if we make it a library, Foundry crash without reasons... :/
 abstract contract EnhancedScript is Script {
