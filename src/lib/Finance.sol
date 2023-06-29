@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import "forge-std/console.sol";
+
 import {Gaussian} from "@solstat/Gaussian.sol";
 import {FixedPointMathLib} from "./FixedPointMathLib.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {SignedMath} from "./SignedMath.sol";
+import {InverseTrigonometry} from "@trigonometry/InverseTrigonometry.sol";
+import {Trigonometry} from "@trigonometry/Trigonometry.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library Finance {
@@ -18,6 +22,7 @@ library Finance {
 
     /// @notice A wrapper for the input parameters of delta and price functions
     struct DeltaPriceParams {
+        ////// INPUTS //////
         // risk free rate
         uint256 r;
         // implied volatility
@@ -28,30 +33,21 @@ library Finance {
         uint256 s;
         // time (denominated in years)
         uint256 tau;
-        // TODO
-        uint256 teta;
         // concentrated liquidity range lower bound
         uint256 ka;
         // concentrated liquidity range upper bound
         uint256 kb;
-    }
-
-    /// @notice A wrapper for delta function intermediate steps
-    struct DeltaIGAddends {
-        // [ e^-(r τ) / 2 ] x [ e^-( d2^2 / 2) / Sσ√(2 pi τ)  ]
-        uint256 c1;
-        // N(d1) / 2K
-        uint256 c2;
-        // e^-( d1^2 / 2) / Kσ√(2 pi τ)
-        uint256 c3;
-        // [ 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)τ ] x N(d3)
-        uint256 c4;
-        // [ 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)τ ] x [ e^-( d3^2 / 2) / o√(2 pi τ) ]
-        uint256 c5;
-        // 1 / 2K
-        uint256 c6;
-        // 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)τ
-        uint256 c7;
+        ////// DERIVED //////
+        // θ = 2 - √(Ka / K) - √(K / Kb)
+        uint256 teta;
+        // (√Kb - √K) / (θ K √Kb)
+        int256 limSup;
+        // (√Ka - √K) / (θ K √Ka)
+        int256 limInf;
+        // ln(Ka / K) / σ√τ
+        int256 alfa1;
+        // ln(Kb / K) / σ√τ
+        int256 alfa2;
     }
 
     /**
@@ -78,23 +74,20 @@ library Finance {
         payoffDown = s < k ? igPerc(s, k) : 0;
     }
 
-    // /**
-    //     @notice Computes unitary delta hedge quantity for up/down options
-    //     @param params The set of DeltaPriceParams to compute deltas
-    //     @return igDUp The unitary integer quantity of side token to hedge an up position
-    //     @return igDDown The unitary integer quantity of side token to hedge a down position
-    //  */
-    // function igDeltas(DeltaPriceParams memory params) public pure returns (int256 igDUp, int256 igDDown) {
-    //     (int256 d1_, int256 d2_, int256 d3_, uint256 sigmaTaurtd) = ds(params);
-    //     uint256 sigmaTaurtdPi2rtd = sigmaTaurtd.wmul(PI2_RTD);
-    //     {
-    //         DeltaIGAddends memory cs_ = cs(params, d1_, d2_, d3_, sigmaTaurtdPi2rtd);
-    //         uint256 c123 = cs_.c1 + cs_.c2 + cs_.c3;
-    //         uint256 c45 = cs_.c4 + cs_.c5;
-    //         igDUp = int256(c123) + SignedMath.neg(c45);
-    //         igDDown = int256(cs_.c6) - int256(cs_.c7) - igDUp;
-    //     }
-    // }
+    /**
+        @notice Computes unitary delta hedge quantity for bull/bear options
+        @param params The set of DeltaPriceParams to compute deltas
+        @return igDBull The unitary integer quantity of side token to hedge an bull position
+        @return igDBear The unitary integer quantity of side token to hedge a bear position
+     */
+    function igDeltas(DeltaPriceParams memory params) public pure returns (int256 igDBull, int256 igDBear) {
+        uint256 sigmaTaurtd = _sigmaTaurtd(params.sigma, params.tau);
+        int256 x = _x(params.s, params.k, sigmaTaurtd);
+        (int256 bullAtanArg_, int256 bearAtanArg_) = atanArgs(x, params.alfa1, params.alfa2);
+
+        igDBull = bullDelta(x, params.limSup, bullAtanArg_);
+        igDBear = bearDelta(x, params.limInf, bearAtanArg_);
+    }
 
     /**
         @notice Computes unitary price for up/down options
@@ -122,7 +115,64 @@ library Finance {
         }
     }
 
-    //////  COMMON COMPONENTS //////
+    ////// DELTA COMPONENTS //////
+
+    /// @dev 2/π * limSup * atan(arg)
+    function bullDelta(int256 x, int256 limSup, int256 atanArg) public pure returns (int256) {
+        if (x < 0) {
+            return 0;
+        }
+        uint256 num = SignedMath.abs(2 * limSup);
+        int256 atan_ = atan(atanArg);
+        num = num.wmul(SignedMath.abs(atan_));
+        int256 res = SignedMath.castInt(num.wdiv(Trigonometry.PI));
+        return (limSup < 0 && atan_ >= 0) || (limSup >= 0 && atan_ < 0) ? -res : res;
+    }
+
+    /// @dev -2/π * limInf * atan(arg)
+    function bearDelta(int256 x, int256 limInf, int256 atanArg) public pure returns (int256) {
+        if (x > 0) {
+            return 0;
+        }
+        uint256 num = SignedMath.abs(2 * limInf);
+        int256 atan_ = atan(atanArg);
+        num = num.wmul(SignedMath.abs(atan_));
+        int256 res = SignedMath.castInt(num.wdiv(Trigonometry.PI));
+        return (limInf < 0 && atan_ >= 0) || (limInf >= 0 && atan_ < 0) ? res : -res;
+    }
+
+    /// @dev bullAtanArg_ = 2x/α2 - [ (α2/2 - x) / (α2 - α1) ] * x^2/2
+    /// @dev bearAtanArg_ = 2x/α2 + [ (x - α1/2) / (α2 - α1) ] * x^2/2
+    function atanArgs(
+        int256 x,
+        int256 alfa1,
+        int256 alfa2
+    ) public pure returns (int256 bullAtanArg_, int256 bearAtanArg_) {
+        uint256 xAbs = SignedMath.abs(x);
+        uint256 c1 = (2 * xAbs).wdiv(SignedMath.abs(alfa2));
+        uint256 c22 = xAbs.wmul(xAbs) / 2;
+
+        bullAtanArg_ = bullAtanArg(x, alfa1, alfa2, c1, c22);
+        bearAtanArg_ = bearAtanArg(x, alfa1, alfa2, c1, c22);
+    }
+
+    function bullAtanArg(int256 x, int256 alfa1, int256 alfa2, uint256 c1, uint256 c22) public pure returns (int256) {
+        int256 c21Num = (alfa2 / 2) - x;
+        uint256 c21Abs = SignedMath.abs(c21Num).wdiv(SignedMath.abs(alfa2 - alfa1));
+        uint256 c2 = c21Abs.wmul(c22);
+
+        return SignedMath.revabs(c1, x > 0) - SignedMath.revabs(c2, c21Num > 0);
+    }
+
+    function bearAtanArg(int256 x, int256 alfa1, int256 alfa2, uint256 c1, uint256 c22) public pure returns (int256) {
+        int256 c21Num = x - (alfa1 / 2);
+        uint256 c21Abs = SignedMath.abs(c21Num).wdiv(SignedMath.abs(alfa2 - alfa1));
+        uint256 c2 = c21Abs.wmul(c22);
+
+        return SignedMath.revabs(c1, x > 0) + SignedMath.revabs(c2, c21Num > 0);
+    }
+
+    ////// PRICING COMPONENTS //////
 
     struct DTerms {
         int256 d1; // [ ln(S / K) + ( r + σ^2 / 2 ) τ ] / σ√τ
@@ -136,8 +186,12 @@ library Finance {
         uint256 n3; // N(d3)
     }
 
-    function nTerms(DTerms memory ds) public pure returns (NTerms memory) {
-        return NTerms(uint256(Gaussian.cdf(ds.d1)), uint256(Gaussian.cdf(ds.d2)), uint256(Gaussian.cdf(ds.d3)));
+    struct PriceParts {
+        uint256 p1;
+        uint256 p2;
+        uint256 p3;
+        uint256 p4;
+        uint256 p5;
     }
 
     /**
@@ -182,10 +236,14 @@ library Finance {
         }
     }
 
+    function nTerms(DTerms memory ds) public pure returns (NTerms memory) {
+        return NTerms(uint256(Gaussian.cdf(ds.d1)), uint256(Gaussian.cdf(ds.d2)), uint256(Gaussian.cdf(ds.d3)));
+    }
+
     /// @dev σ√τ AND ( r + σ^2 / 2 ) τ
     function d1Parts(uint256 r, uint256 sigma, uint256 tau) public pure returns (uint256 sigmaTaurtd, uint256 q1) {
         q1 = (r + (sigma.wmul(sigma) / 2)).wmul(tau);
-        sigmaTaurtd = sigma.wmul(FixedPointMathLib.sqrt(tau));
+        sigmaTaurtd = _sigmaTaurtd(sigma, tau);
     }
 
     /// @dev [ ln(S / K) + ( r + σ^2 / 2 ) τ ] / σ√τ
@@ -205,95 +263,6 @@ library Finance {
     /// @dev d2 + σ√τ / 2
     function d3(int256 d2_, uint256 sigmaTaurtd) public pure returns (int256) {
         return d2_ + int256(sigmaTaurtd / 2);
-    }
-
-    ////// DELTA COMPONENTS //////
-
-    /**
-        @notice Computes components for delta formulas
-        @param params The parameters set
-        @param d1_ See `Finance.ds()`
-        @param d2_ See `Finance.ds()`
-        @param d3_ See `Finance.ds()`
-        @param sigmaTaurtdPi2rtd σ√(2 pi τ)
-        @return cs_ The DeltaIGAddends wrapper for delta addends
-     */
-    function cs(
-        DeltaPriceParams memory params,
-        int256 d1_,
-        int256 d2_,
-        int256 d3_,
-        uint256 sigmaTaurtdPi2rtd
-    ) public pure returns (DeltaIGAddends memory cs_) {
-        uint256 bo = _bo(params);
-        uint256 c1_ = c1(params.r, params.tau, d2_, params.s, sigmaTaurtdPi2rtd);
-        uint256 c2_ = c2(params.k, d1_);
-        uint256 c3_ = c3(d1_, params.k, sigmaTaurtdPi2rtd);
-        uint256 c4_ = c4(bo, d3_);
-        uint256 c5_ = c5(bo, d3_, sigmaTaurtdPi2rtd);
-        uint256 c6_ = c6(params.k);
-        uint256 c7_ = c7(bo);
-        return DeltaIGAddends(c1_, c2_, c3_, c4_, c5_, c6_, c7_);
-    }
-
-    /// @dev [ e^-(r τ) / 2 ] x [ e^-( d2^2 / 2) / Sσ√(2 pi τ)  ]
-    function c1(
-        uint256 r,
-        uint256 tau,
-        int256 d2_,
-        uint256 s,
-        uint256 sigmaTaurtdPi2rtd
-    ) public pure returns (uint256) {
-        uint256 e1 = _ert(r, tau);
-        uint256 e2 = FixedPointMathLib.exp(SignedMath.neg(SignedMath.pow2(d2_) / 2));
-        uint256 den = s.wmul(sigmaTaurtdPi2rtd);
-
-        return e1.wmul(e2).wdiv(den) / 2;
-    }
-
-    /// @dev N(d1) / 2K
-    function c2(uint256 k, int256 d1_) public pure returns (uint256) {
-        return uint256(Gaussian.cdf(d1_)).wdiv(2 * k);
-    }
-
-    /// @dev e^-( d1^2 / 2) / Kσ√(2 pi τ)
-    function c3(int256 d1_, uint256 k, uint256 sigmaTaurtdPi2rtd) public pure returns (uint256) {
-        uint256 q = FixedPointMathLib.exp(SignedMath.neg(SignedMath.pow2(d1_) / 2));
-        uint256 den = k.wmul(sigmaTaurtdPi2rtd);
-        return q.wdiv(den) / 2;
-    }
-
-    /// @dev [ 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)τ ] x N(d3)
-    function c4(uint256 bo, int256 d3_) public pure returns (uint256) {
-        return (bo / 2).wmul(uint256(Gaussian.cdf(d3_)));
-    }
-
-    /// @dev [ 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)τ ] x [ e^-( d3^2 / 2) / o√(2 pi τ) ]
-    function c5(uint256 bo, int256 d3_, uint256 sigmaTaurtdPi2rtd) public pure returns (uint256) {
-        uint256 q2 = FixedPointMathLib.exp(SignedMath.neg(SignedMath.pow2(d3_) / 2));
-        q2 = q2.wdiv(sigmaTaurtdPi2rtd);
-
-        return bo.wmul(q2);
-    }
-
-    /// @dev 1 / 2K
-    function c6(uint256 k) public pure returns (uint256) {
-        return AmountsMath.wrap(1).wdiv(2 * k);
-    }
-
-    /// @dev 1 / 2√(KS) x e^-(r / 2 + σ^2 / 8)τ
-    function c7(uint256 bo) public pure returns (uint256) {
-        return bo / 2;
-    }
-
-    ////// PRICING COMPONENTS //////
-
-    struct PriceParts {
-        uint256 p1;
-        uint256 p2;
-        uint256 p3;
-        uint256 p4;
-        uint256 p5;
     }
 
     function pBullParts(
@@ -439,8 +408,59 @@ library Finance {
         return FixedPointMathLib.sqrt(krange.wdiv(k)).wdiv(teta);
     }
 
-    /// @dev θ = 2 - √(Ka / K) - √(K / Kb)
+    /// @dev 2 - √(Ka / K) - √(K / Kb)
     function _teta(uint256 k, uint256 ka, uint256 kb) public pure returns (uint256 teta) {
         return 2e18 - FixedPointMathLib.sqrt(ka.wdiv(k)) - FixedPointMathLib.sqrt(k.wdiv(kb));
+    }
+
+    function lims(uint256 k, uint256 ka, uint256 kb, uint256 teta) public pure returns (int256 limSup, int256 limInf) {
+        uint256 krtd = FixedPointMathLib.sqrt(k);
+        uint256 tetaK = teta.wmul(k);
+        limSup = _limSup(krtd, kb, tetaK);
+        limInf = _limInf(krtd, ka, tetaK);
+    }
+
+    /// @dev (√Kb - √K) / (θ K √Kb)
+    function _limSup(uint256 krtd, uint256 kb, uint256 tetaK) public pure returns (int256) {
+        uint256 kbrtd = FixedPointMathLib.sqrt(kb);
+        return SignedMath.castInt((kbrtd - krtd).wdiv(tetaK.wmul(kbrtd)));
+    }
+
+    /// @dev (√Ka - √K) / (θ K √Ka)
+    function _limInf(uint256 krtd, uint256 ka, uint256 tetaK) public pure returns (int256) {
+        uint256 kartd = FixedPointMathLib.sqrt(ka);
+        return SignedMath.revabs((krtd - kartd).wdiv(tetaK.wmul(kartd)), false);
+    }
+
+    /// @dev α1 = ln(Ka / K) / σ√T
+    /// @dev α2 = ln(Kb / K) / σ√T [= -α1 when log-symmetric Ka - K - Kb]
+    function _alfas(
+        uint256 k,
+        uint256 ka,
+        uint256 kb,
+        uint256 sigmaTrtd
+    ) public pure returns (int256 alfa1, int256 alfa2) {
+        int256 alfa1Num = FixedPointMathLib.ln(SignedMath.castInt(ka.wdiv(k)));
+        int256 alfa2Num = FixedPointMathLib.ln(SignedMath.castInt(kb.wdiv(k)));
+        alfa1 = SignedMath.revabs((SignedMath.abs(alfa1Num).wdiv(sigmaTrtd)), alfa1Num > 0);
+        alfa2 = SignedMath.revabs((SignedMath.abs(alfa2Num).wdiv(sigmaTrtd)), alfa2Num > 0);
+    }
+
+    /// @dev arctanx = arcsin x / √(1 + x^2)
+    function atan(int256 x) public pure returns (int256 result) {
+        uint256 xAbs = SignedMath.abs(x);
+        uint256 den = FixedPointMathLib.sqrt(1e18 + xAbs.wmul(xAbs));
+        return InverseTrigonometry.arcsin(SignedMath.revabs(xAbs.wdiv(den), x > 0));
+    }
+
+    /// @dev σ√τ
+    function _sigmaTaurtd(uint256 sigma, uint256 tau) public pure returns (uint256) {
+        return sigma.wmul(FixedPointMathLib.sqrt(tau));
+    }
+
+    /// @dev ln(S / K) / σ√τ
+    function _x(uint256 s, uint256 k, uint256 sigmaTaurtd) public pure returns (int256) {
+        int256 n = FixedPointMathLib.ln(SignedMath.castInt(s.wdiv(k)));
+        return SignedMath.revabs(SignedMath.abs(n).wdiv(sigmaTaurtd), n > 0);
     }
 }
