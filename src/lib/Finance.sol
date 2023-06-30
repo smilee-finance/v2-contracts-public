@@ -14,9 +14,6 @@ import {Trigonometry} from "@trigonometry/Trigonometry.sol";
 library Finance {
     using AmountsMath for uint256;
 
-    /// @dev √(2 pi)
-    uint256 public constant PI2_RTD = 2_506628274631000502;
-
     error PriceZero();
     error OutOfRange(string varname, uint256 value);
 
@@ -50,29 +47,66 @@ library Finance {
         int256 alfa2;
     }
 
+    ////// PAYOFF //////
+
     /**
-        @notice Computes impermanent gain percentage
-        @dev Only depends on current price and strike
-        @param s Current side token price
-        @param k Ref. strike
-        @return payoffPerc The impermanent gain
+        @notice Computes concentrated liquidity impermanent gain percentage when current price falls in liquidity range
+        @param sdivk Current side token price over strike price
+        @param teta Theta coefficient
+        @return inRangePayoffPerc The impermanent gain
      */
-    function igPerc(uint256 s, uint256 k) public pure returns (uint256 payoffPerc) {
-        uint256 sdivk = s.wdiv(k);
-        return AmountsMath.wrap(1) / 2 + sdivk / 2 - FixedPointMathLib.sqrt(sdivk);
+    function igPayoffInRange(uint256 sdivk, uint256 teta) public pure returns (uint256 inRangePayoffPerc) {
+        return (AmountsMath.wrap(1) + sdivk - 2 * FixedPointMathLib.sqrt(sdivk)).wdiv(teta);
+    }
+
+    /**
+        @notice Computes concentrated liquidity impermanent gain percentage when current price falls out of liquidity range
+        @param sdivk Current side token price over strike price
+        @param teta Theta coefficient
+        @param k Ref. strike
+        @param kbound Upper or lower bound of the range
+        @return outRangePayoffPerc The impermanent gain
+     */
+    function igPayoffOutRange(
+        uint256 sdivk,
+        uint256 teta,
+        uint256 k,
+        uint256 kbound
+    ) public pure returns (uint256 outRangePayoffPerc) {
+        uint256 one = AmountsMath.wrap(1);
+        uint256 kDivKboundRtd = FixedPointMathLib.sqrt(k.wdiv(kbound));
+        uint256 kboundDivKRtd = FixedPointMathLib.sqrt(kbound.wdiv(k));
+
+        bool c2Pos = kDivKboundRtd >= one;
+        uint256 c2Abs = sdivk.wmul(c2Pos ? kDivKboundRtd - one : one - kDivKboundRtd);
+        uint256 num;
+        if (c2Pos) {
+            num = one - c2Abs - kboundDivKRtd;
+        } else {
+            num = one + c2Abs - kboundDivKRtd;
+        }
+        return num.wdiv(teta);
     }
 
     /**
         @notice Computes payoff percentage for impermanent gain up / down strategies
         @param s Current side token price
         @param k Ref. strike
-        @return payoffUp The percentage payoff for up strategy
-        @return payoffDown The percentage payoff for down strategy
+        @return igPOBull The percentage payoff for bull strategy
+        @return igPOBear The percentage payoff for bear strategy
      */
-    function igPayoffPerc(uint256 s, uint256 k) public pure returns (uint256 payoffUp, uint256 payoffDown) {
-        payoffUp = s > k ? igPerc(s, k) : 0;
-        payoffDown = s < k ? igPerc(s, k) : 0;
+    function igPayoffPerc(
+        uint256 s,
+        uint256 k,
+        uint256 ka,
+        uint256 kb,
+        uint256 teta
+    ) public pure returns (uint256 igPOBull, uint256 igPOBear) {
+        igPOBull = s <= k ? 0 : s > kb ? igPayoffOutRange(s.wdiv(k), teta, k, kb) : igPayoffInRange(s.wdiv(k), teta);
+        igPOBear = s >= k ? 0 : s < ka ? igPayoffOutRange(s.wdiv(k), teta, k, ka) : igPayoffInRange(s.wdiv(k), teta);
     }
+
+    ////// DELTA //////
 
     /**
         @notice Computes unitary delta hedge quantity for bull/bear options
@@ -88,34 +122,6 @@ library Finance {
         igDBull = bullDelta(x, params.limSup, bullAtanArg_);
         igDBear = bearDelta(x, params.limInf, bearAtanArg_);
     }
-
-    /**
-        @notice Computes unitary price for up/down options
-        @param params The set of DeltaPriceParams to compute the option price
-        @return igPBull The unitary price for an up position
-        @return igPBear The unitary price for a down position
-     */
-    function igPrices(DeltaPriceParams memory params) public pure returns (uint256 igPBull, uint256 igPBear) {
-        (DTerms memory ds, DTerms memory das, DTerms memory dbs) = dTerms(params);
-        NTerms memory ns = nTerms(ds);
-        NTerms memory nas = nTerms(das);
-        NTerms memory nbs = nTerms(dbs);
-
-        uint256 ert = _ert(params.r, params.tau);
-        uint256 sdivk = (params.s).wdiv(params.k);
-
-        // Assume the price (up and down) is always >= 0
-        {
-            PriceParts memory ps = pBullParts(params, ert, sdivk, ns, nbs);
-            igPBull = ps.p1 + ps.p2 - ps.p3 - ps.p4 - ps.p5;
-        }
-        {
-            PriceParts memory ps = pBearParts(params, ert, sdivk, ns, nas);
-            igPBear = ps.p1 + ps.p2 - ps.p3 - ps.p4 - ps.p5;
-        }
-    }
-
-    ////// DELTA COMPONENTS //////
 
     /// @dev 2/π * limSup * atan(arg)
     function bullDelta(int256 x, int256 limSup, int256 atanArg) public pure returns (int256) {
@@ -172,7 +178,33 @@ library Finance {
         return SignedMath.revabs(c1, x > 0) + SignedMath.revabs(c2, c21Num > 0);
     }
 
-    ////// PRICING COMPONENTS //////
+    ////// PRICING //////
+
+    /**
+        @notice Computes unitary price for up/down options
+        @param params The set of DeltaPriceParams to compute the option price
+        @return igPBull The unitary price for an up position
+        @return igPBear The unitary price for a down position
+     */
+    function igPrices(DeltaPriceParams memory params) public pure returns (uint256 igPBull, uint256 igPBear) {
+        (DTerms memory ds, DTerms memory das, DTerms memory dbs) = dTerms(params);
+        NTerms memory ns = nTerms(ds);
+        NTerms memory nas = nTerms(das);
+        NTerms memory nbs = nTerms(dbs);
+
+        uint256 ert = _ert(params.r, params.tau);
+        uint256 sdivk = (params.s).wdiv(params.k);
+
+        // Assume the price (up and down) is always >= 0
+        {
+            PriceParts memory ps = pBullParts(params, ert, sdivk, ns, nbs);
+            igPBull = ps.p1 + ps.p2 - ps.p3 - ps.p4 - ps.p5;
+        }
+        {
+            PriceParts memory ps = pBearParts(params, ert, sdivk, ns, nas);
+            igPBear = ps.p1 + ps.p2 - ps.p3 - ps.p4 - ps.p5;
+        }
+    }
 
     struct DTerms {
         int256 d1; // [ ln(S / K) + ( r + σ^2 / 2 ) τ ] / σ√τ
@@ -301,8 +333,6 @@ library Finance {
             );
     }
 
-    /////// BEAR PRICE COMPONENTS ///////
-
     /// @dev [ e^-(r τ) / θ ] * (1 - N(d2))
     function pbear1(uint256 ertdivteta, uint256 n2) public pure returns (uint256) {
         return ertdivteta.wmul(1e18 - n2);
@@ -337,8 +367,6 @@ library Finance {
     function pbear5(uint256 ert, uint256 kadivkrtddivteta, uint256 n2a) public pure returns (uint256) {
         return ert.wmul(kadivkrtddivteta.wmul(1e18 - n2a));
     }
-
-    /////// BULL PRICE COMPONENTS ///////
 
     /// @dev [ e^-(r τ) / θ ] * N(d2)
     function pbull1(uint256 ertdivteta, uint256 n2) public pure returns (uint256) {
