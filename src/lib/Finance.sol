@@ -460,14 +460,24 @@ library Finance {
         return SignedMath.revabs((krtd - kartd).wdiv(tetaK.wmul(kartd)), false);
     }
 
-    /// @dev α1 = ln(Ka / K) / σ√T
-    /// @dev α2 = ln(Kb / K) / σ√T [= -α1 when log-symmetric Ka - K - Kb]
+    /**
+        @notice Computes auxiliary params α1, α2
+        @param k Strike
+        @param ka Lower bound concentrated liquidity range
+        @param kb Upper bound concentrated liquidity range
+        @param sigma Implied vol.
+        @param t Epoch duration in years
+        @return alfa1 α1 = ln(Ka / K) / σ√T
+        @return alfa2 α2 = ln(Kb / K) / σ√T [= -α1 when log-symmetric Ka - K - Kb]
+     */
     function _alfas(
         uint256 k,
         uint256 ka,
         uint256 kb,
-        uint256 sigmaTrtd
+        uint256 sigma,
+        uint256 t
     ) public pure returns (int256 alfa1, int256 alfa2) {
+        uint256 sigmaTrtd = _sigmaTaurtd(sigma, t);
         int256 alfa1Num = FixedPointMathLib.ln(SignedMath.castInt(ka.wdiv(k)));
         int256 alfa2Num = FixedPointMathLib.ln(SignedMath.castInt(kb.wdiv(k)));
         alfa1 = SignedMath.revabs((SignedMath.abs(alfa1Num).wdiv(sigmaTrtd)), alfa1Num > 0);

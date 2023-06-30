@@ -78,7 +78,7 @@ contract FinanceLibTest is Test {
         uint256 teta = Finance._teta(19e20, ka, kb);
         (int256 limSup, int256 limInf) = Finance.lims(k, ka, kb, teta);
         uint256 T = WadTime.nYears(WadTime.daysFraction(1, 1));
-        (int256 alfa1, int256 alfa2) = Finance._alfas(k, ka, kb, Finance._sigmaTaurtd(sigma, T));
+        (int256 alfa1, int256 alfa2) = Finance._alfas(k, ka, kb, sigma, T);
 
         assertApproxEqAbs(-277394026339900, limInf, ERR);
         assertApproxEqAbs(256320270477425, limSup, ERR);
