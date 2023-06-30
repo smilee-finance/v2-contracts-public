@@ -54,8 +54,7 @@ contract DeployToken is EnhancedScript {
 
         TestnetToken sToken = new TestnetToken(tokenName, tokenSymbol);
 
-        address priceOracle = _ap.priceOracle();
-        sToken.setController(priceOracle);
+        sToken.setController(_ap.registry());
 
         address swapper = _ap.exchangeAdapter();
         sToken.setSwapper(swapper);
@@ -63,6 +62,8 @@ contract DeployToken is EnhancedScript {
         // TBD: mint tokens to owner ?
 
         vm.stopBroadcast();
+
+        return address(sToken);
     }
 
     function setTokenPrice(address token, uint256 price) public {

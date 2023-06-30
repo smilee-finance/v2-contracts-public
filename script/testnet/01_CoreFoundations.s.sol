@@ -45,7 +45,6 @@ contract DeployCoreFoundations is Script {
         AddressProvider ap = new AddressProvider();
 
         TestnetPriceOracle priceOracle = new TestnetPriceOracle(address(sUSD));
-        sUSD.setController(address(priceOracle));
         ap.setPriceOracle(address(priceOracle));
         ap.setMarketOracle(address(priceOracle));
 
@@ -55,6 +54,7 @@ contract DeployCoreFoundations is Script {
 
         TestnetRegistry registry = new TestnetRegistry();
         registry.registerSwapper(address(swapper));
+        sUSD.setController(address(registry));
         ap.setRegistry(address(registry));
     }
 }
