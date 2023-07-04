@@ -14,6 +14,7 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract VaultStateTest is Test {
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
@@ -27,7 +28,10 @@ contract VaultStateTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
 
-        vault = MockedVault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, admin, vm));
+        vm.prank(admin);
+        AddressProvider ap = new AddressProvider();
+
+        vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 

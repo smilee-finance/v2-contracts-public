@@ -9,6 +9,7 @@ import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 
 /**
     @title Test case for underlying asset going to zero
@@ -30,7 +31,10 @@ contract VaultDeathTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
 
-        vault = MockedVault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm));
+        vm.prank(tokenAdmin);
+        AddressProvider ap = new AddressProvider();
+
+        vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 

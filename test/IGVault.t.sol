@@ -15,6 +15,7 @@ import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 
 /**
     @title Test case for underlying asset going to zero
@@ -45,14 +46,18 @@ contract IGVaultTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
         //ToDo: Replace with Factory
-        vm.prank(admin);
+        vm.startPrank(admin);
+        AddressProvider ap = new AddressProvider();
         registry = new TestnetRegistry();
-        vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
+        ap.setRegistry(address(registry));
+        vm.stopPrank();
+
+        vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
 
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
-        ig = new MockedIG(address(vault), address(0x42));
+        ig = new MockedIG(address(vault), address(ap));
         ig.setOptionPrice(1e3);
         ig.setPayoffPerc(1e17);
         ig.useFakeDeltaHedge();

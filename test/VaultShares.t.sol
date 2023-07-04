@@ -10,6 +10,7 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Vault} from "../src/Vault.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract VaultSharesTest is Test {
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
@@ -35,7 +36,10 @@ contract VaultSharesTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS + 1);
 
-        vault = MockedVault(VaultUtils.createVaultFromNothing(EpochFrequency.DAILY, tokenAdmin, vm));
+        vm.prank(tokenAdmin);
+        AddressProvider ap = new AddressProvider();
+
+        vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 

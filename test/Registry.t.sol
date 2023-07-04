@@ -7,6 +7,7 @@ import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract RegistryTest is Test {
     bytes4 constant MissingAddress = bytes4(keccak256("MissingAddress()"));
@@ -15,9 +16,13 @@ contract RegistryTest is Test {
     address admin = address(0x21);
 
     constructor() {
-        vm.prank(admin);
+        vm.startPrank(admin);
+        AddressProvider ap = new AddressProvider();
         registry = new TestnetRegistry();
-        MockedVault vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
+        ap.setRegistry(address(registry));
+        vm.stopPrank();
+
+        MockedVault vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         dvp = new MockedIG(address(vault), address(0x42));
     }
 

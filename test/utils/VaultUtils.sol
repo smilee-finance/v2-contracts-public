@@ -5,49 +5,31 @@ import {Vm} from "forge-std/Vm.sol";
 import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {VaultLib} from "../../src/lib/VaultLib.sol";
-import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
-import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
 import {TokenUtils} from "./TokenUtils.sol";
 
-library VaultUtils {
-    function createVaultFromNothing(uint256 epochFrequency, address admin, Vm vm) internal returns (address) {
-        vm.prank(admin);
-        TestnetRegistry registry = new TestnetRegistry();
-        return createVaultWithRegistry(epochFrequency, admin, vm, registry);
-    }
-
-    function createVaultWithRegistry(
-        uint256 epochFrequency,
+library VaultUtils
+{
+    function createVault(uint256 epochFrequency,
+        AddressProvider ap,
         address admin,
-        Vm vm,
-        TestnetRegistry registry
-    ) internal returns (address) {
+        Vm vm
+    ) public returns (address) {
+        // NOTE: the stable base token must be the first as it's used as reference for the price oracle if it doesn't exists in the AddressProvider.
+        address baseToken = TokenUtils.createToken("Testnet USD", "stUSD", address(ap), admin, vm);
+        address sideToken = TokenUtils.createToken("Testnet WETH", "stWETH", address(ap), admin, vm);
+
         vm.startPrank(admin);
-
-        TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
-        address baseToken = address(token);
-        token.setController(address(registry));
-
-        AddressProvider _ap = new AddressProvider();
-
-        TestnetPriceOracle priceOracle = new TestnetPriceOracle(baseToken);
-        _ap.setPriceOracle(address(priceOracle));
-
-        TestnetSwapAdapter exchange = new TestnetSwapAdapter(address(priceOracle));
-        _ap.setExchangeAdapter(address(exchange));
-        token.setSwapper(address(exchange));
-
-        token = new TestnetToken("Testnet WETH", "stWETH");
-        token.setController(address(registry));
-        token.setSwapper(address(exchange));
-        address sideToken = address(token);
+        TestnetPriceOracle priceOracle = TestnetPriceOracle(ap.priceOracle());
         priceOracle.setTokenPrice(sideToken, 1 ether);
 
-        MockedVault vault = new MockedVault(baseToken, sideToken, epochFrequency, address(_ap));
+        MockedVault vault = new MockedVault(baseToken, sideToken, epochFrequency, address(ap));
+
+        // TBD: registrer it outside...
+        TestnetRegistry registry = TestnetRegistry(ap.registry());
         registry.registerVault(address(vault));
 
         vm.stopPrank();
@@ -77,7 +59,7 @@ library VaultUtils {
         @notice Computes the amount of recoverable tokens when the vault die.
      */
     function getRecoverableAmounts(MockedVault vault) public view returns (uint256) {
-        TestnetToken baseToken = TestnetToken(vault.baseToken());
+        IERC20 baseToken = IERC20(vault.baseToken());
         uint256 balance = baseToken.balanceOf(address(vault));
         uint256 locked = vault.v0();
         uint256 pendingWithdrawals = vaultState(vault).liquidity.pendingWithdrawals;

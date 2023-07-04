@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import "forge-std/console.sol";
-
 import {Gaussian} from "@solstat/Gaussian.sol";
 import {FixedPointMathLib} from "./FixedPointMathLib.sol";
 import {AmountsMath} from "./AmountsMath.sol";
@@ -501,4 +499,23 @@ library Finance {
         int256 n = FixedPointMathLib.ln(SignedMath.castInt(s.wdiv(k)));
         return SignedMath.revabs(SignedMath.abs(n).wdiv(sigmaTaurtd), n > 0);
     }
+
+    //////  OTHER //////
+
+    function liquidityRange(uint256 k, uint256 sigma, uint256 sigmaMultiplier, uint256 daysToMaturity) public pure returns (uint256 kA, uint256 kB) {
+        uint256 mSigmaT = (sigmaMultiplier * sigma).wmul(FixedPointMathLib.sqrt(daysToMaturity));
+
+        kA = k.wmul(FixedPointMathLib.exp(int256(SignedMath.neg(mSigmaT))));
+        kB = k.wmul(FixedPointMathLib.exp(int256(mSigmaT)));
+    }
+
+    function tradeVolatility(uint256 sigma0, uint256 utilizationRate, uint256 maturity, uint256 initialTime) public view returns (uint256) {
+        // NOTE: implicit N := 2 in formula
+        uint256 utilizationRateFactor = AmountsMath.wrap(1) + uint256(SignedMath.pow3(int256(utilizationRate)));
+        uint256 theta = AmountsMath.wrap(1) / 4; // 0.25
+        uint256 timeFactor = (AmountsMath.wrap(maturity) - theta.wmul(AmountsMath.wrap(block.timestamp - initialTime))).wdiv(AmountsMath.wrap(maturity));
+
+        return sigma0.wmul(utilizationRateFactor).wmul(timeFactor);
+    }
+
 }

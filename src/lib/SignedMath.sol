@@ -22,6 +22,12 @@ library SignedMath {
         res = res.wmul(res);
     }
 
+    /// @dev Utility to compute x^3
+    function pow3(int256 n) public pure returns (int256) {
+        uint256 res = abs(n);
+        return revabs(res.wmul(res).wmul(res), n >= 0);
+    }
+
     /// @dev Utility to negate an unsigned value
     function neg(uint256 n) public pure returns (int256 z) {
         return -castInt(n);

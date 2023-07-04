@@ -48,6 +48,16 @@ library Notional {
     }
 
     /**
+        @notice Get the amount of liquidity used by options.
+        @param strike the reference strike.
+        @param strategy the reference strategy.
+        @return optioned_ The used liquidity.
+     */
+    function getInitial(Info storage self, uint256 strike, bool strategy) public view returns (uint256 optioned_) {
+        return self.initial[strike][_strategyIdx(strategy)];
+    }
+
+    /**
         @notice Get the amount of liquidity available for new options.
         @param strike the reference strike.
         @param strategy the reference strategy.

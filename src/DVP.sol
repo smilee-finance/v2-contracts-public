@@ -4,7 +4,10 @@ pragma solidity ^0.8.15;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
+import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
+import {AmountsMath} from "./lib/AmountsMath.sol";
+import {Finance} from "./lib/Finance.sol";
 import {Notional} from "./lib/Notional.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
@@ -12,6 +15,7 @@ import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 abstract contract DVP is IDVP, EpochControls {
+    using AmountsMath for uint256;
     using Position for Position.Info;
     using Notional for Notional.Info;
 
@@ -45,6 +49,8 @@ abstract contract DVP is IDVP, EpochControls {
     error NotEnoughLiquidity();
     error PositionNotFound();
     error CantBurnMoreThanMinted();
+    error MissingMarketOracle();
+    error MissingPriceOracle();
 
     constructor(
         address vault_,
@@ -233,6 +239,9 @@ abstract contract DVP is IDVP, EpochControls {
     function _computeResidualPayoff(uint256 strike, bool strategy) internal view returns (uint256 payoff_) {
         Notional.Info storage liquidity = _liquidity[currentEpoch];
         uint256 residualAmount = liquidity.getUsed(strike, strategy);
+        if (residualAmount == 0) {
+            return 0;
+        }
         payoff_ = _computePayoff(strike, strategy, residualAmount);
     }
 
@@ -304,5 +313,54 @@ abstract contract DVP is IDVP, EpochControls {
     function _getPosition(uint256 epoch, address owner, bool strategy, uint256 strike) internal view returns (Position.Info storage position_) {
         bytes32 positionID = Position.getID(owner, strategy, strike);
         return _epochPositions[epoch][positionID];
+    }
+
+    function _getUtilizationRateFactors() internal view virtual returns (uint256 used, uint256 total);
+
+    function getUtilizationRate() public view returns (uint256) {
+        (uint256 used, uint256 total) = _getUtilizationRateFactors();
+
+        return used.wdiv(total);
+    }
+
+    function _getPostTradeUtilizationRate(int256 amount) internal view returns (uint256) {
+        (uint256 used, uint256 total) = _getUtilizationRateFactors();
+
+        if (amount >= 0) {
+            return (used + uint256(amount)).wdiv(total);
+        } else {
+            return (used - uint256(-amount)).wdiv(total);
+        }
+    }
+
+    function _getTradeVolatility(uint256 strike, int256 amount) internal view returns (uint256) {
+        IMarketOracle marketOracle = IMarketOracle(_getMarketOracle());
+
+        uint256 baselineVolatility = marketOracle.getImpliedVolatility(baseToken, sideToken, strike, epochFrequency);
+        uint256 U = _getPostTradeUtilizationRate(amount);
+        uint256 t0 = _lastRolledEpoch();
+        uint256 T = currentEpoch - t0;
+
+        return Finance.tradeVolatility(baselineVolatility, U, T, t0);
+    }
+
+    function _getMarketOracle() internal view returns (address) {
+        address marketOracle = _addressProvider.marketOracle();
+
+        if (marketOracle == address(0)) {
+            revert MissingMarketOracle();
+        }
+
+        return marketOracle;
+    }
+
+    function _getPriceOracle() internal view returns (address) {
+        address priceOracle = _addressProvider.priceOracle();
+
+        if (priceOracle == address(0)) {
+            revert MissingPriceOracle();
+        }
+
+        return priceOracle;
     }
 }

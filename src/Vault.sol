@@ -38,6 +38,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     error DVPNotSet();
     error OnlyDVPAllowed();
     error AmountZero();
+    error AddressZero();
     error ExceedsAvailable();
     error ExistingIncompleteWithdraw();
     error NothingToRescue();
@@ -136,6 +137,9 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
      */
     function notional() public view returns (uint256) {
         address exchangeAddress = _addressProvider.exchangeAdapter();
+        if (exchangeAddress == address(0)) {
+            revert AddressZero();
+        }
         IExchange exchange = IExchange(exchangeAddress);
 
         uint256 baseTokens = _notionalBaseTokens();
@@ -472,7 +476,9 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
      */
     function _adjustBalances() internal {
         address exchangeAddress = _addressProvider.exchangeAdapter();
-        // TBD: check that the address is not zero
+        if (exchangeAddress == address(0)) {
+            revert AddressZero();
+        }
         IExchange exchange = IExchange(exchangeAddress);
 
         uint256 baseTokens = IERC20(baseToken).balanceOf(address(this));
@@ -525,7 +531,9 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
      */
     function _buySideTokens(uint256 amount) internal {
         address exchangeAddress = _addressProvider.exchangeAdapter();
-        // TBD: check that the address is not zero
+        if (exchangeAddress == address(0)) {
+            revert AddressZero();
+        }
         IExchange exchange = IExchange(exchangeAddress);
 
         uint256 baseTokensAmount = exchange.getInputAmount(baseToken, sideToken, amount);
@@ -553,7 +561,9 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         }
 
         address exchangeAddress = _addressProvider.exchangeAdapter();
-        // TBD: check that the address is not zero
+        if (exchangeAddress == address(0)) {
+            revert AddressZero();
+        }
         IExchange exchange = IExchange(exchangeAddress);
 
         IERC20(sideToken).approve(exchangeAddress, amount);

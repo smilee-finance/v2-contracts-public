@@ -10,6 +10,7 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 
 contract IGTest is Test {
@@ -23,16 +24,20 @@ contract IGTest is Test {
     MockedVault vault;
     TestnetRegistry registry;
     MockedIG ig;
+    AddressProvider ap;
 
     address admin = address(0x10);
     address alice = address(0x1);
     address bob = address(0x2);
 
     constructor() {
-        vm.prank(admin);
+        vm.startPrank(admin);
+        ap = new AddressProvider();
         registry = new TestnetRegistry();
-        // TBD: get the registry from baseToken as done in PositionManager.t.sol
-        vault = MockedVault(VaultUtils.createVaultWithRegistry(EpochFrequency.DAILY, admin, vm, registry));
+        ap.setRegistry(address(registry));
+        vm.stopPrank();
+
+        vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
 
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
@@ -41,7 +46,7 @@ contract IGTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS + 1);
 
-        ig = new MockedIG(address(vault), address(0x42));
+        ig = new MockedIG(address(vault), address(ap));
         vm.prank(admin);
         registry.register(address(ig));
         vm.prank(admin);
@@ -68,7 +73,7 @@ contract IGTest is Test {
     // ToDo: Add test for rollEpoch before will become active
 
     function testCantUse() public {
-        IDVP ig_ = new MockedIG(address(vault), address(0x42));
+        IDVP ig_ = new MockedIG(address(vault), address(ap));
 
         vm.expectRevert(EpochNotInitialized);
         ig_.mint(address(0x1), 0, OptionStrategy.CALL, 1);
