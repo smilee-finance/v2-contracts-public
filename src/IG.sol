@@ -19,6 +19,7 @@ contract IG is DVP {
     using AmountsMath for uint256;
     using Notional for Notional.Info;
 
+    // ToDo: review
     struct FinanceParameters {
         uint256 kA;
         uint256 kB;
@@ -33,9 +34,11 @@ contract IG is DVP {
 
     /// @notice Common strike price for all impermanent gain positions in this DVP, set at epoch start
     uint256 public currentStrike;
+    // ToDo: review
     FinanceParameters internal _currentFinanceParameters;
 
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
+        // TBD: allow to change the sigmaMultiplier
         _currentFinanceParameters.sigmaMultiplier = 2;
     }
 
@@ -64,10 +67,34 @@ contract IG is DVP {
     /// @inheritdoc IDVP
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual override returns (uint256) {
         // ToDo: review
-        IMarketOracle marketOracle = IMarketOracle(_getMarketOracle());
-        (uint256 igDBull, uint256 igDBear) = Finance.igPrices(Finance.DeltaPriceParams(
-            marketOracle.getRiskFreeRate(sideToken, baseToken),
-            _getTradeVolatility(strike, int256(amount)),
+        (uint256 igDBull, uint256 igDBear) = Finance.igPrices(_getFinanceParameters(strike, int256(amount)));
+
+        if (strategy == OptionStrategy.CALL) {
+            return amount.wmul(igDBull);
+        } else {
+            return amount.wmul(igDBear);
+        }
+    }
+
+    /// @inheritdoc DVP
+    function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional) internal virtual override {
+        // ToDo: review
+        (int256 igDBull, int256 igDBear) = Finance.igDeltas(_getFinanceParameters(strike, notional));
+        // TBD: use totalNotional := _liquidity.initial - (notional + _liquidity.used);
+        int256 sideTokensAmount = notional;
+        if (strategy == OptionStrategy.CALL) {
+            sideTokensAmount *= igDBull;
+        } else {
+            sideTokensAmount *= igDBear;
+        }
+        IVault(vault).deltaHedge(sideTokensAmount);
+    }
+
+    function _getFinanceParameters(uint256 strike, int256 notional) internal view returns (Finance.DeltaPriceParams memory) {
+        // ToDo: review
+        return Finance.DeltaPriceParams(
+            IMarketOracle(_getMarketOracle()).getRiskFreeRate(sideToken, baseToken),
+            _getTradeVolatility(strike, notional),
             strike,
             IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken),
             WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch)),
@@ -78,13 +105,7 @@ contract IG is DVP {
             _currentFinanceParameters.limInf,
             _currentFinanceParameters.alphaA,
             _currentFinanceParameters.alphaB
-        ));
-
-        if (strategy == OptionStrategy.CALL) {
-            return amount.wmul(igDBull);
-        } else {
-            return amount.wmul(igDBear);
-        }
+        );
     }
 
     /// @inheritdoc DVP
@@ -128,8 +149,7 @@ contract IG is DVP {
 
             // ToDo: review
             uint256 baselineVolatility = IMarketOracle(_getMarketOracle()).getImpliedVolatility(baseToken, sideToken, currentStrike, epochFrequency);
-            uint256 daysToMaturity = WadTime.daysFromTs(_lastRolledEpoch(), currentEpoch);
-            uint256 yearsToMaturity = WadTime.nYears(daysToMaturity);
+            uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(_lastRolledEpoch(), currentEpoch));
             (uint256 kA, uint256 kB) = Finance.liquidityRange(currentStrike, baselineVolatility, _currentFinanceParameters.sigmaMultiplier, yearsToMaturity);
             (int256 alphaA, int256 alphaB) = Finance._alfas(currentStrike, kA, kB, baselineVolatility, yearsToMaturity);
             uint256 theta = Finance._teta(currentStrike, kA, kB);

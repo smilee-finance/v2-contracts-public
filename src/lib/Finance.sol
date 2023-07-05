@@ -109,7 +109,7 @@ library Finance {
     /**
         @notice Computes unitary delta hedge quantity for bull/bear options
         @param params The set of DeltaPriceParams to compute deltas
-        @return igDBull The unitary integer quantity of side token to hedge an bull position
+        @return igDBull The unitary integer quantity of side token to hedge a bull position
         @return igDBear The unitary integer quantity of side token to hedge a bear position
      */
     function igDeltas(DeltaPriceParams memory params) public pure returns (int256 igDBull, int256 igDBear) {

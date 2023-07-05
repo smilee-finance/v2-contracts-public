@@ -118,12 +118,7 @@ abstract contract DVP is IDVP, EpochControls {
         @param strategy The position strategy.
         @param notional The position notional; positive if buyed by a user, negative otherwise.
      */
-    function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional) internal virtual {
-        // ToDo: delta hedge
-        // uint256 totalNotional = _liquidity.initial - (notional + _liquidity.used);
-        // sideTokensAmount := totalNotional * ig_delta(...)
-        // IVault(vault).deltaHedge(sideTokensAmount);
-    }
+    function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional) internal virtual;
 
     /**
         @notice Burn or decrease a position.

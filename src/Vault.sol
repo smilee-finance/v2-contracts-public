@@ -193,6 +193,9 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
             revert AmountZero();
         }
 
+        // TBD: accept only if it doesn't exceeds the TVL limit (cap)
+        // ---- limitTVL - lockedInitially >= amount
+
         address creditor = msg.sender;
 
         IERC20(baseToken).transferFrom(creditor, address(this), amount);
