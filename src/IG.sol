@@ -14,6 +14,7 @@ import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {WadTime} from "./lib/WadTime.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {DVP} from "./DVP.sol";
+import {EpochControls} from "./EpochControls.sol";
 
 contract IG is DVP {
     using AmountsMath for uint256;
@@ -38,7 +39,6 @@ contract IG is DVP {
     FinanceParameters internal _currentFinanceParameters;
 
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
-        // TBD: allow to change the sigmaMultiplier
         _currentFinanceParameters.sigmaMultiplier = 2;
     }
 
@@ -137,6 +137,7 @@ contract IG is DVP {
         _accountResidualPayoff(currentStrike, OptionStrategy.PUT);
     }
 
+    /// @inheritdoc EpochControls
     function _afterRollEpoch() internal virtual override {
         if (_lastRolledEpoch() != 0) {
             // Update strike price:
@@ -180,6 +181,7 @@ contract IG is DVP {
         liquidity.setInitial(currentStrike, OptionStrategy.PUT, initialCapital - halfInitialCapital);
     }
 
+    /// @inheritdoc DVP
     function _getUtilizationRateFactors() internal view virtual override returns (uint256 used, uint256 total) {
         // TBD: review decimals
         Notional.Info storage liquidity = _liquidity[currentEpoch];

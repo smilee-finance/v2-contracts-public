@@ -509,13 +509,11 @@ library Finance {
         kB = k.wmul(FixedPointMathLib.exp(int256(mSigmaT)));
     }
 
-    function tradeVolatility(uint256 sigma0, uint256 utilizationRate, uint256 maturity, uint256 initialTime) public view returns (uint256) {
-        // NOTE: implicit N := 2 in formula
-        uint256 utilizationRateFactor = AmountsMath.wrap(1) + uint256(SignedMath.pow3(int256(utilizationRate)));
-        uint256 theta = AmountsMath.wrap(1) / 4; // 0.25
-        uint256 timeFactor = (AmountsMath.wrap(maturity) - theta.wmul(AmountsMath.wrap(block.timestamp - initialTime))).wdiv(AmountsMath.wrap(maturity));
+    function tradeVolatility(uint256 sigma0, uint256 utilizationRateFactor, uint256 timeDecay, uint256 utilizationRate, uint256 maturity, uint256 initialTime) public view returns (uint256) {
+        uint256 baselineVolatilityFactor = AmountsMath.wrap(1) + uint256(SignedMath.pow3(int256(utilizationRate))).wmul(utilizationRateFactor - 1);
+        uint256 timeFactor = (AmountsMath.wrap(maturity) - timeDecay.wmul(AmountsMath.wrap(block.timestamp - initialTime))).wdiv(AmountsMath.wrap(maturity));
 
-        return sigma0.wmul(utilizationRateFactor).wmul(timeFactor);
+        return sigma0.wmul(baselineVolatilityFactor).wmul(timeFactor);
     }
 
 }

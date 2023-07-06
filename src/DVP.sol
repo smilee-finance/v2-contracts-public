@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
@@ -14,7 +15,7 @@ import {Position} from "./lib/Position.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
-abstract contract DVP is IDVP, EpochControls {
+abstract contract DVP is IDVP, EpochControls, Ownable {
     using AmountsMath for uint256;
     using Position for Position.Info;
     using Notional for Notional.Info;
@@ -28,6 +29,10 @@ abstract contract DVP is IDVP, EpochControls {
     /// @inheritdoc IDVP
     address public immutable override vault;
     AddressProvider internal immutable _addressProvider;
+    /// @dev mutable parameter for the computation of the trade volatility
+    uint256 internal _tradeVolatilityUtilizationRateFactor;
+    /// @dev mutable parameter for the computation of the trade volatility
+    uint256 internal _tradeVolatilityTimeDecay;
 
     // TBD: extract payoff from Notional.Info
     // TBD: move strike and strategy outside of struct as indexes
@@ -56,13 +61,16 @@ abstract contract DVP is IDVP, EpochControls {
         address vault_,
         bool optionType_,
         address addressProvider_
-    ) EpochControls(IEpochControls(vault_).epochFrequency()) {
+    ) EpochControls(IEpochControls(vault_).epochFrequency()) Ownable() {
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);
         baseToken = vaultCt.baseToken();
         sideToken = vaultCt.sideToken();
         _addressProvider = AddressProvider(addressProvider_);
+
+        _tradeVolatilityUtilizationRateFactor = 2;
+        _tradeVolatilityTimeDecay = AmountsMath.wrap(1) / 4; // 0.25
     }
 
     /**
@@ -310,15 +318,26 @@ abstract contract DVP is IDVP, EpochControls {
         return _epochPositions[epoch][positionID];
     }
 
+    /**
+        @notice Get the overall used and total liquidity of the current epoche, independent of strike and strategy.
+        @return used The overall used liquidity.
+        @return total The overall liquidity.
+     */
     function _getUtilizationRateFactors() internal view virtual returns (uint256 used, uint256 total);
 
-    function getUtilizationRate() public view returns (uint256) {
-        (uint256 used, uint256 total) = _getUtilizationRateFactors();
+    // TBD: is this needed ?
+    // function getUtilizationRate() public view returns (uint256) {
+    //     (uint256 used, uint256 total) = _getUtilizationRateFactors();
 
-        return used.wdiv(total);
-    }
+    //     return used.wdiv(total);
+    // }
 
-    function _getPostTradeUtilizationRate(int256 amount) internal view returns (uint256) {
+    /**
+        @notice Preview the utilization rate that will result from a given trade.
+        @param amount The trade notional (positive for buy, negative for sell).
+        @return utilizationRate The post-trade utilization rate.
+     */
+    function _getPostTradeUtilizationRate(int256 amount) internal view returns (uint256 utilizationRate) {
         (uint256 used, uint256 total) = _getUtilizationRateFactors();
 
         if (amount >= 0) {
@@ -328,15 +347,20 @@ abstract contract DVP is IDVP, EpochControls {
         }
     }
 
-    function _getTradeVolatility(uint256 strike, int256 amount) internal view returns (uint256) {
-        IMarketOracle marketOracle = IMarketOracle(_getMarketOracle());
-
-        uint256 baselineVolatility = marketOracle.getImpliedVolatility(baseToken, sideToken, strike, epochFrequency);
+    /**
+        @notice Get the estimated implied volatility from a given trade.
+        @param strike The trade strike.
+        @param amount The trade notional (positive for buy, negative for sell).
+        @return sigma The estimated implied volatility.
+        @dev The oracle must provide an updated baseline volatility, computed just before the start of the epoch.
+     */
+    function _getTradeVolatility(uint256 strike, int256 amount) internal view returns (uint256 sigma) {
+        uint256 baselineVolatility = IMarketOracle(_getMarketOracle()).getImpliedVolatility(baseToken, sideToken, strike, epochFrequency);
         uint256 U = _getPostTradeUtilizationRate(amount);
         uint256 t0 = _lastRolledEpoch();
         uint256 T = currentEpoch - t0;
 
-        return Finance.tradeVolatility(baselineVolatility, U, T, t0);
+        return Finance.tradeVolatility(baselineVolatility, _tradeVolatilityUtilizationRateFactor, _tradeVolatilityTimeDecay, U, T, t0);
     }
 
     function _getMarketOracle() internal view returns (address) {
@@ -357,5 +381,15 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         return priceOracle;
+    }
+
+    function setTradeVolatilityUtilizationRateFactor(uint256 utilizationRateFactor) external onlyOwner {
+        // ToDo: make the change effective from the next epoch
+        _tradeVolatilityUtilizationRateFactor = utilizationRateFactor;
+    }
+
+    function setTradeVolatilityTimeDecay(uint256 timeDecay) external onlyOwner {
+        // ToDo: make the change effective from the next epoch
+        _tradeVolatilityTimeDecay = timeDecay;
     }
 }
