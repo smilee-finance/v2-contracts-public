@@ -39,7 +39,7 @@ contract IG is DVP {
     FinanceParameters internal _currentFinanceParameters;
 
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
-        _currentFinanceParameters.sigmaMultiplier = 2;
+        _currentFinanceParameters.sigmaMultiplier = AmountsMath.wrap(2);
     }
 
     /// @inheritdoc IDVP

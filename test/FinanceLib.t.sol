@@ -57,6 +57,17 @@ contract FinanceLibTest is Test {
         Payoff payoff;
     }
 
+    struct LiquidityRange {
+        // inputs
+        uint256 strike;
+        uint256 volatility;
+        uint256 volatilityMultiplier;
+        uint256 yearsOfMaturity;
+        // results
+        uint256 kA;
+        uint256 kB;
+    }
+
     uint256 v0 = 1e23; // 100,000 (100 K)
     uint256 r = 3e16; // 0.02 (2 %)
     uint256 sigma = 5e17; // 0.5 (50 %)
@@ -242,5 +253,32 @@ contract FinanceLibTest is Test {
             assertApproxEqAbs(testCases[i].payoff.igBull, testCases[i].v0.wmul(poBull), ERR);
             assertApproxEqAbs(testCases[i].payoff.igBear, testCases[i].v0.wmul(poBear), ERR);
         }
+    }
+
+    function testLiquidityRange() public {
+        uint256 volatility = 5e17;
+        uint256 volatilityMultiplier = AmountsMath.wrap(2);
+        uint256 dailyMaturity = AmountsMath.wrap(1) / 365;
+
+        // Fixed maturity, change strike price:
+        _checkLiquidityRange(LiquidityRange(1800e18, volatility, volatilityMultiplier, dailyMaturity, 1708206983329e9, 1896725649538e9));
+        _checkLiquidityRange(LiquidityRange(1900e18, volatility, volatilityMultiplier, dailyMaturity, 1803107371292e9, 2002099296734e9));
+        _checkLiquidityRange(LiquidityRange(1910e18, volatility, volatilityMultiplier, dailyMaturity, 1812597410088e9, 2012636661454e9));
+        _checkLiquidityRange(LiquidityRange(1950e18, volatility, volatilityMultiplier, dailyMaturity, 1850557565273e9, 2054786120333e9));
+        _checkLiquidityRange(LiquidityRange(2200e18, volatility, volatilityMultiplier, dailyMaturity, 2087808535180e9, 2318220238324e9));
+        _checkLiquidityRange(LiquidityRange(3800e18, volatility, volatilityMultiplier, dailyMaturity, 3606214742584e9, 4004198593469e9));
+        // Fixed strike price, change maturity:
+        _checkLiquidityRange(LiquidityRange(1900e18, volatility, volatilityMultiplier, dailyMaturity * 7, 1654285069345e9, 2182211558876e9));
+        _checkLiquidityRange(LiquidityRange(1900e18, volatility, volatilityMultiplier, dailyMaturity * 21, 1494797747280e9, 2415042440737e9));
+        _checkLiquidityRange(LiquidityRange(1900e18, volatility, volatilityMultiplier, dailyMaturity * 30, 1426412850588e9, 2530824086807e9));
+
+        // ToDo: check corner cases
+    }
+
+    function _checkLiquidityRange(LiquidityRange memory params) internal {
+        (uint256 kA, uint256 kB) = Finance.liquidityRange(params.strike, params.volatility, params.volatilityMultiplier, params.yearsOfMaturity);
+        uint256 maxError = 1e9;
+        assertApproxEqAbs(params.kA, kA, maxError);
+        assertApproxEqAbs(params.kB, kB, maxError);
     }
 }

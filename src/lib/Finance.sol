@@ -502,8 +502,18 @@ library Finance {
 
     //////  OTHER //////
 
-    function liquidityRange(uint256 k, uint256 sigma, uint256 sigmaMultiplier, uint256 daysToMaturity) public pure returns (uint256 kA, uint256 kB) {
-        uint256 mSigmaT = (sigmaMultiplier * sigma).wmul(FixedPointMathLib.sqrt(daysToMaturity));
+    /**
+        @notice Computes the range (kA, kB)
+        @param k The reference strike.
+        @param sigma The token's pair volatility; symbolic values in [0, 1] ?
+        @param sigmaMultiplier A multiplier for the token's pair volatility.
+        @param yearsOfMaturity Number of years for the maturity.
+        @return kA The lower limit of the liquidity range.
+        @return kB The upper limit of the liquidity range.
+        @dev All the values are expressed in Wad.
+     */
+    function liquidityRange(uint256 k, uint256 sigma, uint256 sigmaMultiplier, uint256 yearsOfMaturity) public pure returns (uint256 kA, uint256 kB) {
+        uint256 mSigmaT = sigma.wmul(sigmaMultiplier).wmul(FixedPointMathLib.sqrt(yearsOfMaturity));
 
         kA = k.wmul(FixedPointMathLib.exp(int256(SignedMath.neg(mSigmaT))));
         kB = k.wmul(FixedPointMathLib.exp(int256(mSigmaT)));
