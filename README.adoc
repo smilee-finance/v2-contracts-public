@@ -35,4 +35,7 @@ You have to create and fill a `.env` file from the `.env.template` one.
 . Mint and deposit the given `<AMOUNT>` of base tokens into the provided vault:
 +
 `forge script script/testnet/05_Vault.s.sol:VaultOps --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'fillVault(address,uint256)' <VAULT_ADDRESS> <AMOUNT>`
+. Advance chain time:
++
+`cast rpc --rpc-url $RPC_LOCALNET evm_increaseTime <SECONDS> && cast rpc --rpc-url $RPC_LOCALNET evm_mine`
 . `exit`

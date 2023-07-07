@@ -91,6 +91,6 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
     function getRiskFreeRate(address token0, address token1) external pure returns (uint256 rate) {
         token0;
         token1;
-        return 2e16; // 0.02
+        return 3e16; // 0.03 == 3%
     }
 }
