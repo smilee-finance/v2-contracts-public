@@ -69,7 +69,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         sideToken = vaultCt.sideToken();
         _addressProvider = AddressProvider(addressProvider_);
 
-        _tradeVolatilityUtilizationRateFactor = 2;
+        _tradeVolatilityUtilizationRateFactor = AmountsMath.wrap(2);
         _tradeVolatilityTimeDecay = AmountsMath.wrap(1) / 4; // 0.25
     }
 

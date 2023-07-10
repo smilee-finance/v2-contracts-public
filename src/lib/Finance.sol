@@ -519,8 +519,19 @@ library Finance {
         kB = k.wmul(FixedPointMathLib.exp(int256(mSigmaT)));
     }
 
-    function tradeVolatility(uint256 sigma0, uint256 utilizationRateFactor, uint256 timeDecay, uint256 utilizationRate, uint256 maturity, uint256 initialTime) public view returns (uint256) {
-        uint256 baselineVolatilityFactor = AmountsMath.wrap(1) + uint256(SignedMath.pow3(int256(utilizationRate))).wmul(utilizationRateFactor - 1);
+    /**
+        @notice Computes the trade volatility
+        @param sigma0 The baseline volatility at epoch start.
+        @param utilizationRateFactor A multiplier for the utilization rate; must be greater or equal to one.
+        @param timeDecay A time decay factor.
+        @param utilizationRate the utilization rate.
+        @param maturity the maturity timestamp.
+        @param initialTime the epoch start timestamp.
+        @return sigma_hat the trade volatility.
+        @dev All the non-timestamp values are expressed in Wad.
+     */
+    function tradeVolatility(uint256 sigma0, uint256 utilizationRateFactor, uint256 timeDecay, uint256 utilizationRate, uint256 maturity, uint256 initialTime) public view returns (uint256 sigma_hat) {
+        uint256 baselineVolatilityFactor = AmountsMath.wrap(1) + uint256(SignedMath.pow3(int256(utilizationRate))).wmul(utilizationRateFactor.sub(AmountsMath.wrap(1)));
         uint256 timeFactor = (AmountsMath.wrap(maturity) - timeDecay.wmul(AmountsMath.wrap(block.timestamp - initialTime))).wdiv(AmountsMath.wrap(maturity));
 
         return sigma0.wmul(baselineVolatilityFactor).wmul(timeFactor);

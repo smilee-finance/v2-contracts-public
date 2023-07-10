@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import "forge-std/console.sol";
-import {FixedPointMathLib} from "../src/lib/FixedPointMathLib.sol";
-
 import {Gaussian} from "@solstat/Gaussian.sol";
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {IDVP} from "../src/interfaces/IDVP.sol";
 import {AmountsMath} from "../src/lib/AmountsMath.sol";
 import {Finance} from "../src/lib/Finance.sol";
 import {WadTime} from "../src/lib/WadTime.sol";
@@ -66,6 +61,18 @@ contract FinanceLibTest is Test {
         // results
         uint256 kA;
         uint256 kB;
+    }
+
+    struct TradeVolatility {
+        // inputs
+        uint256 baselineVolatility;
+        uint256 utilizationRateFactor;
+        uint256 timeDecay;
+        uint256 utilizationRate;
+        uint256 maturity;
+        uint256 initialTime;
+        // result
+        uint256 volatility;
     }
 
     uint256 v0 = 1e23; // 100,000 (100 K)
@@ -280,5 +287,34 @@ contract FinanceLibTest is Test {
         uint256 maxError = 1e9;
         assertApproxEqAbs(params.kA, kA, maxError);
         assertApproxEqAbs(params.kB, kB, maxError);
+    }
+
+    function testTradeVolatility() public {
+        uint256 baselineVolatility = 70e16; // 0.7 Wad == 70 %
+        uint256 utilizationRateFactor = 2e18; // 2 Wad
+        uint256 timeDecay = 25e16; // 0.25 Wad
+        uint256 utilizationRate = 50e16; // 0.5 Wad == 50 %
+
+        // Test time decay effect:
+        vm.warp(0);
+        uint256 initialTime = block.timestamp;
+        uint256 maturity = initialTime + 7 days;
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 787500e12));
+        vm.warp(block.timestamp + 1 days);
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 759375e12));
+        vm.warp(block.timestamp + 1 days);
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 731250e12));
+        vm.warp(block.timestamp + 1 days);
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 703125e12));
+        vm.warp(block.timestamp + 1 days);
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 675000e12));
+
+        // ToDo: check corner cases
+    }
+
+    function _checkTradeVolatility(TradeVolatility memory params) internal {
+        uint256 volatility = Finance.tradeVolatility(params.baselineVolatility, params.utilizationRateFactor, params.timeDecay, params.utilizationRate, params.maturity, params.initialTime);
+        uint256 maxError = 1e11;
+        assertApproxEqAbs(params.volatility, volatility, maxError);
     }
 }
