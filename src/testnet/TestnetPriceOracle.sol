@@ -26,8 +26,8 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
     }
 
     // @inheritdoc IPriceOracle
-    function priceDecimals() public pure returns (uint decimals) {
-        decimals = 18;
+    function decimals() public pure override (IPriceOracle, IMarketOracle) returns (uint8) {
+        return 18;
     }
 
     // NOTE: the price is with 18 decimals and is expected to be in USD
@@ -51,7 +51,7 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
         }
 
         if (token == referenceToken && !priceSet[referenceToken]) {
-            return 10 ** priceDecimals();
+            return 10 ** decimals();
         }
 
         if (!priceSet[token]) {

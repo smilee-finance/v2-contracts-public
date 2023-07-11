@@ -14,10 +14,11 @@ library AmountsMath {
     error AddOverflow();
     error MulOverflow();
     error SubUnderflow();
+    error TooManyDecimals();
 
     /// LOGICS ///
 
-    function wrap(uint x) internal pure returns (uint z) {
+    function wrap(uint x) public pure returns (uint z) {
         return mul(x, WAD);
     }
 
@@ -40,12 +41,29 @@ library AmountsMath {
     }
 
     //rounds to zero if x*y < WAD / 2
-    function wmul(uint x, uint y) internal pure returns (uint z) {
+    function wmul(uint x, uint y) public pure returns (uint z) {
         z = add(mul(x, y), WAD / 2) / WAD;
     }
 
     //rounds to zero if x*y < WAD / 2
-    function wdiv(uint x, uint y) internal pure returns (uint z) {
+    function wdiv(uint x, uint y) public pure returns (uint z) {
         z = add(mul(x, WAD), y / 2) / y;
+    }
+
+    function wrapDecimals(uint256 amount, uint8 decimals) public pure returns (uint256) {
+        if (decimals == DECIMALS) {
+            return amount;
+        }
+        if (decimals > DECIMALS) {
+            revert TooManyDecimals();
+        }
+        return mul(amount, 10 ** (DECIMALS - decimals));
+    }
+
+    function unwrapDecimals(uint256 amount, uint8 decimals) public pure returns (uint256) {
+        if (decimals == DECIMALS) {
+            return amount;
+        }
+        return amount / 10 ** (DECIMALS - decimals);
     }
 }

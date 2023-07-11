@@ -15,7 +15,7 @@ interface IPriceOracle {
      * @notice Return the number of decimals for the prices
      * @return decimals Number of decimals for the prices
      */
-    function priceDecimals() external view returns (uint decimals);
+    function decimals() external view returns (uint8 decimals);
 
     /**
         @notice Return Price of token in referenceToken

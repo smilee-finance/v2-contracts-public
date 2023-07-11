@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
+import {IToken} from "../../interfaces/IToken.sol";
 import {AmountsMath} from "../../lib/AmountsMath.sol";
 
 contract UniswapPriceOracle is IPriceOracle {
@@ -28,8 +28,8 @@ contract UniswapPriceOracle is IPriceOracle {
     }
 
     // @inheritdoc IPriceOracle
-    function priceDecimals() public view override returns (uint decimals) {
-        decimals = ERC20(_referenceToken).decimals();
+    function decimals() public view override returns (uint8) {
+        return IToken(_referenceToken).decimals();
     }
 
     // @inheritdoc IPriceOracle
@@ -37,7 +37,7 @@ contract UniswapPriceOracle is IPriceOracle {
         _zeroAddressCheck(token);
 
         if (token == _referenceToken) {
-            return 10 ** priceDecimals();
+            return 10 ** decimals();
         }
 
         return _calculatePriceFromLiquidity(token, _referenceToken);
@@ -53,8 +53,8 @@ contract UniswapPriceOracle is IPriceOracle {
         IUniswapV3Pool pool = _getPool(token0, token1);
         (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
 
-        uint8 poolToken0Decimal = ERC20(pool.token0()).decimals();
-        uint8 poolToken1Decimal = ERC20(pool.token1()).decimals();
+        uint8 poolToken0Decimal = IToken(pool.token0()).decimals();
+        uint8 poolToken1Decimal = IToken(pool.token1()).decimals();
 
         uint256 price = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
 

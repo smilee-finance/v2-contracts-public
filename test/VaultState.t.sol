@@ -104,7 +104,7 @@ contract VaultStateTest is Test {
         vault.rollEpoch();
 
         uint256 expectedBaseTokens = amountToDeposit / 2;
-        uint256 expectedSideTokens = (expectedBaseTokens * 10 ** priceOracle.priceDecimals()) / sideTokenPrice;
+        uint256 expectedSideTokens = (expectedBaseTokens * 10 ** priceOracle.decimals()) / sideTokenPrice;
         (uint256 baseTokens, uint256 sideTokens) = vault.balances();
 
         assertApproxEqAbs(expectedBaseTokens, baseTokens, 1e3);

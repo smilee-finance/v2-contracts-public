@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
+import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 import {Finance} from "./lib/Finance.sol";
 import {Notional} from "./lib/Notional.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
+import {SignedMath} from "./lib/SignedMath.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
@@ -101,7 +102,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
 
         // Get premium from sender:
         premium_ = premium(strike, strategy, amount);
-        IERC20(baseToken).transferFrom(msg.sender, vault, premium_);
+        IToken(baseToken).transferFrom(msg.sender, vault, premium_);
 
         // Decrease available liquidity:
         liquidity.increaseUsage(strike, strategy, amount);
@@ -264,8 +265,12 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         @dev It's also used for the DVP's overall position at maturity.
      */
     function _computePayoff(uint256 strike, bool strategy, uint256 amount) internal view returns (uint256 payoff_) {
+        uint8 decimals = IToken(baseToken).decimals();
+        amount = AmountsMath.wrapDecimals(amount, decimals);
+
         uint256 percentage = _payoffPerc(strike, strategy);
-        payoff_ = (amount * percentage) / 1e18;
+        payoff_ = amount.wmul(percentage);
+        payoff_ = AmountsMath.unwrapDecimals(payoff_, decimals);
     }
 
     /**
@@ -273,6 +278,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         @param strike the reference strike.
         @param strategy the reference strategy.
         @return percentage the payoff percentage.
+        @dev The percentage is expected to be defined in Wad (i.e. 100 % := 1e18)
      */
     function _payoffPerc(uint256 strike, bool strategy) internal view virtual returns (uint256 percentage);
 
@@ -329,6 +335,10 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
     // function getUtilizationRate() public view returns (uint256) {
     //     (uint256 used, uint256 total) = _getUtilizationRateFactors();
 
+    //     uint8 decimals = IToken(baseToken).decimals();
+    //     used = AmountsMath.wrapDecimals(used, decimals);
+    //     total = AmountsMath.wrapDecimals(total, decimals);
+
     //     return used.wdiv(total);
     // }
 
@@ -340,10 +350,15 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
     function _getPostTradeUtilizationRate(int256 amount) internal view returns (uint256 utilizationRate) {
         (uint256 used, uint256 total) = _getUtilizationRateFactors();
 
+        uint8 decimals = IToken(baseToken).decimals();
+        uint256 amountWad = AmountsMath.wrapDecimals(SignedMath.abs(amount), decimals);
+        used = AmountsMath.wrapDecimals(used, decimals);
+        total = AmountsMath.wrapDecimals(total, decimals);
+
         if (amount >= 0) {
-            return (used + uint256(amount)).wdiv(total);
+            return (used.add(amountWad)).wdiv(total);
         } else {
-            return (used - uint256(-amount)).wdiv(total);
+            return (used.sub(amountWad)).wdiv(total);
         }
     }
 
@@ -355,7 +370,8 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         @dev The oracle must provide an updated baseline volatility, computed just before the start of the epoch.
      */
     function _getTradeVolatility(uint256 strike, int256 amount) internal view returns (uint256 sigma) {
-        uint256 baselineVolatility = IMarketOracle(_getMarketOracle()).getImpliedVolatility(baseToken, sideToken, strike, epochFrequency);
+        IMarketOracle oracle = IMarketOracle(_getMarketOracle());
+        uint256 baselineVolatility = AmountsMath.wrapDecimals(oracle.getImpliedVolatility(baseToken, sideToken, strike, epochFrequency), oracle.decimals());
         uint256 U = _getPostTradeUtilizationRate(amount);
         uint256 t0 = _lastRolledEpoch();
         uint256 T = currentEpoch - t0;
@@ -383,11 +399,13 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         return priceOracle;
     }
 
+    // must be defined in Wad
     function setTradeVolatilityUtilizationRateFactor(uint256 utilizationRateFactor) external onlyOwner {
         // ToDo: make the change effective from the next epoch
         _tradeVolatilityUtilizationRateFactor = utilizationRateFactor;
     }
 
+    // must be defined in Wad
     function setTradeVolatilityTimeDecay(uint256 timeDecay) external onlyOwner {
         // ToDo: make the change effective from the next epoch
         _tradeVolatilityTimeDecay = timeDecay;
