@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import {Gaussian} from "@solstat/Gaussian.sol";
 import {Test} from "forge-std/Test.sol";
+import {Gaussian} from "@solstat/Gaussian.sol";
 import {AmountsMath} from "../src/lib/AmountsMath.sol";
-import {Finance} from "../src/lib/Finance.sol";
+import {FinanceIGDelta} from "../src/lib/FinanceIGDelta.sol";
+import {FinanceIGPayoff} from "../src/lib/FinanceIGPayoff.sol";
+import {FinanceIGPrice} from "../src/lib/FinanceIGPrice.sol";
 import {WadTime} from "../src/lib/WadTime.sol";
 
 contract FinanceLibTest is Test {
@@ -19,9 +21,9 @@ contract FinanceLibTest is Test {
     }
 
     struct PriceComponents {
-        Finance.DTerms ds;
-        Finance.DTerms das;
-        Finance.DTerms dbs;
+        FinanceIGPrice.DTerms ds;
+        FinanceIGPrice.DTerms das;
+        FinanceIGPrice.DTerms dbs;
         uint256 pBear1;
         uint256 pBear2;
         uint256 pBear3;
@@ -45,7 +47,8 @@ contract FinanceLibTest is Test {
     struct TestCase {
         // inputs
         uint256 v0;
-        Finance.DeltaPriceParams params;
+        FinanceIGDelta.Parameters deltaParams;
+        FinanceIGPrice.Parameters priceParams;
         // results
         DeltaComponents delta;
         PriceComponents price;
@@ -93,10 +96,10 @@ contract FinanceLibTest is Test {
         uint256 k = 19e20;
         uint256 ka = 18e20;
         uint256 kb = 20e20;
-        uint256 teta = Finance._teta(19e20, ka, kb);
-        (int256 limSup, int256 limInf) = Finance.lims(k, ka, kb, teta);
+        uint256 teta = FinanceIGPrice._teta(19e20, ka, kb);
+        (int256 limSup, int256 limInf) = FinanceIGDelta.lims(k, ka, kb, teta);
         uint256 T = WadTime.nYears(WadTime.daysFraction(1, 1));
-        (int256 alfa1, int256 alfa2) = Finance._alfas(k, ka, kb, sigma, T);
+        (int256 alfa1, int256 alfa2) = FinanceIGDelta._alfas(k, ka, kb, sigma, T);
 
         assertApproxEqAbs(-277394026339900, limInf, ERR);
         assertApproxEqAbs(256320270477425, limSup, ERR);
@@ -107,9 +110,10 @@ contract FinanceLibTest is Test {
         tau = WadTime.nYears(WadTime.daysFraction(1, 1));
         testCases[0] = TestCase(
             v0,
-            Finance.DeltaPriceParams(r, sigma, k, 19e20, tau, ka, kb, teta, limSup, limInf, alfa1, alfa2),
+            FinanceIGDelta.Parameters(sigma, k, 19e20, tau, limSup, limInf, alfa1, alfa2),
+            FinanceIGPrice.Parameters(r, sigma, k, 19e20, tau, ka, kb, teta),
             DeltaComponents(0e9, 0e9, 0e9, 0e9, 0e9),
-            PriceComponents(Finance.DTerms(16226142e9, -9945055e9, 3140544e9), Finance.DTerms(2082131766e9, 2055960569e9, 2069046168e9), Finance.DTerms(-1943687885e9, -1969859081e9, -1956773483e9), 9692368857e9, 9492356948e9, 18441880301e9, 368838939e9, 372383691e9, 9539764291e9, 9741356989e9, 18310708044e9, 486787268e9, 481992674e9, 162287400074e9, 163329325284e9, 325616725358e9),
+            PriceComponents(FinanceIGPrice.DTerms(16226142e9, -9945055e9, 3140544e9), FinanceIGPrice.DTerms(2082131766e9, 2055960569e9, 2069046168e9), FinanceIGPrice.DTerms(-1943687885e9, -1969859081e9, -1956773483e9), 9692368857e9, 9492356948e9, 18441880301e9, 368838939e9, 372383691e9, 9539764291e9, 9741356989e9, 18310708044e9, 486787268e9, 481992674e9, 162287400074e9, 163329325284e9, 325616725358e9),
             Payoff(0e9, 0e9)
         );
 
@@ -117,9 +121,10 @@ contract FinanceLibTest is Test {
         tau = WadTime.nYears(WadTime.daysFraction(5, 6));
         testCases[1] = TestCase(
             v0,
-            Finance.DeltaPriceParams(r, sigma, k, 191e19, tau, ka, kb, teta, limSup, limInf, alfa1, alfa2),
+            FinanceIGDelta.Parameters(sigma, k, 191e19, tau, limSup, limInf, alfa1, alfa2),
+            FinanceIGPrice.Parameters(r, sigma, k, 191e19, tau, ka, kb, teta),
             DeltaComponents(219721760e9, 231726752e9, 219657339e9, 0e9, 3528302790e9),
-            PriceComponents(Finance.DTerms(234534132e9, 210643208e9, 222588670e9), Finance.DTerms(2497620356e9, 2473729432e9, 2485674894e9), Finance.DTerms(-1912444114e9, -1936335038e9, -1924389576e9), 8011886525e9, 7874835940e9, 15636440410e9, 124184603e9, 125149677e9, 11220510079e9, 11460108070e9, 21631545344e9, 525967315e9, 521188622e9, 94777528956e9, 191686789846e9, 286464318802e9),
+            PriceComponents(FinanceIGPrice.DTerms(234534132e9, 210643208e9, 222588670e9), FinanceIGPrice.DTerms(2497620356e9, 2473729432e9, 2485674894e9), FinanceIGPrice.DTerms(-1912444114e9, -1936335038e9, -1924389576e9), 8011886525e9, 7874835940e9, 15636440410e9, 124184603e9, 125149677e9, 11220510079e9, 11460108070e9, 21631545344e9, 525967315e9, 521188622e9, 94777528956e9, 191686789846e9, 286464318802e9),
             Payoff(0e9, 13284809408e9)
         );
 
@@ -127,9 +132,10 @@ contract FinanceLibTest is Test {
         tau = WadTime.nYears(WadTime.daysFraction(4, 6));
         testCases[2] = TestCase(
             v0,
-            Finance.DeltaPriceParams(r, sigma, k, 18e20, tau, ka, kb, teta, limSup, limInf, alfa1, alfa2),
+            FinanceIGDelta.Parameters(sigma, k, 18e20, tau, limSup, limInf, alfa1, alfa2),
+            FinanceIGPrice.Parameters(r, sigma, k, 18e20, tau, ka, kb, teta),
             DeltaComponents(-2530207318e9, -3772441373e9, -5372928641e9, -23163471485e9, 0e9),
-            PriceComponents(Finance.DTerms(-2516958729e9, -2538327421e9, -2527643075e9), Finance.DTerms(13248589e9, -8120103e9, 2564243e9), Finance.DTerms(-4917353381e9, -4938722073e9, -4928037727e9), 19125549799e9, 18113567314e9, 18542486028e9, 9261417195e9, 9420489243e9, 107110264e9, 107845889e9, 214938269e9, 7790e9, 7758e9, 1472464820482e9, 233588717e9, 1472698409200e9),
+            PriceComponents(FinanceIGPrice.DTerms(-2516958729e9, -2538327421e9, -2527643075e9), FinanceIGPrice.DTerms(13248589e9, -8120103e9, 2564243e9), FinanceIGPrice.DTerms(-4917353381e9, -4938722073e9, -4928037727e9), 19125549799e9, 18113567314e9, 18542486028e9, 9261417195e9, 9420489243e9, 107110264e9, 107845889e9, 214938269e9, 7790e9, 7758e9, 1472464820482e9, 233588717e9, 1472698409200e9),
             Payoff(1368223868107e9, 0e9)
         );
 
@@ -137,9 +143,10 @@ contract FinanceLibTest is Test {
         tau = WadTime.nYears(WadTime.daysFraction(3, 6));
         testCases[3] = TestCase(
             v0,
-            Finance.DeltaPriceParams(r, sigma, k, 19e20, tau, ka, kb, teta, limSup, limInf, alfa1, alfa2),
+            FinanceIGDelta.Parameters(sigma, k, 19e20, tau, limSup, limInf, alfa1, alfa2),
+            FinanceIGPrice.Parameters(r, sigma, k, 19e20, tau, ka, kb, teta),
             DeltaComponents(0e9, 0e9, 0e9, 0e9, 0e9),
-            PriceComponents(Finance.DTerms(11473615e9, -7032215e9, 2220700e9), Finance.DTerms(2933105367e9, 2914599537e9, 2923852452e9), Finance.DTerms(-2760263383e9, -2778769213e9, -2769516298e9), 9670418287e9, 9528820228e9, 19131925868e9, 33157570e9, 33335109e9, 9562505239e9, 9704893709e9, 19158602248e9, 54135591e9, 53835639e9, 81996805394e9, 82546947057e9, 164543752451e9),
+            PriceComponents(FinanceIGPrice.DTerms(11473615e9, -7032215e9, 2220700e9), FinanceIGPrice.DTerms(2933105367e9, 2914599537e9, 2923852452e9), FinanceIGPrice.DTerms(-2760263383e9, -2778769213e9, -2769516298e9), 9670418287e9, 9528820228e9, 19131925868e9, 33157570e9, 33335109e9, 9562505239e9, 9704893709e9, 19158602248e9, 54135591e9, 53835639e9, 81996805394e9, 82546947057e9, 164543752451e9),
             Payoff(0e9, 0e9)
         );
 
@@ -147,9 +154,10 @@ contract FinanceLibTest is Test {
         tau = WadTime.nYears(WadTime.daysFraction(2, 6));
         testCases[4] = TestCase(
             v0,
-            Finance.DeltaPriceParams(r, sigma, k, 22e20, tau, ka, kb, teta, limSup, limInf, alfa1, alfa2),
+            FinanceIGDelta.Parameters(sigma, k, 22e20, tau, limSup, limInf, alfa1, alfa2),
+            FinanceIGPrice.Parameters(r, sigma, k, 22e20, tau, ka, kb, teta),
             DeltaComponents(9702447859e9, 135416166317e9, 111881792701e9, 0e9, 25486181863e9),
-            PriceComponents(Finance.DTerms(9711816027e9, 9696706080e9, 9704261053e9), Finance.DTerms(13290069531e9, 13274959584e9, 13282514557e9), Finance.DTerms(6317145354e9, 6302035407e9, 6309590381e9), 0e9, 0e9, 0e9, 0e9, 0e9, 19233186993e9, 22270616137e9, 6e9, 21706711539e9, 19732833493e9, 0e9, 6425809163331e9, 6425809163331e9),
+            PriceComponents(FinanceIGPrice.DTerms(9711816027e9, 9696706080e9, 9704261053e9), FinanceIGPrice.DTerms(13290069531e9, 13274959584e9, 13282514557e9), FinanceIGPrice.DTerms(6317145354e9, 6302035407e9, 6309590381e9), 0e9, 0e9, 0e9, 0e9, 0e9, 19233186993e9, 22270616137e9, 6e9, 21706711539e9, 19732833493e9, 0e9, 6425809163331e9, 6425809163331e9),
             Payoff(0e9, 6424440250048e9)
         );
 
@@ -157,9 +165,10 @@ contract FinanceLibTest is Test {
         tau = WadTime.nYears(WadTime.daysFraction(1, 6));
         testCases[5] = TestCase(
             v0,
-            Finance.DeltaPriceParams(r, sigma, k, 195e19, tau, ka, kb, teta, limSup, limInf, alfa1, alfa2),
+            FinanceIGDelta.Parameters(sigma, k, 195e19, tau, limSup, limInf, alfa1, alfa2),
+            FinanceIGPrice.Parameters(r, sigma, k, 195e19, tau, ka, kb, teta),
             DeltaComponents(2431172316e9, 5023864010e9, 3546214303e9, 0e9, 21147001461e9),
-            PriceComponents(Finance.DTerms(2437796611e9, 2427112265e9, 2432454438e9), Finance.DTerms(7498211246e9, 7487526900e9, 7492869073e9), Finance.DTerms(-2362992694e9, -2373677040e9, -2368334867e9), 146362187e9, 145848833e9, 292210186e9, 0e9, 0e9, 19087088276e9, 19594015471e9, 38329098084e9, 174391980e9, 173769195e9, 83426057e9, 384448704120e9, 384532130178e9),
+            PriceComponents(FinanceIGPrice.DTerms(2437796611e9, 2427112265e9, 2432454438e9), FinanceIGPrice.DTerms(7498211246e9, 7487526900e9, 7492869073e9), FinanceIGPrice.DTerms(-2362992694e9, -2373677040e9, -2368334867e9), 146362187e9, 145848833e9, 292210186e9, 0e9, 0e9, 19087088276e9, 19594015471e9, 38329098084e9, 174391980e9, 173769195e9, 83426057e9, 384448704120e9, 384532130178e9),
             Payoff(0e9, 328682929026e9)
         );
 
@@ -167,9 +176,10 @@ contract FinanceLibTest is Test {
         tau = WadTime.nYears(WadTime.daysFraction(1, 1000));
         testCases[6] = TestCase(
             v0,
-            Finance.DeltaPriceParams(r, sigma, k, 38e20, tau, ka, kb, teta, limSup, limInf, alfa1, alfa2),
+            FinanceIGDelta.Parameters(sigma, k, 38e20, tau, limSup, limInf, alfa1, alfa2),
+            FinanceIGPrice.Parameters(r, sigma, k, 38e20, tau, ka, kb, teta),
             DeltaComponents(837532924917e9, 73056983092042700e9, 72881617741962600e9, 0e9, 25632026824e9),
-            PriceComponents(Finance.DTerms(837533438033e9, 837532610427e9, 837533024230e9), Finance.DTerms(902863110060e9, 902862282454e9, 902862696257e9), Finance.DTerms(775555514611e9, 775554687005e9, 775555100808e9), 0e9, 0e9, 0e9, 0e9, 0e9, 19233712356e9, 38467427873e9, 0e9, 37493410845e9, 19733372507e9, 0e9, 47435687633232e9, 47435687633232e9),
+            PriceComponents(FinanceIGPrice.DTerms(837533438033e9, 837532610427e9, 837533024230e9), FinanceIGPrice.DTerms(902863110060e9, 902862282454e9, 902862696257e9), FinanceIGPrice.DTerms(775555514611e9, 775554687005e9, 775555100808e9), 0e9, 0e9, 0e9, 0e9, 0e9, 19233712356e9, 38467427873e9, 0e9, 37493410845e9, 19733372507e9, 0e9, 47435687633232e9, 47435687633232e9),
             Payoff(0e9, 47435683526437e9)
         );
 
@@ -180,15 +190,15 @@ contract FinanceLibTest is Test {
         uint256 D_ERR = 4e13;
 
         for (uint256 i = 0; i < testCasesNum; i++) {
-            uint256 sigmaTaurtd = Finance._sigmaTaurtd(testCases[i].params.sigma, testCases[i].params.tau);
-            int256 x = Finance._x(testCases[i].params.s, testCases[i].params.k, sigmaTaurtd);
-            (int256 bullAtanArg, int256 bearAtanArg) = Finance.atanArgs(x, testCases[i].params.alfa1, testCases[i].params.alfa2);
+            uint256 sigmaTaurtd = FinanceIGDelta._sigmaTaurtd(testCases[i].deltaParams.sigma, testCases[i].deltaParams.tau);
+            int256 x = FinanceIGDelta._x(testCases[i].deltaParams.s, testCases[i].deltaParams.k, sigmaTaurtd);
+            (int256 bullAtanArg, int256 bearAtanArg) = FinanceIGDelta.atanArgs(x, testCases[i].deltaParams.alfa1, testCases[i].deltaParams.alfa2);
 
             assertApproxEqAbs(testCases[i].delta.x, x, D_ERR);
             assertApproxEqAbs(testCases[i].delta.bullAtanArg, bullAtanArg, D_ERR);
             assertApproxEqAbs(testCases[i].delta.bearAtanArg, bearAtanArg, D_ERR);
 
-            (int256 igDBull, int256 igDBear) = Finance.igDeltas(testCases[i].params);
+            (int256 igDBull, int256 igDBear) = FinanceIGDelta.igDeltas(testCases[i].deltaParams);
 
             igDBull = (int256(testCases[i].v0) * igDBull) / 1e18;
             igDBear = (int256(testCases[i].v0) * igDBear) / 1e18;
@@ -200,7 +210,7 @@ contract FinanceLibTest is Test {
 
     function testTermsDs() public {
         for (uint256 i = 0; i < testCasesNum; i++) {
-            (Finance.DTerms memory ds, Finance.DTerms memory das, Finance.DTerms memory dbs) = Finance.dTerms(testCases[i].params);
+            (FinanceIGPrice.DTerms memory ds, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(testCases[i].priceParams);
 
             assertApproxEqAbs(testCases[i].price.ds.d1, ds.d1, ERR);
             assertApproxEqAbs(testCases[i].price.ds.d2, ds.d2, ERR);
@@ -218,16 +228,16 @@ contract FinanceLibTest is Test {
 
     function testPs() public {
         for (uint256 i = 0; i < testCasesNum; i++) {
-            (Finance.DTerms memory ds, Finance.DTerms memory das, Finance.DTerms memory dbs) = Finance.dTerms(testCases[i].params);
-            Finance.NTerms memory ns = Finance.nTerms(ds);
-            Finance.NTerms memory nas = Finance.nTerms(das);
-            Finance.NTerms memory nbs = Finance.nTerms(dbs);
+            (FinanceIGPrice.DTerms memory ds, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(testCases[i].priceParams);
+            FinanceIGPrice.NTerms memory ns = FinanceIGPrice.nTerms(ds);
+            FinanceIGPrice.NTerms memory nas = FinanceIGPrice.nTerms(das);
+            FinanceIGPrice.NTerms memory nbs = FinanceIGPrice.nTerms(dbs);
 
-            uint256 ert = Finance._ert(testCases[i].params.r, testCases[i].params.tau);
-            uint256 sdivk = (testCases[i].params.s).wdiv(testCases[i].params.k);
+            uint256 ert = FinanceIGPrice._ert(testCases[i].priceParams.r, testCases[i].priceParams.tau);
+            uint256 sdivk = (testCases[i].priceParams.s).wdiv(testCases[i].priceParams.k);
 
             {
-                Finance.PriceParts memory ps = Finance.pBullParts(testCases[i].params, ert, sdivk, ns, nbs);
+                FinanceIGPrice.PriceParts memory ps = FinanceIGPrice.pBullParts(testCases[i].priceParams, ert, sdivk, ns, nbs);
                 assertApproxEqAbs(testCases[i].price.pBull1, ps.p1, ERR);
                 assertApproxEqAbs(testCases[i].price.pBull2, ps.p2, ERR);
                 assertApproxEqAbs(testCases[i].price.pBull3, ps.p3, ERR);
@@ -236,7 +246,7 @@ contract FinanceLibTest is Test {
             }
 
             {
-                Finance.PriceParts memory ps = Finance.pBearParts(testCases[i].params, ert, sdivk, ns, nas);
+                FinanceIGPrice.PriceParts memory ps = FinanceIGPrice.pBearParts(testCases[i].priceParams, ert, sdivk, ns, nas);
                 assertApproxEqAbs(testCases[i].price.pBear1, ps.p1, ERR);
                 assertApproxEqAbs(testCases[i].price.pBear2, ps.p2, ERR);
                 assertApproxEqAbs(testCases[i].price.pBear3, ps.p3, ERR);
@@ -248,7 +258,7 @@ contract FinanceLibTest is Test {
 
     function testPrices() public {
         for (uint256 i = 0; i < testCasesNum; i++) {
-            (uint256 pBull, uint256 pBear) = Finance.igPrices(testCases[i].params);
+            (uint256 pBull, uint256 pBear) = FinanceIGPrice.igPrices(testCases[i].priceParams);
             assertApproxEqAbs(testCases[i].price.pBull, testCases[i].v0.wmul(pBull), 6e16);
             assertApproxEqAbs(testCases[i].price.pBear, testCases[i].v0.wmul(pBear), 6e16);
         }
@@ -256,7 +266,7 @@ contract FinanceLibTest is Test {
 
     function testPayoff() public {
         for (uint256 i = 0; i < testCasesNum; i++) {
-            (uint256 poBull, uint256 poBear) = Finance.igPayoffPerc(testCases[i].params.s, testCases[i].params.k, testCases[i].params.ka, testCases[i].params.kb, testCases[i].params.teta);
+            (uint256 poBull, uint256 poBear) = FinanceIGPayoff.igPayoffPerc(testCases[i].priceParams.s, testCases[i].priceParams.k, testCases[i].priceParams.ka, testCases[i].priceParams.kb, testCases[i].priceParams.teta);
             assertApproxEqAbs(testCases[i].payoff.igBull, testCases[i].v0.wmul(poBull), ERR);
             assertApproxEqAbs(testCases[i].payoff.igBear, testCases[i].v0.wmul(poBear), ERR);
         }
@@ -283,7 +293,7 @@ contract FinanceLibTest is Test {
     }
 
     function _checkLiquidityRange(LiquidityRange memory params) internal {
-        (uint256 kA, uint256 kB) = Finance.liquidityRange(params.strike, params.volatility, params.volatilityMultiplier, params.yearsOfMaturity);
+        (uint256 kA, uint256 kB) = FinanceIGPrice.liquidityRange(FinanceIGPrice.LiquidityRangeParams(params.strike, params.volatility, params.volatilityMultiplier, params.yearsOfMaturity));
         uint256 maxError = 1e9;
         assertApproxEqAbs(params.kA, kA, maxError);
         assertApproxEqAbs(params.kB, kB, maxError);
@@ -313,7 +323,7 @@ contract FinanceLibTest is Test {
     }
 
     function _checkTradeVolatility(TradeVolatility memory params) internal {
-        uint256 volatility = Finance.tradeVolatility(params.baselineVolatility, params.utilizationRateFactor, params.timeDecay, params.utilizationRate, params.maturity, params.initialTime);
+        uint256 volatility = FinanceIGPrice.tradeVolatility(FinanceIGPrice.TradeVolatilityParams(params.baselineVolatility, params.utilizationRateFactor, params.timeDecay, params.utilizationRate, params.maturity, params.initialTime));
         uint256 maxError = 1e11;
         assertApproxEqAbs(params.volatility, volatility, maxError);
     }

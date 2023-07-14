@@ -8,7 +8,7 @@ import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
-import {Finance} from "./lib/Finance.sol";
+import {FinanceIGPrice} from "./lib/FinanceIGPrice.sol";
 import {Notional} from "./lib/Notional.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
@@ -100,15 +100,22 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
             revert NotEnoughLiquidity();
         }
 
-        // Get premium from sender:
         premium_ = premium(strike, strategy, amount);
+
+        // TBD: add comments
+        _deltaHedgePosition(strike, strategy, int256(amount));
+
+        // ToDo: recompute the premium by taking into account also the price used in the dex
+        // ToDo: revert if actual price exceeds the premium
+        // TBD: accept user expectations of premium (there is the approved one), utilization rate but also the time
+        // TBD: Right now we may choose to use a DVP-wide slippage of +10% (-10% for burn).
+        // ---- TBD: use the approved premium as a reference ?
+
+        // Get premium from sender:
         IToken(baseToken).transferFrom(msg.sender, vault, premium_);
 
         // Decrease available liquidity:
         liquidity.increaseUsage(strike, strategy, amount);
-
-        // TBD: add comments
-        _deltaHedgePosition(strike, strategy, int256(amount));
 
         // Create or update position:
         Position.Info storage position = _getPosition(currentEpoch, recipient, strategy, strike);
@@ -362,6 +369,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         }
     }
 
+    // ToDo: make public for frontend
     /**
         @notice Get the estimated implied volatility from a given trade.
         @param strike The trade strike.
@@ -376,7 +384,8 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         uint256 t0 = _lastRolledEpoch();
         uint256 T = currentEpoch - t0;
 
-        return Finance.tradeVolatility(baselineVolatility, _tradeVolatilityUtilizationRateFactor, _tradeVolatilityTimeDecay, U, T, t0);
+        // ToDo: review as it shouldn't use an IG formula within the generic DVP context
+        return FinanceIGPrice.tradeVolatility(FinanceIGPrice.TradeVolatilityParams(baselineVolatility, _tradeVolatilityUtilizationRateFactor, _tradeVolatilityTimeDecay, U, T, t0));
     }
 
     function _getMarketOracle() internal view returns (address) {

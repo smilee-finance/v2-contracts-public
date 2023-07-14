@@ -6,7 +6,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 library AmountsMath {
     using Math for uint256;
 
-    uint private constant DECIMALS = 18;
+    uint8 private constant DECIMALS = 18;
     uint private constant WAD = 10 ** 18;
 
     /// ERRORS ///

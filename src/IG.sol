@@ -9,7 +9,9 @@ import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 import {DVPType} from "./lib/DVPType.sol";
-import {Finance} from "./lib/Finance.sol";
+import {FinanceIGDelta} from "./lib/FinanceIGDelta.sol";
+import {FinanceIGPayoff} from "./lib/FinanceIGPayoff.sol";
+import {FinanceIGPrice} from "./lib/FinanceIGPrice.sol";
 import {Notional} from "./lib/Notional.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {SignedMath} from "./lib/SignedMath.sol";
@@ -51,8 +53,8 @@ contract IG is DVP {
         bool strategy,
         uint256 amount
     ) external override returns (uint256 leverage) {
-        strike;
-        leverage = _mint(recipient, currentStrike, strategy, amount);
+        strike = currentStrike;
+        leverage = _mint(recipient, strike, strategy, amount);
     }
 
     /// @inheritdoc IDVP
@@ -68,7 +70,25 @@ contract IG is DVP {
 
     /// @inheritdoc IDVP
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual override returns (uint256) {
-        (uint256 igDBull, uint256 igDBear) = Finance.igPrices(_getFinanceParameters(strike, int256(amount)));
+        strike = currentStrike;
+
+        FinanceIGPrice.Parameters memory params;
+        {
+            IMarketOracle marketOracle = IMarketOracle(_getMarketOracle());
+            IPriceOracle priceOracle = IPriceOracle(_getPriceOracle());
+
+            params.r = AmountsMath.wrapDecimals(marketOracle.getRiskFreeRate(sideToken, baseToken), marketOracle.decimals());
+            params.sigma = _getTradeVolatility(strike, int256(amount));
+            params.k = strike;
+            // ToDo: use oracle price when we perform a preview of the premium, but use a price parameter on mint/burn
+            params.s = AmountsMath.wrapDecimals(priceOracle.getPrice(sideToken, baseToken), priceOracle.decimals());
+            params.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
+            params.ka = _currentFinanceParameters.kA;
+            params.kb = _currentFinanceParameters.kB;
+            params.teta = _currentFinanceParameters.theta;
+        }
+
+        (uint256 igDBull, uint256 igDBear) = FinanceIGPrice.igPrices(params);
 
         // Convert base token notional to Wad for computations:
         uint8 decimals = IToken(baseToken).decimals();
@@ -83,53 +103,52 @@ contract IG is DVP {
 
     /// @inheritdoc DVP
     function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional) internal virtual override {
-        // ToDo: review and complete formulas
-        // TBD: use totalNotional := _liquidity.initial - (notional + _liquidity.used);
-        (int256 igDBull, int256 igDBear) = Finance.igDeltas(_getFinanceParameters(strike, notional));
-
-        // Convert base token notional to Wad for computations:
-        uint8 decimals = IToken(baseToken).decimals();
-        uint256 notionalWad = AmountsMath.wrapDecimals(SignedMath.abs(notional), decimals);
-
-        bool positive = true;
-        uint256 sideTokensAmount;
-        if (strategy == OptionStrategy.CALL) {
-            sideTokensAmount = notionalWad.wmul(SignedMath.abs(igDBull));
-            if (igDBull < 0) {
-                positive = false;
-            }
-        } else {
-            sideTokensAmount = notionalWad.wmul(SignedMath.abs(igDBear));
-            if (igDBear < 0) {
-                positive = false;
-            }
-        }
-
-        // Convert Wad amount to side tokens amount:
-        decimals = IToken(sideToken).decimals();
-        sideTokensAmount = AmountsMath.unwrapDecimals(sideTokensAmount, decimals);
-
-        IVault(vault).deltaHedge(SignedMath.revabs(sideTokensAmount, positive));
-    }
-
-    function _getFinanceParameters(uint256 strike, int256 notional) internal view returns (Finance.DeltaPriceParams memory) {
-        IMarketOracle marketOracle = IMarketOracle(_getMarketOracle());
+        FinanceIGDelta.DeltaHedgeParameters memory params;
         IPriceOracle priceOracle = IPriceOracle(_getPriceOracle());
 
-        return Finance.DeltaPriceParams(
-            AmountsMath.wrapDecimals(marketOracle.getRiskFreeRate(sideToken, baseToken), marketOracle.decimals()),
-            _getTradeVolatility(strike, notional),
-            strike,
-            AmountsMath.wrapDecimals(priceOracle.getPrice(sideToken, baseToken), priceOracle.decimals()),
-            WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch)),
-            _currentFinanceParameters.kA,
-            _currentFinanceParameters.kB,
-            _currentFinanceParameters.theta,
-            _currentFinanceParameters.limSup,
-            _currentFinanceParameters.limInf,
-            _currentFinanceParameters.alphaA,
-            _currentFinanceParameters.alphaB
-        );
+        {
+            FinanceIGDelta.Parameters memory deltaParams;
+            {
+                deltaParams.sigma = _getTradeVolatility(strike, notional);
+                deltaParams.k = strike;
+                // TBD: use a price parameter
+                deltaParams.s = AmountsMath.wrapDecimals(priceOracle.getPrice(sideToken, baseToken), priceOracle.decimals());
+                deltaParams.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
+                deltaParams.limSup = _currentFinanceParameters.limSup;
+                deltaParams.limInf = _currentFinanceParameters.limInf;
+                deltaParams.alfa1 = _currentFinanceParameters.alphaA;
+                deltaParams.alfa2 = _currentFinanceParameters.alphaB;
+            }
+
+            (params.igDBull, params.igDBear) = FinanceIGDelta.igDeltas(deltaParams);
+            params.strike = strike;
+            (, params.sideTokensAmount) = IVault(vault).balances();
+            params.notionalUp = AmountsMath.wrapDecimals(SignedMath.abs(notional), IToken(baseToken).decimals());
+            params.notionalDown = 0;
+            if (strategy == OptionStrategy.PUT) {
+                params.notionalDown = params.notionalUp;
+                params.notionalUp = 0;
+            }
+            params.baseTokenDecimals = IToken(baseToken).decimals();
+            params.sideTokenDecimals = IToken(sideToken).decimals();
+            Notional.Info storage liquidity = _liquidity[currentEpoch];
+            params.initialLiquidityBull = liquidity.getInitial(strike, OptionStrategy.CALL);
+            params.initialLiquidityBear = liquidity.getInitial(strike, OptionStrategy.PUT);
+            params.availableLiquidityBull = liquidity.available(strike, OptionStrategy.CALL);
+            params.availableLiquidityBear = liquidity.available(strike, OptionStrategy.PUT);
+        }
+
+        int256 tokensToSwap = FinanceIGDelta.h(params);
+
+        if (tokensToSwap == 0) {
+            // ToDo: return the oracle price
+            // IPriceOracle priceOracle = IPriceOracle(_getPriceOracle());
+            // uint256 price = AmountsMath.wrapDecimals(priceOracle.getPrice(sideToken, baseToken), priceOracle.decimals());
+            return;
+        }
+
+        // ToDo: return the swap price := tokens obtained / tokens paid)
+        IVault(vault).deltaHedge(tokensToSwap);
     }
 
     /// @inheritdoc DVP
@@ -137,7 +156,7 @@ contract IG is DVP {
         IPriceOracle priceOracle = IPriceOracle(_getPriceOracle());
         uint256 tokenPrice = AmountsMath.wrapDecimals(priceOracle.getPrice(sideToken, baseToken), priceOracle.decimals());
 
-        (uint256 igPOBull, uint256 igPOBear) = Finance.igPayoffPerc(tokenPrice, strike, _currentFinanceParameters.kA, _currentFinanceParameters.kB, _currentFinanceParameters.theta);
+        (uint256 igPOBull, uint256 igPOBear) = FinanceIGPayoff.igPayoffPerc(tokenPrice, strike, _currentFinanceParameters.kA, _currentFinanceParameters.kB, _currentFinanceParameters.theta);
         if (strategy == OptionStrategy.CALL) {
             return igPOBull;
         } else {
@@ -176,22 +195,16 @@ contract IG is DVP {
                 currentStrike = sideTokenAmount.wdiv(baseTokenAmount);
             }
 
-            // ToDo: review
-            IMarketOracle marketOracle = IMarketOracle(_getMarketOracle());
-            uint256 baselineVolatility = AmountsMath.wrapDecimals(marketOracle.getImpliedVolatility(baseToken, sideToken, currentStrike, epochFrequency), marketOracle.decimals());
-            uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(_lastRolledEpoch(), currentEpoch));
-            (uint256 kA, uint256 kB) = Finance.liquidityRange(currentStrike, baselineVolatility, _currentFinanceParameters.sigmaMultiplier, yearsToMaturity);
-            (int256 alphaA, int256 alphaB) = Finance._alfas(currentStrike, kA, kB, baselineVolatility, yearsToMaturity);
-            uint256 theta = Finance._teta(currentStrike, kA, kB);
-            (int256 limSup, int256 limInf) = Finance.lims(currentStrike, kA, kB, theta);
-            _currentFinanceParameters.sigmaZero = baselineVolatility;
-            _currentFinanceParameters.kA = kA;
-            _currentFinanceParameters.kB = kB;
-            _currentFinanceParameters.theta = theta;
-            _currentFinanceParameters.alphaA = alphaA;
-            _currentFinanceParameters.alphaB = alphaB;
-            _currentFinanceParameters.limSup = limSup;
-            _currentFinanceParameters.limInf = limInf;
+            {
+                // ToDo: review
+                IMarketOracle marketOracle = IMarketOracle(_getMarketOracle());
+                _currentFinanceParameters.sigmaZero = AmountsMath.wrapDecimals(marketOracle.getImpliedVolatility(baseToken, sideToken, currentStrike, epochFrequency), marketOracle.decimals());
+                uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(_lastRolledEpoch(), currentEpoch));
+                (_currentFinanceParameters.kA, _currentFinanceParameters.kB) = FinanceIGPrice.liquidityRange(FinanceIGPrice.LiquidityRangeParams(currentStrike, _currentFinanceParameters.sigmaZero, _currentFinanceParameters.sigmaMultiplier, yearsToMaturity));
+                (_currentFinanceParameters.alphaA, _currentFinanceParameters.alphaB) = FinanceIGDelta._alfas(currentStrike, _currentFinanceParameters.kA, _currentFinanceParameters.kB, _currentFinanceParameters.sigmaZero, yearsToMaturity);
+                _currentFinanceParameters.theta = FinanceIGPrice._teta(currentStrike, _currentFinanceParameters.kA, _currentFinanceParameters.kB);
+                (_currentFinanceParameters.limSup, _currentFinanceParameters.limInf) = FinanceIGDelta.lims(currentStrike, _currentFinanceParameters.kA, _currentFinanceParameters.kB, _currentFinanceParameters.theta);
+            }
         }
 
         super._afterRollEpoch();

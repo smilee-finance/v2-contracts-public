@@ -548,7 +548,6 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         }
 
         IERC20(baseToken).approve(exchangeAddress, baseTokensAmount);
-
         exchange.swapOut(baseToken, sideToken, amount);
     }
 

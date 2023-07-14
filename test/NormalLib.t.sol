@@ -5,11 +5,6 @@ import "forge-std/console.sol";
 import {FixedPointMathLib} from "../src/lib/FixedPointMathLib.sol";
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {IDVP} from "../src/interfaces/IDVP.sol";
-import {AmountsMath} from "../src/lib/AmountsMath.sol";
-import {Finance} from "../src/lib/Finance.sol";
-import {WadTime} from "../src/lib/WadTime.sol";
 import {Normal} from "../src/lib/Normal.sol";
 
 contract NormalLibTest is Test {
