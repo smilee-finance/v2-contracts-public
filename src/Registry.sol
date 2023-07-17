@@ -21,7 +21,7 @@ contract Registry is AccessControl, IRegistry {
     }
 
     /// @inheritdoc IRegistry
-    function register(address dvpAddr) public onlyRole(ADMIN_ROLE) virtual {
+    function register(address dvpAddr) public virtual onlyRole(ADMIN_ROLE) {
         _dvps.push(dvpAddr);
         _registeredDVPs[dvpAddr] = true;
 
@@ -34,7 +34,7 @@ contract Registry is AccessControl, IRegistry {
     }
 
     /// @inheritdoc IRegistry
-    function unregister(address addr) public onlyRole(ADMIN_ROLE) virtual {
+    function unregister(address addr) public virtual onlyRole(ADMIN_ROLE) {
         if (!_registeredDVPs[addr]) {
             revert MissingAddress();
         }
@@ -78,14 +78,13 @@ contract Registry is AccessControl, IRegistry {
                 break;
             }
         }
+
         if (!found) {
             _tokens.push(sideToken);
         }
 
         address[] storage list = _DVPsBySideToken[sideToken];
-        if (list.length == 0) {
-            return;
-        }
+
         found = false;
         for (uint256 i = 0; i < list.length; i++) {
             if (list[i] == dvp) {
@@ -96,6 +95,7 @@ contract Registry is AccessControl, IRegistry {
         if (found) {
             return;
         }
+
         _DVPsBySideToken[sideToken].push(dvp);
     }
 

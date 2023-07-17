@@ -11,17 +11,40 @@ import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
 import {TokenUtils} from "./TokenUtils.sol";
 
-library VaultUtils
-{
-    function createVault(uint256 epochFrequency,
+library VaultUtils {
+    function createVault(uint256 epochFrequency, AddressProvider ap, address admin, Vm vm) public returns (address) {
+        // NOTE: the stable base token must be the first as it's used as reference for the price oracle if it doesn't exists in the AddressProvider.
+        address baseToken = TokenUtils.createToken("Testnet USD", "stUSD", address(ap), admin, vm);
+        return createVaultSideTokenSym(baseToken, "WETH", epochFrequency, ap, admin, vm);
+    }
+
+    function createVaultSideTokenSym(
+        address baseToken,
+        string memory sideTokenSym,
+        uint256 epochFrequency,
         AddressProvider ap,
         address admin,
         Vm vm
     ) public returns (address) {
-        // NOTE: the stable base token must be the first as it's used as reference for the price oracle if it doesn't exists in the AddressProvider.
-        address baseToken = TokenUtils.createToken("Testnet USD", "stUSD", address(ap), admin, vm);
-        address sideToken = TokenUtils.createToken("Testnet WETH", "stWETH", address(ap), admin, vm);
+        address sideToken = TokenUtils.createToken(
+            string.concat("Testnet ", sideTokenSym),
+            string.concat("st", sideTokenSym),
+            address(ap),
+            admin,
+            vm
+        );
 
+        return createVaultTokens(baseToken, sideToken, epochFrequency, ap, admin, vm);
+    }
+
+    function createVaultTokens(
+        address baseToken,
+        address sideToken,
+        uint256 epochFrequency,
+        AddressProvider ap,
+        address admin,
+        Vm vm
+    ) public returns (address) {
         vm.startPrank(admin);
         TestnetPriceOracle priceOracle = TestnetPriceOracle(ap.priceOracle());
         priceOracle.setTokenPrice(sideToken, 1 ether);
