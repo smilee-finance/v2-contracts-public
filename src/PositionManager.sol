@@ -80,7 +80,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             cumulatedPayoff: position.cumulatedPayoff
         });
     }
-    
+
     /// @inheritdoc IPositionManager
     function mint(IPositionManager.MintParams calldata params) external override returns (uint256 tokenId, uint256 premium) {
         IDVP dvp = IDVP(params.dvpAddr);

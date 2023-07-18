@@ -67,6 +67,18 @@ library Notional {
         return self.initial[strike][_strategyIdx(strategy)] - self.used[strike][_strategyIdx(strategy)];
     }
 
+    function aggregatedInfo(
+        Info storage self,
+        uint256 strike
+    ) public view returns (uint256 call, uint256 put, uint256 callAvail, uint256 putAvail) {
+        return (
+            self.initial[strike][_strategyIdx(false)],
+            self.initial[strike][_strategyIdx(true)],
+            self.initial[strike][_strategyIdx(false)] - self.used[strike][_strategyIdx(false)],
+            self.initial[strike][_strategyIdx(true)] - self.used[strike][_strategyIdx(true)]
+        );
+    }
+
     /**
         @notice Record the increased usage of liquidity.
         @param strike the reference strike.
@@ -126,7 +138,11 @@ library Notional {
         @param strategy the reference strategy.
         @return payoff_ the payoff set aside.
      */
-    function getAccountedPayoff(Info storage self, uint256 strike, bool strategy) public view returns (uint256 payoff_) {
+    function getAccountedPayoff(
+        Info storage self,
+        uint256 strike,
+        bool strategy
+    ) public view returns (uint256 payoff_) {
         return self.payoff[strike][_strategyIdx(strategy)];
     }
 
