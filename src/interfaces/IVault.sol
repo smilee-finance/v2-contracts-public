@@ -9,19 +9,19 @@ import {IVaultParams} from "./IVaultParams.sol";
     Seam point for Vault usage by a DVP.
  */
 interface IVault is IVaultParams {
-    // ToDo: review in order to keep only the state needed by the DVP (e.g. dead).
-    function vaultState()
-        external
-        view
-        returns (
-            uint256 lockedLiquidityInitially,
-            uint256 pendingDeposits,
-            uint256 totalWithdrawAmount,
-            uint256 pendingPayoffs,
-            uint256 queuedWithdrawShares,
-            uint256 currentQueuedWithdrawShares,
-            bool dead
-        );
+    // // ToDo: review in order to keep only the state needed by the DVP (e.g. dead).
+    // function vaultState()
+    //     external
+    //     view
+    //     returns (
+    //         uint256 lockedLiquidityInitially,
+    //         uint256 pendingDeposits,
+    //         uint256 totalWithdrawAmount,
+    //         uint256 pendingPayoffs,
+    //         uint256 queuedWithdrawShares,
+    //         uint256 currentQueuedWithdrawShares,
+    //         bool dead
+    //     );
 
     // TBD: rename with something more suitable...
     /**
@@ -41,7 +41,7 @@ interface IVault is IVaultParams {
     /**
         ToDo
      */
-    function deltaHedge(int256 sideTokensAmount) external;
+    function deltaHedge(int256 sideTokensAmount) external returns (uint256 baseTokens);
 
     /**
         @notice Update Vault State with the amount of reserved payoff

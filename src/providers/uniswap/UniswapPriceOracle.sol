@@ -28,16 +28,11 @@ contract UniswapPriceOracle is IPriceOracle {
     }
 
     // @inheritdoc IPriceOracle
-    function decimals() public view override returns (uint8) {
-        return IToken(_referenceToken).decimals();
-    }
-
-    // @inheritdoc IPriceOracle
     function getTokenPrice(address token) public view returns (uint) {
         _zeroAddressCheck(token);
 
         if (token == _referenceToken) {
-            return 10 ** decimals();
+            return 1e18;
         }
 
         return _calculatePriceFromLiquidity(token, _referenceToken);

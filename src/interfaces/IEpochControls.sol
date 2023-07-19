@@ -9,11 +9,11 @@ interface IEpochControls {
     error EpochNotInitialized();
     error EpochNotFinished();
 
-    /**
-        @notice The list of currently executed epochs
-        @return The list of epoch ends (timestamps) identifying the epochs
-     */
-    function epochs() external view returns (uint256[] memory);
+    // /**
+    //     @notice The list of currently executed epochs
+    //     @return The list of epoch ends (timestamps) identifying the epochs
+    //  */
+    // function epochs() external view returns (uint256[] memory);
 
     /**
         @notice The frequency type of this object epochs

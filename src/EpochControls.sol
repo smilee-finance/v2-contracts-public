@@ -5,7 +5,7 @@ import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {EpochFrequency} from "./lib/EpochFrequency.sol";
 
 abstract contract EpochControls is IEpochControls {
-    uint256[] private _epochs;
+    uint256[] public epochs;
 
     /**
         @inheritdoc IEpochControls
@@ -59,13 +59,13 @@ abstract contract EpochControls is IEpochControls {
 
     /// LOGIC ///
 
-    /**
-        @inheritdoc IEpochControls
-     */
-    function epochs() public view override returns (uint256[] memory) {
-        // ToDo: review as the interface states that those should be the completed ones!
-        return _epochs;
-    }
+    // /**
+    //     @inheritdoc IEpochControls
+    //  */
+    // function epochs() public view override returns (uint256[] memory) {
+    //     // ToDo: review as the interface states that those should be the completed ones!
+    //     return epochs;
+    // }
 
     /**
         @inheritdoc IEpochControls
@@ -88,7 +88,7 @@ abstract contract EpochControls is IEpochControls {
         }
 
         currentEpoch = nextEpoch;
-        _epochs.push(currentEpoch);
+        epochs.push(currentEpoch);
 
         _afterRollEpoch();
     }
@@ -135,9 +135,9 @@ abstract contract EpochControls is IEpochControls {
         @dev Second last timestamp
      */
     function _lastRolledEpoch() internal view epochInitialized returns (uint256 lastEpoch) {
-        if (_epochs.length == 1) {
+        if (epochs.length == 1) {
             return 0;
         }
-        lastEpoch = _epochs[_epochs.length - 2];
+        lastEpoch = epochs[epochs.length - 2];
     }
 }

@@ -121,12 +121,17 @@ library FinanceIGDelta {
     }
 
     function h(DeltaHedgeParameters memory params) public pure returns (int256 tokensToSwap) {
+        params.initialLiquidityBull = AmountsMath.wrapDecimals(params.initialLiquidityBull, params.baseTokenDecimals);
+        params.initialLiquidityBear = AmountsMath.wrapDecimals(params.initialLiquidityBear, params.baseTokenDecimals);
+        params.availableLiquidityBull = AmountsMath.wrapDecimals(params.availableLiquidityBull, params.baseTokenDecimals);
+        params.availableLiquidityBear = AmountsMath.wrapDecimals(params.availableLiquidityBear, params.baseTokenDecimals);
+        params.notionalUp = AmountsMath.wrapDecimals(params.notionalUp, params.baseTokenDecimals);
+        params.notionalDown = AmountsMath.wrapDecimals(params.notionalDown, params.baseTokenDecimals);
+        params.sideTokensAmount = AmountsMath.wrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
         uint256 two = AmountsMath.wrap(2);
 
         uint256 up = SignedMath.abs(params.igDBull).wmul(two).wmul(params.availableLiquidityBull.sub(params.notionalUp));
         uint256 down = SignedMath.abs(params.igDBear).wmul(two).wmul(params.availableLiquidityBear.sub(params.notionalDown));
-
-        params.sideTokensAmount = AmountsMath.wrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
 
         uint256 deltaLimit;
         {
@@ -138,8 +143,6 @@ library FinanceIGDelta {
         params.sideTokensAmount = SignedMath.abs(tokensToSwap);
         params.sideTokensAmount = AmountsMath.unwrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
         tokensToSwap = SignedMath.revabs(params.sideTokensAmount, tokensToSwap >= 0);
-
-        return tokensToSwap;
     }
 
     ////// HELPERS //////

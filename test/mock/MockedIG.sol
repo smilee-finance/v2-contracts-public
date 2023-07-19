@@ -50,6 +50,13 @@ contract MockedIG is IG {
         return super.premium(strike, strategy, amount);
     }
 
+    function _premium(uint256 strike, bool strategy, uint256 amount, uint256 swapPrice) internal view virtual override returns (uint256) {
+        if (_fakePremium) {
+            return (amount * _optionPrice) / 10000;
+        }
+        return super._premium(strike, strategy, amount, swapPrice);
+    }
+
     function _payoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256 percentage) {
         if (_fakePayoff) {
             return _payoffPercentage;
@@ -57,12 +64,12 @@ contract MockedIG is IG {
         return super._payoffPerc(strike, strategy);
     }
 
-    function _deltaHedgePosition(uint256 strike, bool strategy, int256 amount) internal override {
+    function _deltaHedgePosition(uint256 strike, bool strategy, int256 amount) internal override returns (uint256 swapPrice) {
         if (_fakeDeltaHedge) {
             IVault(vault).deltaHedge(-int256(amount / 4));
-            return;
+            return 1e18;
         }
-        super._deltaHedgePosition(strike, strategy, amount);
+        return super._deltaHedgePosition(strike, strategy, amount);
     }
 
     // ToDo: review usage

@@ -6,6 +6,7 @@ import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {IMarketOracle} from "../interfaces/IMarketOracle.sol";
 import {AmountsMath} from "../lib/AmountsMath.sol";
 
+/// @dev everything is expressed in Wad (18 decimals)
 contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
     using AmountsMath for uint;
 
@@ -23,11 +24,6 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
             revert AddressZero();
         }
         referenceToken = referenceToken_;
-    }
-
-    // @inheritdoc IPriceOracle
-    function decimals() public pure override (IPriceOracle, IMarketOracle) returns (uint8) {
-        return 18;
     }
 
     // NOTE: the price is with 18 decimals and is expected to be in USD
@@ -51,7 +47,7 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
         }
 
         if (token == referenceToken && !priceSet[referenceToken]) {
-            return 10 ** decimals();
+            return 1e18;
         }
 
         if (!priceSet[token]) {

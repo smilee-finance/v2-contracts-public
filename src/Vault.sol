@@ -99,7 +99,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     }
 
     // ToDo: review as it's currently used only by tests
-    /// @inheritdoc IVault
+    // / @inheritdoc IVault
     function vaultState()
         external
         view
@@ -452,6 +452,10 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         _state.liquidity.pendingDeposits = 0;
 
         _state.liquidity.lockedInitially = lockedLiquidity;
+        // NOTE: leave only an even number of base tokens for the DVP epoch
+        if (lockedLiquidity % 2 != 0) {
+            _state.liquidity.lockedInitially -= 1;
+        }
         _adjustBalances();
         // TBD: re-compute here the lockedInitially
     }
@@ -504,35 +508,37 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
             uint256 halfNotional = notional() / 2;
             uint256 targetSideTokens = exchange.getOutputAmount(baseToken, sideToken, halfNotional);
 
+            // NOTE: here we are not interested in the number of exchanged base tokens
             _deltaHedge(int256(targetSideTokens) - int256(sideTokens));
         }
     }
 
     /// @inheritdoc IVault
-    function deltaHedge(int256 sideTokensAmount) external onlyDVP {
-        _deltaHedge(sideTokensAmount);
+    function deltaHedge(int256 sideTokensAmount) external onlyDVP returns (uint256 baseTokens) {
+        return _deltaHedge(sideTokensAmount);
     }
 
     /**
         @notice Adjust the portfolio by trading the given amount of side tokens.
         @param sideTokensAmount The amount of side tokens to buy (positive value) / sell (negative value).
+        @return baseTokens The amount of exchanged base tokens.
      */
-    function _deltaHedge(int256 sideTokensAmount) internal {
+    function _deltaHedge(int256 sideTokensAmount) internal returns (uint256 baseTokens) {
         if (sideTokensAmount > 0) {
             uint256 amount = uint256(sideTokensAmount);
-            _buySideTokens(amount);
+            return _buySideTokens(amount);
         } else {
             uint256 amount = uint256(-sideTokensAmount);
-            _sellSideTokens(amount);
+            return _sellSideTokens(amount);
         }
     }
 
-    // TBD: return the amount of exchanged base tokens
     /**
         @notice Swap some of the available base tokens in order to obtain the provided amount of side tokens.
         @param amount The amount of side tokens to buy.
+        @return baseTokens The amount of exchanged base tokens.
      */
-    function _buySideTokens(uint256 amount) internal {
+    function _buySideTokens(uint256 amount) internal returns (uint256 baseTokens) {
         address exchangeAddress = _addressProvider.exchangeAdapter();
         if (exchangeAddress == address(0)) {
             revert AddressZero();
@@ -548,15 +554,15 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         }
 
         IERC20(baseToken).approve(exchangeAddress, baseTokensAmount);
-        exchange.swapOut(baseToken, sideToken, amount);
+        baseTokens = exchange.swapOut(baseToken, sideToken, amount);
     }
 
-    // TBD: return the amount of exchanged base tokens
     /**
         @notice Swap the provided amount of side tokens in exchange for base tokens.
         @param amount The amount of side tokens to sell.
+        @return baseTokens The amount of exchanged base tokens.
      */
-    function _sellSideTokens(uint256 amount) internal {
+    function _sellSideTokens(uint256 amount) internal returns (uint256 baseTokens) {
         uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
         if (amount > sideTokens) {
             revert ExceedsAvailable();
@@ -569,7 +575,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         IExchange exchange = IExchange(exchangeAddress);
 
         IERC20(sideToken).approve(exchangeAddress, amount);
-        exchange.swapIn(sideToken, baseToken, amount);
+        baseTokens = exchange.swapIn(sideToken, baseToken, amount);
     }
 
     /// @inheritdoc IVault

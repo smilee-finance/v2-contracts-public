@@ -151,6 +151,7 @@ library Notional {
         @param strike the position strike.
         @param strategy the position strategy.
         @param amount the position notional.
+        @param decimals the notional's token number of decimals.
         @return payoff_ the owed payoff.
         @dev It relies on the calls of decreaseUsage and decreasePayoff after each position is decreased.
      */
@@ -158,13 +159,15 @@ library Notional {
         Info storage self,
         uint256 strike,
         bool strategy,
-        uint256 amount
+        uint256 amount,
+        uint8 decimals
     ) public view returns (uint256 payoff_) {
-        uint256 used = getUsed(self, strike, strategy);
-        uint256 payoff = getAccountedPayoff(self, strike, strategy);
+        amount = AmountsMath.wrapDecimals(amount, decimals);
+        uint256 used = AmountsMath.wrapDecimals(getUsed(self, strike, strategy), decimals);
+        uint256 payoff = AmountsMath.wrapDecimals(getAccountedPayoff(self, strike, strategy), decimals);
 
-        // ToDo: use token decimals instead of WAD
         // amount : used = share : payoff
-        return amount.wmul(payoff).wdiv(used);
+        payoff_ = amount.wmul(payoff).wdiv(used);
+        payoff_ = AmountsMath.unwrapDecimals(payoff_, decimals);
     }
 }

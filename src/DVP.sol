@@ -8,7 +8,6 @@ import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
-import {FinanceIGPrice} from "./lib/FinanceIGPrice.sol";
 import {Notional} from "./lib/Notional.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
@@ -25,7 +24,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
     address public immutable override baseToken;
     /// @inheritdoc IDVPImmutables
     address public immutable override sideToken;
-    /// @inheritdoc IDVPImmutables
+    // /// @inheritdoc IDVPImmutables
     bool public immutable override optionType; // ToDo: review (it's a DVPType)
     /// @inheritdoc IDVP
     address public immutable override vault;
@@ -34,6 +33,9 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
     uint256 internal _tradeVolatilityUtilizationRateFactor;
     /// @dev mutable parameter for the computation of the trade volatility
     uint256 internal _tradeVolatilityTimeDecay;
+    uint8 internal immutable _baseTokenDecimals;
+    uint8 internal immutable _sideTokenDecimals;
+    // ToDo: define lot size
 
     // TBD: extract payoff from Notional.Info
     // TBD: move strike and strategy outside of struct as indexes
@@ -69,6 +71,8 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         baseToken = vaultCt.baseToken();
         sideToken = vaultCt.sideToken();
         _addressProvider = AddressProvider(addressProvider_);
+        _baseTokenDecimals = IToken(baseToken).decimals();
+        _sideTokenDecimals = IToken(sideToken).decimals();
 
         _tradeVolatilityUtilizationRateFactor = AmountsMath.wrap(2);
         _tradeVolatilityTimeDecay = AmountsMath.wrap(1) / 4; // 0.25
@@ -100,16 +104,13 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
             revert NotEnoughLiquidity();
         }
 
-        premium_ = premium(strike, strategy, amount);
+        uint256 swapPrice = _deltaHedgePosition(strike, strategy, int256(amount));
 
-        // TBD: add comments
-        _deltaHedgePosition(strike, strategy, int256(amount));
+        premium_ = _premium(strike, strategy, amount, swapPrice);
 
-        // ToDo: recompute the premium by taking into account also the price used in the dex
-        // ToDo: revert if actual price exceeds the premium
-        // TBD: accept user expectations of premium (there is the approved one), utilization rate but also the time
-        // TBD: Right now we may choose to use a DVP-wide slippage of +10% (-10% for burn).
-        // ---- TBD: use the approved premium as a reference ?
+        // ToDo: revert if actual price exceeds the previewed premium
+        // ----- TBD: use the approved premium as a reference ? No due to the PositionManager...
+        // ----- TBD: Right now we may choose to use a DVP-wide slippage of +10% (-10% for burn).
 
         // Get premium from sender:
         IToken(baseToken).transferFrom(msg.sender, vault, premium_);
@@ -134,7 +135,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         @param strategy The position strategy.
         @param notional The position notional; positive if buyed by a user, negative otherwise.
      */
-    function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional) internal virtual;
+    function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional) internal virtual returns (uint256 swapPrice);
 
     /**
         @notice Burn or decrease a position.
@@ -175,7 +176,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         if (position.epoch == currentEpoch) {
             pastEpoch = false;
             // TBD: add comments
-            _deltaHedgePosition(strike, strategy, -int256(amount));
+            uint256 swapPrice = _deltaHedgePosition(strike, strategy, -int256(amount));
         }
 
         // Compute the payoff to be paid:
@@ -221,6 +222,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
 
     /**
         @notice Setup initial notional for a new epoch.
+        @param initialCapital The initial notional.
         @dev The concrete DVP must allocate the initial notional on the various strikes and strategies.
      */
     function _allocateLiquidity(uint256 initialCapital) internal virtual;
@@ -237,23 +239,13 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
     function _accountResidualPayoff(uint256 strike, bool strategy) internal {
         Notional.Info storage liquidity = _liquidity[currentEpoch];
 
-        uint256 payoff_ = _computeResidualPayoff(strike, strategy);
-        liquidity.accountPayoff(strike, strategy, payoff_);
-    }
-
-    /**
-        @notice computes the payoff to be set aside at the end of the epoch for the provided strike and strategy.
-        @param strike the reference strike.
-        @param strategy the reference strategy.
-        @return payoff_ the residual payoff.
-     */
-    function _computeResidualPayoff(uint256 strike, bool strategy) internal view returns (uint256 payoff_) {
-        Notional.Info storage liquidity = _liquidity[currentEpoch];
+        // computes the payoff to be set aside at the end of the epoch for the provided strike and strategy.
+        uint256 payoff_ = 0;
         uint256 residualAmount = liquidity.getUsed(strike, strategy);
-        if (residualAmount == 0) {
-            return 0;
+        if (residualAmount > 0) {
+            payoff_ = _computePayoff(strike, strategy, residualAmount);
         }
-        payoff_ = _computePayoff(strike, strategy, residualAmount);
+        liquidity.accountPayoff(strike, strategy, payoff_);
     }
 
     /**
@@ -272,12 +264,11 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         @dev It's also used for the DVP's overall position at maturity.
      */
     function _computePayoff(uint256 strike, bool strategy, uint256 amount) internal view returns (uint256 payoff_) {
-        uint8 decimals = IToken(baseToken).decimals();
-        amount = AmountsMath.wrapDecimals(amount, decimals);
-
+        amount = AmountsMath.wrapDecimals(amount, _baseTokenDecimals);
         uint256 percentage = _payoffPerc(strike, strategy);
+
         payoff_ = amount.wmul(percentage);
-        payoff_ = AmountsMath.unwrapDecimals(payoff_, decimals);
+        payoff_ = AmountsMath.unwrapDecimals(payoff_, _baseTokenDecimals);
     }
 
     /**
@@ -289,8 +280,8 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
      */
     function _payoffPerc(uint256 strike, bool strategy) internal view virtual returns (uint256 percentage);
 
-    /// @inheritdoc IDVP
-    function premium(uint256 strike, bool strategy, uint256 amount) public view virtual returns (uint256);
+    /// @dev computes the premium with the given swap price and post-trade volatility
+    function _premium(uint256 strike, bool strategy, uint256 amount, uint256 swapPrice) internal view virtual returns (uint256);
 
     /// @inheritdoc IDVP
     function payoff(
@@ -313,7 +304,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
             // // NOTE: we have to avoid this due to the PositionManager that holds positions for multiple tokens.
             // positionAmount = position.amount;
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
-            payoff_ = _liquidity[position.epoch].shareOfPayoff(position.strike, position.strategy, positionAmount);
+            payoff_ = _liquidity[position.epoch].shareOfPayoff(position.strike, position.strategy, positionAmount, _baseTokenDecimals);
         }
     }
 
@@ -327,8 +318,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         @dev The client should check if the position exists by calling `exists()` on it.
      */
     function _getPosition(uint256 epoch, address owner, bool strategy, uint256 strike) internal view returns (Position.Info storage position_) {
-        bytes32 positionID = Position.getID(owner, strategy, strike);
-        return _epochPositions[epoch][positionID];
+        return _epochPositions[epoch][Position.getID(owner, strategy, strike)];
     }
 
     /**
@@ -342,52 +332,13 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
     // function getUtilizationRate() public view returns (uint256) {
     //     (uint256 used, uint256 total) = _getUtilizationRateFactors();
 
-    //     uint8 decimals = IToken(baseToken).decimals();
-    //     used = AmountsMath.wrapDecimals(used, decimals);
-    //     total = AmountsMath.wrapDecimals(total, decimals);
+    //     used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
+    //     total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
 
     //     return used.wdiv(total);
     // }
 
-    /**
-        @notice Preview the utilization rate that will result from a given trade.
-        @param amount The trade notional (positive for buy, negative for sell).
-        @return utilizationRate The post-trade utilization rate.
-     */
-    function _getPostTradeUtilizationRate(int256 amount) internal view returns (uint256 utilizationRate) {
-        (uint256 used, uint256 total) = _getUtilizationRateFactors();
-
-        uint8 decimals = IToken(baseToken).decimals();
-        uint256 amountWad = AmountsMath.wrapDecimals(SignedMath.abs(amount), decimals);
-        used = AmountsMath.wrapDecimals(used, decimals);
-        total = AmountsMath.wrapDecimals(total, decimals);
-
-        if (amount >= 0) {
-            return (used.add(amountWad)).wdiv(total);
-        } else {
-            return (used.sub(amountWad)).wdiv(total);
-        }
-    }
-
-    // ToDo: make public for frontend
-    /**
-        @notice Get the estimated implied volatility from a given trade.
-        @param strike The trade strike.
-        @param amount The trade notional (positive for buy, negative for sell).
-        @return sigma The estimated implied volatility.
-        @dev The oracle must provide an updated baseline volatility, computed just before the start of the epoch.
-     */
-    function _getTradeVolatility(uint256 strike, int256 amount) internal view returns (uint256 sigma) {
-        IMarketOracle oracle = IMarketOracle(_getMarketOracle());
-        uint256 baselineVolatility = AmountsMath.wrapDecimals(oracle.getImpliedVolatility(baseToken, sideToken, strike, epochFrequency), oracle.decimals());
-        uint256 U = _getPostTradeUtilizationRate(amount);
-        uint256 t0 = _lastRolledEpoch();
-        uint256 T = currentEpoch - t0;
-
-        // ToDo: review as it shouldn't use an IG formula within the generic DVP context
-        return FinanceIGPrice.tradeVolatility(FinanceIGPrice.TradeVolatilityParams(baselineVolatility, _tradeVolatilityUtilizationRateFactor, _tradeVolatilityTimeDecay, U, T, t0));
-    }
-
+    // TBD: make an updateMarketOracle instead of a getter
     function _getMarketOracle() internal view returns (address) {
         address marketOracle = _addressProvider.marketOracle();
 
@@ -398,6 +349,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         return marketOracle;
     }
 
+    // TBD: make an updatePriceOracle instead of a getter
     function _getPriceOracle() internal view returns (address) {
         address priceOracle = _addressProvider.priceOracle();
 

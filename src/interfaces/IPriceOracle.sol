@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-// ToDo: Evaluate to split IPriceOracle and IMarketOracle
+/// @dev everything is expressed in Wad (18 decimals)
 interface IPriceOracle {
     /**
      * @notice Return token0 price in token1
@@ -10,12 +10,6 @@ interface IPriceOracle {
      * @return price Ratio with 18 decimals
      */
     function getPrice(address token0, address token1) external view returns (uint256 price);
-
-    /**
-     * @notice Return the number of decimals for the prices
-     * @return decimals Number of decimals for the prices
-     */
-    function decimals() external view returns (uint8 decimals);
 
     /**
         @notice Return Price of token in referenceToken

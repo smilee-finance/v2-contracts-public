@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+/// @dev everything is expressed in Wad (18 decimals)
 interface IMarketOracle {
     function getImpliedVolatility(
         address token0,
@@ -10,10 +11,4 @@ interface IMarketOracle {
     ) external view returns (uint256 iv);
 
     function getRiskFreeRate(address token0, address token1) external view returns (uint256 rate);
-
-    /**
-     * @notice Return the number of decimals for the values
-     * @return decimals Number of decimals for the values
-     */
-    function decimals() external view returns (uint8 decimals);
 }
