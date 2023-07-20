@@ -180,6 +180,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         }
 
         // Compute the payoff to be paid:
+        // TBD: call _premium with a negative amount
         // NOTE: must be computed here, before the next account of used liquidity.
         paidPayoff = payoff(position.epoch, position.strike, position.strategy, amount);
 
@@ -297,6 +298,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         }
 
         if (position.epoch == currentEpoch) {
+            // ToDo: review formula
             // The user wants to know how much it can receive from selling the position before its maturity:
             payoff_ = _computePayoff(strike, strategy, positionAmount);
         } else {

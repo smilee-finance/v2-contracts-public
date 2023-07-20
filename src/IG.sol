@@ -52,7 +52,6 @@ contract IG is DVP {
         bool strategy,
         uint256 amount
     ) external override returns (uint256 premium_) {
-        strike = currentStrike;
         premium_ = _mint(recipient, currentStrike, strategy, amount);
     }
 
@@ -69,10 +68,9 @@ contract IG is DVP {
 
     /// @inheritdoc IDVP
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual override returns (uint256 premium_) {
-        strike = currentStrike;
         uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
-        premium_ = _premium(strike, strategy, amount, swapPrice);
+        premium_ = _premium(currentStrike, strategy, amount, swapPrice);
     }
 
     /// @inheritdoc DVP
@@ -81,7 +79,7 @@ contract IG is DVP {
         FinanceIGPrice.Parameters memory params;
         {
             params.r = IMarketOracle(_getMarketOracle()).getRiskFreeRate(sideToken, baseToken);
-            params.sigma = _getPostTradeVolatility(strike, int256(amount));
+            params.sigma = getPostTradeVolatility(strike, int256(amount));
             params.k = strike;
             params.s = swapPrice;
             params.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
@@ -90,12 +88,12 @@ contract IG is DVP {
             params.teta = _currentFinanceParameters.theta;
         }
 
-        (uint256 igDBull, uint256 igDBear) = FinanceIGPrice.igPrices(params);
+        (uint256 igPBull, uint256 igPBear) = FinanceIGPrice.igPrices(params);
 
         if (strategy == OptionStrategy.CALL) {
-            premium_ = amount.wmul(igDBull);
+            premium_ = amount.wmul(igPBull);
         } else {
-            premium_ = amount.wmul(igDBear);
+            premium_ = amount.wmul(igPBear);
         }
         premium_ = AmountsMath.unwrapDecimals(premium_, _baseTokenDecimals);
     }
@@ -109,7 +107,7 @@ contract IG is DVP {
         return liquidity.aggregatedInfo(currentStrike);
     }
 
-    // TBD: make public for frontend
+    // NOTE: public for frontend usage
     /**
         @notice Get the estimated implied volatility from a given trade.
         @param strike The trade strike.
@@ -117,7 +115,7 @@ contract IG is DVP {
         @return sigma The estimated implied volatility.
         @dev The oracle must provide an updated baseline volatility, computed just before the start of the epoch.
      */
-    function _getPostTradeVolatility(uint256 strike, int256 amount) internal view returns (uint256 sigma) {
+    function getPostTradeVolatility(uint256 strike, int256 amount) public view returns (uint256 sigma) {
         uint256 baselineVolatility = IMarketOracle(_getMarketOracle()).getImpliedVolatility(baseToken, sideToken, strike, epochFrequency);
         uint256 U = _getPostTradeUtilizationRate(amount);
         uint256 t0 = _lastRolledEpoch();
@@ -152,7 +150,7 @@ contract IG is DVP {
         {
             FinanceIGDelta.Parameters memory deltaParams;
             {
-                deltaParams.sigma = _getPostTradeVolatility(strike, notional_);
+                deltaParams.sigma = getPostTradeVolatility(strike, notional_);
                 deltaParams.k = strike;
                 deltaParams.s = priceOracle.getPrice(sideToken, baseToken);
                 deltaParams.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));

@@ -87,8 +87,10 @@ contract IGTest is Test {
     }
 
     function testMint() public {
-        uint256 inputAmount = 1;
+        uint256 inputAmount = 1 ether;
 
+        // ToDo: review with premium
+        // uint256 expectedPremium = ig.premium(0, OptionStrategy.CALL, inputAmount);
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
 
         vm.prank(alice);
