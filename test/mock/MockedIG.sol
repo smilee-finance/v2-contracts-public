@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {IVault} from "../../src/interfaces/IVault.sol";
 import {Position} from "../../src/lib/Position.sol";
+import {SignedMath} from "../../src/lib/SignedMath.sol";
 import {IG} from "../../src/IG.sol";
 
 //ToDo: Add comments
@@ -50,18 +51,26 @@ contract MockedIG is IG {
         return super.premium(strike, strategy, amount);
     }
 
-    function _premium(uint256 strike, bool strategy, uint256 amount, uint256 swapPrice) internal view virtual override returns (uint256) {
-        if (_fakePremium) {
-            return (amount * _optionPrice) / 10000;
+    function _getMarketValue(uint256 strike, bool strategy, int256 amount, uint256 swapPrice) internal view virtual override returns (uint256) {
+        if (_fakePremium || _fakePayoff) {
+            // ToDo: review
+            uint256 amountAbs = SignedMath.abs(amount);
+            if (_fakePremium) {
+                return (amountAbs * _optionPrice) / 10000;
+            }
+            if (_fakePayoff) {
+                return amountAbs * _payoffPercentage;
+            }
         }
-        return super._premium(strike, strategy, amount, swapPrice);
+
+        return super._getMarketValue(strike, strategy, amount, swapPrice);
     }
 
-    function _payoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256 percentage) {
+    function _residualPayoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256 percentage) {
         if (_fakePayoff) {
             return _payoffPercentage;
         }
-        return super._payoffPerc(strike, strategy);
+        return super._residualPayoffPerc(strike, strategy);
     }
 
     function _deltaHedgePosition(uint256 strike, bool strategy, int256 amount) internal override returns (uint256 swapPrice) {

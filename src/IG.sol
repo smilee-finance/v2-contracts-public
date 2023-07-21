@@ -70,16 +70,15 @@ contract IG is DVP {
     function premium(uint256 strike, bool strategy, uint256 amount) public view virtual override returns (uint256 premium_) {
         uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
-        premium_ = _premium(currentStrike, strategy, amount, swapPrice);
+        premium_ = _getMarketValue(currentStrike, strategy, int256(amount), swapPrice);
     }
 
     /// @inheritdoc DVP
-    function _premium(uint256 strike, bool strategy, uint256 amount, uint256 swapPrice) internal view virtual override returns (uint256 premium_) {
-        amount = AmountsMath.wrapDecimals(amount, _baseTokenDecimals);
+    function _getMarketValue(uint256 strike, bool strategy, int256 amount, uint256 swapPrice) internal view virtual override returns (uint256 marketValue) {
         FinanceIGPrice.Parameters memory params;
         {
             params.r = IMarketOracle(_getMarketOracle()).getRiskFreeRate(sideToken, baseToken);
-            params.sigma = getPostTradeVolatility(strike, int256(amount));
+            params.sigma = getPostTradeVolatility(strike, amount);
             params.k = strike;
             params.s = swapPrice;
             params.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
@@ -90,12 +89,13 @@ contract IG is DVP {
 
         (uint256 igPBull, uint256 igPBear) = FinanceIGPrice.igPrices(params);
 
+        uint256 amountWad = AmountsMath.wrapDecimals(SignedMath.abs(amount), _baseTokenDecimals);
         if (strategy == OptionStrategy.CALL) {
-            premium_ = amount.wmul(igPBull);
+            marketValue = amountWad.wmul(igPBull);
         } else {
-            premium_ = amount.wmul(igPBear);
+            marketValue = amountWad.wmul(igPBear);
         }
-        premium_ = AmountsMath.unwrapDecimals(premium_, _baseTokenDecimals);
+        marketValue = AmountsMath.unwrapDecimals(marketValue, _baseTokenDecimals);
     }
 
     function notional()
@@ -145,14 +145,14 @@ contract IG is DVP {
     /// @inheritdoc DVP
     function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional_) internal virtual override returns (uint256 swapPrice) {
         FinanceIGDelta.DeltaHedgeParameters memory params;
-        IPriceOracle priceOracle = IPriceOracle(_getPriceOracle());
+        uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
         {
             FinanceIGDelta.Parameters memory deltaParams;
             {
                 deltaParams.sigma = getPostTradeVolatility(strike, notional_);
                 deltaParams.k = strike;
-                deltaParams.s = priceOracle.getPrice(sideToken, baseToken);
+                deltaParams.s = oraclePrice;
                 deltaParams.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
                 deltaParams.limSup = _currentFinanceParameters.limSup;
                 deltaParams.limInf = _currentFinanceParameters.limInf;
@@ -183,7 +183,7 @@ contract IG is DVP {
         int256 tokensToSwap = FinanceIGDelta.h(params);
 
         if (tokensToSwap == 0) {
-            return priceOracle.getPrice(sideToken, baseToken);
+            return oraclePrice;
         }
 
         // NOTE: We negate the value because the protocol will sell side tokens when `h` is positive.
@@ -194,7 +194,7 @@ contract IG is DVP {
     }
 
     /// @inheritdoc DVP
-    function _payoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256) {
+    function _residualPayoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256) {
         (uint256 igPOBull, uint256 igPOBear) = FinanceIGPayoff.igPayoffPerc(
             IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken),
             strike,
@@ -237,7 +237,7 @@ contract IG is DVP {
                 baseTokenAmount = AmountsMath.wrapDecimals(baseTokenAmount, _baseTokenDecimals);
                 sideTokenAmount = AmountsMath.wrapDecimals(sideTokenAmount, _sideTokenDecimals);
                 // TBD: check division by zero
-                currentStrike = sideTokenAmount.wdiv(baseTokenAmount);
+                currentStrike = baseTokenAmount.wdiv(sideTokenAmount);
             }
 
             {
@@ -264,6 +264,7 @@ contract IG is DVP {
                     _currentFinanceParameters.kA,
                     _currentFinanceParameters.kB
                 );
+                // ToDo: review as they should be multiplied by V0 in order to match the paper formulas
                 (_currentFinanceParameters.limSup, _currentFinanceParameters.limInf) = FinanceIGDelta.lims(
                     currentStrike,
                     _currentFinanceParameters.kA,

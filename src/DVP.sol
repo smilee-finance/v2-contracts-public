@@ -5,6 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
+import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
@@ -106,7 +107,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
 
         uint256 swapPrice = _deltaHedgePosition(strike, strategy, int256(amount));
 
-        premium_ = _premium(strike, strategy, amount, swapPrice);
+        premium_ = _getMarketValue(strike, strategy, int256(amount), swapPrice);
 
         // ToDo: revert if actual price exceeds the previewed premium
         // ----- TBD: use the approved premium as a reference ? No due to the PositionManager...
@@ -172,27 +173,26 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
             revert CantBurnMoreThanMinted();
         }
 
+        Notional.Info storage liquidity = _liquidity[position.epoch];
+
         bool pastEpoch = true;
         if (position.epoch == currentEpoch) {
             pastEpoch = false;
             // TBD: add comments
             uint256 swapPrice = _deltaHedgePosition(strike, strategy, -int256(amount));
-        }
-
-        // Compute the payoff to be paid:
-        // TBD: call _premium with a negative amount
-        // NOTE: must be computed here, before the next account of used liquidity.
-        paidPayoff = payoff(position.epoch, position.strike, position.strategy, amount);
-
-        // Account change of used liquidity between wallet and protocol:
-        position.amount -= amount;
-        Notional.Info storage liquidity = _liquidity[position.epoch];
-        liquidity.decreaseUsage(position.strike, position.strategy, amount);
-
-        if (pastEpoch) {
+            // Compute the payoff to be paid:
+            paidPayoff = _getMarketValue(strike, strategy, -int256(amount), swapPrice);
+        } else {
+            // Compute the payoff to be paid:
+            paidPayoff = liquidity.shareOfPayoff(position.strike, position.strategy, amount, _baseTokenDecimals);
             // Account transfer of setted aside payoff:
             liquidity.decreasePayoff(position.strike, position.strategy, paidPayoff);
         }
+
+        // Account change of used liquidity between wallet and protocol:
+        position.amount -= amount;
+        // NOTE: must be updated after the previous computations based on used liquidity.
+        liquidity.decreaseUsage(position.strike, position.strategy, amount);
 
         IVault(vault).transferPayoff(recipient, paidPayoff, pastEpoch);
 
@@ -244,7 +244,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         uint256 payoff_ = 0;
         uint256 residualAmount = liquidity.getUsed(strike, strategy);
         if (residualAmount > 0) {
-            payoff_ = _computePayoff(strike, strategy, residualAmount);
+            payoff_ = _computeResidualPayoff(strike, strategy, residualAmount);
         }
         liquidity.accountPayoff(strike, strategy, payoff_);
     }
@@ -256,6 +256,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
      */
     function _residualPayoff() internal view virtual returns (uint256 residualPayoff);
 
+    // TBD: inline with _accountResidualPayoff
     /**
         @notice Compute the payoff of a position within the current epoch.
         @param strike the position strike.
@@ -264,25 +265,25 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         @return payoff_ The payoff value.
         @dev It's also used for the DVP's overall position at maturity.
      */
-    function _computePayoff(uint256 strike, bool strategy, uint256 amount) internal view returns (uint256 payoff_) {
+    function _computeResidualPayoff(uint256 strike, bool strategy, uint256 amount) internal view returns (uint256 payoff_) {
         amount = AmountsMath.wrapDecimals(amount, _baseTokenDecimals);
-        uint256 percentage = _payoffPerc(strike, strategy);
+        uint256 percentage = _residualPayoffPerc(strike, strategy);
 
         payoff_ = amount.wmul(percentage);
         payoff_ = AmountsMath.unwrapDecimals(payoff_, _baseTokenDecimals);
     }
 
     /**
-        @notice computes the payoff percentage (a scale factor) for the given strike and strategy.
+        @notice computes the payoff percentage (a scale factor) for the given strike and strategy at epoch end.
         @param strike the reference strike.
         @param strategy the reference strategy.
         @return percentage the payoff percentage.
         @dev The percentage is expected to be defined in Wad (i.e. 100 % := 1e18)
      */
-    function _payoffPerc(uint256 strike, bool strategy) internal view virtual returns (uint256 percentage);
+    function _residualPayoffPerc(uint256 strike, bool strategy) internal view virtual returns (uint256 percentage);
 
-    /// @dev computes the premium with the given swap price and post-trade volatility
-    function _premium(uint256 strike, bool strategy, uint256 amount, uint256 swapPrice) internal view virtual returns (uint256);
+    /// @dev computes the premium/payoff with the given amount, swap price and post-trade volatility
+    function _getMarketValue(uint256 strike, bool strategy, int256 amount, uint256 swapPrice) internal view virtual returns (uint256);
 
     /// @inheritdoc IDVP
     function payoff(
@@ -298,9 +299,9 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         }
 
         if (position.epoch == currentEpoch) {
-            // ToDo: review formula
             // The user wants to know how much it can receive from selling the position before its maturity:
-            payoff_ = _computePayoff(strike, strategy, positionAmount);
+            uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+            payoff_ = _getMarketValue(strike, strategy, -int256(positionAmount), swapPrice);
         } else {
             // // The position reached maturity, hence the user must close the entire position:
             // // NOTE: we have to avoid this due to the PositionManager that holds positions for multiple tokens.

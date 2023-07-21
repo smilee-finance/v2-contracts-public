@@ -40,6 +40,7 @@ library FinanceIGDelta {
         @param params The set of Parameters to compute deltas
         @return igDBull The unitary integer quantity of side token to hedge a bull position
         @return igDBear The unitary integer quantity of side token to hedge a bear position
+        @dev the formulas are the ones for different ranges of liquidity
      */
     function igDeltas(Parameters calldata params) external pure returns (int256 igDBull, int256 igDBear) {
         uint256 sigmaTaurtd = _sigmaTaurtd(params.sigma, params.tau);
@@ -202,6 +203,7 @@ library FinanceIGDelta {
         return sigma.wmul(FixedPointMathLib.sqrt(tau));
     }
 
+    // ToDo: rename "_z"
     /// @dev ln(S / K) / σ√τ
     function _x(uint256 s, uint256 k, uint256 sigmaTaurtd) public pure returns (int256) {
         int256 n = FixedPointMathLib.ln(SignedMath.castInt(s.wdiv(k)));
