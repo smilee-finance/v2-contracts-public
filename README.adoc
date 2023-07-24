@@ -38,4 +38,7 @@ You have to create and fill a `.env` file from the `.env.template` one.
 . Advance chain time:
 +
 `cast rpc --rpc-url $RPC_LOCALNET evm_increaseTime <SECONDS> && cast rpc --rpc-url $RPC_LOCALNET evm_mine`
+. Mint tokens:
++
+`forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'mint(address,address,uint256)' <TOKEN_ADDRESS> <RECIPIENT_ADDRESS> <AMOUNT>`
 . `exit`

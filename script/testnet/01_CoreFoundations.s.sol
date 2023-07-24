@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {Script} from "forge-std/Script.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
+import {PositionManager} from "../../src/PositionManager.sol";
 // import {Factory} from "../../src/Factory.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
@@ -56,5 +57,7 @@ contract DeployCoreFoundations is Script {
         registry.registerSwapper(address(swapper));
         sUSD.setController(address(registry));
         ap.setRegistry(address(registry));
+
+        new PositionManager();
     }
 }

@@ -73,4 +73,12 @@ contract DeployToken is EnhancedScript {
         priceOracle.setTokenPrice(token, price);
         vm.stopBroadcast();
     }
+
+    function mint(address tokenAddr, address recipient, uint256 amount) public {
+        TestnetToken sToken = TestnetToken(tokenAddr);
+
+        vm.startBroadcast(_deployerPrivateKey);
+        sToken.mint(recipient, amount);
+        vm.stopBroadcast();
+    }
 }
