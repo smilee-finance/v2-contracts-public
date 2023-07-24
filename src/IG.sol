@@ -163,7 +163,7 @@ contract IG is DVP {
             (params.igDBull, params.igDBear) = FinanceIGDelta.igDeltas(deltaParams);
             params.strike = strike;
             (, params.sideTokensAmount) = IVault(vault).balances();
-            params.notionalUp = SignedMath.abs(notional_);
+            params.notionalUp = notional_;
             params.notionalDown = 0;
             if (strategy == OptionStrategy.PUT) {
                 params.notionalDown = params.notionalUp;
@@ -264,7 +264,6 @@ contract IG is DVP {
                     _currentFinanceParameters.kA,
                     _currentFinanceParameters.kB
                 );
-                // ToDo: review as they should be multiplied by V0 in order to match the paper formulas
                 (_currentFinanceParameters.limSup, _currentFinanceParameters.limInf) = FinanceIGDelta.lims(
                     currentStrike,
                     _currentFinanceParameters.kA,

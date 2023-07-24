@@ -116,8 +116,8 @@ library FinanceIGDelta {
         uint256 availableLiquidityBull;
         uint256 availableLiquidityBear;
         uint256 sideTokensAmount;
-        uint256 notionalUp;
-        uint256 notionalDown;
+        int256 notionalUp;
+        int256 notionalDown;
         uint256 strike;
     }
 
@@ -126,13 +126,25 @@ library FinanceIGDelta {
         params.initialLiquidityBear = AmountsMath.wrapDecimals(params.initialLiquidityBear, params.baseTokenDecimals);
         params.availableLiquidityBull = AmountsMath.wrapDecimals(params.availableLiquidityBull, params.baseTokenDecimals);
         params.availableLiquidityBear = AmountsMath.wrapDecimals(params.availableLiquidityBear, params.baseTokenDecimals);
-        params.notionalUp = AmountsMath.wrapDecimals(params.notionalUp, params.baseTokenDecimals);
-        params.notionalDown = AmountsMath.wrapDecimals(params.notionalDown, params.baseTokenDecimals);
+        uint256 notionalUp = AmountsMath.wrapDecimals(SignedMath.abs(params.notionalUp), params.baseTokenDecimals);
+        uint256 notionalDown = AmountsMath.wrapDecimals(SignedMath.abs(params.notionalDown), params.baseTokenDecimals);
         params.sideTokensAmount = AmountsMath.wrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
         uint256 two = AmountsMath.wrap(2);
 
-        uint256 up = SignedMath.abs(params.igDBull).wmul(two).wmul(params.availableLiquidityBull.sub(params.notionalUp));
-        uint256 down = SignedMath.abs(params.igDBear).wmul(two).wmul(params.availableLiquidityBear.sub(params.notionalDown));
+        uint256 notionalBull = params.availableLiquidityBull;
+        if (params.notionalUp >= 0) {
+            notionalBull = notionalBull.sub(notionalUp);
+        } else {
+            notionalBull = notionalBull.add(notionalUp);
+        }
+        uint256 notionalBear = params.availableLiquidityBear;
+        if (params.notionalUp >= 0) {
+            notionalBear = notionalBear.sub(notionalDown);
+        } else {
+            notionalBear = notionalBear.add(notionalDown);
+        }
+        uint256 up = SignedMath.abs(params.igDBull).wmul(two).wmul(notionalBull);
+        uint256 down = SignedMath.abs(params.igDBear).wmul(two).wmul(notionalBear);
 
         uint256 deltaLimit;
         {
@@ -203,7 +215,7 @@ library FinanceIGDelta {
         return sigma.wmul(FixedPointMathLib.sqrt(tau));
     }
 
-    // ToDo: rename "_z"
+    // ToDo: rename "_z" in order to match the paper
     /// @dev ln(S / K) / σ√τ
     function _x(uint256 s, uint256 k, uint256 sigmaTaurtd) public pure returns (int256) {
         int256 n = FixedPointMathLib.ln(SignedMath.castInt(s.wdiv(k)));
