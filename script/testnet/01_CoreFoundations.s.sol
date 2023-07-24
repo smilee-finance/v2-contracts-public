@@ -58,6 +58,7 @@ contract DeployCoreFoundations is Script {
         sUSD.setController(address(registry));
         ap.setRegistry(address(registry));
 
-        new PositionManager();
+        PositionManager pm = new PositionManager();
+        registry.registerPositionManager(address(pm));
     }
 }
