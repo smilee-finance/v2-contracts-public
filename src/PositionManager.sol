@@ -37,7 +37,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     error SecondaryMarkedNotAllowed();
     error PositionExpired();
 
-    constructor() ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") Ownable() {
+    constructor() ERC721Enumerable() ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") Ownable() {
         _nextId = 1;
     }
 
@@ -191,11 +191,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         uint256 firstTokenId,
         uint256 batchSize
     ) internal virtual override {
-        if (from == address(0) || to == address(0)) {
-            // it's a valid mint/burn
-            return;
-        }
-        if (!_secondaryMarkedAllowed) {
+        if (from != address(0) && to != address(0) && !_secondaryMarkedAllowed) {
             revert SecondaryMarkedNotAllowed();
         }
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);

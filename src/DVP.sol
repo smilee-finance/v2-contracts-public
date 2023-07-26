@@ -112,6 +112,8 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         // ToDo: revert if actual price exceeds the previewed premium
         // ----- TBD: use the approved premium as a reference ? No due to the PositionManager...
         // ----- TBD: Right now we may choose to use a DVP-wide slippage of +10% (-10% for burn).
+        // ToDo: revert if the premium is zero due to an underflow
+        // ----- it may be avoided by asking for a positive number of lots as notional...
 
         // Get premium from sender:
         IToken(baseToken).transferFrom(msg.sender, vault, premium_);

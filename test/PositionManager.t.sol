@@ -89,6 +89,8 @@ contract PositionManagerTest is Test {
                 tokenId: 0
             })
         );
+        assertGe(1, tokenId);
+        assertGe(1, pm.totalSupply());
     }
 
     function testMint() public {
