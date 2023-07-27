@@ -67,14 +67,23 @@ contract IG is DVP {
     }
 
     /// @inheritdoc IDVP
-    function premium(uint256 strike, bool strategy, uint256 amount) public view virtual override returns (uint256 premium_) {
+    function premium(
+        uint256 strike,
+        bool strategy,
+        uint256 amount
+    ) public view virtual override returns (uint256 premium_) {
         uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
         premium_ = _getMarketValue(currentStrike, strategy, int256(amount), swapPrice);
     }
 
     /// @inheritdoc DVP
-    function _getMarketValue(uint256 strike, bool strategy, int256 amount, uint256 swapPrice) internal view virtual override returns (uint256 marketValue) {
+    function _getMarketValue(
+        uint256 strike,
+        bool strategy,
+        int256 amount,
+        uint256 swapPrice
+    ) internal view virtual override returns (uint256 marketValue) {
         FinanceIGPrice.Parameters memory params;
         {
             params.r = IMarketOracle(_getMarketOracle()).getRiskFreeRate(sideToken, baseToken);
@@ -101,7 +110,7 @@ contract IG is DVP {
     function notional()
         public
         view
-        returns (uint256 bullNotional, uint256 bearNotional, uint256 bullAvailNotional, uint256 bearAvailNotional)
+        returns (uint256 bearNotional, uint256 bullNotional, uint256 bearAvailNotional, uint256 bullAvailNotional)
     {
         Notional.Info storage liquidity = _liquidity[currentEpoch];
         return liquidity.aggregatedInfo(currentStrike);
@@ -116,12 +125,27 @@ contract IG is DVP {
         @dev The oracle must provide an updated baseline volatility, computed just before the start of the epoch.
      */
     function getPostTradeVolatility(uint256 strike, int256 amount) public view returns (uint256 sigma) {
-        uint256 baselineVolatility = IMarketOracle(_getMarketOracle()).getImpliedVolatility(baseToken, sideToken, strike, epochFrequency);
+        uint256 baselineVolatility = IMarketOracle(_getMarketOracle()).getImpliedVolatility(
+            baseToken,
+            sideToken,
+            strike,
+            epochFrequency
+        );
         uint256 U = _getPostTradeUtilizationRate(amount);
         uint256 t0 = _lastRolledEpoch();
         uint256 T = currentEpoch - t0;
 
-        return FinanceIGPrice.tradeVolatility(FinanceIGPrice.TradeVolatilityParams(baselineVolatility, _tradeVolatilityUtilizationRateFactor, _tradeVolatilityTimeDecay, U, T, t0));
+        return
+            FinanceIGPrice.tradeVolatility(
+                FinanceIGPrice.TradeVolatilityParams(
+                    baselineVolatility,
+                    _tradeVolatilityUtilizationRateFactor,
+                    _tradeVolatilityTimeDecay,
+                    U,
+                    T,
+                    t0
+                )
+            );
     }
 
     // TBD: move into library
@@ -143,7 +167,11 @@ contract IG is DVP {
     }
 
     /// @inheritdoc DVP
-    function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional_) internal virtual override returns (uint256 swapPrice) {
+    function _deltaHedgePosition(
+        uint256 strike,
+        bool strategy,
+        int256 notional_
+    ) internal virtual override returns (uint256 swapPrice) {
         FinanceIGDelta.DeltaHedgeParameters memory params;
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
@@ -190,7 +218,9 @@ contract IG is DVP {
         uint256 exchangedBaseTokens = IVault(vault).deltaHedge(-tokensToSwap);
         exchangedBaseTokens = AmountsMath.wrapDecimals(exchangedBaseTokens, _baseTokenDecimals);
 
-        swapPrice = exchangedBaseTokens.wdiv(AmountsMath.wrapDecimals(SignedMath.abs(tokensToSwap), _sideTokenDecimals));
+        swapPrice = exchangedBaseTokens.wdiv(
+            AmountsMath.wrapDecimals(SignedMath.abs(tokensToSwap), _sideTokenDecimals)
+        );
     }
 
     /// @inheritdoc DVP
@@ -242,7 +272,12 @@ contract IG is DVP {
 
             {
                 // ToDo: review
-                _currentFinanceParameters.sigmaZero = IMarketOracle(_getMarketOracle()).getImpliedVolatility(baseToken, sideToken, currentStrike, epochFrequency);
+                _currentFinanceParameters.sigmaZero = IMarketOracle(_getMarketOracle()).getImpliedVolatility(
+                    baseToken,
+                    sideToken,
+                    currentStrike,
+                    epochFrequency
+                );
                 uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(_lastRolledEpoch(), currentEpoch));
                 (_currentFinanceParameters.kA, _currentFinanceParameters.kB) = FinanceIGPrice.liquidityRange(
                     FinanceIGPrice.LiquidityRangeParams(

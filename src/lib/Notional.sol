@@ -70,7 +70,7 @@ library Notional {
     function aggregatedInfo(
         Info storage self,
         uint256 strike
-    ) public view returns (uint256 call, uint256 put, uint256 callAvail, uint256 putAvail) {
+    ) public view returns (uint256 put, uint256 call, uint256 putAvail, uint256 callAvail) {
         return (
             self.initial[strike][_strategyIdx(false)],
             self.initial[strike][_strategyIdx(true)],
