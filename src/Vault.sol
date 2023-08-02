@@ -25,7 +25,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     VaultLib.VaultState internal _state;
     AddressProvider internal immutable _addressProvider;
     /// @notice The address of the DVP paired with this vault
-    address internal _dvp;
+    address public dvp; // NOTE: public for frontend purposes
     /// @notice Whether the transfer of shares between wallets is allowed or not
     bool internal _secondaryMarkedAllowed;
 
@@ -33,7 +33,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
     // TBD: add to the IVault interface
     mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
-    mapping(uint256 => uint256) internal _epochPricePerShare;
+    mapping(uint256 => uint256) public epochPricePerShare; // NOTE: public for frontend and historical data purposes
 
     error DVPNotSet();
     error OnlyDVPAllowed();
@@ -81,10 +81,10 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     }
 
     modifier onlyDVP() {
-        if (_dvp == address(0)) {
+        if (dvp == address(0)) {
             revert DVPNotSet();
         }
-        if (msg.sender != _dvp) {
+        if (msg.sender != dvp) {
             revert OnlyDVPAllowed();
         }
         _;
@@ -95,7 +95,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         @dev The address is injected after-build, because the DVP needs an already built vault as constructor-injected dependency.
      */
     function setAllowedDVP(address dvp) external onlyOwner {
-        _dvp = dvp;
+        dvp = dvp;
     }
 
     // ToDo: review as it's currently used only by tests
@@ -219,7 +219,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         // NOTE: the amount of unredeemed shares is the one of the previous epochs, as we still don't know the share price.
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
             currentEpoch,
-            _epochPricePerShare[depositReceipt.epoch]
+            epochPricePerShare[depositReceipt.epoch]
         );
 
         // If the user has already deposited in the current epoch, add the amount to the total one of the next epoch:
@@ -257,7 +257,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
 
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
             currentEpoch,
-            _epochPricePerShare[depositReceipt.epoch]
+            epochPricePerShare[depositReceipt.epoch]
         );
 
         return (balanceOf(account), unredeemedShares);
@@ -281,7 +281,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
 
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
             currentEpoch,
-            _epochPricePerShare[depositReceipt.epoch]
+            epochPricePerShare[depositReceipt.epoch]
         );
 
         if (shares > unredeemedShares && !isMax) {
@@ -361,7 +361,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         }
 
         uint256 sharesToWithdraw = withdrawal.shares;
-        uint256 amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, _epochPricePerShare[withdrawal.epoch]);
+        uint256 amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, epochPricePerShare[withdrawal.epoch]);
 
         withdrawal.shares = 0;
         // NOTE: we choose to leave the epoch number as-is in order to save gas
@@ -399,7 +399,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
 
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override isNotDead {
-        if (_dvp != address(0) && msg.sender != _dvp) {
+        if (dvp != address(0) && msg.sender != dvp) {
             // NOTE: must be called only by the DVP after a DVP has been set.
             revert OnlyDVPAllowed();
         }
@@ -413,7 +413,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
 
         // TBD: rename to shareValue
         uint256 sharePrice = _computeSharePrice(lockedLiquidity);
-        _epochPricePerShare[currentEpoch] = sharePrice;
+        epochPricePerShare[currentEpoch] = sharePrice;
 
         if (sharePrice == 0) {
             // if vault underlying asset disappear, don't mint any shares.

@@ -114,6 +114,14 @@ abstract contract EpochControls is IEpochControls {
     }
 
     /**
+        @notice Get number of past and current epochs
+        @return number The number of past and current epochs
+     */
+    function getNumberOfEpochs() external view returns(uint256 number) {
+        number = epochs.length;
+    }
+
+    /**
         @notice Check if an epoch should be considered ended
         @param epoch The epoch to check
         @return True if epoch is finished, false otherwise
