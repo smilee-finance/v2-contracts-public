@@ -94,8 +94,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         @notice Allows the contract's owner to set the DVP paired with this vault.
         @dev The address is injected after-build, because the DVP needs an already built vault as constructor-injected dependency.
      */
-    function setAllowedDVP(address dvp) external onlyOwner {
-        dvp = dvp;
+    function setAllowedDVP(address dvp_) external onlyOwner {
+        dvp = dvp_;
     }
 
     // ToDo: review as it's currently used only by tests
