@@ -11,6 +11,11 @@ library Utils {
         vm.warp(block.timestamp + 1 days + secondToAdd);
     }
 
+    function skipWeek(bool additionalSecond, Vm vm) external {
+        uint256 secondToAdd = (additionalSecond) ? 1 : 0;
+        vm.warp(block.timestamp + 7 days + secondToAdd);
+    }
+
     /**
      * Function used to skip coverage on this file
      */

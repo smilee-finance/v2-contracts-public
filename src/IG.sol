@@ -99,10 +99,12 @@ contract IG is DVP {
         (uint256 igPBull, uint256 igPBear) = FinanceIGPrice.igPrices(params);
 
         uint256 amountWad = AmountsMath.wrapDecimals(SignedMath.abs(amount), _baseTokenDecimals);
+        // igP multiplies a notional computed as follow:
+        // V0 * user% = V0 * amount / initial(strategy) = V0 * amount / (V0/2) = amount * 2
         if (strategy == OptionStrategy.CALL) {
-            marketValue = amountWad.wmul(igPBull);
+            marketValue = amountWad.wmul(2e18).wmul(igPBull);
         } else {
-            marketValue = amountWad.wmul(igPBear);
+            marketValue = amountWad.wmul(2e18).wmul(igPBear);
         }
         marketValue = AmountsMath.unwrapDecimals(marketValue, _baseTokenDecimals);
     }
@@ -162,6 +164,7 @@ contract IG is DVP {
         }
         uint256 amountWad = AmountsMath.wrapDecimals(SignedMath.abs(amount), _baseTokenDecimals);
 
+        // TBD: check division by zero
         if (amount >= 0) {
             return (used.add(amountWad)).wdiv(total);
         } else {
@@ -269,7 +272,8 @@ contract IG is DVP {
                 (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
                 baseTokenAmount = AmountsMath.wrapDecimals(baseTokenAmount, _baseTokenDecimals);
                 sideTokenAmount = AmountsMath.wrapDecimals(sideTokenAmount, _sideTokenDecimals);
-                // TBD: check division by zero
+                // ToDo: add test where we roll epochs without deposit
+                // check division by zero
                 if (baseTokenAmount == 0 || sideTokenAmount == 0) {
                     currentStrike = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
                 } else {

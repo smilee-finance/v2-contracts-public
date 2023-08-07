@@ -167,6 +167,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         @return amount_ The amount of side tokens
      */
     function _notionalSideTokens() internal view returns (uint256 amount_) {
+        // TBD: use an internal account in order to avoid external manipulations where a malicious actor sends tokens to the vault in order to impact the share price or the DVP
         return IERC20(sideToken).balanceOf(address(this));
     }
 

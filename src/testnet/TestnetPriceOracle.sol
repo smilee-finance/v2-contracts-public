@@ -14,6 +14,9 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
     mapping(address => uint) tokenPrices;
     mapping(address => bool) priceSet;
 
+    uint256 _iv;
+    uint256 _rfRate;
+
     error AddressZero();
     error TokenNotSupported();
     error PriceZero();
@@ -24,6 +27,8 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
             revert AddressZero();
         }
         referenceToken = referenceToken_;
+        _iv = 5e17; // 0.5
+        _rfRate = 3e16; // 0.03 == 3%
     }
 
     // NOTE: the price is with 18 decimals and is expected to be in USD
@@ -69,24 +74,30 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
         return token0Price.wdiv(token1Price);
     }
 
-    // ToDo: add setter
     function getImpliedVolatility(
         address token0,
         address token1,
         uint256 strikePrice,
         uint256 frequency
-    ) external pure returns (uint256 iv) {
+    ) external view returns (uint256 iv) {
         token0;
         token1;
         strikePrice;
         frequency;
-        return 5e17; // 0.5
+        return _iv;
     }
 
-    // ToDo: add setter
-    function getRiskFreeRate(address token0, address token1) external pure returns (uint256 rate) {
+    function setImpliedVolatility(uint256 percentage) external onlyOwner {
+        _iv = percentage;
+    }
+
+    function getRiskFreeRate(address token0, address token1) external view returns (uint256 rate) {
         token0;
         token1;
-        return 3e16; // 0.03 == 3%
+        return _rfRate;
+    }
+
+    function setRiskFreeRate(uint256 percentage) external onlyOwner {
+        _rfRate = percentage;
     }
 }

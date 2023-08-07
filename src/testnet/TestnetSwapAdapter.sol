@@ -29,10 +29,9 @@ contract TestnetSwapAdapter is IExchange, Ownable {
 
     function _getAmountOut(address tokenIn, address tokenOut, uint amountIn) internal view returns (uint) {
         uint tokenOutPrice = _priceOracle.getPrice(tokenIn, tokenOut);
-        uint tokenInDecimals = IToken(tokenIn).decimals();
-        uint tokenOutDecimals = IToken(tokenOut).decimals();
+        amountIn = AmountsMath.wrapDecimals(amountIn, IToken(tokenIn).decimals());
 
-        return amountIn.wmul(tokenOutPrice).wdiv(10 ** tokenInDecimals).wmul(10 ** tokenOutDecimals);
+        return AmountsMath.unwrapDecimals(amountIn.wmul(tokenOutPrice), IToken(tokenOut).decimals());
     }
 
     // @inheritdoc IExchange
@@ -57,10 +56,9 @@ contract TestnetSwapAdapter is IExchange, Ownable {
             revert PriceZero();
         }
 
-        uint tokenInDecimals = IToken(tokenIn).decimals();
-        uint tokenOutDecimals = IToken(tokenOut).decimals();
+        amountOut = AmountsMath.wrapDecimals(amountOut, IToken(tokenOut).decimals());
 
-        return amountOut.wmul(tokenInPrice).wdiv(10 ** tokenOutDecimals).wmul(10 ** tokenInDecimals);
+        return AmountsMath.unwrapDecimals(amountOut.wmul(tokenInPrice), IToken(tokenIn).decimals());
     }
 
     // @inheritdoc IExchange

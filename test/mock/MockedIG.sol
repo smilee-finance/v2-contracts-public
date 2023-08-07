@@ -2,12 +2,15 @@
 pragma solidity ^0.8.15;
 
 import {IVault} from "../../src/interfaces/IVault.sol";
+import {AmountsMath} from "../../src/lib/AmountsMath.sol";
 import {Position} from "../../src/lib/Position.sol";
 import {SignedMath} from "../../src/lib/SignedMath.sol";
 import {IG} from "../../src/IG.sol";
 
 //ToDo: Add comments
 contract MockedIG is IG {
+    using AmountsMath for uint256;
+
     bool internal _fakePremium;
     bool internal _fakePayoff;
 
@@ -88,5 +91,22 @@ contract MockedIG is IG {
         Position.Info storage position = _epochPositions[currentEpoch][positionID];
 
         return (position.amount, position.strategy, position.strike, position.epoch);
+    }
+
+    function getUtilizationRate() public view returns (uint256) {
+        (uint256 used, uint256 total) = _getUtilizationRateFactors();
+
+        used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
+        total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
+
+        return used.wdiv(total);
+    }
+
+    function getCurrentFinanceParameters() public view returns (FinanceParameters memory) {
+        return _currentFinanceParameters;
+    }
+
+    function setSigmaMultiplier(uint256 value) public {
+        _currentFinanceParameters.sigmaMultiplier = value;
     }
 }
