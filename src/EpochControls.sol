@@ -57,15 +57,19 @@ abstract contract EpochControls is IEpochControls {
         _;
     }
 
+    /// GETTER ///
+
+    /**
+        @notice Get All The Epochs
+        @return The epoch's array and its length
+     */
+    function getEpochs() public view returns (uint256[] memory, uint256) {
+        return (epochs, epochs.length);
+    }
+
     /// LOGIC ///
 
-    // /**
-    //     @inheritdoc IEpochControls
-    //  */
-    // function epochs() public view override returns (uint256[] memory) {
-    //     // ToDo: review as the interface states that those should be the completed ones!
-    //     return epochs;
-    // }
+    
 
     /**
         @inheritdoc IEpochControls

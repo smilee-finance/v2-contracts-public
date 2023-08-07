@@ -157,6 +157,9 @@ contract IG is DVP {
      */
     function _getPostTradeUtilizationRate(int256 amount) internal view returns (uint256 utilizationRate) {
         (uint256 used, uint256 total) = _getUtilizationRateFactors();
+        if (used == 0 || total == 0) {
+            return 0;
+        }
         uint256 amountWad = AmountsMath.wrapDecimals(SignedMath.abs(amount), _baseTokenDecimals);
 
         if (amount >= 0) {
@@ -267,7 +270,11 @@ contract IG is DVP {
                 baseTokenAmount = AmountsMath.wrapDecimals(baseTokenAmount, _baseTokenDecimals);
                 sideTokenAmount = AmountsMath.wrapDecimals(sideTokenAmount, _sideTokenDecimals);
                 // TBD: check division by zero
-                currentStrike = baseTokenAmount.wdiv(sideTokenAmount);
+                if (baseTokenAmount == 0 || sideTokenAmount == 0) {
+                    currentStrike = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+                } else {
+                    currentStrike = baseTokenAmount.wdiv(sideTokenAmount);
+                }
             }
 
             {

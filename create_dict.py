@@ -4,7 +4,7 @@
 
 import json
 
-chainid = [31337]
+chainid = [31338]
 scripts = {
     "01_CoreFoundations.s.sol": ["run"],
     "02_Token.s.sol": ["deployToken"],
