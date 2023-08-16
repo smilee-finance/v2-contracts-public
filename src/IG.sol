@@ -122,7 +122,7 @@ contract IG is DVP {
     }
 
     // NOTE: public for frontend usage
-    // TODO: add a modifier to check _lastRolledEpoch is < currentEpoch
+    // TODO: add a modifier to check lastRolledEpoch is < currentEpoch
     /**
         @notice Get the estimated implied volatility from a given trade.
         @param strike The trade strike.
@@ -138,7 +138,7 @@ contract IG is DVP {
             epochFrequency
         );
         uint256 U = _getPostTradeUtilizationRate(amount);
-        uint256 t0 = _lastRolledEpoch();
+        uint256 t0 = lastRolledEpoch();
         uint256 T = currentEpoch - t0;
 
         return
@@ -287,7 +287,7 @@ contract IG is DVP {
 
     /// @inheritdoc EpochControls
     function _afterRollEpoch() internal virtual override {
-        if (_lastRolledEpoch() != 0) {
+        if (lastRolledEpoch() != 0) {
             // ToDo: check if vault is dead
 
             {
@@ -316,7 +316,7 @@ contract IG is DVP {
                     currentStrike,
                     epochFrequency
                 );
-                uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(_lastRolledEpoch(), currentEpoch));
+                uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(lastRolledEpoch(), currentEpoch));
                 (_currentFinanceParameters.kA, _currentFinanceParameters.kB) = FinanceIGPrice.liquidityRange(
                     FinanceIGPrice.LiquidityRangeParams(
                         currentStrike,

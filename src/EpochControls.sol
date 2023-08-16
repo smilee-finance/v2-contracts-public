@@ -69,7 +69,7 @@ abstract contract EpochControls is IEpochControls {
 
     /// LOGIC ///
 
-    
+
 
     /**
         @inheritdoc IEpochControls
@@ -146,7 +146,7 @@ abstract contract EpochControls is IEpochControls {
     /**
         @dev Second last timestamp
      */
-    function _lastRolledEpoch() public view epochInitialized returns (uint256 lastEpoch) {
+    function lastRolledEpoch() public view epochInitialized returns (uint256 lastEpoch) {
         if (epochs.length == 1) {
             return 0;
         }

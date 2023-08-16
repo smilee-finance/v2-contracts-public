@@ -384,7 +384,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[msg.sender];
 
         // User enabled to rescue only if the user has deposited in the last epoch before the Vault died.
-        if (depositReceipt.epoch != _lastRolledEpoch()) {
+        if (depositReceipt.epoch != lastRolledEpoch()) {
             revert NothingToRescue();
         }
 
