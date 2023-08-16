@@ -33,13 +33,6 @@ library FinanceIGDelta {
         int256 alfa2;
     }
 
-    struct DeltaExpParamentersAbs {
-        uint256 m;
-        uint256 x;
-        uint256 p;
-        uint256 q;
-    }
-
     int256 internal constant MAX_EXP = 135305999368893231589;
 
     ////// DELTA //////
@@ -70,30 +63,23 @@ library FinanceIGDelta {
     */
     function igDeltas(Parameters calldata params) external pure returns (int256 igDBull, int256 igDBear) {
         uint256 sigmaTaurtd = _sigmaTaurtd(params.sigma, params.tau);
-        int256 x = _x(params.s, params.k, sigmaTaurtd);
+        int256 z = _z(params.s, params.k, sigmaTaurtd);
         (int256 m, int256 q) = _mqParams(params.alfa2);
 
-        igDBull = bullDelta(x, sigmaTaurtd, params.limSup, m, q);
-        igDBear = bearDelta(x, sigmaTaurtd, params.limInf, m, q);
+        igDBull = bullDelta(z, sigmaTaurtd, params.limSup, m, q);
+        igDBear = bearDelta(z, sigmaTaurtd, params.limInf, m, q);
     }
 
     /// @dev limSup / (1 + e^(-m*z + a*q))
-    function bullDelta(int256 x, uint256 sigmaTaurtd, int256 limSup, int256 m, int256 q) public pure returns (int256) {
+    function bullDelta(int256 z, uint256 sigmaTaurtd, int256 limSup, int256 m, int256 q) public pure returns (int256) {
         uint256 sigmaTaurtdPow = sigmaTaurtd.wmul(sigmaTaurtd);
         int256 a = SignedMath.castInt(AmountsMath.wrapDecimals(9, 1)) -
             (SignedMath.castInt(sigmaTaurtd) / 2) -
             SignedMath.castInt(AmountsMath.wrapDecimals(4, 2).wmul(sigmaTaurtdPow));
 
-        // Avoid Stack Too Deep
-        DeltaExpParamentersAbs memory dParams = DeltaExpParamentersAbs(
-            SignedMath.abs(m),
-            SignedMath.abs(x),
-            SignedMath.abs(a),
-            SignedMath.abs(q)
-        );
-
-        int256 expE = SignedMath.revabs(dParams.m.wmul(dParams.x), (m > 0 && x < 0) || (m < 0 && x > 0)) +
-            SignedMath.revabs(dParams.p.wmul(dParams.q), (a > 0 && q > 0) || (a < 0 && q < 0));
+        // -m*z + a*q
+        int256 expE = SignedMath.revabs(SignedMath.abs(m).wmul(SignedMath.abs(z)), (m > 0 && z < 0) || (m < 0 && z > 0)) +
+            SignedMath.revabs(SignedMath.abs(a).wmul(SignedMath.abs(q)), (a > 0 && q > 0) || (a < 0 && q < 0));
         if (expE > MAX_EXP) {
             return 0;
         }
@@ -103,23 +89,16 @@ library FinanceIGDelta {
     }
 
     /// @dev liminf / (1 + e^(m*z + b*q))
-    function bearDelta(int256 x, uint256 sigmaTaurtd, int256 limInf, int256 m, int256 q) public pure returns (int256) {
+    function bearDelta(int256 z, uint256 sigmaTaurtd, int256 limInf, int256 m, int256 q) public pure returns (int256) {
         uint256 sigmaTaurtdPow = SignedMath.pow2(SignedMath.castInt(sigmaTaurtd));
 
         uint256 b = AmountsMath.wrapDecimals(95, 2).add(sigmaTaurtd / 2).add(
             (AmountsMath.wrapDecimals(8, 2).wmul(sigmaTaurtdPow))
         );
 
-        //ToDo: Fix
-        DeltaExpParamentersAbs memory dParams = DeltaExpParamentersAbs(
-            SignedMath.abs(m),
-            SignedMath.abs(x),
-            SignedMath.abs(0),
-            SignedMath.abs(q)
-        );
-
-        int256 expE = SignedMath.revabs(dParams.m.wmul(dParams.x), (m > 0 && x > 0) || (m < 0 && x < 0)) +
-            SignedMath.revabs(b.wmul(dParams.q), (q > 0));
+        // m*z + b*q
+        int256 expE = SignedMath.revabs(SignedMath.abs(m).wmul(SignedMath.abs(z)), (m > 0 && z > 0) || (m < 0 && z < 0)) +
+            SignedMath.revabs(b.wmul(SignedMath.abs(q)), (q > 0));
         if (expE > MAX_EXP) {
             return 0;
         }
@@ -258,9 +237,8 @@ library FinanceIGDelta {
         return sigma.wmul(FixedPointMathLib.sqrt(tau));
     }
 
-    // ToDo: rename "_z" in order to match the paper
     /// @dev ln(S / K) / σ√τ
-    function _x(uint256 s, uint256 k, uint256 sigmaTaurtd) public pure returns (int256) {
+    function _z(uint256 s, uint256 k, uint256 sigmaTaurtd) public pure returns (int256) {
         int256 n = FixedPointMathLib.ln(SignedMath.castInt(s.wdiv(k)));
         return SignedMath.revabs(SignedMath.abs(n).wdiv(sigmaTaurtd), n > 0);
     }

@@ -179,7 +179,7 @@ contract FinanceLibTest is Test {
         );
 
         // 3800
-        // Note: When the price is very far from the strike near the maturity date (less than 1 hour) 
+        // Note: When the price is very far from the strike near the maturity date (less than 1 hour)
         // the test fails due to ExpOverflow when you're calculating Delta Hedges
         tau = WadTime.nYears(WadTime.daysFraction(1, 1000));
         (alfa1, alfa2) = FinanceIGDelta._alfas(k, ka, kb, sigma, tau);
@@ -202,7 +202,7 @@ contract FinanceLibTest is Test {
         uint256 testCasesNumDelta = testCasesNum - 1;
         for (uint256 i = 0; i < testCasesNumDelta; i++) {
             uint256 sigmaTaurtd = FinanceIGDelta._sigmaTaurtd(testCases[i].deltaParams.sigma, testCases[i].deltaParams.tau);
-            int256 x = FinanceIGDelta._x(testCases[i].deltaParams.s, testCases[i].deltaParams.k, sigmaTaurtd);
+            int256 x = FinanceIGDelta._z(testCases[i].deltaParams.s, testCases[i].deltaParams.k, sigmaTaurtd);
 
             assertApproxEqAbs(testCases[i].delta.x, x, D_ERR);
 
