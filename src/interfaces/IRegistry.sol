@@ -21,4 +21,11 @@ interface IRegistry {
      * @param addr A generic address to remove
      */
     function unregister(address addr) external;
+
+    /**
+     * Get DVPs to roll
+     * @return list The DVPs to roll
+     * @return number The number of DVPs to roll
+     */
+    function getUnrolledDVPs() external view returns (address[] memory list, uint256 number);
 }

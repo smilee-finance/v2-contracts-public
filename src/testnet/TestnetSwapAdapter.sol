@@ -30,7 +30,6 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     function _getAmountOut(address tokenIn, address tokenOut, uint amountIn) internal view returns (uint) {
         uint tokenOutPrice = _priceOracle.getPrice(tokenIn, tokenOut);
         amountIn = AmountsMath.wrapDecimals(amountIn, IToken(tokenIn).decimals());
-
         return AmountsMath.unwrapDecimals(amountIn.wmul(tokenOutPrice), IToken(tokenOut).decimals());
     }
 
@@ -57,7 +56,6 @@ contract TestnetSwapAdapter is IExchange, Ownable {
         }
 
         amountOut = AmountsMath.wrapDecimals(amountOut, IToken(tokenOut).decimals());
-
         return AmountsMath.unwrapDecimals(amountOut.wmul(tokenInPrice), IToken(tokenIn).decimals());
     }
 

@@ -54,7 +54,7 @@ contract Registry is AccessControl, IRegistry {
         _removeIndexBySideToken(addr);
     }
 
-    // TBD: add to IRegistry interface...
+    /// @inheritdoc IRegistry
     function getUnrolledDVPs() external view returns (address[] memory list, uint256 number) {
         list = new address[](_dvps.length);
         for (uint256 i = 0; i < _dvps.length; i++) {

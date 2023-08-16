@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {console} from "forge-std/console.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
@@ -181,10 +182,23 @@ contract IG is DVP {
         FinanceIGDelta.DeltaHedgeParameters memory params;
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
+        uint256 postTradeVol = getPostTradeVolatility(strike, notional_);
+
+        {
+            uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
+            (_currentFinanceParameters.alphaA, _currentFinanceParameters.alphaB) = FinanceIGDelta._alfas(
+                strike,
+                _currentFinanceParameters.kA,
+                _currentFinanceParameters.kB,
+                postTradeVol,
+                yearsToMaturity
+            );
+        }
+
         {
             FinanceIGDelta.Parameters memory deltaParams;
             {
-                deltaParams.sigma = getPostTradeVolatility(strike, notional_);
+                deltaParams.sigma = postTradeVol;
                 deltaParams.k = strike;
                 deltaParams.s = oraclePrice;
                 deltaParams.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
@@ -195,8 +209,13 @@ contract IG is DVP {
             }
 
             (params.igDBull, params.igDBear) = FinanceIGDelta.igDeltas(deltaParams);
+
             params.strike = strike;
             (, params.sideTokensAmount) = IVault(vault).balances();
+
+            // console.log("Notional_ Amount");
+            // console.logInt(notional_);
+
             params.notionalUp = notional_;
             params.notionalDown = 0;
             if (strategy == OptionStrategy.PUT) {
@@ -207,14 +226,16 @@ contract IG is DVP {
             params.sideTokenDecimals = _sideTokenDecimals;
             Notional.Info storage liquidity = _liquidity[currentEpoch];
             (
-                params.initialLiquidityBull,
                 params.initialLiquidityBear,
-                params.availableLiquidityBull,
-                params.availableLiquidityBear
+                params.initialLiquidityBull,
+                params.availableLiquidityBear,
+                params.availableLiquidityBull
             ) = liquidity.aggregatedInfo(strike);
         }
 
         int256 tokensToSwap = FinanceIGDelta.h(params);
+        // console.log("TokenToSwap");
+        // console.logInt(tokensToSwap);
 
         if (tokensToSwap == 0) {
             return oraclePrice;
@@ -270,8 +291,11 @@ contract IG is DVP {
                 // Update strike price:
                 // NOTE: both amounts are after equal weight rebalance, hence we can just compute their ratio.
                 (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
+                // console.log("baseTokenAmountBefore", baseTokenAmount);
                 baseTokenAmount = AmountsMath.wrapDecimals(baseTokenAmount, _baseTokenDecimals);
                 sideTokenAmount = AmountsMath.wrapDecimals(sideTokenAmount, _sideTokenDecimals);
+                // console.log("baseTokenAmount", baseTokenAmount);
+                // console.log("sideTokenAmount", sideTokenAmount);
                 // ToDo: add test where we roll epochs without deposit
                 // check division by zero
                 if (baseTokenAmount == 0 || sideTokenAmount == 0) {
@@ -298,23 +322,20 @@ contract IG is DVP {
                         yearsToMaturity
                     )
                 );
-                (_currentFinanceParameters.alphaA, _currentFinanceParameters.alphaB) = FinanceIGDelta._alfas(
-                    currentStrike,
-                    _currentFinanceParameters.kA,
-                    _currentFinanceParameters.kB,
-                    _currentFinanceParameters.sigmaZero,
-                    yearsToMaturity
-                );
+
                 _currentFinanceParameters.theta = FinanceIGPrice._teta(
                     currentStrike,
                     _currentFinanceParameters.kA,
                     _currentFinanceParameters.kB
                 );
+
+                uint256 v0 = IVault(vault).v0();
                 (_currentFinanceParameters.limSup, _currentFinanceParameters.limInf) = FinanceIGDelta.lims(
                     currentStrike,
                     _currentFinanceParameters.kA,
                     _currentFinanceParameters.kB,
-                    _currentFinanceParameters.theta
+                    _currentFinanceParameters.theta,
+                    v0
                 );
             }
         }
