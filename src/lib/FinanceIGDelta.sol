@@ -68,7 +68,7 @@ library FinanceIGDelta {
         @return igDBear The unitary integer quantity of side token to hedge a bear position
         @dev the formulas are the ones for different ranges of liquidity
     */
-    function igDeltas(Parameters calldata params) external view returns (int256 igDBull, int256 igDBear) {
+    function igDeltas(Parameters calldata params) external pure returns (int256 igDBull, int256 igDBear) {
         uint256 sigmaTaurtd = _sigmaTaurtd(params.sigma, params.tau);
         int256 x = _x(params.s, params.k, sigmaTaurtd);
         (int256 m, int256 q) = _mqParams(params.alfa2);
@@ -103,7 +103,7 @@ library FinanceIGDelta {
     }
 
     /// @dev liminf / (1 + e^(m*z + b*q))
-    function bearDelta(int256 x, uint256 sigmaTaurtd, int256 limInf, int256 m, int256 q) public view returns (int256) {
+    function bearDelta(int256 x, uint256 sigmaTaurtd, int256 limInf, int256 m, int256 q) public pure returns (int256) {
         uint256 sigmaTaurtdPow = SignedMath.pow2(SignedMath.castInt(sigmaTaurtd));
 
         uint256 b = AmountsMath.wrapDecimals(95, 2).add(sigmaTaurtd / 2).add(
@@ -143,25 +143,7 @@ library FinanceIGDelta {
         uint256 strike;
     }
 
-    function h(DeltaHedgeParameters memory params) public view returns (int256 tokensToSwap) {
-        // {
-        //     console.log("params.igDBull");
-        //     console.logInt(params.igDBull);
-        //     console.log("params.igDBear");
-        //     console.logInt(params.igDBear);
-        //     console.log("baseTokenDecimals", params.baseTokenDecimals);
-        //     console.log("sideTokenDecimals", params.sideTokenDecimals);
-        //     console.log("initialLiquidityBull", params.initialLiquidityBull);
-        //     console.log("initialLiquidityBear", params.initialLiquidityBear);
-        //     console.log("availableLiquidityBull", params.availableLiquidityBull);
-        //     console.log("availableLiquidityBear", params.availableLiquidityBear);
-        //     console.log("sideTokensAmount", params.sideTokensAmount);
-        //     console.log("notionalUp");
-        //     console.logInt(params.notionalUp);
-        //     console.log("notionalDown");
-        //     console.logInt(params.notionalDown);
-        //     console.log("strike", params.strike);
-        // }
+    function h(DeltaHedgeParameters memory params) public pure returns (int256 tokensToSwap) {
         params.initialLiquidityBull = AmountsMath.wrapDecimals(params.initialLiquidityBull, params.baseTokenDecimals);
         params.initialLiquidityBear = AmountsMath.wrapDecimals(params.initialLiquidityBear, params.baseTokenDecimals);
         params.availableLiquidityBull = AmountsMath.wrapDecimals(
@@ -210,8 +192,6 @@ library FinanceIGDelta {
         params.sideTokensAmount = SignedMath.abs(tokensToSwap);
         params.sideTokensAmount = AmountsMath.unwrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
         tokensToSwap = SignedMath.revabs(params.sideTokensAmount, tokensToSwap >= 0);
-        // console.log("Token to Swap");
-        // console.logInt(tokensToSwap);
     }
 
     ////// HELPERS //////
@@ -249,7 +229,7 @@ library FinanceIGDelta {
         @param sigma Implied vol.
         @param t Epoch duration in years
         @return alfa1 α1 = ln(Ka / K) / σ√T
-        @return alfa2 α2 = ln(Kb / K) / σ√T [= -α1 when log-symmetric Ka - K - Kb] 
+        @return alfa2 α2 = ln(Kb / K) / σ√T [= -α1 when log-symmetric Ka - K - Kb]
         // T è D-X/365 dove D è il giorno della scadenza e X è il giorno attuale (7-2/365);
      */
     function _alfas(

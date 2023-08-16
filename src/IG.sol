@@ -53,6 +53,7 @@ contract IG is DVP {
         bool strategy,
         uint256 amount
     ) external override returns (uint256 premium_) {
+        strike;
         premium_ = _mint(recipient, currentStrike, strategy, amount);
     }
 
@@ -73,6 +74,7 @@ contract IG is DVP {
         bool strategy,
         uint256 amount
     ) public view virtual override returns (uint256 premium_) {
+        strike;
         uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
         premium_ = _getMarketValue(currentStrike, strategy, int256(amount), swapPrice);
@@ -120,6 +122,7 @@ contract IG is DVP {
     }
 
     // NOTE: public for frontend usage
+    // TODO: add a modifier to check _lastRolledEpoch is < currentEpoch
     /**
         @notice Get the estimated implied volatility from a given trade.
         @param strike The trade strike.

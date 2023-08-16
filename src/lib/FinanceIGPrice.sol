@@ -318,20 +318,20 @@ library FinanceIGPrice {
     }
 
     struct TradeVolatilityParams {
+        // The baseline volatility at epoch start
         uint256 sigma0;
+        // A multiplier for the utilization rate; must be greater or equal to one
         uint256 utilizationRateFactor;
+        // A time decay factor
         uint256 timeDecay;
+        // The utilization rate of the vault deposits
         uint256 utilizationRate;
-        uint256 maturity;
+        // The epoch duration (maturity timestamp - last maturity timestamp)
+        uint256 duration;
+        // The epoch start timestamp
         uint256 initialTime;
     }
 
-    // @param sigma0 The baseline volatility at epoch start.
-    // @param utilizationRateFactor A multiplier for the utilization rate; must be greater or equal to one.
-    // @param timeDecay A time decay factor.
-    // @param utilizationRate the utilization rate.
-    // @param maturity the maturity timestamp.
-    // @param initialTime the epoch start timestamp.
     /**
         @notice Computes the trade volatility
         @param params The parameters
@@ -340,7 +340,7 @@ library FinanceIGPrice {
      */
     function tradeVolatility(TradeVolatilityParams calldata params) public view returns (uint256 sigma_hat) {
         uint256 baselineVolatilityFactor = AmountsMath.wrap(1) + uint256(SignedMath.pow3(int256(params.utilizationRate))).wmul(params.utilizationRateFactor.sub(AmountsMath.wrap(1)));
-        uint256 timeFactor = (AmountsMath.wrap(params.maturity) - params.timeDecay.wmul(AmountsMath.wrap(block.timestamp - params.initialTime))).wdiv(AmountsMath.wrap(params.maturity));
+        uint256 timeFactor = (AmountsMath.wrap(params.duration) - params.timeDecay.wmul(AmountsMath.wrap(block.timestamp - params.initialTime))).wdiv(AmountsMath.wrap(params.duration));
 
         return params.sigma0.wmul(baselineVolatilityFactor).wmul(timeFactor);
     }
