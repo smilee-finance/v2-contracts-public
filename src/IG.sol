@@ -24,6 +24,8 @@ contract IG is DVP {
     using AmountsMath for uint256;
     using Notional for Notional.Info;
 
+    error StrikeDoesNotMatch();
+
     // ToDo: review
     struct FinanceParameters {
         uint256 kA;
@@ -53,7 +55,9 @@ contract IG is DVP {
         bool strategy,
         uint256 amount
     ) external override returns (uint256 premium_) {
-        strike;
+        if(strike != currentStrike) {
+            revert StrikeDoesNotMatch();
+        }
         premium_ = _mint(recipient, currentStrike, strategy, amount);
     }
 
