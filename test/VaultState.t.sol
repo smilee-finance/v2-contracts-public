@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {IExchange} from "../src/interfaces/IExchange.sol";
@@ -18,9 +17,11 @@ import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract VaultStateTest is Test {
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
+    bytes4 constant DepositThresholdTVLReached = bytes4(keccak256("DepositThresholdTVLReached()"));
 
     address admin = address(0x1);
     address alice = address(0x2);
+    address bob = address(0x3);
     TestnetToken baseToken;
     TestnetToken sideToken;
     MockedVault vault;
@@ -117,9 +118,12 @@ contract VaultStateTest is Test {
     function testDeltaHedge(uint128 amountToDeposit, int128 amountToHedge, uint32 sideTokenPrice) public {
         // An amount should be always deposited
         // TBD: what if depositAmount < 1 ether ?
+
+        vm.prank(admin);
+        vault.setLimitTVL(type(uint256).max);
+
         vm.assume(amountToDeposit > 1 ether);
         vm.assume(sideTokenPrice > 0);
-
 
         uint256 amountToHedgeAbs = amountToHedge > 0
             ? uint256(uint128(amountToHedge))
@@ -189,7 +193,7 @@ contract VaultStateTest is Test {
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
-        // Alice 0.5 ether + bob 0.5 ether 
+        // Alice 0.5 ether + bob 0.5 ether
         initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
         assertEq(1 ether, initialLiquidity);
 
@@ -201,6 +205,77 @@ contract VaultStateTest is Test {
         // Complete withdraw without any operation cannot update the initialLiquidity state
         initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
         assertEq(1 ether, initialLiquidity);
+    }
+
+    function testLimitTVL() public {
+        vm.prank(admin);
+        vault.setLimitTVL(1000e18);
+
+        VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
+        (, , , uint256 cumulativeAmount) = vault.depositReceipts(alice);
+
+        assertEq(vault.usersTVL(), 100e18);
+        assertEq(cumulativeAmount, 100e18);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vault.initiateWithdraw(9999e16);
+
+        (, , , cumulativeAmount) = vault.depositReceipts(alice);
+        assertEq(vault.usersTVL(), 100e18);
+        assertEq(cumulativeAmount, 100e18);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        VaultUtils.addVaultDeposit(alice, 20e18, admin, address(vault), vm);
+
+        vm.prank(alice);
+        vault.completeWithdraw();
+
+        (, , , cumulativeAmount) = vault.depositReceipts(alice);
+        assertEq(vault.usersTVL(), 2001e16);
+        assertEq(cumulativeAmount, 2001e16);
+
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+        
+        vm.prank(alice);
+        vault.initiateWithdraw(5e18);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+        
+        vm.prank(alice);
+        vault.completeWithdraw();
+
+        (, , , cumulativeAmount) = vault.depositReceipts(alice);
+        assertApproxEqAbs(vault.usersTVL(), 1501e16, 1e2);
+        assertApproxEqAbs(cumulativeAmount, 1501e16, 1e2);
+
+        VaultUtils.addVaultDeposit(bob, 10e18, admin, address(vault), vm);
+
+        assertApproxEqAbs(vault.usersTVL(), 2501e16, 1e2);
+
+        (, , , cumulativeAmount) = vault.depositReceipts(bob);
+        assertApproxEqAbs(vault.usersTVL(), 2501e16, 1e2);
+        assertEq(cumulativeAmount, 10e18);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        VaultUtils.addVaultDeposit(bob, 10e18, admin, address(vault), vm);
+        (, , , cumulativeAmount) = vault.depositReceipts(bob);
+        assertApproxEqAbs(vault.usersTVL(), 3501e16, 1e2);
+        assertEq(cumulativeAmount, 20e18);
+
+        TokenUtils.provideApprovedTokens(admin, vault.baseToken(), alice, address(vault), 1000 ether, vm);
+
+        vm.expectRevert(DepositThresholdTVLReached);
+        vault.deposit(1000 ether);
     }
 
     // /**

@@ -2,19 +2,19 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
+import {AmountsMath} from "./lib/AmountsMath.sol";
 import {TokensPair} from "./lib/TokensPair.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 contract Vault is IVault, ERC20, EpochControls, Ownable {
-    using SafeMath for uint256;
+    using AmountsMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
 
     /// @inheritdoc IVaultParams
@@ -28,6 +28,11 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     address public dvp; // NOTE: public for frontend purposes
     /// @notice Whether the transfer of shares between wallets is allowed or not
     bool internal _secondaryMarkedAllowed;
+    /// @notice Maximum threshold of TVL
+    uint256 public limitTVL;
+
+    /// @notice Token value all users have in the Vault
+    uint256 public usersTVL;
 
     // TBD: add to the IVault interface
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
@@ -47,6 +52,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     error VaultNotDead();
     error WithdrawNotInitiated();
     error WithdrawTooEarly();
+    error DepositThresholdTVLReached();
 
     // TBD: create ERC20 name and symbol from the underlying tokens
     constructor(
@@ -63,6 +69,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         sideToken = sideToken_;
 
         _addressProvider = AddressProvider(addressProvider_);
+        // ToDo: Add constructor parameter
+        limitTVL = 1e25;
         _secondaryMarkedAllowed = false;
     }
 
@@ -96,6 +104,14 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
      */
     function setAllowedDVP(address dvp_) external onlyOwner {
         dvp = dvp_;
+    }
+
+    /**
+        @notice Set LimitTVL
+        @param limitTVL_ LimitTVL to set
+     */
+    function setLimitTVL(uint256 limitTVL_) external onlyOwner {
+        limitTVL = limitTVL_;
     }
 
     // ToDo: review as it's currently used only by tests
@@ -194,8 +210,12 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
             revert AmountZero();
         }
 
-        // TBD: accept only if it doesn't exceeds the TVL limit (cap)
-        // ---- limitTVL - lockedInitially >= amount
+        // Accept only if it doesn't exceeds the TVL limit (cap)
+        // ---- limitTVL - usersTVL >= amount
+        uint256 depositCapacity = limitTVL - usersTVL;
+        if(amount > depositCapacity) {
+            revert DepositThresholdTVLReached();
+        }
 
         address creditor = msg.sender;
 
@@ -203,6 +223,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         _emitUpdatedDepositReceipt(creditor, amount);
 
         _state.liquidity.pendingDeposits += amount;
+        usersTVL += amount;
 
         // ToDo emit Deposit event
     }
@@ -223,6 +244,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
             epochPricePerShare[depositReceipt.epoch]
         );
 
+        uint256 cumulativeUserAmount = depositReceipt.cumulativeAmount.add(amount);
+
         // If the user has already deposited in the current epoch, add the amount to the total one of the next epoch:
         if (currentEpoch == depositReceipt.epoch) {
             amount = depositReceipt.amount.add(amount);
@@ -231,7 +254,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         depositReceipts[creditor] = VaultLib.DepositReceipt({
             epoch: currentEpoch,
             amount: amount,
-            unredeemedShares: unredeemedShares
+            unredeemedShares: unredeemedShares,
+            cumulativeAmount: cumulativeUserAmount
         });
     }
 
@@ -365,7 +389,31 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         uint256 amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, epochPricePerShare[withdrawal.epoch]);
 
         withdrawal.shares = 0;
-        // NOTE: we choose to leave the epoch number as-is in order to save gas
+
+        // NOTE: we choose to call shareBalances instead of balanceOf due to possible deposit meanwhile.
+        (uint256 heldByAccount, uint256 heldByVault) = shareBalances(msg.sender);
+        uint256 totalUserShares = heldByAccount + heldByVault + sharesToWithdraw;
+
+        // Calculate the percentage of burned shares
+        uint256 percentageWithdrawal = sharesToWithdraw.wdiv(totalUserShares); 
+
+        VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
+
+        uint256 cumulativeDeposit = depositReceipt.cumulativeAmount;
+
+        // If there are deposits on the currentEpoch, remove them to the cumulativeDeposit
+        if(depositReceipt.epoch == currentEpoch) {
+            cumulativeDeposit -= depositReceipt.amount;
+        }
+
+        // Calculate the amount to subtract to the cumulativeAmount and to the global counter
+        uint256 percentagedAmount = cumulativeDeposit.wmul(percentageWithdrawal);
+
+        // Update depositReceipt's cumulativeAmount
+        depositReceipt.cumulativeAmount -= percentagedAmount;
+
+        // Update global usersTVL
+        usersTVL -= percentagedAmount;
 
         // NOTE: the user transferred the required shares to the vault when it initiated the withdraw
         _burn(address(this), sharesToWithdraw);

@@ -169,7 +169,7 @@ contract VaultDeathTest is Test {
 
         assertEq(100, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
 
-        (, uint256 depositReceiptsAliceAmount, ) = vault.depositReceipts(alice);
+        (, uint256 depositReceiptsAliceAmount,, ) = vault.depositReceipts(alice);
         assertEq(100, depositReceiptsAliceAmount);
 
         // Alice rescues her baseToken
@@ -179,7 +179,7 @@ contract VaultDeathTest is Test {
         assertEq(0, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
         assertEq(0, baseToken.balanceOf(address(vault)));
         assertEq(100, baseToken.balanceOf(alice));
-        (, depositReceiptsAliceAmount, ) = vault.depositReceipts(alice);
+        (, depositReceiptsAliceAmount,,) = vault.depositReceipts(alice);
         assertEq(0, depositReceiptsAliceAmount);
     }
 

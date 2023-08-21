@@ -42,6 +42,7 @@ library VaultLib {
         uint256 epoch;
         uint256 amount;
         uint256 unredeemedShares;
+        uint256 cumulativeAmount;
     }
 
     struct Withdrawal {

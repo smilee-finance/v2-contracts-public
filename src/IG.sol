@@ -55,9 +55,7 @@ contract IG is DVP {
         bool strategy,
         uint256 amount
     ) external override returns (uint256 premium_) {
-        if(strike != currentStrike) {
-            revert StrikeDoesNotMatch();
-        }
+        strike;
         premium_ = _mint(recipient, currentStrike, strategy, amount);
     }
 
