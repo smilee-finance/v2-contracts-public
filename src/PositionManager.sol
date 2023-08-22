@@ -101,7 +101,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             }
         }
 
-        premium = dvp.premium(dvp.currentStrike(), params.strategy, params.notional);
+        premium = dvp.premium(params.strike, params.strategy, params.notional);
 
         // Transfer premium:
         // NOTE: The PositionManager is just a middleman between the user and the DVP
@@ -110,7 +110,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         baseToken.approve(params.dvpAddr, premium);
 
         // Buy the option:
-        premium = dvp.mint(address(this), dvp.currentStrike(), params.strategy, params.notional);
+        premium = dvp.mint(address(this), params.strike, params.strategy, params.notional);
 
         if (params.tokenId == 0) {
             // Mint token:
@@ -120,7 +120,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             // Save position:
             _positions[tokenId] = ManagedPosition({
                 dvpAddr: params.dvpAddr,
-                strike: dvp.currentStrike(),
+                strike: params.strike,
                 strategy: params.strategy,
                 expiry: dvp.currentEpoch(),
                 premium: premium,
