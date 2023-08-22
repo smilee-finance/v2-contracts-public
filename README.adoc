@@ -17,6 +17,9 @@ You have to create and fill a `.env` file from the `.env.template` one.
 . `make chain`
 . `make shell`
 . `source .env`
+. Compile in an optimized way:
++
+`export FOUNDRY_PROFILE="deployment"`
 . Deploy core contracts, libraries and base token:
 +
 `forge script script/testnet/01_CoreFoundations.s.sol:DeployCoreFoundations --fork-url $RPC_LOCALNET --broadcast -vvvv`

@@ -1,12 +1,22 @@
+# When running forge, you can specify the profile to use using the FOUNDRY_PROFILE environment variable.
 [profile.default]
 src = "src"
 out = "out"
 libs = ["lib"]
 revert_strings = "debug"
-fs_permissions = [{ access = "read", path = "./broadcast/"}]
 
+# By default, each standalone section belongs to the default profile. i.e. [fmt] is equivalent to [profile.default.fmt].
 # Define RPC aliases:
 [rpc_endpoints]
+arbitrum_mainnet = "${RPC_MAINNET}"
+
+[profile.deployment]
+fs_permissions = [{ access = "read", path = "./broadcast/"}]
+via_ir = true
+revert_strings = "strip"
+# optimizer-runs = 200 # Should be lifted up to the contract size limit
+
+[profile.deployment.rpc_endpoints]
 arbitrum_mainnet = "${RPC_MAINNET}"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
@@ -15,3 +25,4 @@ arbitrum_mainnet = "${RPC_MAINNET}"
 # - revert_strings: injects strings for compiler-generated internal reverts (and require) reason strings.
 # - arbitrum_mainnet: used for testing the UniswapExchange contract.
 # - fs_permissions: allows the EnhancedScript utility contract to read the transaction logs.
+# - via_ir: allows to further reduce the contracts sizes.
