@@ -3,7 +3,10 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
+import {TestnetToken} from "../src/testnet/TestnetToken.sol";
+import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
+import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
@@ -17,10 +20,12 @@ contract RegistryTest is Test {
     AddressProvider ap;
 
     constructor() {
+
         vm.startPrank(admin);
         ap = new AddressProvider();
         registry = new TestnetRegistry();
         ap.setRegistry(address(registry));
+
         vm.stopPrank();
 
         MockedVault vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
@@ -113,9 +118,7 @@ contract RegistryTest is Test {
     }
 
     function testMultiSideTokenIndexing() public {
-        MockedVault vault2 = MockedVault(
-            VaultUtils.createVaultSideTokenSym(dvp.baseToken(), "JOE", 0, ap, admin, vm)
-        );
+        MockedVault vault2 = MockedVault(VaultUtils.createVaultSideTokenSym(dvp.baseToken(), "JOE", 0, ap, admin, vm));
         MockedIG dvp2 = new MockedIG(address(vault2), address(ap));
 
         vm.prank(admin);
@@ -150,5 +153,54 @@ contract RegistryTest is Test {
         dvps = registry.getDVPsBySideToken(dvp2.sideToken());
         assertEq(1, dvps.length);
         assertEq(address(dvp2), dvps[0]);
+    }
+
+    function testDVPToRoll() public {
+        vm.startPrank(admin);
+        MockedVault(dvp.vault()).setAllowedDVP(address(dvp));
+        vm.stopPrank();
+
+        vm.warp(EpochFrequency.REF_TS);
+        dvp.rollEpoch();
+
+        Utils.skipDay(true, vm);
+
+        MockedVault vault2 = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
+        MockedIG dvp2 = new MockedIG(address(vault2), address(ap));
+
+        TestnetPriceOracle po = TestnetPriceOracle(ap.priceOracle());
+        
+        vm.startPrank(admin);
+        registry.register(address(dvp));
+        registry.register(address(dvp2));
+        vault2.setAllowedDVP(address(dvp2));
+        po.setTokenPrice(vault2.baseToken(), 1e18);
+        vm.stopPrank();
+
+        dvp2.rollEpoch();
+
+        uint256 timeToNextEpochDvp = dvp.timeToNextEpoch();
+        uint256 timeToNextEpochDvp2 = dvp2.timeToNextEpoch();
+
+        assertEq(0, timeToNextEpochDvp);
+        assertApproxEqAbs(86400, timeToNextEpochDvp2, 10);
+
+        (address[] memory dvps, uint256 dvpsToRoll) = registry.getUnrolledDVPs();
+
+        assertEq(1, dvpsToRoll);
+        assertEq(keccak256(abi.encodePacked(dvps)), keccak256(abi.encodePacked([address(dvp), address(0)])));
+
+        dvp.rollEpoch();
+
+        (dvps, dvpsToRoll) = registry.getUnrolledDVPs();
+
+        assertEq(0, dvpsToRoll);
+        assertEq(keccak256(abi.encodePacked(dvps)), keccak256(abi.encodePacked([address(0), address(0)])));
+        Utils.skipDay(true, vm);
+
+        (dvps, dvpsToRoll) = registry.getUnrolledDVPs();
+
+        assertEq(2, dvpsToRoll);
+        assertEq(keccak256(abi.encodePacked(dvps)), keccak256(abi.encodePacked([address(dvp), address(dvp2)])));
     }
 }

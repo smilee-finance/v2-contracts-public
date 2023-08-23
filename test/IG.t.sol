@@ -18,6 +18,8 @@ contract IGTest is Test {
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
+    bytes constant IGPaused = bytes("Pausable: paused");
+    bytes constant OwnerError = bytes("Ownable: caller is not the owner");
 
     address baseToken;
     address sideToken;
@@ -45,12 +47,11 @@ contract IGTest is Test {
 
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS + 1);
-
+        vm.startPrank(admin);
         ig = new MockedIG(address(vault), address(ap));
-        vm.prank(admin);
         registry.register(address(ig));
-        vm.prank(admin);
         MockedVault(vault).setAllowedDVP(address(ig));
+        vm.stopPrank();
         ig.useFakeDeltaHedge();
 
         // Roll first epoch (this enables deposits)
@@ -221,5 +222,67 @@ contract IGTest is Test {
         vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
         ig.burn(epoch, alice, strike, OptionStrategy.CALL, inputAmount + 1);
+    }
+
+    function testIGPaused() public {
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), 1 ether, vm);
+
+        assertEq(ig.isPaused(), false);
+
+        vm.expectRevert(OwnerError);
+        ig.changePauseState();
+
+        vm.prank(admin);
+        ig.changePauseState();
+        assertEq(ig.isPaused(), true);
+
+        vm.startPrank(alice);
+        vm.expectRevert(IGPaused);
+        ig.mint(alice, 0, OptionStrategy.CALL, 1 ether);
+
+        uint256 epoch = ig.currentEpoch();
+        uint256 strike = ig.currentStrike();
+
+        vm.expectRevert(IGPaused);
+        ig.burn(epoch, alice, strike, OptionStrategy.CALL, 1 ether);
+        vm.stopPrank();
+
+        Utils.skipDay(true, vm);
+
+        vm.expectRevert(IGPaused);
+        ig.rollEpoch();
+
+        // From here on, all the IG functions should work properly
+        vm.prank(admin);
+        ig.changePauseState();
+        assertEq(ig.isPaused(), false);
+
+        ig.rollEpoch();
+
+        epoch = ig.currentEpoch();
+        strike = ig.currentStrike();
+
+        vm.startPrank(alice);
+        ig.mint(alice, 0, OptionStrategy.CALL, 1 ether);
+
+        ig.burn(epoch, alice, strike, OptionStrategy.CALL, 1 ether);
+        vm.stopPrank();
+    }
+
+    function testRollEpochWhenDVPHasJumpedSomeRolls() public {
+        uint256 currentEpoch = ig.currentEpoch();
+        uint256 firstExpiry = EpochFrequency.nextExpiry(currentEpoch, EpochFrequency.DAILY);
+        uint256 secondExpiry = EpochFrequency.nextExpiry(firstExpiry, EpochFrequency.DAILY);
+        uint256 thirdExpiry = EpochFrequency.nextExpiry(secondExpiry, EpochFrequency.DAILY);
+        Utils.skipDay(true, vm);
+        Utils.skipDay(true, vm);
+        Utils.skipDay(true, vm);
+
+        ig.rollEpoch();
+        currentEpoch = ig.currentEpoch();
+
+        assertNotEq(currentEpoch, firstExpiry);
+        assertNotEq(currentEpoch, secondExpiry);
+        assertEq(currentEpoch, thirdExpiry);
     }
 }

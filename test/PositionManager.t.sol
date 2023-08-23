@@ -66,7 +66,7 @@ contract PositionManagerTest is Test {
         ig = new IG(address(vault), address(ap));
         vm.prank(admin);
         vault.setAllowedDVP(address(ig));
-        
+
         Utils.skipDay(true, vm);
         ig.rollEpoch();
         // NOTE: needed because the DVP doesn't know that its vault has already done an epoch by itself
@@ -147,5 +147,76 @@ contract PositionManagerTest is Test {
         // ToDo: improve checks
         vm.expectRevert(InvalidTokenID);
         pm.positionDetail(tokenId);
+    }
+
+    function testMintTwiceSamePosition() public {
+        (uint256 tokenId, IG ig) = initAndMint();
+
+        assertEq(1, tokenId);
+
+        IPositionManager.PositionDetail memory pos = pm.positionDetail(tokenId);
+
+        assertEq(address(ig), pos.dvpAddr);
+        assertEq(baseToken, pos.baseToken);
+        assertEq(sideToken, pos.sideToken);
+        assertEq(EpochFrequency.DAILY, pos.dvpFreq);
+        assertEq(false, pos.dvpType);
+        assertEq(ig.currentStrike(), pos.strike);
+        assertEq(OptionStrategy.CALL, pos.strategy);
+        assertEq(ig.currentEpoch(), pos.expiry);
+        assertEq(10 ether, pos.notional);
+        assertEq(0, pos.cumulatedPayoff);
+
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(pm), 10 ether, vm);
+
+        uint256 strike = ig.currentStrike();
+
+        vm.prank(alice);
+
+        (tokenId, ) = pm.mint(
+            IPositionManager.MintParams({
+                dvpAddr: address(ig),
+                notional: 10 ether,
+                strike: strike,
+                strategy: OptionStrategy.CALL,
+                recipient: alice,
+                tokenId: 1
+            })
+        );
+
+        pos = pm.positionDetail(tokenId);
+
+        assertEq(address(ig), pos.dvpAddr);
+        assertEq(baseToken, pos.baseToken);
+        assertEq(sideToken, pos.sideToken);
+        assertEq(EpochFrequency.DAILY, pos.dvpFreq);
+        assertEq(false, pos.dvpType);
+        assertEq(ig.currentStrike(), pos.strike);
+        assertEq(OptionStrategy.CALL, pos.strategy);
+        assertEq(ig.currentEpoch(), pos.expiry);
+        assertEq(20 ether, pos.notional);
+        assertEq(0, pos.cumulatedPayoff);
+    }
+
+    function testMintPositionNotOwner() public {
+        (uint256 tokenId, IG ig) = initAndMint();
+
+        TokenUtils.provideApprovedTokens(admin, baseToken, address(0x5), address(pm), 10 ether, vm);
+
+        uint256 strike = ig.currentStrike();
+        vm.prank(address(0x5));
+        vm.expectRevert(NotOwner);
+        (tokenId, ) = pm.mint(
+            IPositionManager.MintParams({
+                dvpAddr: address(ig),
+                notional: 10 ether,
+                strike: strike,
+                strategy: OptionStrategy.CALL,
+                recipient: address(0x5),
+                tokenId: 1
+            })
+        );
+
+
     }
 }

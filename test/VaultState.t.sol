@@ -18,6 +18,8 @@ import {AddressProvider} from "../src/AddressProvider.sol";
 contract VaultStateTest is Test {
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
     bytes4 constant DepositThresholdTVLReached = bytes4(keccak256("DepositThresholdTVLReached()"));
+    bytes constant VaultPaused = bytes("Pausable: paused");
+    bytes constant OwnerError = bytes("Ownable: caller is not the owner");
 
     address admin = address(0x1);
     address alice = address(0x2);
@@ -239,16 +241,15 @@ contract VaultStateTest is Test {
         assertEq(vault.usersTVL(), 2001e16);
         assertEq(cumulativeAmount, 2001e16);
 
-
         Utils.skipDay(true, vm);
         vault.rollEpoch();
-        
+
         vm.prank(alice);
         vault.initiateWithdraw(5e18);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
-        
+
         vm.prank(alice);
         vault.completeWithdraw();
 
@@ -276,6 +277,59 @@ contract VaultStateTest is Test {
 
         vm.expectRevert(DepositThresholdTVLReached);
         vault.deposit(1000 ether);
+    }
+
+    /**
+     * Check all the User Vault's features are disabled when Vault is paused.
+     */
+    function testVaultPaused() public {
+        VaultUtils.addVaultDeposit(alice, 1 ether, admin, address(vault), vm);
+        TokenUtils.provideApprovedTokens(admin, vault.baseToken(), alice, address(vault), 1 ether, vm);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        assertEq(vault.isPaused(), false);
+
+        vm.expectRevert(OwnerError);
+        vault.changePauseState();
+
+        vm.prank(admin);
+        vault.changePauseState();
+        assertEq(vault.isPaused(), true);
+
+        vm.startPrank(alice);
+        vm.expectRevert(VaultPaused);
+        vault.deposit(1e16);
+
+        vm.expectRevert(VaultPaused);
+        vault.initiateWithdraw(1e17);
+
+        vm.expectRevert(VaultPaused);
+        vault.completeWithdraw();
+        vm.stopPrank();
+
+        Utils.skipDay(true, vm);
+
+        vm.expectRevert(VaultPaused);
+        vault.rollEpoch();
+
+        // From here on, all the vault functions should working properly
+        vm.prank(admin);
+        vault.changePauseState();
+        assertEq(vault.isPaused(), false);
+
+        vault.rollEpoch();
+
+        vm.startPrank(alice);
+        vault.deposit(1e17);
+
+        vault.initiateWithdraw(1e17);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vault.completeWithdraw();
     }
 
     // /**
