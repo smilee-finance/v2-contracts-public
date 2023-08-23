@@ -270,19 +270,42 @@ contract IGTest is Test {
     }
 
     function testRollEpochWhenDVPHasJumpedSomeRolls() public {
-        uint256 currentEpoch = ig.currentEpoch();
-        uint256 firstExpiry = EpochFrequency.nextExpiry(currentEpoch, EpochFrequency.DAILY);
+        uint256 previousEpoch = ig.currentEpoch();
+        uint256 firstExpiry = EpochFrequency.nextExpiry(previousEpoch, EpochFrequency.DAILY);
         uint256 secondExpiry = EpochFrequency.nextExpiry(firstExpiry, EpochFrequency.DAILY);
         uint256 thirdExpiry = EpochFrequency.nextExpiry(secondExpiry, EpochFrequency.DAILY);
         Utils.skipDay(true, vm);
         Utils.skipDay(true, vm);
         Utils.skipDay(true, vm);
 
-        ig.rollEpoch();
-        currentEpoch = ig.currentEpoch();
+        uint256 epochNumbers = ig.getNumberOfEpochs();
+        assertEq(epochNumbers, 2);
 
-        assertNotEq(currentEpoch, firstExpiry);
-        assertNotEq(currentEpoch, secondExpiry);
-        assertEq(currentEpoch, thirdExpiry);
+
+
+        ig.rollEpoch();
+        uint256 nextEpoch = ig.currentEpoch();
+        uint256 lastEpoch = ig.lastRolledEpoch();
+        (uint256[] memory epochs, uint256 epochNumbers_) = ig.getEpochs();
+    
+
+        assertEq(epochNumbers_, 3);
+        assertEq(previousEpoch, lastEpoch);
+        assertNotEq(nextEpoch, firstExpiry);
+        assertNotEq(nextEpoch, secondExpiry);
+        assertEq(nextEpoch, thirdExpiry);
+    }
+
+    function testSetTradeVolatilityParams() public {
+        vm.expectRevert(OwnerError);
+        ig.setTradeVolatilityTimeDecay(25e16);
+
+        vm.expectRevert(OwnerError);
+        ig.setTradeVolatilityUtilizationRateFactor(25e16);
+
+        vm.startPrank(admin);        
+        ig.setTradeVolatilityUtilizationRateFactor(25e16);
+        ig.setTradeVolatilityTimeDecay(25e16);
+        vm.stopPrank();
     }
 }
