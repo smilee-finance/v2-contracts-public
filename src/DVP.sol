@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
@@ -16,7 +15,7 @@ import {SignedMath} from "./lib/SignedMath.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
-abstract contract DVP is IDVP, EpochControls, Ownable {
+abstract contract DVP is IDVP, EpochControls {
     using AmountsMath for uint256;
     using Position for Position.Info;
     using Notional for Notional.Info;
@@ -65,7 +64,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         address vault_,
         bool optionType_,
         address addressProvider_
-    ) EpochControls(IEpochControls(vault_).epochFrequency()) Ownable() {
+    ) EpochControls(IEpochControls(vault_).epochFrequency()) {
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);
@@ -93,7 +92,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochInitialized epochNotFrozen returns (uint256 premium_) {
+    ) internal epochInitialized epochNotFrozen whenNotPaused returns (uint256 premium_) {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -155,7 +154,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochInitialized epochNotFrozen returns (uint256 paidPayoff) {
+    ) internal epochInitialized epochNotFrozen whenNotPaused returns (uint256 paidPayoff) {
         Position.Info storage position = _getPosition(epoch, msg.sender, strategy, strike);
         if (!position.exists()) {
             revert PositionNotFound();

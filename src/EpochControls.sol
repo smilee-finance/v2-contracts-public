@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {EpochFrequency} from "./lib/EpochFrequency.sol";
 
-abstract contract EpochControls is IEpochControls {
+abstract contract EpochControls is IEpochControls, Pausable, Ownable {
     uint256[] public epochs;
 
     /**
@@ -17,7 +19,7 @@ abstract contract EpochControls is IEpochControls {
      */
     uint256 public override currentEpoch;
 
-    constructor(uint256 epochFrequency_) {
+    constructor(uint256 epochFrequency_) Pausable() Ownable() {
         EpochFrequency.validityCheck(epochFrequency_);
         epochFrequency = epochFrequency_;
         currentEpoch = 0;
@@ -74,7 +76,7 @@ abstract contract EpochControls is IEpochControls {
     /**
         @inheritdoc IEpochControls
      */
-    function rollEpoch() public virtual override epochFinished() {
+    function rollEpoch() public virtual override epochFinished() whenNotPaused {
         _beforeRollEpoch();
 
         if (!_isEpochInitialized()) {
@@ -151,5 +153,18 @@ abstract contract EpochControls is IEpochControls {
             return 0;
         }
         lastEpoch = epochs[epochs.length - 2];
+    }
+
+    /// @inheritdoc IEpochControls
+    function changePauseState() external override onlyOwner {
+        if (paused()) {
+            _unpause();
+        } else {
+            _pause();
+        }
+    }
+
+    function isPaused() public view override returns(bool paused_) {
+        return paused();
     }
 }

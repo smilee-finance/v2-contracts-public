@@ -3,7 +3,6 @@ pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
@@ -13,7 +12,7 @@ import {VaultLib} from "./lib/VaultLib.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
-contract Vault is IVault, ERC20, EpochControls, Ownable {
+contract Vault is IVault, ERC20, EpochControls {
     using AmountsMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
 
@@ -40,19 +39,19 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
     mapping(uint256 => uint256) public epochPricePerShare; // NOTE: public for frontend and historical data purposes
 
-    error DVPNotSet();
-    error OnlyDVPAllowed();
-    error AmountZero();
     error AddressZero();
+    error AmountZero();
+    error DVPNotSet();
+    error DepositThresholdTVLReached();
     error ExceedsAvailable();
     error ExistingIncompleteWithdraw();
     error NothingToRescue();
+    error OnlyDVPAllowed();
     error SecondaryMarkedNotAllowed();
     error VaultDead();
     error VaultNotDead();
     error WithdrawNotInitiated();
     error WithdrawTooEarly();
-    error DepositThresholdTVLReached();
 
     // TBD: create ERC20 name and symbol from the underlying tokens
     constructor(
@@ -60,11 +59,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         address sideToken_,
         uint256 epochFrequency_,
         address addressProvider_
-    ) EpochControls(epochFrequency_) ERC20("", "") Ownable() {
-        TokensPair.validate(TokensPair.Pair({
-            baseToken: baseToken_,
-            sideToken: sideToken_
-        }));
+    ) EpochControls(epochFrequency_) ERC20("", "") {
+        TokensPair.validate(TokensPair.Pair({baseToken: baseToken_, sideToken: sideToken_}));
         baseToken = baseToken_;
         sideToken = sideToken_;
 
@@ -114,8 +110,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         limitTVL = limitTVL_;
     }
 
+
     // ToDo: review as it's currently used only by tests
-    // / @inheritdoc IVault
     function vaultState()
         external
         view
@@ -205,7 +201,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         @dev The liquidity provider can redeem its shares after the next epoch is rolled.
         @dev The user must approve the vault on the base token contract before attempting this operation.
      */
-    function deposit(uint256 amount) external epochInitialized isNotDead epochNotFrozen {
+    function deposit(uint256 amount) external epochInitialized isNotDead epochNotFrozen whenNotPaused {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -213,7 +209,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         // Accept only if it doesn't exceeds the TVL limit (cap)
         // ---- limitTVL - usersTVL >= amount
         uint256 depositCapacity = limitTVL - usersTVL;
-        if(amount > depositCapacity) {
+        if (amount > depositCapacity) {
             revert DepositThresholdTVLReached();
         }
 
@@ -335,7 +331,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         @notice Pre-order a withdrawal that can be executed after the end of the current epoch
         @param shares is the number of shares to convert in withdrawed liquidity
      */
-    function initiateWithdraw(uint256 shares) external epochNotFrozen {
+    function initiateWithdraw(uint256 shares) external epochNotFrozen whenNotPaused {
         if (shares == 0) {
             revert AmountZero();
         }
@@ -372,7 +368,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
     /**
         @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
      */
-    function completeWithdraw() external epochNotFrozen {
+    function completeWithdraw() external epochNotFrozen whenNotPaused {
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
         // Checks if there is an initiated withdrawal:
@@ -395,14 +391,14 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         uint256 totalUserShares = heldByAccount + heldByVault + sharesToWithdraw;
 
         // Calculate the percentage of burned shares
-        uint256 percentageWithdrawal = sharesToWithdraw.wdiv(totalUserShares); 
+        uint256 percentageWithdrawal = sharesToWithdraw.wdiv(totalUserShares);
 
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
 
         uint256 cumulativeDeposit = depositReceipt.cumulativeAmount;
 
         // If there are deposits on the currentEpoch, remove them to the cumulativeDeposit
-        if(depositReceipt.epoch == currentEpoch) {
+        if (depositReceipt.epoch == currentEpoch) {
             cumulativeDeposit -= depositReceipt.amount;
         }
 
@@ -544,7 +540,11 @@ contract Vault is IVault, ERC20, EpochControls, Ownable {
         if (baseTokens < pendings) {
             // We must cover the missing base tokens by selling an amount of side tokens:
             uint256 baseTokensToReserve = pendings - baseTokens;
-            uint256 sideTokensToSellForCoveringMissingBaseTokens = exchange.getInputAmount(sideToken, baseToken, baseTokensToReserve);
+            uint256 sideTokensToSellForCoveringMissingBaseTokens = exchange.getInputAmount(
+                sideToken,
+                baseToken,
+                baseTokensToReserve
+            );
 
             // Once we covered the missing base tokens, we still have to reach
             // an equal weight portfolio of unlocked liquidity, so we also have

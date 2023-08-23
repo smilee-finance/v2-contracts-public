@@ -59,7 +59,7 @@ contract Registry is AccessControl, IRegistry {
         list = new address[](_dvps.length);
         for (uint256 i = 0; i < _dvps.length; i++) {
             IDVP dvp = IDVP(_dvps[i]);
-            if (dvp.timeToNextEpoch() != 0) {
+            if (dvp.timeToNextEpoch() != 0 || dvp.isPaused()) {
                 continue;
             }
             // TBD: filter out the DVPs whose vault is in a dead state.

@@ -38,4 +38,17 @@ interface IEpochControls {
         @return time the number of seconds left until the next epoch.
      */
     function timeToNextEpoch() external view returns (uint256 time);
+
+
+    /**
+        @notice Pause/Unpause 
+     */
+    function changePauseState() external;
+
+    /**
+        @notice Allow to check if the contract is paused.
+        @return paused The pause state.
+     */
+    function isPaused() external view returns(bool paused);
+
 }
