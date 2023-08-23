@@ -13,7 +13,7 @@ arbitrum_mainnet = "${RPC_MAINNET}"
 [profile.deployment]
 fs_permissions = [{ access = "read", path = "./broadcast/"}]
 via_ir = true
-revert_strings = "strip"
+# revert_strings = "strip"
 # optimizer-runs = 200 # Should be lifted up to the contract size limit
 
 [profile.deployment.rpc_endpoints]

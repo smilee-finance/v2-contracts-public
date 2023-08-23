@@ -311,17 +311,22 @@ contract FinanceLibTest is Test {
         uint256 utilizationRate = 50e16; // 0.5 Wad == 50 %
 
         // Test time decay effect:
-        vm.warp(0);
-        uint256 initialTime = block.timestamp;
+        uint256 initialTime = 0;
         uint256 maturity = initialTime + 7 days;
+        uint256 time = initialTime;
+        vm.warp(time);
         _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 787500e12));
-        vm.warp(block.timestamp + 1 days);
+        time = time + 1 days;
+        vm.warp(time);
         _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 759375e12));
-        vm.warp(block.timestamp + 1 days);
+        time = time + 1 days;
+        vm.warp(time);
         _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 731250e12));
-        vm.warp(block.timestamp + 1 days);
+        time = time + 1 days;
+        vm.warp(time);
         _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 703125e12));
-        vm.warp(block.timestamp + 1 days);
+        time = time + 1 days;
+        vm.warp(time);
         _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 675000e12));
 
         // ToDo: check corner cases
