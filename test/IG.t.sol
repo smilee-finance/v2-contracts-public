@@ -286,7 +286,7 @@ contract IGTest is Test {
         ig.rollEpoch();
         uint256 nextEpoch = ig.currentEpoch();
         uint256 lastEpoch = ig.lastRolledEpoch();
-        (uint256[] memory epochs, uint256 epochNumbers_) = ig.getEpochs();
+        (, uint256 epochNumbers_) = ig.getEpochs();
     
 
         assertEq(epochNumbers_, 3);

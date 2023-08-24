@@ -1016,7 +1016,7 @@ contract TestScenarios is Test {
         assertApproxEqAbs(t.post.sideTokenAmount, sideTokenAmount, _tollerancePercentage(t.post.sideTokenAmount, 3));
     }
 
-    function _tollerancePercentage(uint256 value, uint256 percentage ) private returns(uint256) {
+    function _tollerancePercentage(uint256 value, uint256 percentage ) private pure returns(uint256) {
         return value *(percentage*1e2) / 10000;
     }
 }
