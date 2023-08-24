@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.15;
-import {console} from "forge-std/console.sol";
+pragma solidity ^0.8.21;
+
+import { SD59x18, sd } from "@prb/math/SD59x18.sol";
+import { UD60x18, ud } from "@prb/math/UD60x18.sol";
 import {InverseTrigonometry} from "@trigonometry/InverseTrigonometry.sol";
 import {Trigonometry} from "@trigonometry/Trigonometry.sol";
 import {AmountsMath} from "./AmountsMath.sol";
-import {FixedPointMathLib} from "./FixedPointMathLib.sol";
 import {SignedMath} from "./SignedMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
@@ -83,7 +84,7 @@ library FinanceIGDelta {
         if (expE > MAX_EXP) {
             return 0;
         }
-        uint256 denom = 1e18 + FixedPointMathLib.exp(expE);
+        uint256 denom = 1e18 + sd(expE).exp().intoUint256();
 
         return SignedMath.castInt(uint256(limSup).wdiv(denom));
     }
@@ -103,7 +104,7 @@ library FinanceIGDelta {
             return 0;
         }
 
-        uint256 denom = 1e18 + FixedPointMathLib.exp(expE);
+        uint256 denom = 1e18 + sd(expE).exp().intoUint256();
         return SignedMath.revabs(SignedMath.abs(limInf).wdiv(denom), limInf > 0);
     }
 
@@ -182,7 +183,7 @@ library FinanceIGDelta {
         uint256 teta,
         uint256 v0
     ) public pure returns (int256 limSup, int256 limInf) {
-        uint256 krtd = FixedPointMathLib.sqrt(k);
+        uint256 krtd = ud(k).sqrt().unwrap();
         uint256 tetaK = teta.wmul(k);
         limSup = _limSup(krtd, kb, tetaK, v0);
         limInf = _limInf(krtd, ka, tetaK, v0);
@@ -190,13 +191,13 @@ library FinanceIGDelta {
 
     /// @dev V0 * ((√Kb - √K) / (θ K √Kb))
     function _limSup(uint256 krtd, uint256 kb, uint256 tetaK, uint256 v0) public pure returns (int256) {
-        uint256 kbrtd = FixedPointMathLib.sqrt(kb);
+        uint256 kbrtd = ud(kb).sqrt().unwrap();
         return SignedMath.castInt((kbrtd - krtd).wdiv(tetaK.wmul(kbrtd)).wmul(v0));
     }
 
     /// @dev V0 * (√Ka - √K) / (θ K √Ka)
     function _limInf(uint256 krtd, uint256 ka, uint256 tetaK, uint256 v0) public pure returns (int256) {
-        uint256 kartd = FixedPointMathLib.sqrt(ka);
+        uint256 kartd = ud(ka).sqrt().unwrap();
         return SignedMath.revabs((krtd - kartd).wdiv(tetaK.wmul(kartd)).wmul(v0), false);
     }
 
@@ -219,27 +220,31 @@ library FinanceIGDelta {
         uint256 t
     ) public pure returns (int256 alfa1, int256 alfa2) {
         uint256 sigmaTrtd = _sigmaTaurtd(sigma, t);
-        int256 alfa1Num = FixedPointMathLib.ln(SignedMath.castInt(ka.wdiv(k)));
-        int256 alfa2Num = FixedPointMathLib.ln(SignedMath.castInt(kb.wdiv(k)));
-        alfa1 = SignedMath.revabs((SignedMath.abs(alfa1Num).wdiv(sigmaTrtd)), alfa1Num > 0);
-        alfa2 = SignedMath.revabs((SignedMath.abs(alfa2Num).wdiv(sigmaTrtd)), alfa2Num > 0);
+        {
+            int256 alfa1Num = ud(ka.wdiv(k)).intoSD59x18().ln().unwrap();
+            alfa1 = SignedMath.revabs((SignedMath.abs(alfa1Num).wdiv(sigmaTrtd)), alfa1Num > 0);
+        }
+        {
+            int256 alfa2Num = ud(kb.wdiv(k)).intoSD59x18().ln().unwrap();
+            alfa2 = SignedMath.revabs((SignedMath.abs(alfa2Num).wdiv(sigmaTrtd)), alfa2Num > 0);
+        }
     }
 
     /// @dev arctanx = arcsin x / √(1 + x^2)
     function atan(int256 x) public pure returns (int256 result) {
         uint256 xAbs = SignedMath.abs(x);
-        uint256 den = FixedPointMathLib.sqrt(1e18 + xAbs.wmul(xAbs));
+        uint256 den = ud(1e18 + xAbs.wmul(xAbs)).sqrt().unwrap();
         return InverseTrigonometry.arcsin(SignedMath.revabs(xAbs.wdiv(den), x > 0));
     }
 
     /// @dev σ√τ
     function _sigmaTaurtd(uint256 sigma, uint256 tau) public pure returns (uint256) {
-        return sigma.wmul(FixedPointMathLib.sqrt(tau));
+        return sigma.wmul(ud(tau).sqrt().unwrap());
     }
 
     /// @dev ln(S / K) / σ√τ
     function _z(uint256 s, uint256 k, uint256 sigmaTaurtd) public pure returns (int256) {
-        int256 n = FixedPointMathLib.ln(SignedMath.castInt(s.wdiv(k)));
+        int256 n = sd(SignedMath.castInt(s.wdiv(k))).ln().unwrap();
         return SignedMath.revabs(SignedMath.abs(n).wdiv(sigmaTaurtd), n > 0);
     }
 }

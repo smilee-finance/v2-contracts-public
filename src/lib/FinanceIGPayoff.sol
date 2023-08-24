@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import { UD60x18, ud, convert } from "@prb/math/UD60x18.sol";
 import {AmountsMath} from "./AmountsMath.sol";
-import {FixedPointMathLib} from "./FixedPointMathLib.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library FinanceIGPayoff {
@@ -15,7 +15,11 @@ library FinanceIGPayoff {
         @return inRangePayoffPerc The impermanent gain
      */
     function igPayoffInRange(uint256 sdivk, uint256 teta) public pure returns (uint256 inRangePayoffPerc) {
-        return (AmountsMath.wrap(1) + sdivk - 2 * FixedPointMathLib.sqrt(sdivk)).wdiv(teta);
+        UD60x18 sdivkx18 = ud(sdivk);
+        UD60x18 tetax18 = ud(teta);
+
+        UD60x18 res = (convert(1) + sdivkx18 - (convert(2) * sdivkx18.sqrt())) / tetax18;
+        inRangePayoffPerc = res.unwrap();
     }
 
     /**
@@ -33,8 +37,8 @@ library FinanceIGPayoff {
         uint256 kbound
     ) public pure returns (uint256 outRangePayoffPerc) {
         uint256 one = AmountsMath.wrap(1);
-        uint256 kDivKboundRtd = FixedPointMathLib.sqrt(k.wdiv(kbound));
-        uint256 kboundDivKRtd = FixedPointMathLib.sqrt(kbound.wdiv(k));
+        uint256 kDivKboundRtd = ud(k.wdiv(kbound)).sqrt().unwrap();
+        uint256 kboundDivKRtd = ud(kbound.wdiv(k)).sqrt().unwrap();
 
         bool c2Pos = kDivKboundRtd >= one;
         uint256 c2Abs = sdivk.wmul(c2Pos ? kDivKboundRtd - one : one - kDivKboundRtd);

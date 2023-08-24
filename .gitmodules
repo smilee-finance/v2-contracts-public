@@ -16,3 +16,6 @@
 [submodule "lib/solidity-trigonometry"]
 	path = lib/solidity-trigonometry
 	url = https://github.com/mds1/solidity-trigonometry
+[submodule "lib/prb-math"]
+	path = lib/prb-math
+	url = https://github.com/PaulRBerg/prb-math

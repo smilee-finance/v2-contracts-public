@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import { SD59x18, sd } from "@prb/math/SD59x18.sol";
+import { UD60x18, ud, convert } from "@prb/math/UD60x18.sol";
 import {Gaussian} from "@solstat/Gaussian.sol";
 import {AmountsMath} from "./AmountsMath.sol";
-import {FixedPointMathLib} from "./FixedPointMathLib.sol";
 import {SignedMath} from "./SignedMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
@@ -135,7 +136,7 @@ library FinanceIGPrice {
 
     /// @dev [ ln(S / K) + ( r + σ^2 / 2 ) τ ] / σ√τ
     function d1(uint256 priceStrikeRt, uint256 q1, uint256 sigmaTaurtd) public pure returns (int256 d1_) {
-        int256 q0 = FixedPointMathLib.ln(SignedMath.castInt(priceStrikeRt));
+        int256 q0 = ud(priceStrikeRt).intoSD59x18().ln().unwrap();
         (uint256 sumQty, bool sumPos) = SignedMath.sum(q0, q1);
         uint256 res = sumQty.wdiv(sigmaTaurtd);
 
@@ -208,8 +209,8 @@ library FinanceIGPrice {
         uint256 n3,
         uint256 n3a
     ) public pure returns (uint256) {
-        uint256 e1 = FixedPointMathLib.exp(SignedMath.neg(_boexp(r, sigma, tau)));
-        uint256 coeff = (FixedPointMathLib.sqrt(sdivk).wmul(e1) * 2).wdiv(teta);
+        uint256 e1 = sd(SignedMath.neg(_boexp(r, sigma, tau))).exp().intoUD60x18().unwrap();
+        uint256 coeff = (ud(sdivk).sqrt().unwrap().wmul(e1) * 2).wdiv(teta);
         return coeff.wmul(n3a - n3);
     }
 
@@ -243,8 +244,8 @@ library FinanceIGPrice {
         uint256 n3,
         uint256 n3b
     ) public pure returns (uint256) {
-        uint256 e1 = FixedPointMathLib.exp(SignedMath.neg(_boexp(r, sigma, tau)));
-        uint256 coeff = (FixedPointMathLib.sqrt(sdivk).wmul(e1) * 2).wdiv(teta);
+        uint256 e1 = sd(SignedMath.neg(_boexp(r, sigma, tau))).exp().intoUD60x18().unwrap();
+        uint256 coeff = (ud(sdivk).sqrt().unwrap().wmul(e1) * 2).wdiv(teta);
         return coeff.wmul(n3 - n3b);
     }
 
@@ -267,27 +268,46 @@ library FinanceIGPrice {
 
     /// @dev e^-(r τ)
     function _ert(uint256 r, uint256 tau) public pure returns (uint256) {
-        return FixedPointMathLib.exp(SignedMath.neg(r.wmul(tau)));
+        return sd(SignedMath.neg(r.wmul(tau))).exp().intoUD60x18().unwrap();
     }
 
     /// @dev θ * √(K K_<a|b>)
     function _tetakkrtd(uint256 teta, uint256 k, uint256 krange) public pure returns (uint256) {
-        return teta.wmul(FixedPointMathLib.sqrt(k.wmul(krange)));
+        UD60x18 tetax18 = ud(teta);
+        UD60x18 kx18 = ud(k);
+        UD60x18 krangex18 = ud(krange);
+
+        UD60x18 res = tetax18 * (kx18 * krangex18).sqrt();
+        return res.unwrap();
     }
 
     /// @dev 1/θ * √(K_<a|b> / K)
     function _kdivkrtddivteta(uint256 teta, uint256 k, uint256 krange) public pure returns (uint256) {
-        return FixedPointMathLib.sqrt(krange.wdiv(k)).wdiv(teta);
+        UD60x18 tetax18 = ud(teta);
+        UD60x18 kx18 = ud(k);
+        UD60x18 krangex18 = ud(krange);
+
+        UD60x18 res = (krangex18 / kx18).sqrt() / tetax18;
+        return res.unwrap();
     }
 
     /// @dev 2 - √(Ka / K) - √(K / Kb)
     function _teta(uint256 k, uint256 ka, uint256 kb) public pure returns (uint256 teta) {
-        return 2e18 - FixedPointMathLib.sqrt(ka.wdiv(k)) - FixedPointMathLib.sqrt(k.wdiv(kb));
+        UD60x18 kx18 = ud(k);
+        UD60x18 kax18 = ud(ka);
+        UD60x18 kbx18 = ud(kb);
+
+        UD60x18 res = convert(2) - (kax18 / kx18).sqrt() - (kx18 / kbx18).sqrt();
+        return res.unwrap();
     }
 
     /// @dev σ√τ
     function _sigmaTaurtd(uint256 sigma, uint256 tau) public pure returns (uint256) {
-        return sigma.wmul(FixedPointMathLib.sqrt(tau));
+        UD60x18 sigmax18 = ud(sigma);
+        UD60x18 taux18 = ud(tau);
+
+        UD60x18 res = sigmax18 * taux18.sqrt();
+        return res.unwrap();
     }
 
     //////  OTHER //////
@@ -311,10 +331,10 @@ library FinanceIGPrice {
         @dev All the values are expressed in Wad.
      */
     function liquidityRange(LiquidityRangeParams calldata params) public pure returns (uint256 kA, uint256 kB) {
-        uint256 mSigmaT = params.sigma.wmul(params.sigmaMultiplier).wmul(FixedPointMathLib.sqrt(params.yearsOfMaturity));
+        uint256 mSigmaT = params.sigma.wmul(params.sigmaMultiplier).wmul(ud(params.yearsOfMaturity).sqrt().unwrap());
 
-        kA = params.k.wmul(FixedPointMathLib.exp(int256(SignedMath.neg(mSigmaT))));
-        kB = params.k.wmul(FixedPointMathLib.exp(int256(mSigmaT)));
+        kA = params.k.wmul(sd(SignedMath.neg(mSigmaT)).exp().intoUD60x18().unwrap());
+        kB = params.k.wmul(ud(mSigmaT).exp().unwrap());
     }
 
     struct TradeVolatilityParams {
