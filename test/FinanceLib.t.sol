@@ -112,12 +112,7 @@ contract FinanceLibJsonTest is Test {
 
     mapping(uint256 => TestCase) testCases;
     mapping(uint256 => uint256) indexes;
-
     uint256 scenariosNumber = 0;
-
-    uint256 v0;
-    uint256 r;
-    uint256 sigma;
 
     /**
         @dev Accepted delta on comparisons (up to 5e-6)
@@ -134,18 +129,14 @@ contract FinanceLibJsonTest is Test {
         uint256 counter = 0;
         for (uint i = 0; i < scenarios_.length; i++) {
             Scenario memory scenario = scenarios_[i];
-            v0 = scenario.constants.v0;
-            r = scenario.constants.r;
-            sigma = scenario.constants.sigma;
             uint256 teta = FinanceIGPrice._teta(scenario.constants.k, scenario.constants.ka, scenario.constants.kb);
             (int256 limSup, int256 limInf) = FinanceIGDelta.lims(
                 scenario.constants.k,
                 scenario.constants.ka,
                 scenario.constants.kb,
                 teta,
-                v0
+                scenario.constants.v0
             );
-            uint256 T = WadTime.nYears(WadTime.daysFraction(1, 1));
             {
                 assertApproxEqAbs(scenario.expected.limInf, limInf, ERR);
                 assertApproxEqAbs(scenario.expected.limSup, limSup, ERR);
@@ -157,15 +148,9 @@ contract FinanceLibJsonTest is Test {
                 uint256 counterStack = counter++;
                 TestCaseJson memory t = scenario.testCases[j];
                 uint256 tau = WadTime.nYears(t.tau);
-                (alfa1, alfa2) = FinanceIGDelta._alfas(
-                    scenario.constants.k,
-                    scenario.constants.ka,
-                    scenario.constants.kb,
-                    sigma,
-                    tau
-                );
+                (alfa1, alfa2) = FinanceIGDelta._alfas(scenario.constants.k, scenario.constants.ka, scenario.constants.kb, scenario.constants.sigma, tau);
                 FinanceIGDelta.Parameters memory deltaParams = FinanceIGDelta.Parameters(
-                    sigma,
+                    scenario.constants.sigma,
                     scenario.constants.k,
                     t.priceToken,
                     tau,
@@ -175,8 +160,8 @@ contract FinanceLibJsonTest is Test {
                     alfa2
                 );
                 FinanceIGPrice.Parameters memory priceParams = FinanceIGPrice.Parameters(
-                    r,
-                    sigma,
+                    scenario.constants.r,
+                    scenario.constants.sigma,
                     scenario.constants.k,
                     t.priceToken,
                     tau,
@@ -184,7 +169,7 @@ contract FinanceLibJsonTest is Test {
                     scenario.constants.kb,
                     teta
                 );
-                testCases[counterStack] = _castTestCaseJsonToTestCase(t, deltaParams, priceParams, tau, v0);
+                testCases[counterStack] = TestCase(t.delta, deltaParams, t.payoff, t.price, priceParams, t.priceToken, tau, scenario.constants.v0);
             }
             indexes[i] = counter;
         }
@@ -196,10 +181,7 @@ contract FinanceLibJsonTest is Test {
         for (uint s = 0; s < scenariosNumber; s++) {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
-                uint256 sigmaTaurtd = FinanceIGDelta._sigmaTaurtd(
-                    testCases[i].deltaParams.sigma,
-                    testCases[i].deltaParams.tau
-                );
+                uint256 sigmaTaurtd = FinanceIGDelta._sigmaTaurtd(testCases[i].deltaParams.sigma, testCases[i].deltaParams.tau);
                 int256 x = FinanceIGDelta._z(testCases[i].deltaParams.s, testCases[i].deltaParams.k, sigmaTaurtd);
 
                 assertApproxEqAbs(testCases[i].delta.x, x, D_ERR);
@@ -218,11 +200,9 @@ contract FinanceLibJsonTest is Test {
         for (uint s = 0; s < scenariosNumber; s++) {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
-                (
-                    FinanceIGPrice.DTerms memory ds,
-                    FinanceIGPrice.DTerms memory das,
-                    FinanceIGPrice.DTerms memory dbs
-                ) = FinanceIGPrice.dTerms(testCases[i].priceParams);
+                (FinanceIGPrice.DTerms memory ds, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(
+                    testCases[i].priceParams
+                );
 
                 assertApproxEqAbs(testCases[i].price.ds.d1, ds.d1, ERR);
                 assertApproxEqAbs(testCases[i].price.ds.d2, ds.d2, ERR);
@@ -240,16 +220,14 @@ contract FinanceLibJsonTest is Test {
         }
     }
 
-    function testPs() public {
+    function testTermsPs() public {
         uint256 index = 0;
         for (uint s = 0; s < scenariosNumber; s++) {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
-                (
-                    FinanceIGPrice.DTerms memory ds,
-                    FinanceIGPrice.DTerms memory das,
-                    FinanceIGPrice.DTerms memory dbs
-                ) = FinanceIGPrice.dTerms(testCases[i].priceParams);
+                (FinanceIGPrice.DTerms memory ds, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(
+                    testCases[i].priceParams
+                );
                 FinanceIGPrice.NTerms memory ns = FinanceIGPrice.nTerms(ds);
                 FinanceIGPrice.NTerms memory nas = FinanceIGPrice.nTerms(das);
                 FinanceIGPrice.NTerms memory nbs = FinanceIGPrice.nTerms(dbs);
@@ -258,13 +236,7 @@ contract FinanceLibJsonTest is Test {
                 uint256 sdivk = (testCases[i].priceParams.s).wdiv(testCases[i].priceParams.k);
 
                 {
-                    FinanceIGPrice.PriceParts memory ps = FinanceIGPrice.pBullParts(
-                        testCases[i].priceParams,
-                        ert,
-                        sdivk,
-                        ns,
-                        nbs
-                    );
+                    FinanceIGPrice.PriceParts memory ps = FinanceIGPrice.pBullParts(testCases[i].priceParams, ert, sdivk, ns, nbs);
                     assertApproxEqAbs(testCases[i].price.pBull1, ps.p1, ERR);
                     assertApproxEqAbs(testCases[i].price.pBull2, ps.p2, ERR);
                     assertApproxEqAbs(testCases[i].price.pBull3, ps.p3, ERR);
@@ -273,13 +245,7 @@ contract FinanceLibJsonTest is Test {
                 }
 
                 {
-                    FinanceIGPrice.PriceParts memory ps = FinanceIGPrice.pBearParts(
-                        testCases[i].priceParams,
-                        ert,
-                        sdivk,
-                        ns,
-                        nas
-                    );
+                    FinanceIGPrice.PriceParts memory ps = FinanceIGPrice.pBearParts(testCases[i].priceParams, ert, sdivk, ns, nas);
                     assertApproxEqAbs(testCases[i].price.pBear1, ps.p1, ERR);
                     assertApproxEqAbs(testCases[i].price.pBear2, ps.p2, ERR);
                     assertApproxEqAbs(testCases[i].price.pBear3, ps.p3, ERR);
@@ -329,67 +295,23 @@ contract FinanceLibJsonTest is Test {
         uint256 dailyMaturity = AmountsMath.wrap(1) / 365;
 
         // Fixed maturity, change strike price:
-        _checkLiquidityRange(
-            LiquidityRange(1800e18, volatility, volatilityMultiplier, dailyMaturity, 1708206983329e9, 1896725649538e9)
-        );
-        _checkLiquidityRange(
-            LiquidityRange(1900e18, volatility, volatilityMultiplier, dailyMaturity, 1803107371292e9, 2002099296734e9)
-        );
-        _checkLiquidityRange(
-            LiquidityRange(1910e18, volatility, volatilityMultiplier, dailyMaturity, 1812597410088e9, 2012636661454e9)
-        );
-        _checkLiquidityRange(
-            LiquidityRange(1950e18, volatility, volatilityMultiplier, dailyMaturity, 1850557565273e9, 2054786120333e9)
-        );
-        _checkLiquidityRange(
-            LiquidityRange(2200e18, volatility, volatilityMultiplier, dailyMaturity, 2087808535180e9, 2318220238324e9)
-        );
-        _checkLiquidityRange(
-            LiquidityRange(3800e18, volatility, volatilityMultiplier, dailyMaturity, 3606214742584e9, 4004198593469e9)
-        );
+        _checkLiquidityRange(LiquidityRange(1800e18, volatility, volatilityMultiplier, dailyMaturity, 1708206983329e9, 1896725649538e9));
+        _checkLiquidityRange(LiquidityRange(1900e18, volatility, volatilityMultiplier, dailyMaturity, 1803107371292e9, 2002099296734e9));
+        _checkLiquidityRange(LiquidityRange(1910e18, volatility, volatilityMultiplier, dailyMaturity, 1812597410088e9, 2012636661454e9));
+        _checkLiquidityRange(LiquidityRange(1950e18, volatility, volatilityMultiplier, dailyMaturity, 1850557565273e9, 2054786120333e9));
+        _checkLiquidityRange(LiquidityRange(2200e18, volatility, volatilityMultiplier, dailyMaturity, 2087808535180e9, 2318220238324e9));
+        _checkLiquidityRange(LiquidityRange(3800e18, volatility, volatilityMultiplier, dailyMaturity, 3606214742584e9, 4004198593469e9));
         // Fixed strike price, change maturity:
-        _checkLiquidityRange(
-            LiquidityRange(
-                1900e18,
-                volatility,
-                volatilityMultiplier,
-                dailyMaturity * 7,
-                1654285069345e9,
-                2182211558876e9
-            )
-        );
-        _checkLiquidityRange(
-            LiquidityRange(
-                1900e18,
-                volatility,
-                volatilityMultiplier,
-                dailyMaturity * 21,
-                1494797747280e9,
-                2415042440737e9
-            )
-        );
-        _checkLiquidityRange(
-            LiquidityRange(
-                1900e18,
-                volatility,
-                volatilityMultiplier,
-                dailyMaturity * 30,
-                1426412850588e9,
-                2530824086807e9
-            )
-        );
+        _checkLiquidityRange(LiquidityRange(1900e18, volatility, volatilityMultiplier, dailyMaturity * 7, 1654285069345e9, 2182211558876e9));
+        _checkLiquidityRange(LiquidityRange(1900e18, volatility, volatilityMultiplier, dailyMaturity * 21, 1494797747280e9, 2415042440737e9));
+        _checkLiquidityRange(LiquidityRange(1900e18, volatility, volatilityMultiplier, dailyMaturity * 30, 1426412850588e9, 2530824086807e9));
 
         // ToDo: check corner cases
     }
 
-    function _checkLiquidityRange(LiquidityRange memory params) internal {
+    function _checkLiquidityRange(LiquidityRange memory params) private {
         (uint256 kA, uint256 kB) = FinanceIGPrice.liquidityRange(
-            FinanceIGPrice.LiquidityRangeParams(
-                params.strike,
-                params.volatility,
-                params.volatilityMultiplier,
-                params.yearsOfMaturity
-            )
+            FinanceIGPrice.LiquidityRangeParams(params.strike, params.volatility, params.volatilityMultiplier, params.yearsOfMaturity)
         );
         uint256 maxError = 1e9;
         assertApproxEqAbs(params.kA, kA, maxError);
@@ -407,74 +329,24 @@ contract FinanceLibJsonTest is Test {
         uint256 maturity = initialTime + 7 days;
         uint256 time = initialTime;
         vm.warp(time);
-        _checkTradeVolatility(
-            TradeVolatility(
-                baselineVolatility,
-                utilizationRateFactor,
-                timeDecay,
-                utilizationRate,
-                maturity,
-                initialTime,
-                787500e12
-            )
-        );
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 787500e12));
         time = time + 1 days;
         vm.warp(time);
-        _checkTradeVolatility(
-            TradeVolatility(
-                baselineVolatility,
-                utilizationRateFactor,
-                timeDecay,
-                utilizationRate,
-                maturity,
-                initialTime,
-                759375e12
-            )
-        );
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 759375e12));
         time = time + 1 days;
         vm.warp(time);
-        _checkTradeVolatility(
-            TradeVolatility(
-                baselineVolatility,
-                utilizationRateFactor,
-                timeDecay,
-                utilizationRate,
-                maturity,
-                initialTime,
-                731250e12
-            )
-        );
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 731250e12));
         time = time + 1 days;
         vm.warp(time);
-        _checkTradeVolatility(
-            TradeVolatility(
-                baselineVolatility,
-                utilizationRateFactor,
-                timeDecay,
-                utilizationRate,
-                maturity,
-                initialTime,
-                703125e12
-            )
-        );
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 703125e12));
         time = time + 1 days;
         vm.warp(time);
-        _checkTradeVolatility(
-            TradeVolatility(
-                baselineVolatility,
-                utilizationRateFactor,
-                timeDecay,
-                utilizationRate,
-                maturity,
-                initialTime,
-                675000e12
-            )
-        );
+        _checkTradeVolatility(TradeVolatility(baselineVolatility, utilizationRateFactor, timeDecay, utilizationRate, maturity, initialTime, 675000e12));
 
         // ToDo: check corner cases
     }
 
-    function _checkTradeVolatility(TradeVolatility memory params) internal {
+    function _checkTradeVolatility(TradeVolatility memory params) private {
         uint256 volatility = FinanceIGPrice.tradeVolatility(
             FinanceIGPrice.TradeVolatilityParams(
                 params.baselineVolatility,
@@ -489,7 +361,7 @@ contract FinanceLibJsonTest is Test {
         assertApproxEqAbs(params.volatility, volatility, maxError);
     }
 
-    function _readJson(string memory filename) internal view returns (string memory) {
+    function _readJson(string memory filename) private view returns (string memory) {
         string memory directory = string.concat(vm.projectRoot(), "/test/");
         string memory file = string.concat(filename, ".json");
         string memory path = string.concat(directory, file);
@@ -510,12 +382,7 @@ contract FinanceLibJsonTest is Test {
             uint256 testCasesNumber = json.readUint(string.concat(scenarioJsonPath, ".testCasesNumber"));
             TestCaseJson[] memory testCasesObj = new TestCaseJson[](testCasesNumber);
             for (uint j = 0; j < testCasesNumber; j++) {
-                string memory testCasesJsonPath = string.concat(
-                    scenarioJsonPath,
-                    ".testCases[",
-                    Strings.toString(j),
-                    "]"
-                );
+                string memory testCasesJsonPath = string.concat(scenarioJsonPath, ".testCases[", Strings.toString(j), "]");
                 elBytes = json.parseRaw(testCasesJsonPath);
                 TestCaseJson memory t = abi.decode(elBytes, (TestCaseJson));
                 testCasesObj[j] = t;
@@ -523,15 +390,5 @@ contract FinanceLibJsonTest is Test {
             Scenario memory s = Scenario(c, ex, testCasesObj);
             scenarios_[i] = s;
         }
-    }
-
-    function _castTestCaseJsonToTestCase(
-        TestCaseJson memory t,
-        FinanceIGDelta.Parameters memory deltaParams,
-        FinanceIGPrice.Parameters memory priceParams,
-        uint256 tau,
-        uint256 v0
-    ) private returns (TestCase memory testCase) {
-        testCase = TestCase(t.delta, deltaParams, t.payoff, t.price, priceParams, t.priceToken, tau, v0);
     }
 }

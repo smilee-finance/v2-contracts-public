@@ -8,7 +8,7 @@
                 "test/FinanceLib.t.sol"
             ],
             "options": {
-                "printWidth": 500
+                "printWidth": 160
             }
         }
     ]
