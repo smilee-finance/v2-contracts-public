@@ -101,7 +101,14 @@ contract IG is DVP {
             params.teta = _currentFinanceParameters.theta;
         }
 
+        console.logInt(amount);
+        console.log("PVOl0", getPostTradeVolatility(strike, 0));
+
         (uint256 igPBull, uint256 igPBear) = FinanceIGPrice.igPrices(params);
+
+        console.log("igPBull", igPBull);
+        console.log("igPBear", igPBear);
+        console.log("sigma", params.sigma);
 
         uint256 amountWad = AmountsMath.wrapDecimals(SignedMath.abs(amount), _baseTokenDecimals);
         // igP multiplies a notional computed as follow:
@@ -139,7 +146,10 @@ contract IG is DVP {
             strike,
             epochFrequency
         );
+        console.log("amount");
+        console.logInt(amount);
         uint256 U = _getPostTradeUtilizationRate(amount);
+        console.log("U", U);
         uint256 t0 = lastRolledEpoch();
         uint256 T = currentEpoch - t0;
 
@@ -165,7 +175,7 @@ contract IG is DVP {
      */
     function _getPostTradeUtilizationRate(int256 amount) internal view returns (uint256 utilizationRate) {
         (uint256 used, uint256 total) = _getUtilizationRateFactors();
-        if (used == 0 || total == 0) {
+        if (total == 0) {
             return 0;
         }
         uint256 amountWad = AmountsMath.wrapDecimals(SignedMath.abs(amount), _baseTokenDecimals);
