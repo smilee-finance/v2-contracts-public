@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import { UD60x18, ud, convert } from "@prb/math/UD60x18.sol";
+import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
@@ -18,7 +18,7 @@ library FinanceIGPayoff {
         UD60x18 sdivkx18 = ud(sdivk);
         UD60x18 tetax18 = ud(teta);
 
-        UD60x18 res = (convert(1) + sdivkx18 - (convert(2) * sdivkx18.sqrt())) / tetax18;
+        UD60x18 res = (convert(1).add(sdivkx18).sub((convert(2).mul(sdivkx18.sqrt())))).div(tetax18);
         inRangePayoffPerc = res.unwrap();
     }
 
@@ -68,5 +68,4 @@ library FinanceIGPayoff {
         igPOBull = s <= k ? 0 : s > kb ? igPayoffOutRange(s.wdiv(k), teta, k, kb) : igPayoffInRange(s.wdiv(k), teta);
         igPOBear = s >= k ? 0 : s < ka ? igPayoffOutRange(s.wdiv(k), teta, k, ka) : igPayoffInRange(s.wdiv(k), teta);
     }
-
 }

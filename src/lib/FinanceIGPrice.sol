@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import { SD59x18, sd } from "@prb/math/SD59x18.sol";
-import { UD60x18, ud, convert } from "@prb/math/UD60x18.sol";
+import {SD59x18, sd} from "@prb/math/SD59x18.sol";
+import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
 import {Gaussian} from "@solstat/Gaussian.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {SignedMath} from "./SignedMath.sol";
@@ -277,7 +277,7 @@ library FinanceIGPrice {
         UD60x18 kx18 = ud(k);
         UD60x18 krangex18 = ud(krange);
 
-        UD60x18 res = tetax18 * (kx18 * krangex18).sqrt();
+        UD60x18 res = tetax18.mul((kx18.mul(krangex18)).sqrt());
         return res.unwrap();
     }
 
@@ -287,7 +287,7 @@ library FinanceIGPrice {
         UD60x18 kx18 = ud(k);
         UD60x18 krangex18 = ud(krange);
 
-        UD60x18 res = (krangex18 / kx18).sqrt() / tetax18;
+        UD60x18 res = (krangex18.div(kx18)).sqrt().div(tetax18);
         return res.unwrap();
     }
 
@@ -297,7 +297,7 @@ library FinanceIGPrice {
         UD60x18 kax18 = ud(ka);
         UD60x18 kbx18 = ud(kb);
 
-        UD60x18 res = convert(2) - (kax18 / kx18).sqrt() - (kx18 / kbx18).sqrt();
+        UD60x18 res = convert(2).sub((kax18.div(kx18)).sqrt()).sub((kx18.div(kbx18)).sqrt());
         return res.unwrap();
     }
 
@@ -306,7 +306,7 @@ library FinanceIGPrice {
         UD60x18 sigmax18 = ud(sigma);
         UD60x18 taux18 = ud(tau);
 
-        UD60x18 res = sigmax18 * taux18.sqrt();
+        UD60x18 res = sigmax18.mul(taux18.sqrt());
         return res.unwrap();
     }
 
@@ -359,10 +359,15 @@ library FinanceIGPrice {
         @dev All the non-timestamp values are expressed in Wad.
      */
     function tradeVolatility(TradeVolatilityParams calldata params) public view returns (uint256 sigma_hat) {
-        uint256 baselineVolatilityFactor = AmountsMath.wrap(1) + uint256(SignedMath.pow3(int256(params.utilizationRate))).wmul(params.utilizationRateFactor.sub(AmountsMath.wrap(1)));
-        uint256 timeFactor = (AmountsMath.wrap(params.duration) - params.timeDecay.wmul(AmountsMath.wrap(block.timestamp - params.initialTime))).wdiv(AmountsMath.wrap(params.duration));
+        uint256 baselineVolatilityFactor = AmountsMath.wrap(1) +
+            uint256(SignedMath.pow3(int256(params.utilizationRate))).wmul(
+                params.utilizationRateFactor.sub(AmountsMath.wrap(1))
+            );
+        uint256 timeFactor = (AmountsMath.wrap(params.duration) -
+            params.timeDecay.wmul(AmountsMath.wrap(block.timestamp - params.initialTime))).wdiv(
+                AmountsMath.wrap(params.duration)
+            );
 
         return params.sigma0.wmul(baselineVolatilityFactor).wmul(timeFactor);
     }
-
 }
