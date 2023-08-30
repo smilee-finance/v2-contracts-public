@@ -39,7 +39,7 @@
             "strategy": true,
             "epochOfBurnedPosition": 0,
             "post": {
-                "marketValue": 462554010656e9,
+                "marketValue": 547635309322e9,
                 "volatility": 5424e14,
                 "baseTokenAmount": 456254763069946e8,
                 "sideTokenAmount": 287963421422e8,
@@ -117,7 +117,7 @@
             "strategy": false, 
             "epochOfBurnedPosition": 0, 
             "post": {
-                "marketValue": 10960634682e7,
+                "marketValue": 145435520e9,
                 "volatility": 4401e14,
                 "baseTokenAmount": 87945399144803e9,
                 "sideTokenAmount": 10978101156020e6,
@@ -178,5 +178,13 @@
                 "availableNotionalBull": 32500e18
             }
         }
-    ]
+    ],
+    "rebalance": {
+        "depositAmount": 40000e18, 
+        "withdrawSharesAmount": 20000e18, 
+        "elapsedTimeSeconds": 86401,
+        "baseTokenAmount": 64413483188698e9 ,
+        "sideTokenAmount": 33901833257210e6,
+        "v0": 128826966377396e9  
+    }
 }

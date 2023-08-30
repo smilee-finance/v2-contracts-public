@@ -100,15 +100,7 @@ contract IG is DVP {
             params.kb = _currentFinanceParameters.kB;
             params.teta = _currentFinanceParameters.theta;
         }
-
-        console.logInt(amount);
-        console.log("PVOl0", getPostTradeVolatility(strike, 0));
-
         (uint256 igPBull, uint256 igPBear) = FinanceIGPrice.igPrices(params);
-
-        console.log("igPBull", igPBull);
-        console.log("igPBear", igPBear);
-        console.log("sigma", params.sigma);
 
         uint256 amountWad = AmountsMath.wrapDecimals(SignedMath.abs(amount), _baseTokenDecimals);
         // igP multiplies a notional computed as follow:
@@ -146,10 +138,7 @@ contract IG is DVP {
             strike,
             epochFrequency
         );
-        console.log("amount");
-        console.logInt(amount);
         uint256 U = _getPostTradeUtilizationRate(amount);
-        console.log("U", U);
         uint256 t0 = lastRolledEpoch();
         uint256 T = currentEpoch - t0;
 
@@ -228,9 +217,6 @@ contract IG is DVP {
             params.strike = strike;
             (, params.sideTokensAmount) = IVault(vault).balances();
 
-            // console.log("Notional_ Amount");
-            // console.logInt(notional_);
-
             params.notionalUp = notional_;
             params.notionalDown = 0;
             if (strategy == OptionStrategy.PUT) {
@@ -249,9 +235,6 @@ contract IG is DVP {
         }
 
         int256 tokensToSwap = FinanceIGDelta.h(params);
-        // console.log("TokenToSwap");
-        // console.logInt(tokensToSwap);
-
         if (tokensToSwap == 0) {
             return oraclePrice;
         }
@@ -306,11 +289,8 @@ contract IG is DVP {
                 // Update strike price:
                 // NOTE: both amounts are after equal weight rebalance, hence we can just compute their ratio.
                 (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
-                // console.log("baseTokenAmountBefore", baseTokenAmount);
                 baseTokenAmount = AmountsMath.wrapDecimals(baseTokenAmount, _baseTokenDecimals);
                 sideTokenAmount = AmountsMath.wrapDecimals(sideTokenAmount, _sideTokenDecimals);
-                // console.log("baseTokenAmount", baseTokenAmount);
-                // console.log("sideTokenAmount", sideTokenAmount);
                 // ToDo: add test where we roll epochs without deposit
                 // check division by zero
                 if (baseTokenAmount == 0 || sideTokenAmount == 0) {
