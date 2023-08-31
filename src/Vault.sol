@@ -25,13 +25,10 @@ contract Vault is IVault, ERC20, EpochControls {
     AddressProvider internal immutable _addressProvider;
     /// @notice The address of the DVP paired with this vault
     address public dvp; // NOTE: public for frontend purposes
+    /// @notice Maximum threshold for users cumulative deposit (see VaultLib.VaultState.liquidity.totalDeposit)
+    uint256 public maxDeposit;
     /// @notice Whether the transfer of shares between wallets is allowed or not
     bool internal _secondaryMarkedAllowed;
-
-    /// @notice Maximum threshold of users cumulative deposit
-    uint256 public maxDeposit;
-    /// @notice Base token value of all users cumulative deposit
-    uint256 public totalDeposit;
 
     // TBD: add to the IVault interface
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
@@ -119,6 +116,7 @@ contract Vault is IVault, ERC20, EpochControls {
             uint256 pendingDeposit,
             uint256 totalWithdrawAmount,
             uint256 pendingPayoffs,
+            uint256 totalDeposit,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
             bool dead
@@ -129,6 +127,7 @@ contract Vault is IVault, ERC20, EpochControls {
             _state.liquidity.pendingDeposits,
             _state.liquidity.pendingWithdrawals,
             _state.liquidity.pendingPayoffs,
+            _state.liquidity.totalDeposit,
             _state.withdrawals.heldShares,
             _state.withdrawals.newHeldShares,
             _state.dead
@@ -205,9 +204,7 @@ contract Vault is IVault, ERC20, EpochControls {
             revert AmountZero();
         }
 
-        // Accept only if it doesn't exceeds the TVL limit (cap)
-        // ---- maxDeposit - totalDeposit >= amount
-        uint256 depositCapacity = maxDeposit - totalDeposit;
+        uint256 depositCapacity = maxDeposit - _state.liquidity.totalDeposit;
         if (amount > depositCapacity) {
             revert ExceedsMaxDeposit();
         }
@@ -218,7 +215,7 @@ contract Vault is IVault, ERC20, EpochControls {
         _emitUpdatedDepositReceipt(creditor, amount);
 
         _state.liquidity.pendingDeposits += amount;
-        totalDeposit += amount;
+        _state.liquidity.totalDeposit += amount;
 
         // ToDo emit Deposit event
     }
@@ -371,7 +368,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         uint256 withdrawDeposit = cumulativeDeposit.wmul(shares).wdiv(userShares);
         depositReceipt.cumulativeAmount -= withdrawDeposit;
-        totalDeposit -= withdrawDeposit;
+        _state.liquidity.totalDeposit -= withdrawDeposit;
 
         // update receipt
 

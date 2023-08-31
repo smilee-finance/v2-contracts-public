@@ -216,7 +216,7 @@ contract VaultStateTest is Test {
         VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
         (, , , uint256 cumulativeAmount) = vault.depositReceipts(alice);
 
-        assertEq(vault.totalDeposit(), 100e18);
+        assertEq(VaultUtils.vaultState(vault).liquidity.totalDeposit, 100e18);
         assertEq(cumulativeAmount, 100e18);
 
         Utils.skipDay(true, vm);
@@ -228,7 +228,7 @@ contract VaultStateTest is Test {
         vault.initiateWithdraw(10e18);
 
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertEq(vault.totalDeposit(), 90e18);
+        assertEq(VaultUtils.vaultState(vault).liquidity.totalDeposit, 90e18);
         assertEq(cumulativeAmount, 90e18);
 
         Utils.skipDay(true, vm);
@@ -242,7 +242,7 @@ contract VaultStateTest is Test {
         vault.completeWithdraw();
 
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertEq(vault.totalDeposit(), 110e18);
+        assertEq(VaultUtils.vaultState(vault).liquidity.totalDeposit, 110e18);
         assertEq(cumulativeAmount, 110e18);
 
         Utils.skipDay(true, vm);
@@ -255,7 +255,7 @@ contract VaultStateTest is Test {
         VaultUtils.addVaultDeposit(alice, 30e18, admin, address(vault), vm);
 
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertApproxEqAbs(vault.totalDeposit(), 90e18, 1e2);
+        assertApproxEqAbs(VaultUtils.vaultState(vault).liquidity.totalDeposit, 90e18, 1e2);
         assertEq(cumulativeAmount, 90e18);
 
         Utils.skipDay(true, vm);
@@ -273,7 +273,7 @@ contract VaultStateTest is Test {
         vault.initiateWithdraw(30e18);
 
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertEq(vault.totalDeposit(), 30e18);
+        assertEq(VaultUtils.vaultState(vault).liquidity.totalDeposit, 30e18);
         assertEq(cumulativeAmount, 30e18);
 
         Utils.skipDay(true, vm);
@@ -288,7 +288,7 @@ contract VaultStateTest is Test {
         VaultUtils.addVaultDeposit(alice, 10e18, admin, address(vault), vm);
 
         (, , , cumulativeAmount) = vault.depositReceipts(bob);
-        assertApproxEqAbs(vault.totalDeposit(), 60e18, 1e2);
+        assertApproxEqAbs(VaultUtils.vaultState(vault).liquidity.totalDeposit, 60e18, 1e2);
         assertEq(cumulativeAmount, 20e18);
 
         Utils.skipDay(true, vm);

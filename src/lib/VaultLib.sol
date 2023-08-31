@@ -30,6 +30,8 @@ library VaultLib {
         uint256 pendingPayoffs;
         // Liquidity to put aside before the next epoch
         uint256 newPendingPayoffs;
+        // Cumulative base token deposits across all accounts
+        uint256 totalDeposit;
     }
 
     struct VaultWithdrawals {
