@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {VaultLib} from "../lib/VaultLib.sol";
 import {IVaultParams} from "./IVaultParams.sol";
 
 // TBD: extend IEpochControls as the interface client (DVP) also needs rollEpoch and epochFrequency.
@@ -22,6 +23,26 @@ interface IVault is IVaultParams {
     //         uint256 currentQueuedWithdrawShares,
     //         bool dead
     //     );
+
+    /**
+        @notice Gives the deposit information struct associated with an address
+        @param account The address you want to retrieve information for
+        @return epoch The epoch of the latest deposit
+        @return amount The deposited amount
+        @return unredeemedShares The number of shares owned by the account but held by the vault
+        @return cumulativeAmount The sum of all-time deposited amounts
+     */
+    function depositReceipts(
+        address account
+    ) external view returns (uint256 epoch, uint256 amount, uint256 unredeemedShares, uint256 cumulativeAmount);
+
+    /**
+        @notice Gives the withdrawal information struct associated with an address
+        @param account The address you want to retrieve information for
+        @return epoch The epoch of the latest initiated withdraw
+        @return shares The amount of shares for the initiated withdraw
+     */
+    function withdrawals(address account) external view returns (uint256 epoch, uint256 shares);
 
     // TBD: rename with something more suitable...
     /**

@@ -54,6 +54,7 @@ abstract contract DVP is IDVP, EpochControls {
      */
     mapping(uint256 => mapping(bytes32 => Position.Info)) internal _epochPositions;
 
+    error TransferFailed();
     error NotEnoughLiquidity();
     error PositionNotFound();
     error CantBurnMoreThanMinted();
@@ -115,7 +116,9 @@ abstract contract DVP is IDVP, EpochControls {
         // ----- it may be avoided by asking for a positive number of lots as notional...
 
         // Get premium from sender:
-        IToken(baseToken).transferFrom(msg.sender, vault, premium_);
+        if (!IToken(baseToken).transferFrom(msg.sender, vault, premium_)) {
+            revert TransferFailed();
+        }
 
         // Decrease available liquidity:
         liquidity.increaseUsage(strike, strategy, amount);
@@ -137,7 +140,11 @@ abstract contract DVP is IDVP, EpochControls {
         @param strategy The position strategy.
         @param notional The position notional; positive if buyed by a user, negative otherwise.
      */
-    function _deltaHedgePosition(uint256 strike, bool strategy, int256 notional) internal virtual returns (uint256 swapPrice);
+    function _deltaHedgePosition(
+        uint256 strike,
+        bool strategy,
+        int256 notional
+    ) internal virtual returns (uint256 swapPrice);
 
     /**
         @notice Burn or decrease a position.
@@ -266,7 +273,11 @@ abstract contract DVP is IDVP, EpochControls {
         @return payoff_ The payoff value.
         @dev It's also used for the DVP's overall position at maturity.
      */
-    function _computeResidualPayoff(uint256 strike, bool strategy, uint256 amount) internal view returns (uint256 payoff_) {
+    function _computeResidualPayoff(
+        uint256 strike,
+        bool strategy,
+        uint256 amount
+    ) internal view returns (uint256 payoff_) {
         amount = AmountsMath.wrapDecimals(amount, _baseTokenDecimals);
         uint256 percentage = _residualPayoffPerc(strike, strategy);
 
@@ -284,7 +295,12 @@ abstract contract DVP is IDVP, EpochControls {
     function _residualPayoffPerc(uint256 strike, bool strategy) internal view virtual returns (uint256 percentage);
 
     /// @dev computes the premium/payoff with the given amount, swap price and post-trade volatility
-    function _getMarketValue(uint256 strike, bool strategy, int256 amount, uint256 swapPrice) internal view virtual returns (uint256);
+    function _getMarketValue(
+        uint256 strike,
+        bool strategy,
+        int256 amount,
+        uint256 swapPrice
+    ) internal view virtual returns (uint256);
 
     /// @inheritdoc IDVP
     function payoff(
@@ -308,7 +324,12 @@ abstract contract DVP is IDVP, EpochControls {
             // // NOTE: we have to avoid this due to the PositionManager that holds positions for multiple tokens.
             // positionAmount = position.amount;
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
-            payoff_ = _liquidity[position.epoch].shareOfPayoff(position.strike, position.strategy, positionAmount, _baseTokenDecimals);
+            payoff_ = _liquidity[position.epoch].shareOfPayoff(
+                position.strike,
+                position.strategy,
+                positionAmount,
+                _baseTokenDecimals
+            );
         }
     }
 
@@ -321,7 +342,12 @@ abstract contract DVP is IDVP, EpochControls {
         @return position_ The requested position.
         @dev The client should check if the position exists by calling `exists()` on it.
      */
-    function _getPosition(uint256 epoch, address owner, bool strategy, uint256 strike) internal view returns (Position.Info storage position_) {
+    function _getPosition(
+        uint256 epoch,
+        address owner,
+        bool strategy,
+        uint256 strike
+    ) internal view returns (Position.Info storage position_) {
         return _epochPositions[epoch][Position.getID(owner, strategy, strike)];
     }
 

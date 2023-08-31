@@ -18,23 +18,30 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @inheritdoc IVaultParams
     address public immutable baseToken;
+
     /// @inheritdoc IVaultParams
     address public immutable sideToken;
 
-    VaultLib.VaultState internal _state;
-    AddressProvider internal immutable _addressProvider;
     /// @notice The address of the DVP paired with this vault
     address public dvp; // NOTE: public for frontend purposes
+
     /// @notice Maximum threshold for users cumulative deposit (see VaultLib.VaultState.liquidity.totalDeposit)
     uint256 public maxDeposit;
+
+    /// @inheritdoc IVault
+    mapping(address => VaultLib.DepositReceipt) public depositReceipts;
+
+    /// @inheritdoc IVault
+    mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
+
+    mapping(uint256 => uint256) public epochPricePerShare; // NOTE: public for frontend and historical data purposes
+
     /// @notice Whether the transfer of shares between wallets is allowed or not
     bool internal _secondaryMarkedAllowed;
 
-    // TBD: add to the IVault interface
-    mapping(address => VaultLib.DepositReceipt) public depositReceipts;
-    // TBD: add to the IVault interface
-    mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
-    mapping(uint256 => uint256) public epochPricePerShare; // NOTE: public for frontend and historical data purposes
+    VaultLib.VaultState internal _state;
+
+    AddressProvider internal immutable _addressProvider;
 
     error AddressZero();
     error AmountZero();
@@ -49,6 +56,7 @@ contract Vault is IVault, ERC20, EpochControls {
     error VaultNotDead();
     error WithdrawNotInitiated();
     error WithdrawTooEarly();
+    error TransferFailed();
 
     // TBD: create ERC20 name and symbol from the underlying tokens
     constructor(
@@ -211,7 +219,10 @@ contract Vault is IVault, ERC20, EpochControls {
 
         address creditor = msg.sender;
 
-        IERC20(baseToken).transferFrom(creditor, address(this), amount);
+        if (!IERC20(baseToken).transferFrom(creditor, address(this), amount)) {
+            revert TransferFailed();
+        }
+
         _emitUpdatedDepositReceipt(creditor, amount);
 
         _state.liquidity.pendingDeposits += amount;
@@ -409,7 +420,9 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.liquidity.pendingWithdrawals -= amountToWithdraw;
 
         _burn(address(this), sharesToWithdraw);
-        IERC20(baseToken).transfer(msg.sender, amountToWithdraw);
+        if (!IERC20(baseToken).transfer(msg.sender, amountToWithdraw)) {
+            revert TransferFailed();
+        }
 
         // ToDo: emit Withdraw event
     }
@@ -428,7 +441,9 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.liquidity.pendingDeposits -= depositReceipt.amount;
 
         depositReceipts[msg.sender].amount = 0;
-        IERC20(baseToken).transfer(msg.sender, depositReceipt.amount);
+        if (!IERC20(baseToken).transfer(msg.sender, depositReceipt.amount)) {
+            revert TransferFailed();
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -643,7 +658,9 @@ contract Vault is IVault, ERC20, EpochControls {
             }
         }
 
-        IERC20(baseToken).transfer(recipient, amount);
+        if (!IERC20(baseToken).transfer(recipient, amount)) {
+            revert TransferFailed();
+        }
     }
 
     /// @inheritdoc ERC20

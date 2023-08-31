@@ -14,6 +14,7 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     IPriceOracle internal _priceOracle;
 
     error PriceZero();
+    error TransferFailed();
 
     constructor(address priceOracle) Ownable() {
         _priceOracle = IPriceOracle(priceOracle);
@@ -35,7 +36,9 @@ contract TestnetSwapAdapter is IExchange, Ownable {
 
     // @inheritdoc IExchange
     function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 amountOut) {
-        IToken(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+        if (!IToken(tokenIn).transferFrom(msg.sender, address(this), amountIn)) {
+            revert TransferFailed();
+        }
         TestnetToken(tokenIn).burn(address(this), amountIn);
         amountOut = _getAmountOut(tokenIn, tokenOut, amountIn);
         TestnetToken(tokenOut).mint(msg.sender, amountOut);
@@ -62,7 +65,10 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     // @inheritdoc IExchange
     function swapOut(address tokenIn, address tokenOut, uint256 amountOut) external returns (uint256 amountIn) {
         amountIn = _getAmountIn(tokenIn, tokenOut, amountOut);
-        IToken(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+
+        if (!IToken(tokenIn).transferFrom(msg.sender, address(this), amountIn)) {
+            revert TransferFailed();
+        }
 
         TestnetToken(tokenIn).burn(address(this), amountIn);
         TestnetToken(tokenOut).mint(msg.sender, amountOut);

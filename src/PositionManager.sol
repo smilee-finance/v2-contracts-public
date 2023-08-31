@@ -36,6 +36,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     error InvalidTokenID();
     error SecondaryMarkedNotAllowed();
     error PositionExpired();
+    error TransferFailed();
 
     constructor() ERC721Enumerable() ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") Ownable() {
         _nextId = 1;
@@ -65,26 +66,29 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         IDVP dvp = IDVP(position.dvpAddr);
 
         // TBD: add payoff
-        return IPositionManager.PositionDetail({
-            dvpAddr: position.dvpAddr,
-            baseToken: dvp.baseToken(),
-            sideToken: dvp.sideToken(),
-            dvpFreq: dvp.epochFrequency(),
-            dvpType: dvp.optionType(),
-            strike: position.strike,
-            strategy: position.strategy,
-            expiry: position.expiry,
-            premium: position.premium,
-            leverage: position.leverage,
-            notional: position.notional,
-            cumulatedPayoff: position.cumulatedPayoff
-        });
+        return
+            IPositionManager.PositionDetail({
+                dvpAddr: position.dvpAddr,
+                baseToken: dvp.baseToken(),
+                sideToken: dvp.sideToken(),
+                dvpFreq: dvp.epochFrequency(),
+                dvpType: dvp.optionType(),
+                strike: position.strike,
+                strategy: position.strategy,
+                expiry: position.expiry,
+                premium: position.premium,
+                leverage: position.leverage,
+                notional: position.notional,
+                cumulatedPayoff: position.cumulatedPayoff
+            });
     }
 
     /// @inheritdoc IPositionManager
-    function mint(IPositionManager.MintParams calldata params) external override returns (uint256 tokenId, uint256 premium) {
+    function mint(
+        IPositionManager.MintParams calldata params
+    ) external override returns (uint256 tokenId, uint256 premium) {
         IDVP dvp = IDVP(params.dvpAddr);
-        
+
         if (params.tokenId != 0) {
             tokenId = params.tokenId;
             ManagedPosition storage position = _positions[tokenId];
@@ -93,7 +97,11 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
                 revert NotOwner();
             }
             // Check token compatibility:
-            if (position.dvpAddr != params.dvpAddr || position.strike != params.strike || position.strategy != params.strategy) {
+            if (
+                position.dvpAddr != params.dvpAddr ||
+                position.strike != params.strike ||
+                position.strategy != params.strategy
+            ) {
                 revert InvalidTokenID();
             }
             if (position.expiry != dvp.currentEpoch()) {
@@ -106,10 +114,11 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         // Transfer premium:
         // NOTE: The PositionManager is just a middleman between the user and the DVP
         IERC20 baseToken = IERC20(dvp.baseToken());
-        baseToken.transferFrom(msg.sender, address(this), premium);
-        baseToken.approve(params.dvpAddr, premium);
+        if (!baseToken.transferFrom(msg.sender, address(this), premium)) {
+            revert TransferFailed();
+        }
 
-        // Buy the option:
+        baseToken.approve(params.dvpAddr, premium);
         premium = dvp.mint(address(this), params.strike, params.strategy, params.notional);
 
         if (params.tokenId == 0) {
@@ -171,7 +180,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         // NOTE: premium fix for the leverage issue annotated in the mint flow.
         // notional : position.notional = fix : position.premium
-        uint256 premiumFix = notional * position.premium / position.notional;
+        uint256 premiumFix = (notional * position.premium) / position.notional;
         position.premium -= premiumFix;
         position.cumulatedPayoff += payoff;
         position.notional -= notional;
@@ -268,5 +277,4 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
     //     emit IncreaseLiquidity(params.tokenId, liquidity, amount0, amount1);
     // }
-
 }
