@@ -27,11 +27,11 @@ contract Vault is IVault, ERC20, EpochControls {
     address public dvp; // NOTE: public for frontend purposes
     /// @notice Whether the transfer of shares between wallets is allowed or not
     bool internal _secondaryMarkedAllowed;
-    /// @notice Maximum threshold of TVL
-    uint256 public limitTVL;
 
-    /// @notice Token value all users have in the Vault
-    uint256 public usersTVL;
+    /// @notice Maximum threshold of users cumulative deposit
+    uint256 public maxDeposit;
+    /// @notice Base token value of all users cumulative deposit
+    uint256 public totalDeposit;
 
     // TBD: add to the IVault interface
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
@@ -66,7 +66,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         _addressProvider = AddressProvider(addressProvider_);
         // ToDo: Add constructor parameter
-        limitTVL = 1e25;
+        maxDeposit = 1e25;
         _secondaryMarkedAllowed = false;
     }
 
@@ -106,10 +106,9 @@ contract Vault is IVault, ERC20, EpochControls {
         @notice Set LimitTVL
         @param limitTVL_ LimitTVL to set
      */
-    function setLimitTVL(uint256 limitTVL_) external onlyOwner {
-        limitTVL = limitTVL_;
+    function setMaxDeposit(uint256 limitTVL_) external onlyOwner {
+        maxDeposit = limitTVL_;
     }
-
 
     // ToDo: review as it's currently used only by tests
     function vaultState()
@@ -207,8 +206,8 @@ contract Vault is IVault, ERC20, EpochControls {
         }
 
         // Accept only if it doesn't exceeds the TVL limit (cap)
-        // ---- limitTVL - usersTVL >= amount
-        uint256 depositCapacity = limitTVL - usersTVL;
+        // ---- maxDeposit - totalDeposit >= amount
+        uint256 depositCapacity = maxDeposit - totalDeposit;
         if (amount > depositCapacity) {
             revert DepositThresholdTVLReached();
         }
@@ -219,7 +218,7 @@ contract Vault is IVault, ERC20, EpochControls {
         _emitUpdatedDepositReceipt(creditor, amount);
 
         _state.liquidity.pendingDeposits += amount;
-        usersTVL += amount;
+        totalDeposit += amount;
 
         // ToDo emit Deposit event
     }
@@ -371,12 +370,12 @@ contract Vault is IVault, ERC20, EpochControls {
     function completeWithdraw() external epochNotFrozen whenNotPaused {
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
-        // Checks if there is an initiated withdrawal:
+        // Checks if there is an initiated withdrawal
         if (withdrawal.shares == 0) {
             revert WithdrawNotInitiated();
         }
 
-        // At least one epoch needs to be past since the initiated withdrawal:
+        // At least one epoch must have passed since the start of the withdrawal
         if (withdrawal.epoch == currentEpoch) {
             revert WithdrawTooEarly();
         }
@@ -387,36 +386,31 @@ contract Vault is IVault, ERC20, EpochControls {
         withdrawal.shares = 0;
 
         // NOTE: we choose to call shareBalances instead of balanceOf due to possible deposit meanwhile.
+        // TODO ??? cosa vuol dire? meanwhile di che cosa?
         (uint256 heldByAccount, uint256 heldByVault) = shareBalances(msg.sender);
         uint256 totalUserShares = heldByAccount + heldByVault + sharesToWithdraw;
 
-        // Calculate the percentage of burned shares
-        uint256 percentageWithdrawal = sharesToWithdraw.wdiv(totalUserShares);
+        // In order to update vault capacity we need to understand how much of her all-time deposit the user is removing from the vault
+        // We compute this as the proportion: burning shares / total shares * all-time deposit
 
+        uint256 withdrawProportion = sharesToWithdraw.wdiv(totalUserShares);
+
+        // Don't consider current epoch deposits in all-time deposits computation
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
-
         uint256 cumulativeDeposit = depositReceipt.cumulativeAmount;
-
-        // If there are deposits on the currentEpoch, remove them to the cumulativeDeposit
         if (depositReceipt.epoch == currentEpoch) {
             cumulativeDeposit -= depositReceipt.amount;
         }
 
-        // Calculate the amount to subtract to the cumulativeAmount and to the global counter
-        uint256 percentagedAmount = cumulativeDeposit.wmul(percentageWithdrawal);
+        uint256 withdrawDeposit = cumulativeDeposit.wmul(withdrawProportion);
+        depositReceipt.cumulativeAmount -= withdrawDeposit;
+        totalDeposit -= withdrawDeposit;
 
-        // Update depositReceipt's cumulativeAmount
-        depositReceipt.cumulativeAmount -= percentagedAmount;
-
-        // Update global usersTVL
-        usersTVL -= percentagedAmount;
-
-        // NOTE: the user transferred the required shares to the vault when it initiated the withdraw
-        _burn(address(this), sharesToWithdraw);
+        // NOTE: the user transferred the required shares to the vault when she initiated the withdraw
         _state.withdrawals.heldShares -= sharesToWithdraw;
+        _state.liquidity.pendingWithdrawals -= amountToWithdraw;
 
         IERC20(baseToken).transfer(msg.sender, amountToWithdraw);
-        _state.liquidity.pendingWithdrawals -= amountToWithdraw;
 
         // ToDo: emit Withdraw event
     }

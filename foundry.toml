@@ -6,7 +6,6 @@ libs = ["lib"]
 revert_strings = "debug"
 fs_permissions = [{ access = "read", path = "./test/"}]
 
-
 # By default, each standalone section belongs to the default profile. i.e. [fmt] is equivalent to [profile.default.fmt].
 # Define RPC aliases:
 [rpc_endpoints]

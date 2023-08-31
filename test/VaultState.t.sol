@@ -122,7 +122,7 @@ contract VaultStateTest is Test {
         // TBD: what if depositAmount < 1 ether ?
 
         vm.prank(admin);
-        vault.setLimitTVL(type(uint256).max);
+        vault.setMaxDeposit(type(uint256).max);
 
         vm.assume(amountToDeposit > 1 ether);
         vm.assume(sideTokenPrice > 0);
@@ -209,14 +209,14 @@ contract VaultStateTest is Test {
         assertEq(1 ether, initialLiquidity);
     }
 
-    function testLimitTVL() public {
+    function testMaxDeposit() public {
         vm.prank(admin);
-        vault.setLimitTVL(1000e18);
+        vault.setMaxDeposit(1000e18);
 
         VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
         (, , , uint256 cumulativeAmount) = vault.depositReceipts(alice);
 
-        assertEq(vault.usersTVL(), 100e18);
+        assertEq(vault.totalDeposit(), 100e18);
         assertEq(cumulativeAmount, 100e18);
 
         Utils.skipDay(true, vm);
@@ -226,7 +226,7 @@ contract VaultStateTest is Test {
         vault.initiateWithdraw(9999e16);
 
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertEq(vault.usersTVL(), 100e18);
+        assertEq(vault.totalDeposit(), 100e18);
         assertEq(cumulativeAmount, 100e18);
 
         Utils.skipDay(true, vm);
@@ -238,7 +238,7 @@ contract VaultStateTest is Test {
         vault.completeWithdraw();
 
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertEq(vault.usersTVL(), 2001e16);
+        assertEq(vault.totalDeposit(), 2001e16);
         assertEq(cumulativeAmount, 2001e16);
 
         Utils.skipDay(true, vm);
@@ -254,15 +254,15 @@ contract VaultStateTest is Test {
         vault.completeWithdraw();
 
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertApproxEqAbs(vault.usersTVL(), 1501e16, 1e2);
+        assertApproxEqAbs(vault.totalDeposit(), 1501e16, 1e2);
         assertApproxEqAbs(cumulativeAmount, 1501e16, 1e2);
 
         VaultUtils.addVaultDeposit(bob, 10e18, admin, address(vault), vm);
 
-        assertApproxEqAbs(vault.usersTVL(), 2501e16, 1e2);
+        assertApproxEqAbs(vault.totalDeposit(), 2501e16, 1e2);
 
         (, , , cumulativeAmount) = vault.depositReceipts(bob);
-        assertApproxEqAbs(vault.usersTVL(), 2501e16, 1e2);
+        assertApproxEqAbs(vault.totalDeposit(), 2501e16, 1e2);
         assertEq(cumulativeAmount, 10e18);
 
         Utils.skipDay(true, vm);
@@ -270,7 +270,7 @@ contract VaultStateTest is Test {
 
         VaultUtils.addVaultDeposit(bob, 10e18, admin, address(vault), vm);
         (, , , cumulativeAmount) = vault.depositReceipts(bob);
-        assertApproxEqAbs(vault.usersTVL(), 3501e16, 1e2);
+        assertApproxEqAbs(vault.totalDeposit(), 3501e16, 1e2);
         assertEq(cumulativeAmount, 20e18);
 
         TokenUtils.provideApprovedTokens(admin, vault.baseToken(), alice, address(vault), 1000 ether, vm);
