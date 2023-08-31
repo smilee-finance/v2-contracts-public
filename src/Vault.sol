@@ -42,7 +42,7 @@ contract Vault is IVault, ERC20, EpochControls {
     error AddressZero();
     error AmountZero();
     error DVPNotSet();
-    error DepositThresholdTVLReached();
+    error ExceedsMaxDeposit();
     error ExceedsAvailable();
     error ExistingIncompleteWithdraw();
     error NothingToRescue();
@@ -209,7 +209,7 @@ contract Vault is IVault, ERC20, EpochControls {
         // ---- maxDeposit - totalDeposit >= amount
         uint256 depositCapacity = maxDeposit - totalDeposit;
         if (amount > depositCapacity) {
-            revert DepositThresholdTVLReached();
+            revert ExceedsMaxDeposit();
         }
 
         address creditor = msg.sender;
@@ -341,6 +341,12 @@ contract Vault is IVault, ERC20, EpochControls {
             _redeem(0, true);
         }
 
+        // NOTE: all shares belong to the user since we made a 'redeem all'
+        uint256 userShares = balanceOf(msg.sender);
+        if (shares > userShares) {
+            revert ExceedsAvailable();
+        }
+
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
         if (withdrawal.epoch < currentEpoch && withdrawal.shares > 0) {
@@ -353,13 +359,29 @@ contract Vault is IVault, ERC20, EpochControls {
             sharesToWithdraw = withdrawal.shares.add(shares);
         }
 
+        // In order to update vault capacity we need to understand how much of her all-time deposit the user is removing from the vault
+        // We compute this as the proportion: (burning shares / total shares) * all-time deposit
+
+        // Don't consider current epoch deposits in all-time deposits computation
+        VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
+        uint256 cumulativeDeposit = depositReceipt.cumulativeAmount;
+        if (depositReceipt.epoch == currentEpoch) {
+            cumulativeDeposit -= depositReceipt.amount;
+        }
+
+        uint256 withdrawDeposit = cumulativeDeposit.wmul(shares).wdiv(userShares);
+        depositReceipt.cumulativeAmount -= withdrawDeposit;
+        totalDeposit -= withdrawDeposit;
+
+        // update receipt
+
         withdrawal.shares = sharesToWithdraw;
         withdrawal.epoch = currentEpoch;
 
-        _transfer(msg.sender, address(this), shares);
-
         // NOTE: shall the user attempt to calls redeem after this one, there'll be no unredeemed shares
         _state.withdrawals.newHeldShares += shares;
+
+        _transfer(msg.sender, address(this), shares);
 
         // TBD: emit InitiateWithdraw event
     }
@@ -385,31 +407,11 @@ contract Vault is IVault, ERC20, EpochControls {
 
         withdrawal.shares = 0;
 
-        // NOTE: we choose to call shareBalances instead of balanceOf due to possible deposit meanwhile.
-        // TODO ??? cosa vuol dire? meanwhile di che cosa?
-        (uint256 heldByAccount, uint256 heldByVault) = shareBalances(msg.sender);
-        uint256 totalUserShares = heldByAccount + heldByVault + sharesToWithdraw;
-
-        // In order to update vault capacity we need to understand how much of her all-time deposit the user is removing from the vault
-        // We compute this as the proportion: burning shares / total shares * all-time deposit
-
-        uint256 withdrawProportion = sharesToWithdraw.wdiv(totalUserShares);
-
-        // Don't consider current epoch deposits in all-time deposits computation
-        VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
-        uint256 cumulativeDeposit = depositReceipt.cumulativeAmount;
-        if (depositReceipt.epoch == currentEpoch) {
-            cumulativeDeposit -= depositReceipt.amount;
-        }
-
-        uint256 withdrawDeposit = cumulativeDeposit.wmul(withdrawProportion);
-        depositReceipt.cumulativeAmount -= withdrawDeposit;
-        totalDeposit -= withdrawDeposit;
-
         // NOTE: the user transferred the required shares to the vault when she initiated the withdraw
         _state.withdrawals.heldShares -= sharesToWithdraw;
         _state.liquidity.pendingWithdrawals -= amountToWithdraw;
 
+        _burn(address(this), sharesToWithdraw);
         IERC20(baseToken).transfer(msg.sender, amountToWithdraw);
 
         // ToDo: emit Withdraw event

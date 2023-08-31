@@ -17,7 +17,7 @@ import {AddressProvider} from "../src/AddressProvider.sol";
 
 contract VaultStateTest is Test {
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
-    bytes4 constant DepositThresholdTVLReached = bytes4(keccak256("DepositThresholdTVLReached()"));
+    bytes4 constant ExceedsMaxDeposit = bytes4(keccak256("ExceedsMaxDeposit()"));
     bytes constant VaultPaused = bytes("Pausable: paused");
     bytes constant OwnerError = bytes("Ownable: caller is not the owner");
 
@@ -222,15 +222,19 @@ contract VaultStateTest is Test {
         Utils.skipDay(true, vm);
         vault.rollEpoch();
 
+        // simple withdraw
+
         vm.prank(alice);
-        vault.initiateWithdraw(9999e16);
+        vault.initiateWithdraw(10e18);
 
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertEq(vault.totalDeposit(), 100e18);
-        assertEq(cumulativeAmount, 100e18);
+        assertEq(vault.totalDeposit(), 90e18);
+        assertEq(cumulativeAmount, 90e18);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
+
+        // simple deposit
 
         VaultUtils.addVaultDeposit(alice, 20e18, admin, address(vault), vm);
 
@@ -238,14 +242,21 @@ contract VaultStateTest is Test {
         vault.completeWithdraw();
 
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertEq(vault.totalDeposit(), 2001e16);
-        assertEq(cumulativeAmount, 2001e16);
+        assertEq(vault.totalDeposit(), 110e18);
+        assertEq(cumulativeAmount, 110e18);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
 
+        // withdraw and deposit
+
         vm.prank(alice);
-        vault.initiateWithdraw(5e18);
+        vault.initiateWithdraw(50e18);
+        VaultUtils.addVaultDeposit(alice, 30e18, admin, address(vault), vm);
+
+        (, , , cumulativeAmount) = vault.depositReceipts(alice);
+        assertApproxEqAbs(vault.totalDeposit(), 90e18, 1e2);
+        assertEq(cumulativeAmount, 90e18);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
@@ -253,30 +264,41 @@ contract VaultStateTest is Test {
         vm.prank(alice);
         vault.completeWithdraw();
 
+        // multiple withdraw
+
+        vm.prank(alice);
+        vault.initiateWithdraw(30e18);
+
+        vm.prank(alice);
+        vault.initiateWithdraw(30e18);
+
         (, , , cumulativeAmount) = vault.depositReceipts(alice);
-        assertApproxEqAbs(vault.totalDeposit(), 1501e16, 1e2);
-        assertApproxEqAbs(cumulativeAmount, 1501e16, 1e2);
-
-        VaultUtils.addVaultDeposit(bob, 10e18, admin, address(vault), vm);
-
-        assertApproxEqAbs(vault.totalDeposit(), 2501e16, 1e2);
-
-        (, , , cumulativeAmount) = vault.depositReceipts(bob);
-        assertApproxEqAbs(vault.totalDeposit(), 2501e16, 1e2);
-        assertEq(cumulativeAmount, 10e18);
+        assertEq(vault.totalDeposit(), 30e18);
+        assertEq(cumulativeAmount, 30e18);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
 
-        VaultUtils.addVaultDeposit(bob, 10e18, admin, address(vault), vm);
+        vm.prank(alice);
+        vault.completeWithdraw();
+
+        // multiple users
+
+        VaultUtils.addVaultDeposit(bob, 20e18, admin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 10e18, admin, address(vault), vm);
+
         (, , , cumulativeAmount) = vault.depositReceipts(bob);
-        assertApproxEqAbs(vault.totalDeposit(), 3501e16, 1e2);
+        assertApproxEqAbs(vault.totalDeposit(), 60e18, 1e2);
         assertEq(cumulativeAmount, 20e18);
 
-        TokenUtils.provideApprovedTokens(admin, vault.baseToken(), alice, address(vault), 1000 ether, vm);
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
 
-        vm.expectRevert(DepositThresholdTVLReached);
-        vault.deposit(1000 ether);
+        // threshold check
+
+        TokenUtils.provideApprovedTokens(admin, vault.baseToken(), alice, address(vault), 1000 ether, vm);
+        vm.expectRevert(ExceedsMaxDeposit);
+        vault.deposit(941e18);
     }
 
     /**

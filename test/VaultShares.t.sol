@@ -188,7 +188,7 @@ contract VaultSharesTest is Test {
     function testInitWithdrawWithoutSharesFail() public {
         VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
-        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        vm.expectRevert(ExceedsAvailable);
         vault.initiateWithdraw(100);
     }
 
