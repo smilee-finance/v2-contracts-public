@@ -98,9 +98,9 @@ contract IGVaultTest is Test {
     // Assumption: Price 1:1
     // ToDo: Adjust with different price
     function testBuyOptionWithLiquidity(uint64 aliceAmount, uint64 bobAmount, uint128 optionAmount) public {
-        vm.assume(aliceAmount > 0.01 ether);
-        vm.assume(bobAmount > 0.01 ether);
-        vm.assume(optionAmount > 0.01 ether);
+        vm.assume(aliceAmount > 0);
+        vm.assume(bobAmount > 0);
+        vm.assume(optionAmount > 0);
         vm.assume(((uint128(aliceAmount) + uint128(bobAmount))) / 2 >= optionAmount);
 
         VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
@@ -148,18 +148,12 @@ contract IGVaultTest is Test {
         vm.assume((aliceAmount + bobAmount) / 2 >= uint256(charlieAmount) + uint256(davidAmount));
 
         // NOTE: avoids stack too deep
-        _buyTwoOptionOneBurn(Parameters(
-            aliceAmount,
-            bobAmount,
-            charlieAmount,
-            davidAmount,
-            partialBurn,
-            optionStrategy));
+        _buyTwoOptionOneBurn(
+            Parameters(aliceAmount, bobAmount, charlieAmount, davidAmount, partialBurn, optionStrategy)
+        );
     }
 
-    function _buyTwoOptionOneBurn(
-        Parameters memory params
-    ) internal {
+    function _buyTwoOptionOneBurn(Parameters memory params) internal {
         VaultUtils.addVaultDeposit(alice, params.aliceAmount, admin, address(vault), vm);
         VaultUtils.addVaultDeposit(bob, params.bobAmount, admin, address(vault), vm);
 
@@ -229,12 +223,12 @@ contract IGVaultTest is Test {
 
         vm.assume((aliceAmount + bobAmount) / 2 >= uint256(charlieAmount) + uint256(davidAmount));
 
-        _buyTwoOptionOneBurnAfterMaturity(Parameters(aliceAmount, bobAmount, charlieAmount, davidAmount, false, optionStrategy));
+        _buyTwoOptionOneBurnAfterMaturity(
+            Parameters(aliceAmount, bobAmount, charlieAmount, davidAmount, false, optionStrategy)
+        );
     }
 
-    function _buyTwoOptionOneBurnAfterMaturity(
-        Parameters memory params
-    ) internal {
+    function _buyTwoOptionOneBurnAfterMaturity(Parameters memory params) internal {
         VaultUtils.addVaultDeposit(alice, params.aliceAmount, admin, address(vault), vm);
         VaultUtils.addVaultDeposit(bob, params.bobAmount, admin, address(vault), vm);
 
