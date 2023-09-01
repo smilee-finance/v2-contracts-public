@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.21;
 
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
@@ -35,6 +35,7 @@ abstract contract DVP is IDVP, EpochControls {
     uint256 internal _tradeVolatilityTimeDecay;
     uint8 internal immutable _baseTokenDecimals;
     uint8 internal immutable _sideTokenDecimals;
+    uint256 internal _maxSlippage;
     // ToDo: define lot size
 
     // TBD: extract payoff from Notional.Info
@@ -61,6 +62,7 @@ abstract contract DVP is IDVP, EpochControls {
     error VaultPaused();
     error MissingMarketOracle();
     error MissingPriceOracle();
+    error SlippedMarketValue();
 
     modifier whenVaultIsNotPaused() {
         if(IEpochControls(vault).isPaused()) {
@@ -85,6 +87,7 @@ abstract contract DVP is IDVP, EpochControls {
 
         _tradeVolatilityUtilizationRateFactor = AmountsMath.wrap(2);
         _tradeVolatilityTimeDecay = AmountsMath.wrap(1) / 4; // 0.25
+        _maxSlippage = 0.1e18; // 10 %
     }
 
     /**
@@ -93,6 +96,7 @@ abstract contract DVP is IDVP, EpochControls {
         @param strike The strike.
         @param strategy The OptionStrategy strategy (i.e. Call or Put).
         @param amount The notional.
+        @param expectedPremium The expected premium; used to check the slippage.
         @return premium_ The paid premium.
         @dev The client must have approved the needed premium.
      */
@@ -100,7 +104,8 @@ abstract contract DVP is IDVP, EpochControls {
         address recipient,
         uint256 strike,
         bool strategy,
-        uint256 amount
+        uint256 amount,
+        uint256 expectedPremium
     ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 premium_) {
         if (amount == 0) {
             revert AmountZero();
@@ -117,9 +122,12 @@ abstract contract DVP is IDVP, EpochControls {
 
         premium_ = _getMarketValue(strike, strategy, int256(amount), swapPrice);
 
-        // ToDo: revert if actual price exceeds the previewed premium
+        // Revert if actual price exceeds the previewed premium
         // ----- TBD: use the approved premium as a reference ? No due to the PositionManager...
         // ----- TBD: Right now we may choose to use a DVP-wide slippage of +10% (-10% for burn).
+        if (premium_ > expectedPremium + expectedPremium.wmul(_maxSlippage)) {
+            revert SlippedMarketValue();
+        }
         // ToDo: revert if the premium is zero due to an underflow
         // ----- it may be avoided by asking for a positive number of lots as notional...
 
@@ -161,6 +169,7 @@ abstract contract DVP is IDVP, EpochControls {
         @param strike The strike
         @param strategy The OptionStrategy strategy (i.e. Call or Put).
         @param amount The notional.
+        @param expectedMarketValue The expected market value when the epoch is the current one.
         @return paidPayoff The paid payoff.
      */
     function _burn(
@@ -168,7 +177,8 @@ abstract contract DVP is IDVP, EpochControls {
         address recipient,
         uint256 strike,
         bool strategy,
-        uint256 amount
+        uint256 amount,
+        uint256 expectedMarketValue
     ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 paidPayoff) {
         Position.Info storage position = _getPosition(epoch, msg.sender, strategy, strike);
         if (!position.exists()) {
@@ -198,6 +208,9 @@ abstract contract DVP is IDVP, EpochControls {
             uint256 swapPrice = _deltaHedgePosition(strike, strategy, -int256(amount));
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, strategy, -int256(amount), swapPrice);
+            if (paidPayoff > expectedMarketValue + expectedMarketValue.wmul(_maxSlippage)) {
+                revert SlippedMarketValue();
+            }
         } else {
             // Compute the payoff to be paid:
             paidPayoff = liquidity.shareOfPayoff(position.strike, position.strategy, amount, _baseTokenDecimals);

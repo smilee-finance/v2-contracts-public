@@ -15,11 +15,13 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         uint256 strike;
         bool strategy;
         address recipient;
+        uint256 expectedPremium;
     }
 
     struct SellParams {
         uint256 tokenId;
         uint256 notional;
+        uint256 expectedMarketValue;
     }
 
     struct PositionDetail {

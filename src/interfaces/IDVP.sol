@@ -56,10 +56,11 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param strike The strike price for the minted option
         @param strategy The selected strategy
         @param amount The integer quantity of options recipient wants to mint
+        @param expectedPremium The expected market value
         @return leverage The multiplier to obtain position notional from paid premium
         @dev strike param is ignored for IG vaults, can pass 0
      */
-    function mint(address recipient, uint256 strike, bool strategy, uint256 amount) external returns (uint256 leverage);
+    function mint(address recipient, uint256 strike, bool strategy, uint256 amount, uint256 expectedPremium) external returns (uint256 leverage);
 
     /**
         @notice Burns an option transferring back the payoff to the owner.
@@ -68,6 +69,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param strike The strike price of the burned option.
         @param strategy The strategy of the burned option.
         @param amount The amount of notional to be burned.
+        @param expectedMarketValue The expected market value of the burned notional; ignored when epoch is not the current one.
         @return paidPayoff The amount of paid payoff.
         @dev After maturity, the amount parameter is ignored and all the option is burned.
      */
@@ -76,6 +78,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         address recipient,
         uint256 strike,
         bool strategy,
-        uint256 amount
+        uint256 amount,
+        uint256 expectedMarketValue
     ) external returns (uint256 paidPayoff);
 }

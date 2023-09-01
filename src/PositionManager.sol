@@ -119,7 +119,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         }
 
         baseToken.approve(params.dvpAddr, premium);
-        premium = dvp.mint(address(this), params.strike, params.strategy, params.notional);
+        premium = dvp.mint(address(this), params.strike, params.strategy, params.notional, params.expectedPremium);
 
         if (params.tokenId == 0) {
             // Mint token:
@@ -157,17 +157,21 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     /// @inheritdoc IPositionManager
     function burn(uint256 tokenId) external override isOwner(tokenId) returns (uint256 payoff) {
         ManagedPosition storage position = _positions[tokenId];
-        payoff = _sell(tokenId, position.notional);
+        uint256 expectedMarketValue = 0;
+        if (IDVP(position.dvpAddr).currentEpoch() == position.expiry) {
+            expectedMarketValue = IDVP(position.dvpAddr).payoff(position.expiry, position.strike, position.strategy, position.notional);
+        }
+        payoff = _sell(tokenId, position.notional, expectedMarketValue);
     }
 
     // ToDo: review usage and signature
     function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff) {
         // TBD: burn if params.notional == 0 ?
         // TBD: burn if position is expired ?
-        payoff = _sell(params.tokenId, params.notional);
+        payoff = _sell(params.tokenId, params.notional, params.expectedMarketValue);
     }
 
-    function _sell(uint256 tokenId, uint256 notional) internal returns (uint256 payoff) {
+    function _sell(uint256 tokenId, uint256 notional, uint256 expectedMarketValue) internal returns (uint256 payoff) {
         ManagedPosition storage position = _positions[tokenId];
         // NOTE: as the positions within the DVP are all of the PositionManager, we must replicate this check here.
         if (notional > position.notional) {
@@ -176,7 +180,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         // NOTE: the DVP already checks that the burned notional is lesser or equal to the position notional.
         // NOTE: the payoff is transferred directly from the DVP
-        payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional);
+        payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional, expectedMarketValue);
 
         // NOTE: premium fix for the leverage issue annotated in the mint flow.
         // notional : position.notional = fix : position.premium

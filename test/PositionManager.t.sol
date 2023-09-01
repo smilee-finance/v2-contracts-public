@@ -78,6 +78,7 @@ contract PositionManagerTest is Test {
 
         uint256 strike = ig.currentStrike();
 
+        uint256 expectedMarketValue = ig.premium(0, OptionStrategy.CALL, 10 ether);
         // NOTE: somehow, the sender is something else without this prank...
         vm.prank(DEFAULT_SENDER);
         (tokenId, ) = pm.mint(
@@ -87,7 +88,8 @@ contract PositionManagerTest is Test {
                 strike: strike,
                 strategy: OptionStrategy.CALL,
                 recipient: alice,
-                tokenId: 0
+                tokenId: 0,
+                expectedPremium: expectedMarketValue
             })
         );
         assertGe(1, tokenId);
@@ -128,7 +130,7 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(AmountZero);
-        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 0}));
+        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 0, expectedMarketValue: 0}));
     }
 
     function testCantBurnTooMuch() public {
@@ -136,7 +138,7 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
-        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 11 ether}));
+        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 11 ether, expectedMarketValue: 0}));
     }
 
     function testMintAndBurn() public {
@@ -172,6 +174,8 @@ contract PositionManagerTest is Test {
 
         uint256 strike = ig.currentStrike();
 
+        uint256 expectedMarketValue = ig.premium(strike, OptionStrategy.CALL, 10 ether);
+
         vm.prank(alice);
 
         (tokenId, ) = pm.mint(
@@ -181,7 +185,8 @@ contract PositionManagerTest is Test {
                 strike: strike,
                 strategy: OptionStrategy.CALL,
                 recipient: alice,
-                tokenId: 1
+                tokenId: 1,
+                expectedPremium: expectedMarketValue
             })
         );
 
@@ -214,7 +219,8 @@ contract PositionManagerTest is Test {
                 strike: strike,
                 strategy: OptionStrategy.CALL,
                 recipient: address(0x5),
-                tokenId: 1
+                tokenId: 1,
+                expectedPremium: 0
             })
         );
     }

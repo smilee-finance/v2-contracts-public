@@ -197,12 +197,12 @@ contract TestScenariossJson is Test {
             marketValue = _dvp.premium(strike, t.strategy, t.amount);
             TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue, vm);
             vm.prank(_trader);
-            marketValue = _dvp.mint(_trader, strike, t.strategy, t.amount);
+            marketValue = _dvp.mint(_trader, strike, t.strategy, t.amount, 0);
 
             // TBD: check slippage on market value
         } else {
             vm.startPrank(_trader);
-            marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, t.strategy, t.amount);
+            marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, t.strategy, t.amount, 0);
             vm.stopPrank();
         }
 

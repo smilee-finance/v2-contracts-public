@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {console} from "forge-std/console.sol";
+import "forge-std/console.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
@@ -53,10 +53,11 @@ contract IG is DVP {
         address recipient,
         uint256 strike,
         bool strategy,
-        uint256 amount
+        uint256 amount,
+        uint256 expectedPremium
     ) external override returns (uint256 premium_) {
         strike;
-        premium_ = _mint(recipient, currentStrike, strategy, amount);
+        premium_ = _mint(recipient, currentStrike, strategy, amount, expectedPremium);
     }
 
     /// @inheritdoc IDVP
@@ -65,9 +66,10 @@ contract IG is DVP {
         address recipient,
         uint256 strike,
         bool strategy,
-        uint256 amount
+        uint256 amount,
+        uint256 expectedMarketValue
     ) external override returns (uint256 paidPayoff) {
-        paidPayoff = _burn(epoch, recipient, strike, strategy, amount);
+        paidPayoff = _burn(epoch, recipient, strike, strategy, amount, expectedMarketValue);
     }
 
     /// @inheritdoc IDVP
@@ -75,7 +77,7 @@ contract IG is DVP {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) public view virtual override returns (uint256 premium_) {
+    ) public view virtual override epochInitialized returns (uint256 premium_) {
         strike;
         uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
