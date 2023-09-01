@@ -20,6 +20,7 @@ contract IGTest is Test {
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
     bytes constant IGPaused = bytes("Pausable: paused");
     bytes constant OwnerError = bytes("Ownable: caller is not the owner");
+    bytes4 constant SlippedMarketValue = bytes4(keccak256("SlippedMarketValue()"));
 
     address baseToken;
     address sideToken;
@@ -335,5 +336,41 @@ contract IGTest is Test {
         ig.setTradeVolatilityUtilizationRateFactor(25e16);
         ig.setTradeVolatilityTimeDecay(25e16);
         vm.stopPrank();
+    }
+
+    function testMintWithSlippage() public {
+        uint256 inputAmount = 1 ether;
+
+        // ToDo: review with premium
+        // uint256 expectedPremium = ig.premium(0, OptionStrategy.CALL, inputAmount);
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+
+        uint256 expectedMarketValue = ig.premium(0, OptionStrategy.CALL, inputAmount);
+
+        ig.setOptionPrice(20e18);
+
+        vm.prank(alice);
+        vm.expectRevert(SlippedMarketValue);
+        ig.mint(alice, 0, OptionStrategy.CALL, inputAmount, expectedMarketValue);
+    }
+
+    function testBurnWithSlippage() public {
+        uint256 inputAmount = 1 ether;
+
+        //MockedIG ig = new MockedIG(address(vault));
+        uint256 currEpoch = ig.currentEpoch();
+        uint256 strike = ig.currentStrike();
+
+        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+        uint256 expectedMarketValue = ig.premium(strike, OptionStrategy.CALL, inputAmount);
+        vm.prank(alice);
+        ig.mint(alice, strike, OptionStrategy.CALL, inputAmount, expectedMarketValue);
+
+        vm.prank(alice);
+        expectedMarketValue = ig.payoff(currEpoch, strike, OptionStrategy.CALL, inputAmount);
+
+        vm.expectRevert(SlippedMarketValue);
+        vm.prank(alice);
+        ig.burn(currEpoch, alice, strike, OptionStrategy.CALL, inputAmount, 20e18);
     }
 }

@@ -208,7 +208,7 @@ abstract contract DVP is IDVP, EpochControls {
             uint256 swapPrice = _deltaHedgePosition(strike, strategy, -int256(amount));
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, strategy, -int256(amount), swapPrice);
-            if (paidPayoff > expectedMarketValue + expectedMarketValue.wmul(_maxSlippage)) {
+            if (paidPayoff < expectedMarketValue - expectedMarketValue.wmul(_maxSlippage)) {
                 revert SlippedMarketValue();
             }
         } else {
