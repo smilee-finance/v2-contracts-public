@@ -23,6 +23,7 @@ import {AddressProvider} from "../src/AddressProvider.sol";
  */
 contract IGVaultTest is Test {
     bytes4 constant NotEnoughLiquidity = bytes4(keccak256("NotEnoughLiquidity()"));
+    bytes4 constant VaultPaused = bytes4(keccak256("VaultPaused()"));
 
     address admin = address(0x1);
 
@@ -296,7 +297,7 @@ contract IGVaultTest is Test {
         ig.useRealDeltaHedge();
 
         // Provide 1000 liquidity:
-        uint256 aliceAmount = 1000e18;
+        uint256 aliceAmount = 10000e18;
         VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
@@ -320,6 +321,51 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         ig.rollEpoch();
         // VaultUtils.logState(vault);
+    }
+
+    function testIGBehaviourWhenVaultIsPaused() public {
+        VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);
+        Utils.skipDay(true, vm);
+        ig.rollEpoch();
+
+        uint256 optionAmount = 250e18;
+        _assurePremium(charlie, 0, OptionStrategy.CALL, optionAmount);
+        // Mint option of 125:
+        vm.prank(charlie);
+        ig.mint(charlie, 0, OptionStrategy.CALL, optionAmount / 2);
+
+        vm.prank(admin);
+        vault.changePauseState();
+
+        // Try Mint option after Vault was paused
+        vm.startPrank(charlie);
+        vm.expectRevert(VaultPaused);
+        ig.mint(charlie, 0, OptionStrategy.CALL, optionAmount);
+        vm.stopPrank();
+
+        // Try burn option after Vault was paused
+        uint256 currentEpoch = ig.currentEpoch();
+        uint256 strike = ig.currentStrike();
+        vm.startPrank(charlie);
+        vm.expectRevert(VaultPaused);
+        ig.burn(currentEpoch, charlie, strike, OptionStrategy.CALL, optionAmount / 2);
+        vm.stopPrank();
+
+        vm.prank(admin);
+        vault.changePauseState();
+
+        // Burn should be work again
+        vm.startPrank(charlie);
+        ig.burn(ig.currentEpoch(), charlie, strike, OptionStrategy.CALL, optionAmount / 2);
+        vm.stopPrank();
+
+        // Test RollEpoch revert when Vault is paused
+        vm.prank(admin);
+        vault.changePauseState();
+
+        Utils.skipDay(true, vm);
+        vm.expectRevert("Pausable: paused");
+        ig.rollEpoch();
     }
 
     function _assurePremium(

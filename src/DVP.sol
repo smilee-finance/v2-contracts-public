@@ -58,8 +58,16 @@ abstract contract DVP is IDVP, EpochControls {
     error NotEnoughLiquidity();
     error PositionNotFound();
     error CantBurnMoreThanMinted();
+    error VaultPaused();
     error MissingMarketOracle();
     error MissingPriceOracle();
+
+    modifier whenVaultIsNotPaused() {
+        if(IEpochControls(vault).isPaused()) {
+            revert VaultPaused();
+        }
+        _;
+    }
 
     constructor(
         address vault_,
@@ -93,7 +101,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochInitialized epochNotFrozen whenNotPaused returns (uint256 premium_) {
+    ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 premium_) {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -161,7 +169,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         bool strategy,
         uint256 amount
-    ) internal epochInitialized epochNotFrozen whenNotPaused returns (uint256 paidPayoff) {
+    ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 paidPayoff) {
         Position.Info storage position = _getPosition(epoch, msg.sender, strategy, strike);
         if (!position.exists()) {
             revert PositionNotFound();
