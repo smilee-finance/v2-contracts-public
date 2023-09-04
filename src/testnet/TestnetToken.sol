@@ -13,13 +13,17 @@ import {AdminAccess} from "./AdminAccess.sol";
  */
 contract TestnetToken is ERC20, AdminAccess {
     // TBD: just use the TestnetRegistry contract...
+
+    bool _transferBlocked;
     IRegistry private _controller;
     address private _swapper;
 
     error NotInitialized();
     error Unauthorized();
 
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) AdminAccess(msg.sender) {}
+    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) AdminAccess(msg.sender) {
+        _transferBlocked = true;
+    }
 
     /// MODIFIERS ///
 
@@ -42,11 +46,12 @@ contract TestnetToken is ERC20, AdminAccess {
 
     modifier transferAuth(address from, address to) {
         if (
-            msg.sender != Admin &&
-            from != address(_swapper) &&
-            to != address(_swapper) &&
-            !_controller.isRegistered(from) &&
-            !_controller.isRegistered(to)
+            _transferBlocked &&
+            (msg.sender != Admin &&
+                from != address(_swapper) &&
+                to != address(_swapper) &&
+                !_controller.isRegistered(from) &&
+                !_controller.isRegistered(to))
         ) {
             revert Unauthorized();
         }
@@ -92,6 +97,10 @@ contract TestnetToken is ERC20, AdminAccess {
         uint256 amount
     ) public virtual override initialized transferAuth(from, to) returns (bool) {
         return super.transferFrom(from, to, amount);
+    }
+
+    function setTransferBlocked(bool blocked) external onlyAdmin {
+        _transferBlocked = blocked;
     }
 
     function _burn(address account, uint256 amount) internal virtual override initialized mintBurnAuth {

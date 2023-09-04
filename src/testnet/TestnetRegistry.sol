@@ -9,7 +9,7 @@ contract TestnetRegistry is Registry {
     address internal _swapper;
     address internal _positionManager;
 
-    function register(address dvpAddr) public onlyRole(ADMIN_ROLE) virtual override {
+    function register(address dvpAddr) public virtual override onlyRole(ADMIN_ROLE) {
         super.register(dvpAddr);
         _registeredVaults[IDVP(dvpAddr).vault()] = true;
     }
@@ -34,7 +34,7 @@ contract TestnetRegistry is Registry {
         return _registeredDVPs[addr] || _registeredVaults[addr] || _swapper == addr || _positionManager == addr;
     }
 
-    function unregister(address addr) public onlyRole(ADMIN_ROLE) virtual override {
+    function unregister(address addr) public virtual override onlyRole(ADMIN_ROLE) {
         super.unregister(addr);
         delete _registeredVaults[IDVP(addr).vault()];
     }

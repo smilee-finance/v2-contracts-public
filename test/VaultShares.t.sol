@@ -53,7 +53,7 @@ contract VaultSharesTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(EpochNotInitialized);
-        notActiveVault.deposit(100);
+        notActiveVault.deposit(100, alice);
     }
 
     function testDeposit() public {
@@ -93,17 +93,16 @@ contract VaultSharesTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(AmountZero);
-        vault.deposit(0);
+        vault.deposit(0, alice);
     }
 
     function testDepositEpochFrozenFail() public {
         VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
-
         Utils.skipDay(false, vm);
         vm.expectRevert(EpochFrozen);
-        vault.deposit(100);
+        vault.deposit(100, alice);
     }
 
     function testInitWithdrawEpochFrozenFail() public {
@@ -143,8 +142,8 @@ contract VaultSharesTest is Test {
     function testDoubleDepositSameEpoch() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.startPrank(alice);
-        vault.deposit(50);
-        vault.deposit(50);
+        vault.deposit(50, alice);
+        vault.deposit(50, alice);
         vm.stopPrank();
 
         vm.warp(block.timestamp + 1 days + 1);

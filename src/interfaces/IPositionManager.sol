@@ -4,9 +4,11 @@ pragma solidity ^0.8.15;
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 
-/// @title Non-fungible token for positions
-/// @notice Wraps Uniswap V3 positions in a non-fungible token interface which allows for them to be transferred
-/// and authorized.
+/**
+    @title Non-fungible token for trade positions
+    @notice Wraps trade positions in a NFT interface which allows for them to be created from
+            a single entry point and transferred
+ */
 interface IPositionManager is IERC721Metadata, IERC721Enumerable {
     struct MintParams {
         uint256 tokenId;

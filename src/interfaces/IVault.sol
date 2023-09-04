@@ -25,6 +25,30 @@ interface IVault is IVaultParams {
     //     );
 
     /**
+        @notice Provides liquidity for the next epoch
+        @param amount The amount of base token to deposit
+        @param receiver The wallet accounted for the deposit
+        @dev The shares are not directly minted to the given wallet. We need to wait for epoch change in order to know
+             how many shares these assets correspond to. Shares are minted to Vault contract in `rollEpoch()` and owed
+             to the receiver of deposit
+        @dev The receiver can redeem its shares after the next epoch is rolled
+        @dev This Vault contract need to be approved on the base token contract before attempting this operation
+     */
+    function deposit(uint256 amount, address receiver) external;
+
+    /**
+        @notice Pre-order a withdrawal that can be executed after the end of the current epoch
+        @param shares is the number of shares to convert in withdrawed liquidity
+     */
+    function initiateWithdraw(uint256 shares) external;
+
+    /**
+        @notice Completes a scheduled withdrawal from a past epoch.
+                Uses finalized share price of the withdrawal creation epoch.
+     */
+    function completeWithdraw() external;
+
+    /**
         @notice Gives the deposit information struct associated with an address
         @param account The address you want to retrieve information for
         @return epoch The epoch of the latest deposit

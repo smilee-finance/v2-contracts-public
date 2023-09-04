@@ -131,7 +131,7 @@ contract VaultDeathTest is Test {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.startPrank(alice);
         vm.expectRevert(VaultDead);
-        vault.deposit(100);
+        vault.deposit(100, alice);
         vm.stopPrank();
     }
 

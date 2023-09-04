@@ -44,14 +44,14 @@ contract VaultStateTest is Test {
     function testCheckPendingDepositAmount() public {
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
-        vault.deposit(100);
+        vault.deposit(100, alice);
 
         uint256 stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
         assertEq(100, stateDepositAmount);
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
-        vault.deposit(100);
+        vault.deposit(100, alice);
         stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
         assertEq(200, stateDepositAmount);
 
@@ -65,7 +65,7 @@ contract VaultStateTest is Test {
     function testHeldShares() public {
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
-        vault.deposit(100);
+        vault.deposit(100, alice);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
@@ -96,7 +96,7 @@ contract VaultStateTest is Test {
         uint256 amountToDeposit = 100 ether;
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
         vm.prank(alice);
-        vault.deposit(amountToDeposit);
+        vault.deposit(amountToDeposit, alice);
 
         vm.assume(sideTokenPrice > 0 && sideTokenPrice < type(uint64).max);
         TestnetPriceOracle priceOracle = TestnetPriceOracle(AddressProvider(vault.addressProvider()).priceOracle());
@@ -149,7 +149,7 @@ contract VaultStateTest is Test {
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
         vm.prank(alice);
-        vault.deposit(amountToDeposit);
+        vault.deposit(amountToDeposit, alice);
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
@@ -298,7 +298,7 @@ contract VaultStateTest is Test {
 
         TokenUtils.provideApprovedTokens(admin, vault.baseToken(), alice, address(vault), 1000 ether, vm);
         vm.expectRevert(ExceedsMaxDeposit);
-        vault.deposit(941e18);
+        vault.deposit(941e18, alice);
     }
 
     /**
@@ -322,7 +322,7 @@ contract VaultStateTest is Test {
 
         vm.startPrank(alice);
         vm.expectRevert(VaultPaused);
-        vault.deposit(1e16);
+        vault.deposit(1e16, alice);
 
         vm.expectRevert(VaultPaused);
         vault.initiateWithdraw(1e17);
@@ -344,7 +344,7 @@ contract VaultStateTest is Test {
         vault.rollEpoch();
 
         vm.startPrank(alice);
-        vault.deposit(1e17);
+        vault.deposit(1e17, alice);
 
         vault.initiateWithdraw(1e17);
 

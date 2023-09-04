@@ -5,6 +5,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
 
+// TODO - AccessControl only uses ADMIN_ROLE - we can unse Ownable instead
 contract Registry is AccessControl, IRegistry {
     address[] internal _dvps;
     address[] internal _tokens;

@@ -34,10 +34,10 @@ library VaultUtils {
             vm
         );
 
-        return createVaultTokens(baseToken, sideToken, epochFrequency, ap, admin, vm);
+        return createVaultFromTokens(baseToken, sideToken, epochFrequency, ap, admin, vm);
     }
 
-    function createVaultTokens(
+    function createVaultFromTokens(
         address baseToken,
         address sideToken,
         uint256 epochFrequency,
@@ -103,7 +103,7 @@ library VaultUtils {
         TokenUtils.provideApprovedTokens(tokenAdmin, vault.baseToken(), user, vaultAddress, amount, vm);
 
         vm.prank(user);
-        vault.deposit(amount);
+        vault.deposit(amount, user);
     }
 
     function logState(MockedVault vault) public view {

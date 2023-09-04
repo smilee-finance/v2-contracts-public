@@ -21,7 +21,6 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
         forge script script/testnet/05_Vault.s.sol:VaultOps --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv --sig 'fillVault(address,uint256)' <VAULT_ADDRESS> <AMOUNT>
  */
 contract VaultOps is EnhancedScript {
-
     uint256 internal _deployerPrivateKey;
     address internal _deployerAddress;
 
@@ -35,7 +34,7 @@ contract VaultOps is EnhancedScript {
         string memory txLogs = _getLatestTransactionLogs("03_Factory.s.sol");
         address vaultAddr = _readAddress(txLogs, "Vault");
 
-        fillVault(vaultAddr, 10**18);
+        fillVault(vaultAddr, 10 ** 18);
     }
 
     function fillVault(address vaultAddr, uint256 amount) public {
@@ -49,7 +48,7 @@ contract VaultOps is EnhancedScript {
 
         // Deposit:
         baseToken.approve(vaultAddr, amount);
-        vault.deposit(amount);
+        vault.deposit(amount, _deployerAddress);
 
         vm.stopBroadcast();
     }

@@ -199,15 +199,11 @@ contract Vault is IVault, ERC20, EpochControls {
     // USER OPERATIONS
     // ------------------------------------------------------------------------
 
-    /**
-        @notice Allows to provide liquidity for the next epoch.
-        @param amount The amount of base token to deposit.
-        @dev The shares are not directly minted to the user. We need to wait for epoch change in order to know how many
-        shares these assets correspond to. So shares are minted to the contract in `rollEpoch()` and owed to the depositor.
-        @dev The liquidity provider can redeem its shares after the next epoch is rolled.
-        @dev The user must approve the vault on the base token contract before attempting this operation.
-     */
-    function deposit(uint256 amount) external epochInitialized isNotDead epochNotFrozen whenNotPaused {
+    /// @inheritdoc IVault
+    function deposit(
+        uint256 amount,
+        address receiver
+    ) external epochInitialized isNotDead epochNotFrozen whenNotPaused {
         if (amount == 0) {
             revert AmountZero();
         }
@@ -217,16 +213,15 @@ contract Vault is IVault, ERC20, EpochControls {
             revert ExceedsMaxDeposit();
         }
 
-        address creditor = msg.sender;
-
-        if (!IERC20(baseToken).transferFrom(creditor, address(this), amount)) {
-            revert TransferFailed();
-        }
-
-        _emitUpdatedDepositReceipt(creditor, amount);
+        address creditor = receiver;
 
         _state.liquidity.pendingDeposits += amount;
         _state.liquidity.totalDeposit += amount;
+        _emitUpdatedDepositReceipt(creditor, amount);
+
+        if (!IERC20(baseToken).transferFrom(msg.sender, address(this), amount)) {
+            revert TransferFailed();
+        }
 
         // ToDo emit Deposit event
     }
@@ -334,10 +329,7 @@ contract Vault is IVault, ERC20, EpochControls {
         // ToDo emit Redeem event
     }
 
-    /**
-        @notice Pre-order a withdrawal that can be executed after the end of the current epoch
-        @param shares is the number of shares to convert in withdrawed liquidity
-     */
+    /// @inheritdoc IVault
     function initiateWithdraw(uint256 shares) external epochNotFrozen whenNotPaused {
         if (shares == 0) {
             revert AmountZero();

@@ -2,11 +2,11 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IDVP} from "./interfaces/IDVP.sol";
+import {IPositionManager} from "./interfaces/IPositionManager.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IDVP} from "./interfaces/IDVP.sol";
-import {IPositionManager} from "./interfaces/IPositionManager.sol";
 import {Position} from "./lib/Position.sol";
 
 contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
@@ -21,24 +21,23 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         uint256 cumulatedPayoff; // TBD: should we keep it ? (payoff already paid)
     }
 
-    /// @notice Whether the transfer of tokens between wallets is allowed or not
+    /// @notice [TESTNET] Whether the transfer of tokens between wallets is allowed or not
     bool internal _secondaryMarkedAllowed;
 
-    /// @dev The token ID position data
+    /// @dev Stored data by position ID
     mapping(uint256 => ManagedPosition) internal _positions;
 
     /// @dev The ID of the next token that will be minted. Skips 0
     uint256 private _nextId;
 
     error NotOwner();
-    // error CantBurnZero();
     error CantBurnMoreThanMinted();
     error InvalidTokenID();
     error SecondaryMarkedNotAllowed();
     error PositionExpired();
     error TransferFailed();
 
-    constructor() ERC721Enumerable() ERC721("Smilee V0 Positions NFT-V1", "SMIL-V0-POS") Ownable() {
+    constructor() ERC721Enumerable() ERC721("Smilee V0 Trade Positions", "SMIL-V0-TRAD") Ownable() {
         _nextId = 1;
     }
 
@@ -159,7 +158,12 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         ManagedPosition storage position = _positions[tokenId];
         uint256 expectedMarketValue = 0;
         if (IDVP(position.dvpAddr).currentEpoch() == position.expiry) {
-            expectedMarketValue = IDVP(position.dvpAddr).payoff(position.expiry, position.strike, position.strategy, position.notional);
+            expectedMarketValue = IDVP(position.dvpAddr).payoff(
+                position.expiry,
+                position.strike,
+                position.strategy,
+                position.notional
+            );
         }
         payoff = _sell(tokenId, position.notional, expectedMarketValue);
     }
@@ -180,7 +184,14 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         // NOTE: the DVP already checks that the burned notional is lesser or equal to the position notional.
         // NOTE: the payoff is transferred directly from the DVP
-        payoff = IDVP(position.dvpAddr).burn(position.expiry, msg.sender, position.strike, position.strategy, notional, expectedMarketValue);
+        payoff = IDVP(position.dvpAddr).burn(
+            position.expiry,
+            msg.sender,
+            position.strike,
+            position.strategy,
+            notional,
+            expectedMarketValue
+        );
 
         // NOTE: premium fix for the leverage issue annotated in the mint flow.
         // notional : position.notional = fix : position.premium
