@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IRegistry} from "../interfaces/IRegistry.sol";
-import {AdminAccess} from "./AdminAccess.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
-    @notice Token contract to be used under testing condition.
-    Allows admin and dedicated contracts to mint and burn as many tokens as needed.
-    @dev Transfer is blocked between wallets and only allowed from wallets to Liquidity Vaults and DVPs and viceversa.
-    A Swapper contract is authorized to mint and burn tokens to simulate an exchange.
+    @notice Token contract to be used under testnet condition.
+    @dev Transfer is blocked between wallets and only allowed from wallets to
+         Liquidity Vaults and DVPs and viceversa. A swapper contract is to mint
+         and burn tokens to simulate an exchange.
  */
-contract TestnetToken is ERC20, AdminAccess {
+contract TestnetToken is ERC20, Ownable {
     // TBD: just use the TestnetRegistry contract...
 
-    bool _transferBlocked;
+    bool _transferRestricted;
     IRegistry private _controller;
     address private _swapper;
 
     error NotInitialized();
     error Unauthorized();
 
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) AdminAccess(msg.sender) {
-        _transferBlocked = true;
+    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) Ownable() {
+        _transferRestricted = true;
     }
 
     /// MODIFIERS ///
@@ -37,21 +37,17 @@ contract TestnetToken is ERC20, AdminAccess {
         _;
     }
 
-    modifier mintBurnAuth() {
-        if (msg.sender != Admin && msg.sender != _swapper) {
+    modifier checkMintBurnRestriction() {
+        if (msg.sender != owner() && msg.sender != _swapper) {
             revert Unauthorized();
         }
         _;
     }
 
-    modifier transferAuth(address from, address to) {
+    modifier checkTransferRestriction(address from, address to) {
         if (
-            _transferBlocked &&
-            (msg.sender != Admin &&
-                from != address(_swapper) &&
-                to != address(_swapper) &&
-                !_controller.isRegistered(from) &&
-                !_controller.isRegistered(to))
+            _transferRestricted &&
+            (msg.sender != owner() && !_controller.isRegistered(from) && !_controller.isRegistered(to))
         ) {
             revert Unauthorized();
         }
@@ -68,26 +64,30 @@ contract TestnetToken is ERC20, AdminAccess {
         return _swapper;
     }
 
-    function setController(address controllerAddr) external onlyAdmin {
+    function setController(address controllerAddr) external onlyOwner {
         _controller = IRegistry(controllerAddr);
     }
 
-    function setSwapper(address swapper) external onlyAdmin {
+    function setSwapper(address swapper) external onlyOwner {
         _swapper = swapper;
     }
 
-    function burn(address account, uint256 amount) external {
+    function setTransferRestriction(bool restricted) external onlyOwner {
+        _transferRestricted = restricted;
+    }
+
+    function burn(address account, uint256 amount) external initialized checkMintBurnRestriction {
         _burn(account, amount);
     }
 
-    function mint(address account, uint256 amount) external {
+    function mint(address account, uint256 amount) external initialized checkMintBurnRestriction {
         _mint(account, amount);
     }
 
     function transfer(
         address to,
         uint256 amount
-    ) public virtual override initialized transferAuth(msg.sender, to) returns (bool) {
+    ) public virtual override initialized checkTransferRestriction(msg.sender, to) returns (bool) {
         return super.transfer(to, amount);
     }
 
@@ -95,19 +95,7 @@ contract TestnetToken is ERC20, AdminAccess {
         address from,
         address to,
         uint256 amount
-    ) public virtual override initialized transferAuth(from, to) returns (bool) {
+    ) public virtual override initialized checkTransferRestriction(from, to) returns (bool) {
         return super.transferFrom(from, to, amount);
-    }
-
-    function setTransferBlocked(bool blocked) external onlyAdmin {
-        _transferBlocked = blocked;
-    }
-
-    function _burn(address account, uint256 amount) internal virtual override initialized mintBurnAuth {
-        super._burn(account, amount);
-    }
-
-    function _mint(address account, uint256 amount) internal virtual override initialized mintBurnAuth {
-        super._mint(account, amount);
     }
 }

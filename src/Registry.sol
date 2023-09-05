@@ -10,7 +10,7 @@ contract Registry is AccessControl, IRegistry {
     address[] internal _dvps;
     address[] internal _tokens;
     mapping(address => bool) internal _registeredDVPs;
-    mapping(address => address[]) internal _DVPsBySideToken;
+    mapping(address => address[]) internal _dvpsBySideToken;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
@@ -84,7 +84,7 @@ contract Registry is AccessControl, IRegistry {
             _tokens.push(sideToken);
         }
 
-        address[] storage list = _DVPsBySideToken[sideToken];
+        address[] storage list = _dvpsBySideToken[sideToken];
 
         found = false;
         for (uint256 i = 0; i < list.length; i++) {
@@ -97,12 +97,12 @@ contract Registry is AccessControl, IRegistry {
             return;
         }
 
-        _DVPsBySideToken[sideToken].push(dvp);
+        _dvpsBySideToken[sideToken].push(dvp);
     }
 
     function _removeIndexBySideToken(address dvp) internal {
         address sideToken = IDVP(dvp).sideToken();
-        address[] storage list = _DVPsBySideToken[sideToken];
+        address[] storage list = _dvpsBySideToken[sideToken];
         bool found = false;
         uint256 index;
         for (uint256 i = 0; i < list.length; i++) {
@@ -133,8 +133,8 @@ contract Registry is AccessControl, IRegistry {
         }
     }
 
-    function getDVPsBySideToken(address sideToken) external view returns (address[] memory) {
-        return _DVPsBySideToken[sideToken];
+    function getDvpsBySideToken(address sideToken) external view returns (address[] memory) {
+        return _dvpsBySideToken[sideToken];
     }
 
     function getSideTokens() external view returns (address[] memory) {

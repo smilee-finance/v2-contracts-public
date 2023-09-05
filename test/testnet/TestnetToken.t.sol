@@ -36,10 +36,10 @@ contract TestnetTokenTest is Test {
         vm.prank(admin);
         TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
 
-        vm.expectRevert(CallerNotAdmin);
+        vm.expectRevert("Ownable: caller is not the owner");
         token.setController(controller);
 
-        vm.expectRevert(CallerNotAdmin);
+        vm.expectRevert("Ownable: caller is not the owner");
         token.setSwapper(swapper);
     }
 

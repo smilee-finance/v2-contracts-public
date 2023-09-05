@@ -8,6 +8,7 @@ contract TestnetRegistry is Registry {
     mapping(address => bool) internal _registeredVaults;
     address internal _swapper;
     address internal _positionManager;
+    address internal _vaultProxy;
 
     function register(address dvpAddr) public virtual override onlyRole(ADMIN_ROLE) {
         super.register(dvpAddr);
@@ -30,8 +31,17 @@ contract TestnetRegistry is Registry {
         _positionManager = addr;
     }
 
+    function registerVaultProxy(address addr) external onlyRole(ADMIN_ROLE) {
+        _vaultProxy = addr;
+    }
+
     function isRegistered(address addr) external view virtual override returns (bool ok) {
-        return _registeredDVPs[addr] || _registeredVaults[addr] || _swapper == addr || _positionManager == addr;
+        return
+            _registeredDVPs[addr] ||
+            _registeredVaults[addr] ||
+            _swapper == addr ||
+            _positionManager == addr ||
+            _vaultProxy == addr;
     }
 
     function unregister(address addr) public virtual override onlyRole(ADMIN_ROLE) {

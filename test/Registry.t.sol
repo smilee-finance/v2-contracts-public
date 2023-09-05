@@ -80,7 +80,7 @@ contract RegistryTest is Test {
 
         address tokenAddr = dvp.sideToken();
         address[] memory tokens = registry.getSideTokens();
-        address[] memory dvps = registry.getDVPsBySideToken(tokenAddr);
+        address[] memory dvps = registry.getDvpsBySideToken(tokenAddr);
 
         assertEq(1, tokens.length);
         assertEq(tokenAddr, tokens[0]);
@@ -92,7 +92,7 @@ contract RegistryTest is Test {
         registry.unregister(dvpAddr);
 
         tokens = registry.getSideTokens();
-        dvps = registry.getDVPsBySideToken(tokenAddr);
+        dvps = registry.getDvpsBySideToken(tokenAddr);
 
         assertEq(0, tokens.length);
         assertEq(0, dvps.length);
@@ -108,7 +108,7 @@ contract RegistryTest is Test {
 
         address tokenAddr = dvp.sideToken();
         address[] memory tokens = registry.getSideTokens();
-        address[] memory dvps = registry.getDVPsBySideToken(tokenAddr);
+        address[] memory dvps = registry.getDvpsBySideToken(tokenAddr);
 
         assertEq(1, tokens.length);
         assertEq(tokenAddr, tokens[0]);
@@ -132,11 +132,11 @@ contract RegistryTest is Test {
         assertEq(dvp.sideToken(), tokens[0]);
         assertEq(dvp2.sideToken(), tokens[1]);
 
-        address[] memory dvps = registry.getDVPsBySideToken(dvp.sideToken());
+        address[] memory dvps = registry.getDvpsBySideToken(dvp.sideToken());
         assertEq(1, dvps.length);
         assertEq(address(dvp), dvps[0]);
 
-        dvps = registry.getDVPsBySideToken(dvp2.sideToken());
+        dvps = registry.getDvpsBySideToken(dvp2.sideToken());
         assertEq(1, dvps.length);
         assertEq(address(dvp2), dvps[0]);
 
@@ -147,10 +147,10 @@ contract RegistryTest is Test {
         assertEq(1, tokens.length);
         assertEq(dvp2.sideToken(), tokens[0]);
 
-        dvps = registry.getDVPsBySideToken(dvp.sideToken());
+        dvps = registry.getDvpsBySideToken(dvp.sideToken());
         assertEq(0, dvps.length);
 
-        dvps = registry.getDVPsBySideToken(dvp2.sideToken());
+        dvps = registry.getDvpsBySideToken(dvp2.sideToken());
         assertEq(1, dvps.length);
         assertEq(address(dvp2), dvps[0]);
     }
@@ -169,7 +169,7 @@ contract RegistryTest is Test {
         MockedIG dvp2 = new MockedIG(address(vault2), address(ap));
 
         TestnetPriceOracle po = TestnetPriceOracle(ap.priceOracle());
-        
+
         vm.startPrank(admin);
         registry.register(address(dvp));
         registry.register(address(dvp2));
