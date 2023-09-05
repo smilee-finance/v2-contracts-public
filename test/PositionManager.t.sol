@@ -78,15 +78,15 @@ contract PositionManagerTest is Test {
 
         uint256 strike = ig.currentStrike();
 
-        uint256 expectedMarketValue = ig.premium(0, OptionStrategy.CALL, 10 ether);
+        uint256 expectedMarketValue = ig.premium(0, 10 ether, 0);
         // NOTE: somehow, the sender is something else without this prank...
         vm.prank(DEFAULT_SENDER);
         (tokenId, ) = pm.mint(
             IPositionManager.MintParams({
                 dvpAddr: address(ig),
-                notional: 10 ether,
+                notionalUp: 10 ether,
+                notionalDown: 0,
                 strike: strike,
-                strategy: OptionStrategy.CALL,
                 recipient: alice,
                 tokenId: 0,
                 expectedPremium: expectedMarketValue
@@ -109,9 +109,9 @@ contract PositionManagerTest is Test {
         assertEq(EpochFrequency.DAILY, pos.dvpFreq);
         assertEq(false, pos.dvpType);
         assertEq(ig.currentStrike(), pos.strike);
-        assertEq(OptionStrategy.CALL, pos.strategy);
         assertEq(ig.currentEpoch(), pos.expiry);
-        assertEq(10 ether, pos.notional);
+        assertEq(10 ether, pos.notionalUp);
+        assertEq(0, pos.notionalDown);
         // assertEq(10, pos.leverage);
         // assertEq(1 ether, pos.premium);
         assertEq(0, pos.cumulatedPayoff);
@@ -130,7 +130,7 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(AmountZero);
-        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 0, expectedMarketValue: 0}));
+        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notionalUp: 0, notionalDown: 0, expectedMarketValue: 0}));
     }
 
     function testCantBurnTooMuch() public {
@@ -138,7 +138,7 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
-        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notional: 11 ether, expectedMarketValue: 0}));
+        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notionalUp: 11 ether, notionalDown: 0, expectedMarketValue: 0}));
     }
 
     function testMintAndBurn() public {
@@ -165,25 +165,25 @@ contract PositionManagerTest is Test {
         assertEq(EpochFrequency.DAILY, pos.dvpFreq);
         assertEq(false, pos.dvpType);
         assertEq(ig.currentStrike(), pos.strike);
-        assertEq(OptionStrategy.CALL, pos.strategy);
         assertEq(ig.currentEpoch(), pos.expiry);
-        assertEq(10 ether, pos.notional);
+        assertEq(10 ether, pos.notionalUp);
+        assertEq(0, pos.notionalDown);
         assertEq(0, pos.cumulatedPayoff);
 
         TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(pm), 10 ether, vm);
 
         uint256 strike = ig.currentStrike();
 
-        uint256 expectedMarketValue = ig.premium(strike, OptionStrategy.CALL, 10 ether);
+        uint256 expectedMarketValue = ig.premium(strike, 10 ether, 0);
 
         vm.prank(alice);
 
         (tokenId, ) = pm.mint(
             IPositionManager.MintParams({
                 dvpAddr: address(ig),
-                notional: 10 ether,
+                notionalUp: 10 ether,
+                notionalDown: 0,
                 strike: strike,
-                strategy: OptionStrategy.CALL,
                 recipient: alice,
                 tokenId: 1,
                 expectedPremium: expectedMarketValue
@@ -198,9 +198,9 @@ contract PositionManagerTest is Test {
         assertEq(EpochFrequency.DAILY, pos.dvpFreq);
         assertEq(false, pos.dvpType);
         assertEq(ig.currentStrike(), pos.strike);
-        assertEq(OptionStrategy.CALL, pos.strategy);
         assertEq(ig.currentEpoch(), pos.expiry);
-        assertEq(20 ether, pos.notional);
+        assertEq(20 ether, pos.notionalUp);
+        assertEq(0, pos.notionalDown);
         assertEq(0, pos.cumulatedPayoff);
     }
 
@@ -215,9 +215,9 @@ contract PositionManagerTest is Test {
         (tokenId, ) = pm.mint(
             IPositionManager.MintParams({
                 dvpAddr: address(ig),
-                notional: 10 ether,
+                notionalUp: 10 ether,
+                notionalDown: 0,
                 strike: strike,
-                strategy: OptionStrategy.CALL,
                 recipient: address(0x5),
                 tokenId: 1,
                 expectedPremium: 0

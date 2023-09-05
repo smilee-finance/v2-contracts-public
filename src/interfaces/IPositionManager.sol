@@ -13,16 +13,18 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
     struct MintParams {
         uint256 tokenId;
         address dvpAddr;
-        uint256 notional;
+        uint256 notionalUp;
+        uint256 notionalDown;
         uint256 strike;
-        bool strategy;
+        // bool strategy;
         address recipient;
         uint256 expectedPremium;
     }
 
     struct SellParams {
         uint256 tokenId;
-        uint256 notional;
+        uint256 notionalUp;
+        uint256 notionalDown;
         uint256 expectedMarketValue;
     }
 
@@ -33,11 +35,11 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         uint256 dvpFreq;
         bool dvpType;
         uint256 strike;
-        bool strategy;
         uint256 expiry;
         uint256 premium;
         uint256 leverage;
-        uint256 notional;
+        uint256 notionalUp;
+        uint256 notionalDown;
         uint256 cumulatedPayoff;
     }
 

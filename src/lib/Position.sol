@@ -8,9 +8,8 @@ library Position {
     // Stored info for each user's position
     struct Info {
         // The number of options owned by this position
-        uint256 amount;
-        // the strategy held by this position (if its up / down IG, ...)
-        bool strategy;
+        uint256 amountUp;
+        uint256 amountDown;
         // the strike price of the position
         uint256 strike;
         // the timestamp corresponding to the maturity of this position epoch
@@ -21,12 +20,11 @@ library Position {
     /**
         @notice Returns the unique ID of a position (for a given epoch)
         @param owner The address of the position owner
-        @param strategy The position strategy
         @param strike The strike price of the position
         @return id The position id
      */
-    function getID(address owner, bool strategy, uint256 strike) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(owner, strategy, strike));
+    function getID(address owner, uint256 strike) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(owner, strike));
     }
 
     /**

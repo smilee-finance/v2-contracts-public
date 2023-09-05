@@ -21,6 +21,11 @@ library Notional {
         mapping(uint256 => uint256[]) payoff; // TBD: rename "residualPayoff"
     }
 
+    struct Amount {
+        uint256 up;
+        uint256 down;
+    }
+
     function _strategyIdx(bool strategy) private pure returns (uint256) {
         return strategy ? 1 : 0;
     }

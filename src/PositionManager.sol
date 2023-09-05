@@ -12,10 +12,10 @@ import {Position} from "./lib/Position.sol";
 contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     struct ManagedPosition {
         address dvpAddr;
-        bool strategy;
         uint256 strike;
         uint256 expiry;
-        uint256 notional;
+        uint256 notionalUp;
+        uint256 notionalDown;
         uint256 premium;
         uint256 leverage; // TBD: should we keep it ?
         uint256 cumulatedPayoff; // TBD: should we keep it ? (payoff already paid)
@@ -73,11 +73,11 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
                 dvpFreq: dvp.epochFrequency(),
                 dvpType: dvp.optionType(),
                 strike: position.strike,
-                strategy: position.strategy,
                 expiry: position.expiry,
                 premium: position.premium,
                 leverage: position.leverage,
-                notional: position.notional,
+                notionalUp: position.notionalUp,
+                notionalDown: position.notionalDown,
                 cumulatedPayoff: position.cumulatedPayoff
             });
     }
@@ -98,8 +98,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             // Check token compatibility:
             if (
                 position.dvpAddr != params.dvpAddr ||
-                position.strike != params.strike ||
-                position.strategy != params.strategy
+                position.strike != params.strike
             ) {
                 revert InvalidTokenID();
             }
@@ -108,7 +107,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             }
         }
 
-        premium = dvp.premium(params.strike, params.strategy, params.notional);
+        premium = dvp.premium(params.strike, params.notionalUp, params.notionalDown);
 
         // Transfer premium:
         // NOTE: The PositionManager is just a middleman between the user and the DVP
@@ -118,7 +117,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         }
 
         baseToken.approve(params.dvpAddr, premium);
-        premium = dvp.mint(address(this), params.strike, params.strategy, params.notional, params.expectedPremium);
+        premium = dvp.mint(address(this), params.strike, params.notionalUp, params.notionalDown, params.expectedPremium);
 
         if (params.tokenId == 0) {
             // Mint token:
@@ -129,28 +128,29 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             _positions[tokenId] = ManagedPosition({
                 dvpAddr: params.dvpAddr,
                 strike: params.strike,
-                strategy: params.strategy,
                 expiry: dvp.currentEpoch(),
                 premium: premium,
-                leverage: params.notional / premium,
-                notional: params.notional,
+                leverage: (params.notionalUp + params.notionalDown) / premium,
+                notionalUp: params.notionalUp,
+                notionalDown: params.notionalDown,
                 cumulatedPayoff: 0
             });
         } else {
             ManagedPosition storage position = _positions[tokenId];
             // Increase position:
             position.premium += premium;
-            position.notional += params.notional;
+            position.notionalUp += params.notionalUp;
+            position.notionalDown += params.notionalDown;
             /* NOTE:
                 When, within the same epoch, a user wants to buy, sell partially
                 and then buy again, the leverage computation can fail due to
                 decreased notional; in order to avoid this issue, we have to
                 also adjust (decrease) the premium in the burn flow.
              */
-            position.leverage = position.notional / position.premium;
+            position.leverage = (position.notionalUp + position.notionalDown) / position.premium;
         }
 
-        emit BuyedDVP(tokenId, _positions[tokenId].expiry, params.notional);
+        emit BuyedDVP(tokenId, _positions[tokenId].expiry, params.notionalUp + params.notionalDown);
     }
 
     /// @inheritdoc IPositionManager
@@ -161,24 +161,24 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             expectedMarketValue = IDVP(position.dvpAddr).payoff(
                 position.expiry,
                 position.strike,
-                position.strategy,
-                position.notional
+                position.notionalUp,
+                position.notionalDown
             );
         }
-        payoff = _sell(tokenId, position.notional, expectedMarketValue);
+        payoff = _sell(tokenId, position.notionalUp, position.notionalDown, expectedMarketValue);
     }
 
     // ToDo: review usage and signature
     function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff) {
         // TBD: burn if params.notional == 0 ?
         // TBD: burn if position is expired ?
-        payoff = _sell(params.tokenId, params.notional, params.expectedMarketValue);
+        payoff = _sell(params.tokenId, params.notionalUp, params.notionalDown, params.expectedMarketValue);
     }
 
-    function _sell(uint256 tokenId, uint256 notional, uint256 expectedMarketValue) internal returns (uint256 payoff) {
+    function _sell(uint256 tokenId, uint256 notionalUp, uint256 notionalDown, uint256 expectedMarketValue) internal returns (uint256 payoff) {
         ManagedPosition storage position = _positions[tokenId];
         // NOTE: as the positions within the DVP are all of the PositionManager, we must replicate this check here.
-        if (notional > position.notional) {
+        if (notionalUp > position.notionalUp || notionalDown > position.notionalDown) {
             revert CantBurnMoreThanMinted();
         }
 
@@ -188,24 +188,25 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             position.expiry,
             msg.sender,
             position.strike,
-            position.strategy,
-            notional,
+            notionalUp,
+            notionalDown,
             expectedMarketValue
         );
 
         // NOTE: premium fix for the leverage issue annotated in the mint flow.
         // notional : position.notional = fix : position.premium
-        uint256 premiumFix = (notional * position.premium) / position.notional;
+        uint256 premiumFix = ((notionalUp + notionalDown) * position.premium) / (position.notionalUp + position.notionalDown);
         position.premium -= premiumFix;
         position.cumulatedPayoff += payoff;
-        position.notional -= notional;
+        position.notionalUp -= notionalUp;
+        position.notionalDown -= notionalDown;
 
-        if (position.notional == 0) {
+        if (position.notionalUp == 0 && position.notionalDown == 0) {
             delete _positions[tokenId];
             _burn(tokenId);
         }
 
-        emit SoldDVP(tokenId, notional, payoff);
+        emit SoldDVP(tokenId, (notionalUp + notionalDown), payoff);
     }
 
     /// @inheritdoc ERC721Enumerable

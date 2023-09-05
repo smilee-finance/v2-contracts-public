@@ -2,11 +2,12 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import {console} from "forge-std/console.sol";
 import {stdJson} from "forge-std/StdJson.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
+import {Notional} from "../src/lib/Notional.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {IG} from "../src/IG.sol";
 import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
@@ -189,20 +190,20 @@ contract TestScenariossJson is Test {
         assertEq(t.pre.availableNotionalBear, availableBearNotional);
         assertEq(t.pre.availableNotionalBull, availableBullNotional);
         uint256 strike = _dvp.currentStrike();
-        assertApproxEqAbs(t.pre.volatility, _dvp.getPostTradeVolatility(strike, 0), _toleranceOnPercentage);
+        assertApproxEqAbs(t.pre.volatility, _dvp.getPostTradeVolatility(strike, Notional.Amount({up: 0, down: 0}), true), _toleranceOnPercentage);
 
         // actual trade:
         uint256 marketValue;
         if (t.isMint) {
-            marketValue = _dvp.premium(strike, t.strategy, t.amount);
+            marketValue = _dvp.premium(strike, (t.strategy) ? t.amount : 0, (t.strategy) ? 0 : t.amount);
             TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue, vm);
             vm.prank(_trader);
-            marketValue = _dvp.mint(_trader, strike, t.strategy, t.amount, 0);
+            marketValue = _dvp.mint(_trader, strike, (t.strategy) ? t.amount : 0, (t.strategy) ? 0 : t.amount, 0);
 
             // TBD: check slippage on market value
         } else {
             vm.startPrank(_trader);
-            marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, t.strategy, t.amount, 0);
+            marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, (t.strategy) ? t.amount : 0, (t.strategy) ? 0 : t.amount, 0);
             vm.stopPrank();
         }
 
@@ -212,7 +213,7 @@ contract TestScenariossJson is Test {
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
         assertEq(t.post.availableNotionalBear, availableBearNotional);
         assertEq(t.post.availableNotionalBull, availableBullNotional);
-        assertApproxEqAbs(t.post.volatility, _dvp.getPostTradeVolatility(strike, 0), _toleranceOnPercentage);
+        assertApproxEqAbs(t.post.volatility, _dvp.getPostTradeVolatility(strike, Notional.Amount({up: 0, down: 0}), true), _toleranceOnPercentage);
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
 

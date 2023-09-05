@@ -32,21 +32,21 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
     /**
         @notice Returns the current price for the given option amount, function of time and available underlying assets
         @param strike The strike price the user wants to mint
-        @param strategy The option type
-        @param amount The amount of options to be paid
+        @param amountUp The amount of options to be paid for the "Up" strategy
+        @param amountDown The amount of options to be paid for the "Down" strategy
         @return premium The amount of base tokens that need to be paid to mint an option
      */
-    function premium(uint256 strike, bool strategy, uint256 amount) external view returns (uint256 premium);
+    function premium(uint256 strike, uint256 amountUp, uint256 amountDown) external view returns (uint256 premium);
 
     /**
         @notice Returns the payoff of the given position
         @param epoch The epoch
         @param strike The strike price of the option
-        @param strategy The selected strategy
-        @param positionAmount The position amount used to compute payoff
+        @param amountUp The position amount used to compute payoff for the "Up" strategy
+        @param amountDown The position amount used to compute payoff for the "Down" strategy
         @return payoff The current value of the position
      */
-    function payoff(uint256 epoch, uint256 strike, bool strategy, uint256 positionAmount) external view returns (uint256);
+    function payoff(uint256 epoch, uint256 strike, uint256 amountUp, uint256 amountDown) external view returns (uint256);
 
     ////// USER ACTIONS
 
@@ -54,21 +54,21 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @notice Creates an option with the given strategy
         @param recipient The address for which the option will be created
         @param strike The strike price for the minted option
-        @param strategy The selected strategy
-        @param amount The integer quantity of options recipient wants to mint
+        @param amountUp The integer quantity of options recipient wants to mint for the "Up" strategy
+        @param amountDown The integer quantity of options recipient wants to mint for the "Down" strategy
         @param expectedPremium The expected market value
         @return leverage The multiplier to obtain position notional from paid premium
         @dev strike param is ignored for IG vaults, can pass 0
      */
-    function mint(address recipient, uint256 strike, bool strategy, uint256 amount, uint256 expectedPremium) external returns (uint256 leverage);
+    function mint(address recipient, uint256 strike, uint256 amountUp, uint256 amountDown, uint256 expectedPremium) external returns (uint256 leverage);
 
     /**
         @notice Burns an option transferring back the payoff to the owner.
         @param epoch The maturity timestamp of the option.
         @param recipient The address of the wallet that will receive the payoff, if any.
         @param strike The strike price of the burned option.
-        @param strategy The strategy of the burned option.
-        @param amount The amount of notional to be burned.
+        @param amountUp The amount of notional to be burned for the "Up" strategy.
+        @param amountDown The amount of notional to be burned for the "Down" strategy.
         @param expectedMarketValue The expected market value of the burned notional; ignored when epoch is not the current one.
         @return paidPayoff The amount of paid payoff.
         @dev After maturity, the amount parameter is ignored and all the option is burned.
@@ -77,8 +77,8 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         uint256 epoch,
         address recipient,
         uint256 strike,
-        bool strategy,
-        uint256 amount,
+        uint256 amountUp,
+        uint256 amountDown,
         uint256 expectedMarketValue
     ) external returns (uint256 paidPayoff);
 }

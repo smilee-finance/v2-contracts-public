@@ -65,7 +65,7 @@ abstract contract DVP is IDVP, EpochControls {
     error SlippedMarketValue();
 
     modifier whenVaultIsNotPaused() {
-        if(IEpochControls(vault).isPaused()) {
+        if (IEpochControls(vault).isPaused()) {
             revert VaultPaused();
         }
         _;
@@ -94,7 +94,6 @@ abstract contract DVP is IDVP, EpochControls {
         @notice Mint or increase a position.
         @param recipient The wallet of the recipient for the opened position.
         @param strike The strike.
-        @param strategy The OptionStrategy strategy (i.e. Call or Put).
         @param amount The notional.
         @param expectedPremium The expected premium; used to check the slippage.
         @return premium_ The paid premium.
@@ -103,24 +102,23 @@ abstract contract DVP is IDVP, EpochControls {
     function _mint(
         address recipient,
         uint256 strike,
-        bool strategy,
-        uint256 amount,
+        Notional.Amount memory amount,
         uint256 expectedPremium
     ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 premium_) {
-        if (amount == 0) {
+        if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
         }
 
         Notional.Info storage liquidity = _liquidity[currentEpoch];
 
         // Check available liquidity:
-        if (liquidity.available(strike, strategy) < amount) {
+        if (liquidity.available(strike, OptionStrategy.CALL) < amount.up || liquidity.available(strike, OptionStrategy.PUT) < amount.down) {
             revert NotEnoughLiquidity();
         }
 
-        uint256 swapPrice = _deltaHedgePosition(strike, strategy, int256(amount));
+        uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
 
-        premium_ = _getMarketValue(strike, strategy, int256(amount), swapPrice);
+        premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         // Revert if actual price exceeds the previewed premium
         // ----- TBD: use the approved premium as a reference ? No due to the PositionManager...
@@ -137,14 +135,15 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         // Decrease available liquidity:
-        liquidity.increaseUsage(strike, strategy, amount);
+        liquidity.increaseUsage(strike, OptionStrategy.CALL, amount.up);
+        liquidity.increaseUsage(strike, OptionStrategy.PUT, amount.down);
 
         // Create or update position:
-        Position.Info storage position = _getPosition(currentEpoch, recipient, strategy, strike);
+        Position.Info storage position = _getPosition(currentEpoch, recipient, strike);
         position.epoch = currentEpoch;
         position.strike = strike;
-        position.strategy = strategy;
-        position.amount += amount;
+        position.amountUp += amount.up;
+        position.amountDown += amount.down;
 
         emit Mint(msg.sender, recipient);
     }
@@ -153,13 +152,13 @@ abstract contract DVP is IDVP, EpochControls {
         @notice It attempts to flat the DVP's delta by selling/buying an amount of side tokens in order to hedge the position.
         @notice By hedging the position, we avoid the impermanent loss.
         @param strike The position strike.
-        @param strategy The position strategy.
-        @param notional The position notional; positive if buyed by a user, negative otherwise.
+        @param amount The position notional.
+        @param tradeIsBuy Positive if buyed by a user, negative otherwise.
      */
     function _deltaHedgePosition(
         uint256 strike,
-        bool strategy,
-        int256 notional
+        Notional.Amount memory amount,
+        bool tradeIsBuy
     ) internal virtual returns (uint256 swapPrice);
 
     /**
@@ -167,7 +166,6 @@ abstract contract DVP is IDVP, EpochControls {
         @param epoch The epoch of the position.
         @param recipient The wallet of the recipient for the opened position.
         @param strike The strike
-        @param strategy The OptionStrategy strategy (i.e. Call or Put).
         @param amount The notional.
         @param expectedMarketValue The expected market value when the epoch is the current one.
         @return paidPayoff The paid payoff.
@@ -176,11 +174,10 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 epoch,
         address recipient,
         uint256 strike,
-        bool strategy,
-        uint256 amount,
+        Notional.Amount memory amount,
         uint256 expectedMarketValue
     ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 paidPayoff) {
-        Position.Info storage position = _getPosition(epoch, msg.sender, strategy, strike);
+        Position.Info storage position = _getPosition(epoch, msg.sender, strike);
         if (!position.exists()) {
             revert PositionNotFound();
         }
@@ -190,38 +187,49 @@ abstract contract DVP is IDVP, EpochControls {
         // if (position.epoch != currentEpoch) {
         //     amount = position.amount;
         // }
-        if (amount == 0) {
+        if (amount.up == 0 && amount.down == 0) {
             // NOTE: a zero amount may have some parasite effect, henct we proactively protect against it.
             // ToDo: review
             revert AmountZero();
         }
-        if (amount > position.amount) {
+        if (amount.up > position.amountUp || amount.down > position.amountDown) {
             revert CantBurnMoreThanMinted();
         }
 
-        Notional.Info storage liquidity = _liquidity[position.epoch];
+        Notional.Info storage liquidity = _liquidity[epoch];
 
         bool pastEpoch = true;
-        if (position.epoch == currentEpoch) {
+        if (epoch == currentEpoch) {
             pastEpoch = false;
             // TBD: add comments
-            uint256 swapPrice = _deltaHedgePosition(strike, strategy, -int256(amount));
+            uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
             // Compute the payoff to be paid:
-            paidPayoff = _getMarketValue(strike, strategy, -int256(amount), swapPrice);
+            paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
             if (paidPayoff < expectedMarketValue - expectedMarketValue.wmul(_maxSlippage)) {
                 revert SlippedMarketValue();
             }
         } else {
             // Compute the payoff to be paid:
-            paidPayoff = liquidity.shareOfPayoff(position.strike, position.strategy, amount, _baseTokenDecimals);
-            // Account transfer of setted aside payoff:
-            liquidity.decreasePayoff(position.strike, position.strategy, paidPayoff);
+            if (amount.up > 0) {
+                uint256 payoff_ = liquidity.shareOfPayoff(strike, OptionStrategy.CALL, amount.up, _baseTokenDecimals);
+                paidPayoff += payoff_;
+                // Account transfer of setted aside payoff:
+                liquidity.decreasePayoff(strike, OptionStrategy.CALL, payoff_);
+            }
+            if (amount.down > 0) {
+                uint256 payoff_ = liquidity.shareOfPayoff(strike, OptionStrategy.PUT, amount.down, _baseTokenDecimals);
+                paidPayoff += payoff_;
+                // Account transfer of setted aside payoff:
+                liquidity.decreasePayoff(strike, OptionStrategy.PUT, payoff_);
+            }
         }
 
         // Account change of used liquidity between wallet and protocol:
-        position.amount -= amount;
+        position.amountUp -= amount.up;
+        position.amountDown -= amount.down;
         // NOTE: must be updated after the previous computations based on used liquidity.
-        liquidity.decreaseUsage(position.strike, position.strategy, amount);
+        liquidity.decreaseUsage(strike, OptionStrategy.CALL, amount.up);
+        liquidity.decreaseUsage(strike, OptionStrategy.PUT, amount.down);
 
         IVault(vault).transferPayoff(recipient, paidPayoff, pastEpoch);
 
@@ -318,8 +326,8 @@ abstract contract DVP is IDVP, EpochControls {
     /// @dev computes the premium/payoff with the given amount, swap price and post-trade volatility
     function _getMarketValue(
         uint256 strike,
-        bool strategy,
-        int256 amount,
+        Notional.Amount memory amount,
+        bool tradeIsBuy,
         uint256 swapPrice
     ) internal view virtual returns (uint256);
 
@@ -327,30 +335,42 @@ abstract contract DVP is IDVP, EpochControls {
     function payoff(
         uint256 epoch,
         uint256 strike,
-        bool strategy,
-        uint256 positionAmount
+        uint256 amountUp,
+        uint256 amountDown
     ) public view virtual returns (uint256 payoff_) {
-        Position.Info storage position = _getPosition(epoch, msg.sender, strategy, strike);
+        Position.Info storage position = _getPosition(epoch, msg.sender, strike);
         if (!position.exists()) {
             // TBD: return 0
             revert PositionNotFound();
         }
 
+        Notional.Amount memory amount_ = Notional.Amount({up: amountUp, down: amountDown});
+
         if (position.epoch == currentEpoch) {
             // The user wants to know how much it can receive from selling the position before its maturity:
             uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-            payoff_ = _getMarketValue(strike, strategy, -int256(positionAmount), swapPrice);
+            payoff_ = _getMarketValue(strike, amount_, false, swapPrice);
         } else {
             // // The position reached maturity, hence the user must close the entire position:
             // // NOTE: we have to avoid this due to the PositionManager that holds positions for multiple tokens.
             // positionAmount = position.amount;
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
-            payoff_ = _liquidity[position.epoch].shareOfPayoff(
-                position.strike,
-                position.strategy,
-                positionAmount,
-                _baseTokenDecimals
-            );
+            if (amount_.up > 0) {
+                payoff_ += _liquidity[position.epoch].shareOfPayoff(
+                    position.strike,
+                    OptionStrategy.CALL,
+                    amount_.up,
+                    _baseTokenDecimals
+                );
+            }
+            if (amount_.down > 0) {
+                payoff_ += _liquidity[position.epoch].shareOfPayoff(
+                    position.strike,
+                    OptionStrategy.PUT,
+                    amount_.down,
+                    _baseTokenDecimals
+                );
+            }
         }
     }
 
@@ -358,7 +378,6 @@ abstract contract DVP is IDVP, EpochControls {
         @notice Lookups the requested position.
         @param epoch The epoch of the position.
         @param owner The owner of the position.
-        @param strategy The strategy of the position.
         @param strike The strike of the position.
         @return position_ The requested position.
         @dev The client should check if the position exists by calling `exists()` on it.
@@ -366,10 +385,9 @@ abstract contract DVP is IDVP, EpochControls {
     function _getPosition(
         uint256 epoch,
         address owner,
-        bool strategy,
         uint256 strike
     ) internal view returns (Position.Info storage position_) {
-        return _epochPositions[epoch][Position.getID(owner, strategy, strike)];
+        return _epochPositions[epoch][Position.getID(owner, strike)];
     }
 
     /**

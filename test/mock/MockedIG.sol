@@ -3,6 +3,8 @@ pragma solidity ^0.8.15;
 
 import {IVault} from "../../src/interfaces/IVault.sol";
 import {AmountsMath} from "../../src/lib/AmountsMath.sol";
+import {Notional} from "../../src/lib/Notional.sol";
+import {OptionStrategy} from "../../src/lib/OptionStrategy.sol";
 import {Position} from "../../src/lib/Position.sol";
 import {SignedMath} from "../../src/lib/SignedMath.sol";
 import {IG} from "../../src/IG.sol";
@@ -47,17 +49,17 @@ contract MockedIG is IG {
         _fakePayoff = false;
     }
 
-    function premium(uint256 strike, bool strategy, uint256 amount) public view override returns (uint256) {
+    function premium(uint256 strike, uint256 amountUp, uint256 amountDown) public view override returns (uint256) {
         if (_fakePremium) {
-            return (amount * _optionPrice) / 10000;
+            return ((amountUp + amountDown) * _optionPrice) / 10000;
         }
-        return super.premium(strike, strategy, amount);
+        return super.premium(strike, amountUp, amountDown);
     }
 
-    function _getMarketValue(uint256 strike, bool strategy, int256 amount, uint256 swapPrice) internal view virtual override returns (uint256) {
+    function _getMarketValue(uint256 strike, Notional.Amount memory amount, bool tradeIsBuy, uint256 swapPrice) internal view virtual override returns (uint256) {
         if (_fakePremium || _fakePayoff) {
             // ToDo: review
-            uint256 amountAbs = SignedMath.abs(amount);
+            uint256 amountAbs = amount.up + amount.down;
             if (_fakePremium) {
                 return (amountAbs * _optionPrice) / 10000;
             }
@@ -66,7 +68,7 @@ contract MockedIG is IG {
             }
         }
 
-        return super._getMarketValue(strike, strategy, amount, swapPrice);
+        return super._getMarketValue(strike, amount, tradeIsBuy, swapPrice);
     }
 
     function _residualPayoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256 percentage) {
@@ -76,12 +78,12 @@ contract MockedIG is IG {
         return super._residualPayoffPerc(strike, strategy);
     }
 
-    function _deltaHedgePosition(uint256 strike, bool strategy, int256 amount) internal override returns (uint256 swapPrice) {
+    function _deltaHedgePosition(uint256 strike, Notional.Amount memory amount, bool tradeIsBuy) internal override returns (uint256 swapPrice) {
         if (_fakeDeltaHedge) {
-            IVault(vault).deltaHedge(-int256(amount / 4));
+            IVault(vault).deltaHedge(-int256((amount.up + amount.down) / 4));
             return 1e18;
         }
-        return super._deltaHedgePosition(strike, strategy, amount);
+        return super._deltaHedgePosition(strike, amount, tradeIsBuy);
     }
 
     // ToDo: review usage
@@ -89,8 +91,10 @@ contract MockedIG is IG {
         bytes32 positionID
     ) public view returns (uint256 amount, bool strategy, uint256 strike, uint256 epoch) {
         Position.Info storage position = _epochPositions[currentEpoch][positionID];
+        strategy = (position.amountUp > 0) ? OptionStrategy.CALL : OptionStrategy.PUT;
+        amount = (strategy) ? position.amountUp : position.amountDown;
 
-        return (position.amount, position.strategy, position.strike, position.epoch);
+        return (amount, strategy, position.strike, position.epoch);
     }
 
     function getUtilizationRate() public view returns (uint256) {
