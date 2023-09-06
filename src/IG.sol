@@ -113,7 +113,7 @@ contract IG is DVP {
 
         // igP multiplies a notional computed as follow:
         // V0 * user% = V0 * amount / initial(strategy) = V0 * amount / (V0/2) = amount * 2
-        marketValue = amount.up.wmul(igPBull).add(amount.down.wmul(igPBear));
+        marketValue = 2 * amount.up.wmul(igPBull).add(amount.down.wmul(igPBear));
         marketValue = AmountsMath.unwrapDecimals(marketValue, _baseTokenDecimals);
     }
 
@@ -135,7 +135,11 @@ contract IG is DVP {
         @return sigma The estimated implied volatility.
         @dev The oracle must provide an updated baseline volatility, computed just before the start of the epoch.
      */
-    function getPostTradeVolatility(uint256 strike, Notional.Amount memory amount, bool tradeIsBuy) public view returns (uint256 sigma) {
+    function getPostTradeVolatility(
+        uint256 strike,
+        Notional.Amount memory amount,
+        bool tradeIsBuy
+    ) public view returns (uint256 sigma) {
         uint256 baselineVolatility = IMarketOracle(_getMarketOracle()).getImpliedVolatility(
             baseToken,
             sideToken,
@@ -166,8 +170,10 @@ contract IG is DVP {
         @param amount The trade notional (positive for buy, negative for sell).
         @return utilizationRate The post-trade utilization rate.
      */
-    function _getPostTradeUtilizationRate(Notional.Amount memory amount, bool tradeIsBuy) internal view returns (uint256 utilizationRate) {
-
+    function _getPostTradeUtilizationRate(
+        Notional.Amount memory amount,
+        bool tradeIsBuy
+    ) internal view returns (uint256 utilizationRate) {
         (uint256 used, uint256 total) = _getUtilizationRateFactors();
         if (total == 0) {
             return 0;
