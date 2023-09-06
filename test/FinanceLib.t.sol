@@ -362,7 +362,7 @@ contract FinanceLibJsonTest is Test {
     }
 
     function _readJson(string memory filename) private view returns (string memory) {
-        string memory directory = string.concat(vm.projectRoot(), "/test/");
+        string memory directory = string.concat(vm.projectRoot(), "/test/resources/");
         string memory file = string.concat(filename, ".json");
         string memory path = string.concat(directory, file);
 

@@ -89,7 +89,8 @@ contract PositionManagerTest is Test {
                 strike: strike,
                 recipient: alice,
                 tokenId: 0,
-                expectedPremium: expectedMarketValue
+                expectedPremium: expectedMarketValue,
+                maxSlippage: 0.1e18
             })
         );
         assertGe(1, tokenId);
@@ -130,7 +131,7 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(AmountZero);
-        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notionalUp: 0, notionalDown: 0, expectedMarketValue: 0}));
+        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notionalUp: 0, notionalDown: 0, expectedMarketValue: 0, maxSlippage: 0.1e18}));
     }
 
     function testCantBurnTooMuch() public {
@@ -138,7 +139,7 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
-        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notionalUp: 11 ether, notionalDown: 0, expectedMarketValue: 0}));
+        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notionalUp: 11 ether, notionalDown: 0, expectedMarketValue: 0, maxSlippage: 0.1e18}));
     }
 
     function testMintAndBurn() public {
@@ -186,7 +187,8 @@ contract PositionManagerTest is Test {
                 strike: strike,
                 recipient: alice,
                 tokenId: 1,
-                expectedPremium: expectedMarketValue
+                expectedPremium: expectedMarketValue,
+                maxSlippage: 0.1e18
             })
         );
 
@@ -220,7 +222,8 @@ contract PositionManagerTest is Test {
                 strike: strike,
                 recipient: address(0x5),
                 tokenId: 1,
-                expectedPremium: 0
+                expectedPremium: 0,
+                maxSlippage: 0.1e18
             })
         );
     }

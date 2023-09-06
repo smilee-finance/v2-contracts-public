@@ -16,9 +16,9 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         uint256 notionalUp;
         uint256 notionalDown;
         uint256 strike;
-        // bool strategy;
         address recipient;
         uint256 expectedPremium;
+        uint256 maxSlippage;
     }
 
     struct SellParams {
@@ -26,6 +26,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         uint256 notionalUp;
         uint256 notionalDown;
         uint256 expectedMarketValue;
+        uint256 maxSlippage;
     }
 
     struct PositionDetail {

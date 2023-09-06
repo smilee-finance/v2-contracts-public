@@ -53,12 +53,13 @@ contract IG is DVP {
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown,
-        uint256 expectedPremium
+        uint256 expectedPremium,
+        uint256 maxSlippage
     ) external override returns (uint256 premium_) {
         strike;
         Notional.Amount memory amount_ = Notional.Amount({up: amountUp, down: amountDown});
 
-        premium_ = _mint(recipient, currentStrike, amount_, expectedPremium);
+        premium_ = _mint(recipient, currentStrike, amount_, expectedPremium, maxSlippage);
     }
 
     /// @inheritdoc IDVP
@@ -68,11 +69,12 @@ contract IG is DVP {
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown,
-        uint256 expectedMarketValue
+        uint256 expectedMarketValue,
+        uint256 maxSlippage
     ) external override returns (uint256 paidPayoff) {
         Notional.Amount memory amount_ = Notional.Amount({up: amountUp, down: amountDown});
 
-        paidPayoff = _burn(epoch, recipient, strike, amount_, expectedMarketValue);
+        paidPayoff = _burn(epoch, recipient, strike, amount_, expectedMarketValue, maxSlippage);
     }
 
     /// @inheritdoc IDVP

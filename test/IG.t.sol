@@ -78,14 +78,14 @@ contract IGTest is Test {
         IDVP ig_ = new MockedIG(address(vault), address(ap));
 
         vm.expectRevert(EpochNotInitialized);
-        ig_.mint(address(0x1), 0, 1, 0, 0);
+        ig_.mint(address(0x1), 0, 1, 0, 0, 0.1e18);
     }
 
     function testCanUse() public {
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), 1, vm);
 
         vm.prank(alice);
-        ig.mint(alice, 0, 1, 0, 0);
+        ig.mint(alice, 0, 1, 0, 0, 0.1e18);
     }
 
     function testMint() public {
@@ -98,7 +98,7 @@ contract IGTest is Test {
         uint256 expectedMarketValue = ig.premium(0, inputAmount, 0);
 
         vm.prank(alice);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         bytes32 posId = keccak256(abi.encodePacked(alice, ig.currentStrike()));
 
@@ -117,14 +117,14 @@ contract IGTest is Test {
         uint256 expectedMarketValue = ig.premium(0, inputAmount, 0);
 
         vm.prank(alice);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
 
         expectedMarketValue = ig.premium(0, inputAmount, 0);
 
         vm.prank(alice);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         bytes32 posId = keccak256(abi.encodePacked(alice, ig.currentStrike()));
         (uint256 amount, bool strategy, uint256 strike, uint256 epoch) = ig.positions(posId);
@@ -144,17 +144,17 @@ contract IGTest is Test {
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
         uint256 expectedMarketValue = ig.premium(strike, inputAmount, 0);
         vm.prank(alice);
-        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
         expectedMarketValue = ig.premium(strike, inputAmount, 0);
         vm.prank(alice);
-        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         vm.prank(alice);
         expectedMarketValue = ig.payoff(currEpoch, strike, inputAmount, 0);
         vm.prank(alice);
-        ig.burn(currEpoch, alice, strike, inputAmount, 0, expectedMarketValue);
+        ig.burn(currEpoch, alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         bytes32 posId = keccak256(abi.encodePacked(alice, ig.currentStrike()));
 
@@ -174,12 +174,12 @@ contract IGTest is Test {
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
 
         vm.prank(alice);
-        ig.mint(alice, 0, inputAmount, 0, 0);
+        ig.mint(alice, 0, inputAmount, 0, 0, 0.1e18);
 
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, bob, address(ig), inputAmount, vm);
 
         vm.prank(bob);
-        ig.mint(bob, 0, 0, inputAmount, 0);
+        ig.mint(bob, 0, 0, inputAmount, 0, 0.1e18);
 
         uint256 strike = ig.currentStrike();
 
@@ -199,9 +199,9 @@ contract IGTest is Test {
         }
 
         vm.prank(alice);
-        ig.burn(currEpoch, alice, strike, inputAmount, 0, 0);
+        ig.burn(currEpoch, alice, strike, inputAmount, 0, 0, 0.1e18);
         vm.prank(bob);
-        ig.burn(currEpoch, bob, strike, 0, inputAmount, 0);
+        ig.burn(currEpoch, bob, strike, 0, inputAmount, 0, 0.1e18);
 
         {
             (uint256 amount1, , , ) = ig.positions(posId1);
@@ -216,7 +216,7 @@ contract IGTest is Test {
 
     function testCantMintZero() public {
         vm.expectRevert(AmountZero);
-        ig.mint(alice, 0, 0, 0, 0);
+        ig.mint(alice, 0, 0, 0, 0, 0.1e18);
     }
 
     function testCantBurnMoreThanMinted() public {
@@ -229,14 +229,14 @@ contract IGTest is Test {
 
         uint256 expectedMarketValue = ig.premium(strike, inputAmount, 0);
         vm.prank(alice);
-        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         vm.prank(alice);
         // TBD: the inputAmount cannot be used wrong as it cause an arithmetic over/underflow...
         expectedMarketValue = ig.payoff(epoch, strike, inputAmount, 0);
         vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
-        ig.burn(epoch, alice, strike, inputAmount + 1e18, 0, expectedMarketValue);
+        ig.burn(epoch, alice, strike, inputAmount + 1e18, 0, expectedMarketValue, 0.1e18);
     }
 
     function testIGPaused() public {
@@ -255,7 +255,7 @@ contract IGTest is Test {
         vm.startPrank(alice);
         uint256 expectedMarketValue = ig.premium(0, inputAmount, 0);
         vm.expectRevert(IGPaused);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18);
         vm.stopPrank();
 
         uint256 epoch = ig.currentEpoch();
@@ -265,13 +265,13 @@ contract IGTest is Test {
         ig.changePauseState();
         expectedMarketValue = ig.premium(0, inputAmount, 0);
         vm.prank(alice);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18);
         vm.prank(admin);
         ig.changePauseState();
         vm.startPrank(alice);
         expectedMarketValue = ig.payoff(epoch, strike, inputAmount, 0);
         vm.expectRevert(IGPaused);
-        ig.burn(epoch, alice, strike, inputAmount, 0, expectedMarketValue);
+        ig.burn(epoch, alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18);
         vm.stopPrank();
 
         Utils.skipDay(true, vm);
@@ -291,10 +291,10 @@ contract IGTest is Test {
 
         expectedMarketValue = ig.premium(0, inputAmount, 0);
         vm.startPrank(alice);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         expectedMarketValue = ig.payoff(epoch, strike, inputAmount, 0);
-        ig.burn(epoch, alice, strike, inputAmount, 0, expectedMarketValue);
+        ig.burn(epoch, alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18);
         vm.stopPrank();
     }
 
@@ -351,7 +351,7 @@ contract IGTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(SlippedMarketValue);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18);
     }
 
     function testBurnWithSlippage() public {
@@ -364,13 +364,13 @@ contract IGTest is Test {
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
         uint256 expectedMarketValue = ig.premium(strike, inputAmount, 0);
         vm.prank(alice);
-        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue);
+        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         vm.prank(alice);
         expectedMarketValue = ig.payoff(currEpoch, strike, inputAmount, 0);
 
         vm.expectRevert(SlippedMarketValue);
         vm.prank(alice);
-        ig.burn(currEpoch, alice, strike, inputAmount, 0, 20e18);
+        ig.burn(currEpoch, alice, strike, inputAmount, 0, 20e18, 0.1e18);
     }
 }

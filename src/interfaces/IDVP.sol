@@ -57,10 +57,18 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param amountUp The integer quantity of options recipient wants to mint for the "Up" strategy
         @param amountDown The integer quantity of options recipient wants to mint for the "Down" strategy
         @param expectedPremium The expected market value
+        @param maxSlippage The maximum slippage percentage.
         @return leverage The multiplier to obtain position notional from paid premium
         @dev strike param is ignored for IG vaults, can pass 0
      */
-    function mint(address recipient, uint256 strike, uint256 amountUp, uint256 amountDown, uint256 expectedPremium) external returns (uint256 leverage);
+    function mint(
+        address recipient,
+        uint256 strike,
+        uint256 amountUp,
+        uint256 amountDown,
+        uint256 expectedPremium,
+        uint256 maxSlippage
+    ) external returns (uint256 leverage);
 
     /**
         @notice Burns an option transferring back the payoff to the owner.
@@ -70,6 +78,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param amountUp The amount of notional to be burned for the "Up" strategy.
         @param amountDown The amount of notional to be burned for the "Down" strategy.
         @param expectedMarketValue The expected market value of the burned notional; ignored when epoch is not the current one.
+        @param maxSlippage The maximum slippage percentage.
         @return paidPayoff The amount of paid payoff.
         @dev After maturity, the amount parameter is ignored and all the option is burned.
      */
@@ -79,6 +88,7 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown,
-        uint256 expectedMarketValue
+        uint256 expectedMarketValue,
+        uint256 maxSlippage
     ) external returns (uint256 paidPayoff);
 }

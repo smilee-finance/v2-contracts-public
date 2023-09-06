@@ -35,7 +35,6 @@ abstract contract DVP is IDVP, EpochControls {
     uint256 internal _tradeVolatilityTimeDecay;
     uint8 internal immutable _baseTokenDecimals;
     uint8 internal immutable _sideTokenDecimals;
-    uint256 internal _maxSlippage;
     // ToDo: define lot size
 
     // TBD: extract payoff from Notional.Info
@@ -87,7 +86,6 @@ abstract contract DVP is IDVP, EpochControls {
 
         _tradeVolatilityUtilizationRateFactor = AmountsMath.wrap(2);
         _tradeVolatilityTimeDecay = AmountsMath.wrap(1) / 4; // 0.25
-        _maxSlippage = 0.1e18; // 10 %
     }
 
     /**
@@ -96,6 +94,7 @@ abstract contract DVP is IDVP, EpochControls {
         @param strike The strike.
         @param amount The notional.
         @param expectedPremium The expected premium; used to check the slippage.
+        @param maxSlippage The maximum slippage percentage.
         @return premium_ The paid premium.
         @dev The client must have approved the needed premium.
      */
@@ -103,7 +102,8 @@ abstract contract DVP is IDVP, EpochControls {
         address recipient,
         uint256 strike,
         Notional.Amount memory amount,
-        uint256 expectedPremium
+        uint256 expectedPremium,
+        uint256 maxSlippage
     ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 premium_) {
         if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
@@ -123,7 +123,7 @@ abstract contract DVP is IDVP, EpochControls {
         // Revert if actual price exceeds the previewed premium
         // ----- TBD: use the approved premium as a reference ? No due to the PositionManager...
         // ----- TBD: Right now we may choose to use a DVP-wide slippage of +10% (-10% for burn).
-        if (premium_ > expectedPremium + expectedPremium.wmul(_maxSlippage)) {
+        if (premium_ > expectedPremium + expectedPremium.wmul(maxSlippage)) {
             revert SlippedMarketValue();
         }
         // ToDo: revert if the premium is zero due to an underflow
@@ -168,6 +168,7 @@ abstract contract DVP is IDVP, EpochControls {
         @param strike The strike
         @param amount The notional.
         @param expectedMarketValue The expected market value when the epoch is the current one.
+        @param maxSlippage The maximum slippage percentage.
         @return paidPayoff The paid payoff.
      */
     function _burn(
@@ -175,7 +176,8 @@ abstract contract DVP is IDVP, EpochControls {
         address recipient,
         uint256 strike,
         Notional.Amount memory amount,
-        uint256 expectedMarketValue
+        uint256 expectedMarketValue,
+        uint256 maxSlippage
     ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 paidPayoff) {
         Position.Info storage position = _getPosition(epoch, msg.sender, strike);
         if (!position.exists()) {
@@ -205,7 +207,7 @@ abstract contract DVP is IDVP, EpochControls {
             uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
-            if (paidPayoff < expectedMarketValue - expectedMarketValue.wmul(_maxSlippage)) {
+            if (paidPayoff < expectedMarketValue - expectedMarketValue.wmul(maxSlippage)) {
                 revert SlippedMarketValue();
             }
         } else {

@@ -117,7 +117,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         }
 
         baseToken.approve(params.dvpAddr, premium);
-        premium = dvp.mint(address(this), params.strike, params.notionalUp, params.notionalDown, params.expectedPremium);
+        premium = dvp.mint(address(this), params.strike, params.notionalUp, params.notionalDown, params.expectedPremium, params.maxSlippage);
 
         if (params.tokenId == 0) {
             // Mint token:
@@ -165,17 +165,17 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
                 position.notionalDown
             );
         }
-        payoff = _sell(tokenId, position.notionalUp, position.notionalDown, expectedMarketValue);
+        payoff = _sell(tokenId, position.notionalUp, position.notionalDown, expectedMarketValue, 0.1e18);
     }
 
     // ToDo: review usage and signature
     function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff) {
         // TBD: burn if params.notional == 0 ?
         // TBD: burn if position is expired ?
-        payoff = _sell(params.tokenId, params.notionalUp, params.notionalDown, params.expectedMarketValue);
+        payoff = _sell(params.tokenId, params.notionalUp, params.notionalDown, params.expectedMarketValue, params.maxSlippage);
     }
 
-    function _sell(uint256 tokenId, uint256 notionalUp, uint256 notionalDown, uint256 expectedMarketValue) internal returns (uint256 payoff) {
+    function _sell(uint256 tokenId, uint256 notionalUp, uint256 notionalDown, uint256 expectedMarketValue, uint256 maxSlippage) internal returns (uint256 payoff) {
         ManagedPosition storage position = _positions[tokenId];
         // NOTE: as the positions within the DVP are all of the PositionManager, we must replicate this check here.
         if (notionalUp > position.notionalUp || notionalDown > position.notionalDown) {
@@ -190,7 +190,8 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             position.strike,
             notionalUp,
             notionalDown,
-            expectedMarketValue
+            expectedMarketValue,
+            maxSlippage
         );
 
         // NOTE: premium fix for the leverage issue annotated in the mint flow.

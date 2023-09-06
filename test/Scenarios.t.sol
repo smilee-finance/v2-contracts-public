@@ -96,7 +96,6 @@ contract TestScenariosJson is Test {
     struct Rebalance {
         uint256 baseTokenAmount;
         uint256 depositAmount;
-        uint256 elapsedTimeSeconds;
         uint256 sideTokenAmount;
         uint256 v0;
         uint256 withdrawSharesAmount;
@@ -131,18 +130,29 @@ contract TestScenariosJson is Test {
         _dvp.rollEpoch();
     }
 
-    function testScenario() public {
-        string memory scenariosJSON = _getTestsFromJson("scenarios");
-        StartEpoch memory startEpoch = _getStartEpochFromJson(scenariosJSON);
-        console.log("Checking start epoch");
-        _checkStartEpoch(startEpoch);
-        Trade[] memory trades = _getTradesFromJson(scenariosJSON);
+    function testScenario1() public {
+        _checkScenario("scenario_1");
+    }
 
+    // function testScenario2() public {
+    //     _checkScenario("scenario_2");
+    // }
+
+    function _checkScenario(string memory scenarioName) internal {
+        console.log(string.concat("Executing scenario: ", scenarioName));
+        string memory scenariosJSON = _getTestsFromJson(scenarioName);
+
+        console.log("- Checking start epoch");
+        StartEpoch memory startEpoch = _getStartEpochFromJson(scenariosJSON);
+        _checkStartEpoch(startEpoch);
+
+        Trade[] memory trades = _getTradesFromJson(scenariosJSON);
         for (uint i = 0; i < trades.length; i++) {
-            console.log("Checking trade number", i);
+            console.log("- Checking trade number", i+1);
             _checkTrade(trades[i]);
         }
-        console.log("Checking rebalance");
+
+        console.log("- Checking rebalance");
         _checkRebalance(scenariosJSON);
     }
 
@@ -178,7 +188,6 @@ contract TestScenariosJson is Test {
 
     function _checkTrade(Trade memory t) internal {
         // pre-conditions:
-
         vm.warp(block.timestamp + t.elapsedTimeSeconds);
         vm.startPrank(_admin);
         _oracle.setRiskFreeRate(t.pre.riskFreeRate);
@@ -202,13 +211,13 @@ contract TestScenariosJson is Test {
             marketValue = _dvp.premium(strike, t.amountUp, t.amountDown);
             TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue, vm);
             vm.prank(_trader);
-            marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue);
+            marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue, 0.1e18);
 
             // TBD: check slippage on market value
         } else {
             vm.startPrank(_trader);
             marketValue = _dvp.payoff(_dvp.currentEpoch(), strike, t.amountUp, t.amountDown);
-            marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, t.amountUp, t.amountDown, marketValue);
+            marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, t.amountUp, t.amountDown, marketValue, 0.1e18);
             vm.stopPrank();
         }
 
@@ -228,13 +237,15 @@ contract TestScenariosJson is Test {
 
     function _checkRebalance(string memory json) private {
         Rebalance memory rebalance = _getRebalanceFromJson(json);
+
         vm.prank(_liquidityProvider);
         _vault.initiateWithdraw(rebalance.withdrawSharesAmount);
 
         VaultUtils.addVaultDeposit(_liquidityProvider, rebalance.depositAmount, _admin, address(_vault), vm);
 
-        vm.warp(block.timestamp + rebalance.elapsedTimeSeconds);
+        vm.warp(_dvp.currentEpoch() + 1);
         _dvp.rollEpoch();
+
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
         assertApproxEqAbs(
             rebalance.baseTokenAmount,
@@ -246,6 +257,7 @@ contract TestScenariosJson is Test {
             sideTokenAmount,
             _tollerancePercentage(rebalance.sideTokenAmount, 3)
         );
+
         uint256 v0 = _vault.v0();
         assertApproxEqAbs(
             rebalance.v0,
@@ -259,7 +271,7 @@ contract TestScenariosJson is Test {
     }
 
     function _getTestsFromJson(string memory filename) internal view returns (string memory) {
-        string memory directory = string.concat(vm.projectRoot(), "/test/");
+        string memory directory = string.concat(vm.projectRoot(), "/test/resources/scenarios/");
         string memory file = string.concat(filename, ".json");
         string memory path = string.concat(directory, file);
 
