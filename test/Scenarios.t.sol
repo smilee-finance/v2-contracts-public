@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
+import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
 import {Notional} from "../src/lib/Notional.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
+import {SignedMath} from "../src/lib/SignedMath.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
 import {IG} from "../src/IG.sol";
 import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
-import {SignedMath} from "../src/lib/SignedMath.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 
-contract TestScenariossJson is Test {
+contract TestScenariosJson is Test {
     address internal _admin;
     address internal _liquidityProvider;
     address internal _trader;
@@ -35,6 +35,7 @@ contract TestScenariossJson is Test {
         string varType;
     }
 
+    // NOTE: fields must be in lexicographical order for parsing the JSON file
     struct StartEpochPreConditions {
         uint256 sideTokenPrice;
         uint256 impliedVolatility;
@@ -83,13 +84,13 @@ contract TestScenariossJson is Test {
     }
 
     struct Trade {
-        uint256 amount; // notional minted/burned
+        uint256 amountDown; // notional minted/burned
+        uint256 amountUp; // notional minted/burned
         uint256 elapsedTimeSeconds;
         uint256 epochOfBurnedPosition;
         bool isMint;
         TradePostConditions post;
         TradePreConditions pre;
-        bool strategy;
     }
 
     struct Rebalance {
@@ -131,14 +132,17 @@ contract TestScenariossJson is Test {
     }
 
     function testScenario() public {
-        string memory scenariosJSON = _getTestsFromJson("scenarios2");
+        string memory scenariosJSON = _getTestsFromJson("scenarios");
         StartEpoch memory startEpoch = _getStartEpochFromJson(scenariosJSON);
+        console.log("Checking start epoch");
         _checkStartEpoch(startEpoch);
         Trade[] memory trades = _getTradesFromJson(scenariosJSON);
 
         for (uint i = 0; i < trades.length; i++) {
+            console.log("Checking trade number", i);
             _checkTrade(trades[i]);
         }
+        console.log("Checking rebalance");
         _checkRebalance(scenariosJSON);
     }
 
@@ -195,15 +199,16 @@ contract TestScenariossJson is Test {
         // actual trade:
         uint256 marketValue;
         if (t.isMint) {
-            marketValue = _dvp.premium(strike, (t.strategy) ? t.amount : 0, (t.strategy) ? 0 : t.amount);
+            marketValue = _dvp.premium(strike, t.amountUp, t.amountDown);
             TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue, vm);
             vm.prank(_trader);
-            marketValue = _dvp.mint(_trader, strike, (t.strategy) ? t.amount : 0, (t.strategy) ? 0 : t.amount, 0);
+            marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue);
 
             // TBD: check slippage on market value
         } else {
             vm.startPrank(_trader);
-            marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, (t.strategy) ? t.amount : 0, (t.strategy) ? 0 : t.amount, 0);
+            marketValue = _dvp.payoff(_dvp.currentEpoch(), strike, t.amountUp, t.amountDown);
+            marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, t.amountUp, t.amountDown, marketValue);
             vm.stopPrank();
         }
 

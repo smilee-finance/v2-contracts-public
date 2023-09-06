@@ -35,8 +35,8 @@
                 "availableNotionalBull": 50000e18 
             },
             "isMint": true,
-            "amount": 50000e18,
-            "strategy": true,
+            "amountUp": 50000e18,
+            "amountDown": 0,
             "epochOfBurnedPosition": 0,
             "post": {
                 "marketValue": 547635309322e9,
@@ -61,8 +61,8 @@
                 "availableNotionalBull": 0e18
             },
             "isMint": false,
-            "amount": 30000e18,
-            "strategy": true,
+            "amountUp": 30000e18,
+            "amountDown": 0,
             "epochOfBurnedPosition": 0,
             "post": {
                 "marketValue": 29888092778079e9,
@@ -87,8 +87,8 @@
                 "availableNotionalBull": 30000e18
             },
             "isMint": false,
-            "amount": 20000e18,
-            "strategy": true,
+            "amountUp": 20000e18,
+            "amountDown": 0,
             "epochOfBurnedPosition": 0,
             "post": {
                 "marketValue": 620288352655138e8,
@@ -113,8 +113,8 @@
                 "availableNotionalBull": 50000e18
             },
             "isMint": true,
-            "amount": 30000e18, 
-            "strategy": false, 
+            "amountUp": 0, 
+            "amountDown": 30000e18, 
             "epochOfBurnedPosition": 0, 
             "post": {
                 "marketValue": 145435520e9,
@@ -139,8 +139,8 @@
                 "availableNotionalBull": 50000e18
             },
             "isMint": false,
-            "amount": 25000e18, 
-            "strategy": false, 
+            "amountUp": 0, 
+            "amountDown": 25000e18, 
             "epochOfBurnedPosition": 0, 
             "post": {
                 "marketValue": 238516634705e9,
@@ -165,8 +165,8 @@
                 "availableNotionalBull": 50000e18
             },
             "isMint": true,
-            "amount": 17500e18, 
-            "strategy": true, 
+            "amountUp": 17500e18, 
+            "amountDown": 0, 
             "epochOfBurnedPosition": 0, 
             "post": {
                 "marketValue": 9437702813e9,
