@@ -108,6 +108,7 @@ library FinanceIGDelta {
         return SignedMath.revabs(SignedMath.abs(limInf).wdiv(denom), limInf > 0);
     }
 
+    // ToDo: add theta and Kb
     struct DeltaHedgeParameters {
         int256 igDBull;
         int256 igDBear;
@@ -123,6 +124,8 @@ library FinanceIGDelta {
         uint256 strike;
     }
 
+    // ToDo: change formula (v6)
+    // ----- NOTE: S0 := K = strike
     function h(DeltaHedgeParameters memory params) public pure returns (int256 tokensToSwap) {
         params.initialLiquidityBull = AmountsMath.wrapDecimals(params.initialLiquidityBull, params.baseTokenDecimals);
         params.initialLiquidityBear = AmountsMath.wrapDecimals(params.initialLiquidityBear, params.baseTokenDecimals);

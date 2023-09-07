@@ -97,6 +97,7 @@ contract TestScenariosJson is Test {
         uint256 baseTokenAmount;
         uint256 depositAmount;
         uint256 sideTokenAmount;
+        uint256 sideTokenPrice;
         uint256 v0;
         uint256 withdrawSharesAmount;
     }
@@ -152,6 +153,7 @@ contract TestScenariosJson is Test {
             _checkTrade(trades[i]);
         }
 
+        // ToDo: replace with a "_checkMaturity".
         console.log("- Checking rebalance");
         _checkRebalance(scenariosJSON);
     }
@@ -238,10 +240,23 @@ contract TestScenariosJson is Test {
     function _checkRebalance(string memory json) private {
         Rebalance memory rebalance = _getRebalanceFromJson(json);
 
-        vm.prank(_liquidityProvider);
-        _vault.initiateWithdraw(rebalance.withdrawSharesAmount);
+        if (rebalance.withdrawSharesAmount > 0) {
+            vm.prank(_liquidityProvider);
+            (uint256 heldByAccount, uint256 heldByVault) = _vault.shareBalances(_liquidityProvider);
+            assertGe(heldByAccount + heldByVault, rebalance.withdrawSharesAmount);
+            vm.prank(_liquidityProvider);
+            _vault.initiateWithdraw(rebalance.withdrawSharesAmount);
+        }
 
-        VaultUtils.addVaultDeposit(_liquidityProvider, rebalance.depositAmount, _admin, address(_vault), vm);
+        // TBD: add asserts for pre-conditions (e.g. vault balances)
+
+        if (rebalance.depositAmount > 0) {
+            VaultUtils.addVaultDeposit(_liquidityProvider, rebalance.depositAmount, _admin, address(_vault), vm);
+        }
+
+        vm.startPrank(_admin);
+        _oracle.setTokenPrice(_vault.sideToken(), rebalance.sideTokenPrice);
+        vm.stopPrank();
 
         vm.warp(_dvp.currentEpoch() + 1);
         _dvp.rollEpoch();
@@ -258,12 +273,13 @@ contract TestScenariosJson is Test {
             _tollerancePercentage(rebalance.sideTokenAmount, 3)
         );
 
-        uint256 v0 = _vault.v0();
         assertApproxEqAbs(
             rebalance.v0,
-            v0,
+            _vault.v0(),
             _tollerancePercentage(rebalance.v0, 3)
         );
+
+        // TBD: add missing "complete withdraw"
     }
 
     function _tollerancePercentage(uint256 value, uint256 percentage) private pure returns (uint256) {

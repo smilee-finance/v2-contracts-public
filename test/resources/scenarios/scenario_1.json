@@ -182,8 +182,9 @@
     "rebalance": {
         "depositAmount": 40000e18, 
         "withdrawSharesAmount": 20000e18, 
-        "baseTokenAmount": 64413483188698e9 ,
+        "baseTokenAmount": 64413483188698e9,
         "sideTokenAmount": 33901833257210e6,
+        "sideTokenPrice": 1900e18,
         "v0": 128826966377396e9  
     }
 }
