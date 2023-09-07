@@ -9,6 +9,7 @@ import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+
 /*
     Reference: https://book.getfoundry.sh/tutorials/solidity-scripting
     ToDo: see https://book.getfoundry.sh/tutorials/best-practices#scripts
@@ -50,15 +51,13 @@ contract DeployCoreFoundations is Script {
         ap.setMarketOracle(address(priceOracle));
 
         TestnetSwapAdapter swapper = new TestnetSwapAdapter(address(priceOracle));
-        sUSD.setSwapper(address(swapper));
         ap.setExchangeAdapter(address(swapper));
 
         TestnetRegistry registry = new TestnetRegistry();
-        registry.registerSwapper(address(swapper));
-        sUSD.setController(address(registry));
         ap.setRegistry(address(registry));
 
+        sUSD.setAddressProvider(address(ap));
         PositionManager pm = new PositionManager();
-        registry.registerPositionManager(address(pm));
+        ap.setDvpPositionManager(address(pm));
     }
 }

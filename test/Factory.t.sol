@@ -29,25 +29,25 @@ contract FactoryTest is Test {
 
         vm.prank(tokenAdmin);
         registry = new Registry();
+
         ap.setRegistry(address(registry));
-        address controller = address(registry);
-        address swapper = address(0x5);
+        ap.setExchangeAdapter(address(0x5));
 
         vm.startPrank(tokenAdmin);
+
         TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
-        token.setController(controller);
-        token.setSwapper(swapper);
+        token.setAddressProvider(address(ap));
         baseToken = token;
 
         token = new TestnetToken("Testnet WETH", "stWETH");
-        token.setController(controller);
-        token.setSwapper(swapper);
+        token.setAddressProvider(address(ap));
         sideToken = token;
 
         factory = new Factory(address(ap));
         registry.grantRole(registry.ADMIN_ROLE(), address(factory));
 
         vm.stopPrank();
+
         vm.warp(EpochFrequency.REF_TS);
     }
 

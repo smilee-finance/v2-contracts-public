@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import {IRegistry} from "../interfaces/IRegistry.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AddressProvider} from "../AddressProvider.sol";
 
 /**
     @notice Token contract to be used under testnet condition.
@@ -15,8 +16,7 @@ contract TestnetToken is ERC20, Ownable {
     // TBD: just use the TestnetRegistry contract...
 
     bool _transferRestricted;
-    IRegistry private _controller;
-    address private _swapper;
+    AddressProvider private _addressProvider;
 
     error NotInitialized();
     error Unauthorized();
@@ -28,26 +28,34 @@ contract TestnetToken is ERC20, Ownable {
     /// MODIFIERS ///
 
     modifier initialized() {
-        if (address(_controller) == address(0)) {
-            revert NotInitialized();
-        }
-        if (_swapper == address(0)) {
+        if (address(_addressProvider) == address(0)) {
             revert NotInitialized();
         }
         _;
     }
 
     modifier checkMintBurnRestriction() {
-        if (msg.sender != owner() && msg.sender != _swapper) {
+        if (msg.sender != owner() && msg.sender != _addressProvider.exchangeAdapter()) {
             revert Unauthorized();
         }
         _;
     }
 
     modifier checkTransferRestriction(address from, address to) {
+        IRegistry registry = IRegistry(_addressProvider.registry());
         if (
             _transferRestricted &&
-            (msg.sender != owner() && !_controller.isRegistered(from) && !_controller.isRegistered(to))
+            (msg.sender != owner() &&
+                !registry.isRegistered(from) &&
+                !registry.isRegistered(to) &&
+                _addressProvider.exchangeAdapter() != from &&
+                _addressProvider.exchangeAdapter() != to &&
+                _addressProvider.dvpPositionManager() != from &&
+                _addressProvider.dvpPositionManager() != to &&
+                _addressProvider.vaultProxy() != from &&
+                _addressProvider.vaultProxy() != to &&
+                !registry.isRegisteredVault(from) &&
+                !registry.isRegisteredVault(to))
         ) {
             revert Unauthorized();
         }
@@ -56,20 +64,12 @@ contract TestnetToken is ERC20, Ownable {
 
     /// LOGIC ///
 
-    function getController() external view returns (address) {
-        return address(_controller);
+    function setAddressProvider(address addressProvider) external onlyOwner {
+        _addressProvider = AddressProvider(addressProvider);
     }
 
-    function getSwapper() external view returns (address) {
-        return _swapper;
-    }
-
-    function setController(address controllerAddr) external onlyOwner {
-        _controller = IRegistry(controllerAddr);
-    }
-
-    function setSwapper(address swapper) external onlyOwner {
-        _swapper = swapper;
+    function getAddressProvider() external view returns (address) {
+        return address(_addressProvider);
     }
 
     function setTransferRestriction(bool restricted) external onlyOwner {

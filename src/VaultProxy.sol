@@ -5,21 +5,21 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultProxy} from "./interfaces/IVaultProxy.sol";
+import {AddressProvider} from "./AddressProvider.sol";
 
 contract VaultProxy is IVaultProxy {
-    address private _registry;
+    address private _addressProvider;
 
     error DepositToNonVaultContract();
 
-    // ToDo: replace injected registry with address provider
-    constructor(address registry) {
-        _registry = registry;
+    constructor(address provider) {
+        _addressProvider = provider;
     }
 
     /// @inheritdoc IVaultProxy
     function deposit(DepositParams calldata params) external {
-        // ToDo: review as the vault is not registered; only DVPs
-        if (!IRegistry(_registry).isRegistered(params.vault)) {
+        IRegistry registry = IRegistry(AddressProvider(_addressProvider).registry());
+        if (!registry.isRegisteredVault(params.vault)) {
             revert DepositToNonVaultContract();
         }
 

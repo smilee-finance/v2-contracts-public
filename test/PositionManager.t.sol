@@ -51,7 +51,7 @@ contract PositionManagerTest is Test {
 
         // NOTE: done in order to work with the limited transferability of the testnet tokens
         vm.prank(admin);
-        registry.registerPositionManager(address(pm));
+        ap.setDvpPositionManager(address(pm));
 
         Utils.skipDay(true, vm);
         vault.rollEpoch();
@@ -131,7 +131,15 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(AmountZero);
-        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notionalUp: 0, notionalDown: 0, expectedMarketValue: 0, maxSlippage: 0.1e18}));
+        pm.sell(
+            IPositionManager.SellParams({
+                tokenId: tokenId,
+                notionalUp: 0,
+                notionalDown: 0,
+                expectedMarketValue: 0,
+                maxSlippage: 0.1e18
+            })
+        );
     }
 
     function testCantBurnTooMuch() public {
@@ -139,7 +147,15 @@ contract PositionManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(CantBurnMoreThanMinted);
-        pm.sell(IPositionManager.SellParams({tokenId: tokenId, notionalUp: 11 ether, notionalDown: 0, expectedMarketValue: 0, maxSlippage: 0.1e18}));
+        pm.sell(
+            IPositionManager.SellParams({
+                tokenId: tokenId,
+                notionalUp: 11 ether,
+                notionalDown: 0,
+                expectedMarketValue: 0,
+                maxSlippage: 0.1e18
+            })
+        );
     }
 
     function testMintAndBurn() public {

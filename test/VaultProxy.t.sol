@@ -72,9 +72,15 @@ contract VaultProxyTest is Test {
      */
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS + 1);
-        vm.prank(_tokenAdmin);
 
+        vm.startPrank(_tokenAdmin);
+        TestnetRegistry registry = new TestnetRegistry();
         AddressProvider ap = new AddressProvider();
+        _proxy = new VaultProxy(address(ap));
+        ap.setRegistry(address(registry));
+        ap.setVaultProxy(address(_proxy));
+        vm.stopPrank();
+
         _vault0 = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, _tokenAdmin, vm));
         _baseToken = TestnetToken(_vault0.baseToken());
         _sideToken = TestnetToken(_vault0.sideToken());
@@ -90,11 +96,9 @@ contract VaultProxyTest is Test {
         );
         _vault0.rollEpoch();
         _vault1.rollEpoch();
-        _proxy = new VaultProxy(ap.registry());
 
-        TestnetRegistry registry = TestnetRegistry(ap.registry());
         vm.prank(_tokenAdmin);
-        registry.registerVaultProxy(address(_proxy));
+        registry.registerVault(address(_vault0));
     }
 
     /**

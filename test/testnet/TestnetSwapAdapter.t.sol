@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {AmountsMath} from "../../src/lib/AmountsMath.sol";
+import {AddressProvider} from "../../src/AddressProvider.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
@@ -32,30 +33,25 @@ contract TestnetSwapAdapterTest is Test {
         USD = new TestnetToken("Testnet USD", "USD");
         WETH = new TestnetToken("Testnet WETH", "WETH");
         WBTC = new TestnetToken("Testnet WBTC", "WBTC");
-        registry = new TestnetRegistry();
 
-        address controller = address(registry);
-        USD.setController(controller);
-        WETH.setController(controller);
-        WBTC.setController(controller);
+        AddressProvider ap = new AddressProvider();
+        registry = new TestnetRegistry();
+        priceOracle = new TestnetPriceOracle(address(USD));
+        dex = new TestnetSwapAdapter(address(priceOracle));
+
+        ap.setRegistry(address(registry));
+        ap.setExchangeAdapter(address(dex));
+
+        USD.setAddressProvider(address(ap));
+        WETH.setAddressProvider(address(ap));
+        WBTC.setAddressProvider(address(ap));
         vm.stopPrank();
     }
 
     function setUp() public {
         vm.startPrank(adminWallet);
-
-        priceOracle = new TestnetPriceOracle(address(USD));
         priceOracle.setTokenPrice(address(WETH), 2000 * WAD);
         priceOracle.setTokenPrice(address(WBTC), 20000 * WAD);
-
-        dex = new TestnetSwapAdapter(address(priceOracle));
-
-        registry.registerSwapper(address(dex));
-
-        USD.setSwapper(address(dex));
-        WETH.setSwapper(address(dex));
-        WBTC.setSwapper(address(dex));
-
         vm.stopPrank();
     }
 

@@ -2,19 +2,25 @@
 pragma solidity ^0.8.15;
 
 interface IRegistry {
+    /**
+     * Registers an address as DVP into the registry
+     * @param dvp A DVP address to register
+     */
+    function register(address dvp) external;
 
     /**
-     * Registry an address into the registry
-     * @param addr A generic address to register
+     * @notice Checks wheather an address is a known DVP or not
+     * @param dvp A supposed DVP address
+     * @return registered True if it is a known DVP
      */
-    function register(address addr) external;
+    function isRegistered(address dvp) external view returns (bool registered);
 
     /**
-     * @notice Checks wheather an address is a DVP or not
-     * @param  addr A generic address
-     * @return ok Response of the check
+     * @notice Checks wheather an address is a known Vault or not
+     * @param vault A supposed Vault address
+     * @return registered True if it is a known Vault
      */
-    function isRegistered(address addr) external view returns (bool ok);
+    function isRegisteredVault(address vault) external view returns (bool registered);
 
     /**
      * Unregister an address from the registry

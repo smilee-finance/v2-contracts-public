@@ -6,9 +6,6 @@ import {Registry} from "../Registry.sol";
 
 contract TestnetRegistry is Registry {
     mapping(address => bool) internal _registeredVaults;
-    address internal _swapper;
-    address internal _positionManager;
-    address internal _vaultProxy;
 
     function register(address dvpAddr) public virtual override onlyRole(ADMIN_ROLE) {
         super.register(dvpAddr);
@@ -16,32 +13,19 @@ contract TestnetRegistry is Registry {
     }
 
     function registerDVP(address addr) external onlyRole(ADMIN_ROLE) {
-        _registeredDVPs[addr] = true;
+        _registeredDvps[addr] = true;
     }
 
     function registerVault(address addr) external onlyRole(ADMIN_ROLE) {
         _registeredVaults[addr] = true;
     }
 
-    function registerSwapper(address addr) external onlyRole(ADMIN_ROLE) {
-        _swapper = addr;
-    }
-
-    function registerPositionManager(address addr) external onlyRole(ADMIN_ROLE) {
-        _positionManager = addr;
-    }
-
-    function registerVaultProxy(address addr) external onlyRole(ADMIN_ROLE) {
-        _vaultProxy = addr;
-    }
-
     function isRegistered(address addr) external view virtual override returns (bool ok) {
-        return
-            _registeredDVPs[addr] ||
-            _registeredVaults[addr] ||
-            _swapper == addr ||
-            _positionManager == addr ||
-            _vaultProxy == addr;
+        return _registeredDvps[addr];
+    }
+
+    function isRegisteredVault(address addr) external view virtual override returns (bool ok) {
+        return _registeredVaults[addr];
     }
 
     function unregister(address addr) public virtual override onlyRole(ADMIN_ROLE) {

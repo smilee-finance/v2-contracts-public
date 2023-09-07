@@ -23,7 +23,6 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
         forge script script/testnet/02_Token.s.sol:DeployToken --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv --sig 'deployToken(string memory)' <SYMBOL>
  */
 contract DeployToken is EnhancedScript {
-
     uint256 internal _deployerPrivateKey;
     AddressProvider internal _ap;
 
@@ -38,7 +37,7 @@ contract DeployToken is EnhancedScript {
     function run() external {
         address sETH = _deployToken("ETH");
         console.log(string.concat("Token sETH deployed at"), sETH);
-        setTokenPrice(sETH, 10**18);
+        setTokenPrice(sETH, 10 ** 18);
     }
 
     function deployToken(string memory symbol) public {
@@ -54,10 +53,7 @@ contract DeployToken is EnhancedScript {
 
         TestnetToken sToken = new TestnetToken(tokenName, tokenSymbol);
 
-        sToken.setController(_ap.registry());
-
-        address swapper = _ap.exchangeAdapter();
-        sToken.setSwapper(swapper);
+        sToken.setAddressProvider(address(_ap));
 
         // TBD: mint tokens to owner ?
 

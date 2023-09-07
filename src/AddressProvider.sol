@@ -5,11 +5,12 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 // TBD: merge with Registry.sol
 contract AddressProvider is Ownable {
-
     address public exchangeAdapter;
     address public priceOracle;
     address public marketOracle;
     address public registry;
+    address public dvpPositionManager;
+    address public vaultProxy;
 
     constructor() Ownable() {}
 
@@ -27,5 +28,13 @@ contract AddressProvider is Ownable {
 
     function setRegistry(address registry_) public onlyOwner {
         registry = registry_;
+    }
+
+    function setDvpPositionManager(address posManager_) public onlyOwner {
+        dvpPositionManager = posManager_;
+    }
+
+    function setVaultProxy(address vaultProxy_) public onlyOwner {
+        vaultProxy = vaultProxy_;
     }
 }

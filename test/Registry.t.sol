@@ -20,7 +20,6 @@ contract RegistryTest is Test {
     AddressProvider ap;
 
     constructor() {
-
         vm.startPrank(admin);
         ap = new AddressProvider();
         registry = new TestnetRegistry();
@@ -34,11 +33,12 @@ contract RegistryTest is Test {
 
     function testNotRegisteredAddress() public {
         address addrToCheck = address(0x150);
-        bool isAddressRegistered = registry.isRegistered(addrToCheck);
-        assertEq(false, isAddressRegistered);
+
+        assertEq(false, registry.isRegistered(addrToCheck));
+        assertEq(false, registry.isRegisteredVault(addrToCheck));
     }
 
-    function testRegisterAddress() public {
+    function testRegisterDVP() public {
         address addrToRegister = address(dvp);
 
         bool isAddressRegistered = registry.isRegistered(addrToRegister);
@@ -47,11 +47,11 @@ contract RegistryTest is Test {
         vm.prank(admin);
         registry.register(addrToRegister);
 
-        isAddressRegistered = registry.isRegistered(addrToRegister);
-        assertEq(true, isAddressRegistered);
+        assertEq(true, registry.isRegistered(addrToRegister));
+        assertEq(true, registry.isRegisteredVault(dvp.vault()));
     }
 
-    function testUnregisterAddressFail() public {
+    function testUnregisterDVPFail() public {
         address addrToUnregister = address(0x150);
         vm.expectRevert(MissingAddress);
         vm.prank(admin);
@@ -63,14 +63,14 @@ contract RegistryTest is Test {
 
         vm.prank(admin);
         registry.register(addrToUnregister);
-        bool isAddressRegistered = registry.isRegistered(addrToUnregister);
-        assertEq(true, isAddressRegistered);
+        assertEq(true, registry.isRegistered(addrToUnregister));
+        assertEq(true, registry.isRegisteredVault(dvp.vault()));
 
         vm.prank(admin);
         registry.unregister(addrToUnregister);
 
-        isAddressRegistered = registry.isRegistered(addrToUnregister);
-        assertEq(false, isAddressRegistered);
+        assertEq(false, registry.isRegistered(addrToUnregister));
+        assertEq(false, registry.isRegisteredVault(dvp.vault()));
     }
 
     function testSideTokenIndexing() public {
