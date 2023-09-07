@@ -9,6 +9,9 @@ library VaultLib {
     uint256 constant DECIMALS = 18;
     uint256 constant UNIT_PRICE = 10 ** DECIMALS;
 
+    bytes4 constant DeadMarketReason = bytes4(keccak256("MarketReason"));
+    bytes4 constant DeadManualKillReason = bytes4(keccak256("ManualKill"));
+
     struct VaultState {
         VaultLiquidity liquidity;
         VaultWithdrawals withdrawals;
@@ -17,6 +20,7 @@ library VaultLib {
         // The Vault is dead if underlying locked liquidity goes to zero because we can't mint new shares since then
         // TBD: Evaluate if keeping use dead variable for manual kill status
         bool dead;
+        bytes4 deadReason;
     }
 
     struct VaultLiquidity {

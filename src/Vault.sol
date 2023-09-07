@@ -41,6 +41,9 @@ contract Vault is IVault, ERC20, EpochControls {
 
     VaultLib.VaultState internal _state;
 
+    // ToDo: Name Refactor?
+    bool public manualKill;
+
     AddressProvider internal immutable _addressProvider;
 
     error AddressZero();
@@ -50,6 +53,7 @@ contract Vault is IVault, ERC20, EpochControls {
     error ExceedsAvailable();
     error ExistingIncompleteWithdraw();
     error NothingToRescue();
+    error NothingToWithdraw();
     error OnlyDVPAllowed();
     error SecondaryMarkedNotAllowed();
     error VaultDead();
@@ -115,6 +119,10 @@ contract Vault is IVault, ERC20, EpochControls {
         maxDeposit = limitTVL_;
     }
 
+    function killVault() public onlyOwner isNotDead {
+        manualKill = true;
+    }
+
     // ToDo: review as it's currently used only by tests
     function vaultState()
         external
@@ -127,7 +135,8 @@ contract Vault is IVault, ERC20, EpochControls {
             uint256 totalDeposit,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
-            bool dead
+            bool dead,
+            bytes4 deadReason
         )
     {
         return (
@@ -138,7 +147,8 @@ contract Vault is IVault, ERC20, EpochControls {
             _state.liquidity.totalDeposit,
             _state.withdrawals.heldShares,
             _state.withdrawals.newHeldShares,
-            _state.dead
+            _state.dead,
+            _state.deadReason
         );
     }
 
@@ -302,6 +312,11 @@ contract Vault is IVault, ERC20, EpochControls {
     function _redeem(uint256 shares, bool isMax) internal {
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
 
+        {
+            (uint256 heldByAccount, uint256 heldByVault) = shareBalances(msg.sender);
+            uint256 sharesA = balanceOf(address(this));
+        }
+
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
             currentEpoch,
             epochPricePerShare[depositReceipt.epoch]
@@ -331,18 +346,28 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @inheritdoc IVault
     function initiateWithdraw(uint256 shares) external epochNotFrozen whenNotPaused {
-        if (shares == 0) {
+        _initiateWithdraw(shares, false);
+    }
+
+    function _initiateWithdraw(uint256 shares, bool isMax) internal {
+        if (shares == 0 && !isMax) {
             revert AmountZero();
         }
 
         // We take advantage of this flow in order to also transfer all the unredeemed shares to the user.
         if (depositReceipts[msg.sender].amount > 0 || depositReceipts[msg.sender].unredeemedShares > 0) {
             // TBD: just call it without the if statement
+
             _redeem(0, true);
         }
 
         // NOTE: all shares belong to the user since we made a 'redeem all'
         uint256 userShares = balanceOf(msg.sender);
+
+        if (isMax) {
+            shares = userShares;
+        }
+
         if (shares > userShares) {
             revert ExceedsAvailable();
         }
@@ -390,26 +415,35 @@ contract Vault is IVault, ERC20, EpochControls {
         @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
      */
     function completeWithdraw() external epochNotFrozen whenNotPaused {
+        _completeWithdraw();
+    }
+
+    function _completeWithdraw() internal {
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
+        uint256 sharesToWithdraw = withdrawal.shares;
 
         // Checks if there is an initiated withdrawal
-        if (withdrawal.shares == 0) {
+        if (sharesToWithdraw == 0) {
             revert WithdrawNotInitiated();
         }
 
         // At least one epoch must have passed since the start of the withdrawal
-        if (withdrawal.epoch == currentEpoch) {
+        if (withdrawal.epoch == currentEpoch && _state.deadReason != VaultLib.DeadManualKillReason) {
             revert WithdrawTooEarly();
         }
-
-        uint256 sharesToWithdraw = withdrawal.shares;
-        uint256 amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, epochPricePerShare[withdrawal.epoch]);
-
+        uint256 amountToWithdraw;
+        if (withdrawal.epoch == currentEpoch && _state.deadReason == VaultLib.DeadManualKillReason) {
+            amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, epochPricePerShare[lastRolledEpoch()]);
+        } else {
+            amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, epochPricePerShare[withdrawal.epoch]);
+        }
         withdrawal.shares = 0;
 
         // NOTE: the user transferred the required shares to the vault when she initiated the withdraw
-        _state.withdrawals.heldShares -= sharesToWithdraw;
-        _state.liquidity.pendingWithdrawals -= amountToWithdraw;
+        if (!_state.dead) {
+            _state.withdrawals.heldShares -= sharesToWithdraw;
+            _state.liquidity.pendingWithdrawals -= amountToWithdraw;
+        }
 
         _burn(address(this), sharesToWithdraw);
         if (!IERC20(baseToken).transfer(msg.sender, amountToWithdraw)) {
@@ -438,6 +472,21 @@ contract Vault is IVault, ERC20, EpochControls {
         }
     }
 
+    function rescueShares() external isDead {
+        // ToDo: Change reason
+        require(_state.deadReason == VaultLib.DeadManualKillReason, "Vault dead due to market conditions");
+
+        VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
+
+        // If an uncompleted withdraw exists, complete this one before to start with new one.
+        if (withdrawal.shares > 0) {
+            _completeWithdraw();
+        }
+
+        _initiateWithdraw(0, true);
+        _completeWithdraw();
+    }
+
     // ------------------------------------------------------------------------
     // VAULT OPERATIONS
     // ------------------------------------------------------------------------
@@ -456,6 +505,14 @@ contract Vault is IVault, ERC20, EpochControls {
         // NOTE: the share price needs to account also the payoffs
         lockedLiquidity -= _state.liquidity.newPendingPayoffs;
 
+        if (manualKill) {
+            _state.dead = true;
+
+            // Sell all sideToken to be able to pay all the withdraws initiate after manual kill.
+            uint256 sideTokens = IERC20(sideToken).balanceOf(address(this));
+            _deltaHedge(-int256(sideTokens));
+        }
+
         // TBD: rename to shareValue
         uint256 sharePrice = _computeSharePrice(lockedLiquidity);
         epochPricePerShare[currentEpoch] = sharePrice;
@@ -464,6 +521,11 @@ contract Vault is IVault, ERC20, EpochControls {
             // if vault underlying asset disappear, don't mint any shares.
             // Pending deposits will be enabled for withdrawal - see rescueDeposit()
             _state.dead = true;
+            _state.deadReason = VaultLib.DeadMarketReason;
+        }
+
+        if (manualKill) {
+            _state.deadReason = VaultLib.DeadManualKillReason;
         }
 
         // Increase shares hold due to initiated withdrawals:
@@ -483,7 +545,7 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.liquidity.pendingPayoffs += _state.liquidity.newPendingPayoffs;
         _state.liquidity.newPendingPayoffs = 0;
 
-        if (_state.dead) {
+        if (_state.dead && !manualKill) {
             // ToDo: review
             _state.liquidity.lockedInitially = 0;
             return;
@@ -497,10 +559,16 @@ contract Vault is IVault, ERC20, EpochControls {
         _state.liquidity.pendingDeposits = 0;
 
         _state.liquidity.lockedInitially = lockedLiquidity;
+
+        if (manualKill) {
+            return;
+        }
+
         // NOTE: leave only an even number of base tokens for the DVP epoch
         if (lockedLiquidity % 2 != 0) {
             _state.liquidity.lockedInitially -= 1;
         }
+
         _adjustBalances();
         // TBD: re-compute here the lockedInitially
     }
@@ -563,7 +631,7 @@ contract Vault is IVault, ERC20, EpochControls {
     }
 
     /// @inheritdoc IVault
-    function deltaHedge(int256 sideTokensAmount) external onlyDVP returns (uint256 baseTokens) {
+    function deltaHedge(int256 sideTokensAmount) external onlyDVP isNotDead returns (uint256 baseTokens) {
         return _deltaHedge(sideTokensAmount);
     }
 

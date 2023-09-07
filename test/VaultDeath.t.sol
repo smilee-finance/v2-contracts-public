@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
@@ -19,7 +20,9 @@ import {AddressProvider} from "../src/AddressProvider.sol";
 contract VaultDeathTest is Test {
     bytes4 constant NothingToRescue = bytes4(keccak256("NothingToRescue()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
+    bytes4 constant EpochFrozen = bytes4(keccak256("EpochFrozen()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
+    bytes4 constant DeadManualKillReason = bytes4(keccak256("ManualKill"));
 
     address tokenAdmin = address(0x1);
     address alice = address(0x2);
@@ -59,7 +62,6 @@ contract VaultDeathTest is Test {
         assertEq(100, heldByVaultAlice);
 
         VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
-
 
         Utils.skipDay(false, vm);
         vault.rollEpoch();
@@ -169,7 +171,7 @@ contract VaultDeathTest is Test {
 
         assertEq(100, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
 
-        (, uint256 depositReceiptsAliceAmount,, ) = vault.depositReceipts(alice);
+        (, uint256 depositReceiptsAliceAmount, , ) = vault.depositReceipts(alice);
         assertEq(100, depositReceiptsAliceAmount);
 
         // Alice rescues her baseToken
@@ -179,7 +181,7 @@ contract VaultDeathTest is Test {
         assertEq(0, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
         assertEq(0, baseToken.balanceOf(address(vault)));
         assertEq(100, baseToken.balanceOf(alice));
-        (, depositReceiptsAliceAmount,,) = vault.depositReceipts(alice);
+        (, depositReceiptsAliceAmount, , ) = vault.depositReceipts(alice);
         assertEq(0, depositReceiptsAliceAmount);
     }
 
@@ -228,9 +230,199 @@ contract VaultDeathTest is Test {
         // assertEq(0, vault.v0());
         assertEq(true, VaultUtils.vaultState(vault).dead);
 
-        //Alice starts the rescue procedure. An error is expected
+        // Alice starts the rescue procedure. An error is expected
         vm.prank(alice);
         vm.expectRevert(NothingToRescue);
         vault.rescueDeposit();
+    }
+
+    function testVaultManualDead() public {
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(tokenAdmin);
+        vault.killVault();
+
+        assertEq(true, vault.manualKill());
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        assertEq(true, VaultUtils.vaultState(vault).dead);
+        assertEq(DeadManualKillReason, VaultUtils.vaultState(vault).deadReason);
+    }
+
+    function testVaultManualDeadRescueShares() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(tokenAdmin);
+        vault.killVault();
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vault.rescueShares();
+
+        (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+        assertEq(0, vault.totalSupply());
+        assertEq(0, heldByVaultAlice);
+        assertEq(0, heldByAccountAlice);
+        assertEq(100e18, baseToken.balanceOf(alice));
+    }
+
+    function testVaultManualDeadMultipleRescueShares() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 200e18, tokenAdmin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(tokenAdmin);
+        vault.killVault();
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vault.rescueShares();
+
+        (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+        assertEq(200e18, vault.totalSupply());
+        (, , , uint256 cumulativeAmountAlice) = vault.depositReceipts(alice);
+        assertEq(200e18, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(0, cumulativeAmountAlice);
+        assertEq(0, heldByVaultAlice);
+        assertEq(0, heldByAccountAlice);
+        assertEq(100e18, baseToken.balanceOf(alice));
+
+        vm.prank(bob);
+        vault.rescueShares();
+
+        (uint256 heldByAccountBob, uint256 heldByVaultBob) = vault.shareBalances(bob);
+        assertEq(0, vault.totalSupply());
+        (, , , uint256 cumulativeAmountBob) = vault.depositReceipts(bob);
+        assertEq(0, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(0, cumulativeAmountBob);
+        assertEq(0, heldByVaultBob);
+        assertEq(0, heldByAccountBob);
+        assertEq(200e18, baseToken.balanceOf(bob));
+    }
+
+    function testVaultManualDeadInitiateBeforeEpochOfDeathEpochFrozen() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vault.initiateWithdraw(50e18);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(tokenAdmin);
+        vault.killVault();
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        // Skip another day to simulate the epochFrozen scenarios.
+        // In this case, the "traditional" completeWithdraw shouldn't work due to epochFrozen error.
+        Utils.skipDay(true, vm);
+        
+        vm.prank(alice);
+        vm.expectRevert(EpochFrozen);
+        vault.completeWithdraw();
+        
+        vm.prank(alice);
+        vault.rescueShares();
+
+        // Check if alice has rescued all her shares
+        (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+        assertEq(0, vault.totalSupply());
+        (, , , uint256 cumulativeAmountAlice) = vault.depositReceipts(alice);
+        assertEq(0, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(0, cumulativeAmountAlice);
+        assertEq(0, heldByVaultAlice);
+        assertEq(0, heldByAccountAlice);
+        assertEq(100e18, baseToken.balanceOf(alice));
+    }
+
+    function testVaultManualDeadInitiateBeforeEpochOfDeath() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vault.initiateWithdraw(50e18);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(tokenAdmin);
+        vault.killVault();
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+        
+        vm.prank(alice);
+        vault.completeWithdraw();
+
+        // Check if alice has rescued all her shares
+        (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+        assertEq(50e18, vault.totalSupply());
+        (, , , uint256 cumulativeAmountAlice) = vault.depositReceipts(alice);
+        assertEq(50e18, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(50e18, cumulativeAmountAlice);
+        assertEq(0, heldByVaultAlice);
+        assertEq(50e18, heldByAccountAlice);
+        assertEq(50e18, baseToken.balanceOf(alice));
+        
+        vm.prank(alice);
+        vault.rescueShares();
+
+        // Check if alice has rescued all her shares
+        (heldByAccountAlice, heldByVaultAlice) = vault.shareBalances(alice);
+        assertEq(0, vault.totalSupply());
+        (, , , cumulativeAmountAlice) = vault.depositReceipts(alice);
+        assertEq(0, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(0, cumulativeAmountAlice);
+        assertEq(0, heldByVaultAlice);
+        assertEq(0, heldByAccountAlice);
+        assertEq(100e18, baseToken.balanceOf(alice));
+    }
+
+    function testVaultManualDeadDepositBeforeEpochOfDeath() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+
+        vm.prank(tokenAdmin);
+        vault.killVault();
+
+        Utils.skipDay(true, vm);
+        vault.rollEpoch();
+
+        vm.prank(alice);
+        vault.rescueShares();
+
+        assertEq(0, vault.totalSupply());
+        assertEq(0, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+
+        // Check if alice has rescued all her shares
+        (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+        (, , , uint256 cumulativeAmountAlice) = vault.depositReceipts(alice);
+        assertEq(0, cumulativeAmountAlice);
+        assertEq(0, heldByVaultAlice);
+        assertEq(0, heldByAccountAlice);
+        assertEq(200e18, baseToken.balanceOf(alice));
     }
 }

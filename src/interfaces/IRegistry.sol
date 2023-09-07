@@ -28,4 +28,10 @@ interface IRegistry {
      * @return number The number of DVPs to roll
      */
     function getUnrolledDVPs() external view returns (address[] memory list, uint256 number);
+
+    /**
+     * Get all sideTokens used by at least one DVP
+     * @return sideTokens The sideTokens list
+     */
+    function getSideTokens() external view returns (address[] memory sideTokens);
 }
