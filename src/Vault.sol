@@ -48,19 +48,20 @@ contract Vault is IVault, ERC20, EpochControls {
 
     error AddressZero();
     error AmountZero();
+    error ApproveFailed();
     error DVPNotSet();
-    error ExceedsMaxDeposit();
     error ExceedsAvailable();
+    error ExceedsMaxDeposit();
     error ExistingIncompleteWithdraw();
     error NothingToRescue();
     error NothingToWithdraw();
     error OnlyDVPAllowed();
     error SecondaryMarkedNotAllowed();
+    error TransferFailed();
     error VaultDead();
     error VaultNotDead();
     error WithdrawNotInitiated();
     error WithdrawTooEarly();
-    error TransferFailed();
 
     // TBD: create ERC20 name and symbol from the underlying tokens
     constructor(
@@ -670,7 +671,10 @@ contract Vault is IVault, ERC20, EpochControls {
             revert ExceedsAvailable();
         }
 
-        IERC20(baseToken).approve(exchangeAddress, baseTokensAmount);
+        bool ok = IERC20(baseToken).approve(exchangeAddress, baseTokensAmount);
+        if (!ok) {
+            revert ApproveFailed();
+        }
         baseTokens = exchange.swapOut(baseToken, sideToken, amount);
     }
 
@@ -691,7 +695,10 @@ contract Vault is IVault, ERC20, EpochControls {
         }
         IExchange exchange = IExchange(exchangeAddress);
 
-        IERC20(sideToken).approve(exchangeAddress, amount);
+        bool ok = IERC20(sideToken).approve(exchangeAddress, amount);
+        if (!ok) {
+            revert ApproveFailed();
+        }
         baseTokens = exchange.swapIn(sideToken, baseToken, amount);
     }
 

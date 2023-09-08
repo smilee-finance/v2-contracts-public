@@ -10,6 +10,7 @@ out/
 
 # Docs
 docs/
+slither-report.md
 
 # Dotenv file
 .env

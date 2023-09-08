@@ -10,7 +10,9 @@ import {AddressProvider} from "./AddressProvider.sol";
 contract VaultProxy is IVaultProxy {
     address private _addressProvider;
 
+    error ApproveFailed();
     error DepositToNonVaultContract();
+    error TransferFailed();
 
     constructor(address provider) {
         _addressProvider = provider;
@@ -24,8 +26,14 @@ contract VaultProxy is IVaultProxy {
         }
 
         IVault vault = IVault(params.vault);
-        IERC20(vault.baseToken()).transferFrom(msg.sender, address(this), params.amount);
-        IERC20(vault.baseToken()).approve(params.vault, params.amount);
+        bool ok = IERC20(vault.baseToken()).transferFrom(msg.sender, address(this), params.amount);
+        if (!ok) {
+            revert TransferFailed();
+        }
+        ok = IERC20(vault.baseToken()).approve(params.vault, params.amount);
+        if (!ok) {
+            revert ApproveFailed();
+        }
         vault.deposit(params.amount, params.recipient);
 
         emit Deposit(params.vault, params.recipient, msg.sender, params.amount);

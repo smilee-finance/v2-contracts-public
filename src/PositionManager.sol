@@ -30,11 +30,12 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     /// @dev The ID of the next token that will be minted. Skips 0
     uint256 private _nextId;
 
-    error NotOwner();
+    error ApproveFailed();
     error CantBurnMoreThanMinted();
     error InvalidTokenID();
-    error SecondaryMarkedNotAllowed();
+    error NotOwner();
     error PositionExpired();
+    error SecondaryMarkedNotAllowed();
     error TransferFailed();
 
     constructor() ERC721Enumerable() ERC721("Smilee V0 Trade Positions", "SMIL-V0-TRAD") Ownable() {
@@ -112,11 +113,15 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         // Transfer premium:
         // NOTE: The PositionManager is just a middleman between the user and the DVP
         IERC20 baseToken = IERC20(dvp.baseToken());
-        if (!baseToken.transferFrom(msg.sender, address(this), premium)) {
+        bool ok = baseToken.transferFrom(msg.sender, address(this), premium);
+        if (!ok) {
             revert TransferFailed();
         }
 
-        baseToken.approve(params.dvpAddr, premium);
+        ok = baseToken.approve(params.dvpAddr, premium);
+        if (!ok) {
+            revert ApproveFailed();
+        }
         premium = dvp.mint(address(this), params.strike, params.notionalUp, params.notionalDown, params.expectedPremium, params.maxSlippage);
 
         if (params.tokenId == 0) {
