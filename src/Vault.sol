@@ -313,11 +313,6 @@ contract Vault is IVault, ERC20, EpochControls {
     function _redeem(uint256 shares, bool isMax) internal {
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
 
-        {
-            (uint256 heldByAccount, uint256 heldByVault) = shareBalances(msg.sender);
-            uint256 sharesA = balanceOf(address(this));
-        }
-
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
             currentEpoch,
             epochPricePerShare[depositReceipt.epoch]
