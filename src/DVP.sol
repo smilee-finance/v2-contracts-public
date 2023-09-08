@@ -112,7 +112,10 @@ abstract contract DVP is IDVP, EpochControls {
         Notional.Info storage liquidity = _liquidity[currentEpoch];
 
         // Check available liquidity:
-        if (liquidity.available(strike, OptionStrategy.CALL) < amount.up || liquidity.available(strike, OptionStrategy.PUT) < amount.down) {
+        if (
+            liquidity.available(strike, OptionStrategy.CALL) < amount.up ||
+            liquidity.available(strike, OptionStrategy.PUT) < amount.down
+        ) {
             revert NotEnoughLiquidity();
         }
 

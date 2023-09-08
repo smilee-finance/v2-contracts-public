@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.21;
 
-import { SD59x18, sd } from "@prb/math/SD59x18.sol";
-import { UD60x18, ud } from "@prb/math/UD60x18.sol";
+import {SD59x18, sd} from "@prb/math/SD59x18.sol";
+import {UD60x18, ud} from "@prb/math/UD60x18.sol";
 import {InverseTrigonometry} from "@trigonometry/InverseTrigonometry.sol";
 import {Trigonometry} from "@trigonometry/Trigonometry.sol";
 import {AmountsMath} from "./AmountsMath.sol";
@@ -79,8 +79,10 @@ library FinanceIGDelta {
             SignedMath.castInt(AmountsMath.wrapDecimals(4, 2).wmul(sigmaTaurtdPow));
 
         // -m*z + a*q
-        int256 expE = SignedMath.revabs(SignedMath.abs(m).wmul(SignedMath.abs(z)), (m > 0 && z < 0) || (m < 0 && z > 0)) +
-            SignedMath.revabs(SignedMath.abs(a).wmul(SignedMath.abs(q)), (a > 0 && q > 0) || (a < 0 && q < 0));
+        int256 expE = SignedMath.revabs(
+            SignedMath.abs(m).wmul(SignedMath.abs(z)),
+            (m > 0 && z < 0) || (m < 0 && z > 0)
+        ) + SignedMath.revabs(SignedMath.abs(a).wmul(SignedMath.abs(q)), (a > 0 && q > 0) || (a < 0 && q < 0));
         if (expE > MAX_EXP) {
             return 0;
         }
@@ -98,8 +100,10 @@ library FinanceIGDelta {
         );
 
         // m*z + b*q
-        int256 expE = SignedMath.revabs(SignedMath.abs(m).wmul(SignedMath.abs(z)), (m > 0 && z > 0) || (m < 0 && z < 0)) +
-            SignedMath.revabs(b.wmul(SignedMath.abs(q)), (q > 0));
+        int256 expE = SignedMath.revabs(
+            SignedMath.abs(m).wmul(SignedMath.abs(z)),
+            (m > 0 && z > 0) || (m < 0 && z < 0)
+        ) + SignedMath.revabs(b.wmul(SignedMath.abs(q)), (q > 0));
         if (expE > MAX_EXP) {
             return 0;
         }
@@ -122,6 +126,8 @@ library FinanceIGDelta {
         int256 notionalUp;
         int256 notionalDown;
         uint256 strike;
+        uint256 theta;
+        uint256 kb;
     }
 
     // ToDo: change formula (v6)
@@ -137,7 +143,6 @@ library FinanceIGDelta {
             params.availableLiquidityBear,
             params.baseTokenDecimals
         );
-
 
         uint256 notionalUp = AmountsMath.wrapDecimals(SignedMath.abs(params.notionalUp), params.baseTokenDecimals);
         uint256 notionalDown = AmountsMath.wrapDecimals(SignedMath.abs(params.notionalDown), params.baseTokenDecimals);
@@ -163,7 +168,11 @@ library FinanceIGDelta {
         uint256 deltaLimit;
         {
             uint256 v0 = params.initialLiquidityBull + params.initialLiquidityBear;
-            deltaLimit = v0.wdiv(params.strike.wmul(two));
+            uint256 strike = params.strike;
+            uint256 theta = params.theta;
+            uint256 kb = params.kb;
+            // DeltaLimit := v0 / (θ * k) - v0 / (θ * √(K * Kb))
+            deltaLimit = v0.wdiv(theta.wmul(strike)).sub(v0.wdiv(theta.wmul(ud((strike.wmul(kb))).sqrt().unwrap())));
         }
 
         tokensToSwap =

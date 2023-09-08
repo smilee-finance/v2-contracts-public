@@ -142,12 +142,8 @@ contract IG is DVP {
         Notional.Amount memory amount,
         bool tradeIsBuy
     ) public view returns (uint256 sigma) {
-        uint256 baselineVolatility = IMarketOracle(_getMarketOracle()).getImpliedVolatility(
-            baseToken,
-            sideToken,
-            strike,
-            epochFrequency
-        );
+        uint256 baselineVolatility = _currentFinanceParameters.sigmaZero;
+
         uint256 U = _getPostTradeUtilizationRate(amount, tradeIsBuy);
         uint256 t0 = lastRolledEpoch();
         uint256 T = currentEpoch - t0;
@@ -244,6 +240,9 @@ contract IG is DVP {
                 params.availableLiquidityBear,
                 params.availableLiquidityBull
             ) = liquidity.aggregatedInfo(strike);
+
+            params.theta = _currentFinanceParameters.theta;
+            params.kb = _currentFinanceParameters.kB;
         }
 
         int256 tokensToSwap = FinanceIGDelta.h(params);
@@ -329,6 +328,9 @@ contract IG is DVP {
                         yearsToMaturity
                     )
                 );
+
+                // Multiply baselineVolatility for a safety margin of 0.9 after have calculated kA and Kb.
+                _currentFinanceParameters.sigmaZero = _currentFinanceParameters.sigmaZero.wmul(0.9e18);
 
                 _currentFinanceParameters.theta = FinanceIGPrice._teta(
                     currentStrike,
