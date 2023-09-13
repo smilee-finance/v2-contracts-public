@@ -11,10 +11,12 @@ import {TokensPair} from "./lib/TokensPair.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
+import {Epoch, EpochController} from "./lib/EpochController.sol";
 
 contract Vault is IVault, ERC20, EpochControls {
     using AmountsMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
+    using EpochController for Epoch;
 
     /// @inheritdoc IVaultParams
     address public immutable baseToken;
@@ -214,7 +216,12 @@ contract Vault is IVault, ERC20, EpochControls {
     function deposit(
         uint256 amount,
         address receiver
-    ) external epochInitialized isNotDead epochNotFrozen whenNotPaused {
+    ) external isNotDead whenNotPaused {
+        Epoch memory epoch = getEpoch();
+        if (!epoch.isInitialized()) {
+            revert EpochNotInitialized();
+        }
+        epoch.checkNotFrozen();
         if (amount == 0) {
             revert AmountZero();
         }
@@ -245,23 +252,24 @@ contract Vault is IVault, ERC20, EpochControls {
      */
     function _emitUpdatedDepositReceipt(address creditor, uint256 amount) internal {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[creditor];
+        Epoch memory epoch = getEpoch();
 
         // Get the number of unredeemed shares from previous deposits, if any.
         // NOTE: the amount of unredeemed shares is the one of the previous epochs, as we still don't know the share price.
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
-            currentEpoch,
+            epoch.current,
             epochPricePerShare[depositReceipt.epoch]
         );
 
         uint256 cumulativeUserAmount = depositReceipt.cumulativeAmount.add(amount);
 
         // If the user has already deposited in the current epoch, add the amount to the total one of the next epoch:
-        if (currentEpoch == depositReceipt.epoch) {
+        if (epoch.current == depositReceipt.epoch) {
             amount = depositReceipt.amount.add(amount);
         }
 
         depositReceipts[creditor] = VaultLib.DepositReceipt({
-            epoch: currentEpoch,
+            epoch: epoch.current,
             amount: amount,
             unredeemedShares: unredeemedShares,
             cumulativeAmount: cumulativeUserAmount
@@ -290,7 +298,7 @@ contract Vault is IVault, ERC20, EpochControls {
         }
 
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
-            currentEpoch,
+            getEpoch().current,
             epochPricePerShare[depositReceipt.epoch]
         );
 
@@ -314,7 +322,7 @@ contract Vault is IVault, ERC20, EpochControls {
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
 
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
-            currentEpoch,
+            getEpoch().current,
             epochPricePerShare[depositReceipt.epoch]
         );
 
@@ -328,7 +336,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         // TBD: check if shares equals zero and return
 
-        if (depositReceipt.epoch < currentEpoch) {
+        if (depositReceipt.epoch < getEpoch().current) {
             // NOTE: all the amount - if any - has already been converted in unredeemedShares.
             depositReceipt.amount = 0;
         }
@@ -341,7 +349,8 @@ contract Vault is IVault, ERC20, EpochControls {
     }
 
     /// @inheritdoc IVault
-    function initiateWithdraw(uint256 shares) external epochNotFrozen whenNotPaused {
+    function initiateWithdraw(uint256 shares) external whenNotPaused {
+        getEpoch().checkNotFrozen();
         _initiateWithdraw(shares, false);
     }
 
@@ -369,13 +378,14 @@ contract Vault is IVault, ERC20, EpochControls {
         }
 
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
+        Epoch memory epoch = getEpoch();
 
-        if (withdrawal.epoch < currentEpoch && withdrawal.shares > 0) {
+        if (withdrawal.epoch < epoch.current && withdrawal.shares > 0) {
             revert ExistingIncompleteWithdraw();
         }
 
         uint256 sharesToWithdraw = shares;
-        if (withdrawal.epoch == currentEpoch) {
+        if (withdrawal.epoch == epoch.current) {
             // if user has already pre-ordered a withdrawal in this epoch just add to that
             sharesToWithdraw = withdrawal.shares.add(shares);
         }
@@ -386,7 +396,7 @@ contract Vault is IVault, ERC20, EpochControls {
         // Don't consider current epoch deposits in all-time deposits computation
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
         uint256 cumulativeDeposit = depositReceipt.cumulativeAmount;
-        if (depositReceipt.epoch == currentEpoch) {
+        if (depositReceipt.epoch == epoch.current) {
             cumulativeDeposit -= depositReceipt.amount;
         }
 
@@ -397,7 +407,7 @@ contract Vault is IVault, ERC20, EpochControls {
         // update receipt
 
         withdrawal.shares = sharesToWithdraw;
-        withdrawal.epoch = currentEpoch;
+        withdrawal.epoch = epoch.current;
 
         // NOTE: shall the user attempt to calls redeem after this one, there'll be no unredeemed shares
         _state.withdrawals.newHeldShares += shares;
@@ -410,7 +420,8 @@ contract Vault is IVault, ERC20, EpochControls {
     /**
         @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
      */
-    function completeWithdraw() external epochNotFrozen whenNotPaused {
+    function completeWithdraw() external whenNotPaused {
+        getEpoch().checkNotFrozen();
         _completeWithdraw();
     }
 
@@ -423,13 +434,15 @@ contract Vault is IVault, ERC20, EpochControls {
             revert WithdrawNotInitiated();
         }
 
+        Epoch memory epoch = getEpoch();
+
         // At least one epoch must have passed since the start of the withdrawal
-        if (withdrawal.epoch == currentEpoch && _state.deadReason != VaultLib.DeadManualKillReason) {
+        if (withdrawal.epoch == epoch.current && _state.deadReason != VaultLib.DeadManualKillReason) {
             revert WithdrawTooEarly();
         }
         uint256 amountToWithdraw;
-        if (withdrawal.epoch == currentEpoch && _state.deadReason == VaultLib.DeadManualKillReason) {
-            amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, epochPricePerShare[lastRolledEpoch()]);
+        if (withdrawal.epoch == epoch.current && _state.deadReason == VaultLib.DeadManualKillReason) {
+            amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, epochPricePerShare[epoch.previous]);
         } else {
             amountToWithdraw = VaultLib.sharesToAsset(sharesToWithdraw, epochPricePerShare[withdrawal.epoch]);
         }
@@ -456,7 +469,7 @@ contract Vault is IVault, ERC20, EpochControls {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[msg.sender];
 
         // User enabled to rescue only if the user has deposited in the last epoch before the Vault died.
-        if (depositReceipt.epoch != lastRolledEpoch()) {
+        if (depositReceipt.epoch != getEpoch().previous) {
             revert NothingToRescue();
         }
 
@@ -511,7 +524,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
         // TBD: rename to shareValue
         uint256 sharePrice = _computeSharePrice(lockedLiquidity);
-        epochPricePerShare[currentEpoch] = sharePrice;
+        epochPricePerShare[getEpoch().current] = sharePrice;
 
         if (sharePrice == 0) {
             // if vault underlying asset disappear, don't mint any shares.

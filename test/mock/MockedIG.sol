@@ -8,11 +8,13 @@ import {OptionStrategy} from "../../src/lib/OptionStrategy.sol";
 import {Position} from "../../src/lib/Position.sol";
 import {SignedMath} from "../../src/lib/SignedMath.sol";
 import {IG} from "../../src/IG.sol";
+import {Epoch, EpochController} from "../../src/lib/EpochController.sol";
 
 //ToDo: Add comments
 contract MockedIG is IG {
     using AmountsMath for uint256;
     using Notional for Notional.Info;
+    using EpochController for Epoch;
 
     bool internal _fakePremium;
     bool internal _fakePayoff;
@@ -90,8 +92,8 @@ contract MockedIG is IG {
     // ToDo: review usage
     function positions(
         bytes32 positionID
-    ) public view returns (uint256 amount, bool strategy, uint256 strike, uint256 epoch) {
-        Position.Info storage position = _epochPositions[currentEpoch][positionID];
+    ) public view returns (uint256 amount, bool strategy, uint256 strike, uint256 epoch_) {
+        Position.Info storage position = _epochPositions[getEpoch().current][positionID];
         strategy = (position.amountUp > 0) ? OptionStrategy.CALL : OptionStrategy.PUT;
         amount = (strategy) ? position.amountUp : position.amountDown;
 
@@ -99,7 +101,7 @@ contract MockedIG is IG {
     }
 
     function getUtilizationRate() public view returns (uint256) {
-        (uint256 used, uint256 total) = _liquidity[currentEpoch].utilizationRateFactors(currentStrike);
+        (uint256 used, uint256 total) = _liquidity[getEpoch().current].utilizationRateFactors(currentStrike);
 
         used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
         total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
@@ -114,4 +116,24 @@ contract MockedIG is IG {
     function setSigmaMultiplier(uint256 value) public {
         _currentFinanceParameters.sigmaMultiplier = value;
     }
+
+    /**
+        @notice Get number of past and current epochs
+        @return number The number of past and current epochs
+     */
+    function getNumberOfEpochs() external view returns(uint256 number) {
+        number = getEpoch().numberOfRolledEpochs;
+    }
+
+    /**
+        @dev Second last timestamp
+     */
+    function lastRolledEpoch() public view returns (uint256 lastEpoch) {
+        lastEpoch = getEpoch().lastRolled();
+    }
+
+    function currentEpoch() external view returns (uint256) {
+        return getEpoch().current;
+    }
+
 }

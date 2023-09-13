@@ -12,6 +12,7 @@ import {Registry} from "../src/Registry.sol";
 import {Vault} from "../src/Vault.sol";
 import {IG} from "../src/IG.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
+import {Epoch} from "../src/lib/EpochController.sol";
 
 contract FactoryTest is Test {
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
@@ -77,7 +78,8 @@ contract FactoryTest is Test {
         assertEq(igDVP.baseToken(), address(baseToken));
         assertEq(igDVP.sideToken(), address(sideToken));
         assertEq(igDVP.optionType(), DVPType.IG);
-        assertEq(igDVP.epochFrequency(), EpochFrequency.DAILY);
+        Epoch memory epoch = igDVP.getEpoch();
+        assertEq(epoch.frequency, EpochFrequency.DAILY);
     }
 
     function testFactoryCreatedVault() public {
@@ -88,6 +90,7 @@ contract FactoryTest is Test {
 
         assertEq(vault.baseToken(), address(baseToken));
         assertEq(vault.sideToken(), address(sideToken));
-        assertEq(vault.epochFrequency(), EpochFrequency.DAILY);
+        Epoch memory epoch = vault.getEpoch();
+        assertEq(epoch.frequency, EpochFrequency.DAILY);
     }
 }

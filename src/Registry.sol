@@ -4,9 +4,12 @@ pragma solidity ^0.8.15;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
+import {Epoch, EpochController} from "./lib/EpochController.sol";
 
 // TODO - AccessControl only uses ADMIN_ROLE - we can unse Ownable instead
 contract Registry is AccessControl, IRegistry {
+    using EpochController for Epoch;
+
     address[] internal _dvps;
     address[] internal _tokens;
     mapping(address => bool) internal _registeredDvps;
@@ -72,7 +75,8 @@ contract Registry is AccessControl, IRegistry {
         list = new address[](_dvps.length);
         for (uint256 i = 0; i < _dvps.length; i++) {
             IDVP dvp = IDVP(_dvps[i]);
-            if (dvp.timeToNextEpoch() != 0 || dvp.isPaused()) {
+            Epoch memory epoch = dvp.getEpoch();
+            if (epoch.timeToNextEpoch() != 0 || dvp.isPaused()) {
                 continue;
             }
             // TBD: filter out the DVPs whose vault is in a dead state.

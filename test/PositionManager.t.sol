@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
+import {Epoch} from "../src/lib/EpochController.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
@@ -110,7 +111,8 @@ contract PositionManagerTest is Test {
         assertEq(EpochFrequency.DAILY, pos.dvpFreq);
         assertEq(false, pos.dvpType);
         assertEq(ig.currentStrike(), pos.strike);
-        assertEq(ig.currentEpoch(), pos.expiry);
+        Epoch memory epoch = ig.getEpoch();
+        assertEq(epoch.current, pos.expiry);
         assertEq(10 ether, pos.notionalUp);
         assertEq(0, pos.notionalDown);
         // assertEq(10, pos.leverage);
@@ -182,7 +184,8 @@ contract PositionManagerTest is Test {
         assertEq(EpochFrequency.DAILY, pos.dvpFreq);
         assertEq(false, pos.dvpType);
         assertEq(ig.currentStrike(), pos.strike);
-        assertEq(ig.currentEpoch(), pos.expiry);
+        Epoch memory epoch = ig.getEpoch();
+        assertEq(epoch.current, pos.expiry);
         assertEq(10 ether, pos.notionalUp);
         assertEq(0, pos.notionalDown);
         assertEq(0, pos.cumulatedPayoff);
@@ -216,7 +219,8 @@ contract PositionManagerTest is Test {
         assertEq(EpochFrequency.DAILY, pos.dvpFreq);
         assertEq(false, pos.dvpType);
         assertEq(ig.currentStrike(), pos.strike);
-        assertEq(ig.currentEpoch(), pos.expiry);
+        epoch = ig.getEpoch();
+        assertEq(epoch.current, pos.expiry);
         assertEq(20 ether, pos.notionalUp);
         assertEq(0, pos.notionalDown);
         assertEq(0, pos.cumulatedPayoff);

@@ -8,6 +8,7 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Position} from "./lib/Position.sol";
+import {Epoch} from "./lib/EpochController.sol";
 
 contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     struct ManagedPosition {
@@ -65,13 +66,15 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         IDVP dvp = IDVP(position.dvpAddr);
 
+        Epoch memory epoch = dvp.getEpoch();
+
         // TBD: add payoff
         return
             IPositionManager.PositionDetail({
                 dvpAddr: position.dvpAddr,
                 baseToken: dvp.baseToken(),
                 sideToken: dvp.sideToken(),
-                dvpFreq: dvp.epochFrequency(),
+                dvpFreq: epoch.frequency,
                 dvpType: dvp.optionType(),
                 strike: position.strike,
                 expiry: position.expiry,
@@ -103,7 +106,8 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             ) {
                 revert InvalidTokenID();
             }
-            if (position.expiry != dvp.currentEpoch()) {
+            Epoch memory epoch = dvp.getEpoch();
+            if (position.expiry != epoch.current) {
                 revert PositionExpired();
             }
         }
@@ -129,11 +133,13 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             tokenId = _nextId++;
             _mint(params.recipient, tokenId);
 
+            Epoch memory epoch = dvp.getEpoch();
+
             // Save position:
             _positions[tokenId] = ManagedPosition({
                 dvpAddr: params.dvpAddr,
                 strike: params.strike,
-                expiry: dvp.currentEpoch(),
+                expiry: epoch.current,
                 premium: premium,
                 leverage: (params.notionalUp + params.notionalDown) / premium,
                 notionalUp: params.notionalUp,
@@ -162,7 +168,8 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     function burn(uint256 tokenId) external override isOwner(tokenId) returns (uint256 payoff) {
         ManagedPosition storage position = _positions[tokenId];
         uint256 expectedMarketValue = 0;
-        if (IDVP(position.dvpAddr).currentEpoch() == position.expiry) {
+        Epoch memory epoch = IDVP(position.dvpAddr).getEpoch();
+        if (epoch.current == position.expiry) {
             expectedMarketValue = IDVP(position.dvpAddr).payoff(
                 position.expiry,
                 position.strike,

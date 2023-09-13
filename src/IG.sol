@@ -18,10 +18,12 @@ import {SignedMath} from "./lib/SignedMath.sol";
 import {WadTime} from "./lib/WadTime.sol";
 import {DVP} from "./DVP.sol";
 import {EpochControls} from "./EpochControls.sol";
+import {Epoch, EpochController} from "./lib/EpochController.sol";
 
 contract IG is DVP {
     using AmountsMath for uint256;
     using Notional for Notional.Info;
+    using EpochController for Epoch;
 
     error StrikeDoesNotMatch();
 
@@ -82,8 +84,11 @@ contract IG is DVP {
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown
-    ) public view virtual override epochInitialized returns (uint256 premium_) {
+    ) public view virtual override returns (uint256 premium_) {
         strike;
+        if (!getEpoch().isInitialized()) {
+            revert EpochNotInitialized();
+        }
         uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         Notional.Amount memory amount_ = Notional.Amount({up: amountUp, down: amountDown});
 
@@ -103,7 +108,7 @@ contract IG is DVP {
             params.sigma = getPostTradeVolatility(strike, amount, tradeIsBuy);
             params.k = strike;
             params.s = swapPrice;
-            params.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
+            params.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, getEpoch().current));
             params.ka = _currentFinanceParameters.kA;
             params.kb = _currentFinanceParameters.kB;
             params.teta = _currentFinanceParameters.theta;
@@ -124,12 +129,12 @@ contract IG is DVP {
         view
         returns (uint256 bearNotional, uint256 bullNotional, uint256 bearAvailNotional, uint256 bullAvailNotional)
     {
-        Notional.Info storage liquidity = _liquidity[currentEpoch];
+        Notional.Info storage liquidity = _liquidity[getEpoch().current];
         return liquidity.aggregatedInfo(currentStrike);
     }
 
     // NOTE: public for frontend usage
-    // TODO: add a modifier to check lastRolledEpoch is < currentEpoch
+    // TODO: add a modifier to check lastRolledEpoch is < epoch.current
     /**
         @notice Get the estimated implied volatility from a given trade.
         @param strike The trade strike.
@@ -143,14 +148,15 @@ contract IG is DVP {
         bool tradeIsBuy
     ) public view returns (uint256 sigma) {
         uint256 baselineVolatility = _currentFinanceParameters.sigmaZero;
+        Epoch memory epoch = getEpoch();
 
-        uint256 U = _liquidity[currentEpoch].postTradeUtilizationRate(
+        uint256 U = _liquidity[epoch.current].postTradeUtilizationRate(
             currentStrike,
             AmountsMath.wrapDecimals(amount.up + amount.down, _baseTokenDecimals),
             tradeIsBuy
         );
-        uint256 t0 = lastRolledEpoch();
-        uint256 T = currentEpoch - t0;
+        uint256 t0 = epoch.previous;
+        uint256 T = epoch.current - t0;
 
         return
             FinanceIGPrice.tradeVolatility(
@@ -182,7 +188,7 @@ contract IG is DVP {
         uint256 postTradeVol = getPostTradeVolatility(strike, amount, tradeIsBuy);
 
         {
-            uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
+            uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(block.timestamp, getEpoch().current));
             (_currentFinanceParameters.alphaA, _currentFinanceParameters.alphaB) = FinanceIGDelta.alfas(
                 strike,
                 _currentFinanceParameters.kA,
@@ -193,6 +199,7 @@ contract IG is DVP {
         }
 
         {
+            uint256 currentEpoch = getEpoch().current;
             FinanceIGDelta.Parameters memory deltaParams;
             {
                 deltaParams.sigma = postTradeVol;
@@ -256,7 +263,7 @@ contract IG is DVP {
 
     /// @inheritdoc DVP
     function _residualPayoff() internal view virtual override returns (uint256 residualPayoff) {
-        Notional.Info storage liquidity = _liquidity[currentEpoch];
+        Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         uint256 pCall = liquidity.getAccountedPayoff(currentStrike, OptionStrategy.CALL);
         uint256 pPut = liquidity.getAccountedPayoff(currentStrike, OptionStrategy.PUT);
@@ -272,7 +279,8 @@ contract IG is DVP {
 
     /// @inheritdoc EpochControls
     function _afterRollEpoch() internal virtual override {
-        if (lastRolledEpoch() != 0) {
+        Epoch memory epoch = getEpoch();
+        if (epoch.previous != 0) {
             // ToDo: check if vault is dead
 
             {
@@ -296,9 +304,9 @@ contract IG is DVP {
                     baseToken,
                     sideToken,
                     currentStrike,
-                    epochFrequency
+                    epoch.frequency
                 );
-                uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(lastRolledEpoch(), currentEpoch));
+                uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(epoch.previous, epoch.current));
                 (_currentFinanceParameters.kA, _currentFinanceParameters.kB) = FinanceIGPrice.liquidityRange(
                     FinanceIGPrice.LiquidityRangeParams(
                         currentStrike,
@@ -333,7 +341,7 @@ contract IG is DVP {
 
     /// @inheritdoc DVP
     function _allocateLiquidity(uint256 initialCapital) internal virtual override {
-        Notional.Info storage liquidity = _liquidity[currentEpoch];
+        Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         // The impermanent gain DVP only has one strike:
         liquidity.setup(currentStrike);

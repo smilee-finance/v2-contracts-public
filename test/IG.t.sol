@@ -311,14 +311,13 @@ contract IGTest is Test {
         assertEq(epochNumbers, 2);
 
 
-
         ig.rollEpoch();
         uint256 nextEpoch = ig.currentEpoch();
         uint256 lastEpoch = ig.lastRolledEpoch();
-        (, uint256 epochNumbers_) = ig.getEpochs();
+        epochNumbers = ig.getNumberOfEpochs();
     
 
-        assertEq(epochNumbers_, 3);
+        assertEq(epochNumbers, 3);
         assertEq(previousEpoch, lastEpoch);
         assertNotEq(nextEpoch, firstExpiry);
         assertNotEq(nextEpoch, secondExpiry);

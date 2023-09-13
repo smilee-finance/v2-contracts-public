@@ -11,8 +11,11 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
+import {Epoch, EpochController} from "../src/lib/EpochController.sol";
 
 contract RegistryTest is Test {
+    using EpochController for Epoch;
+
     bytes4 constant MissingAddress = bytes4(keccak256("MissingAddress()"));
     TestnetRegistry registry;
     MockedIG dvp;
@@ -179,8 +182,11 @@ contract RegistryTest is Test {
 
         dvp2.rollEpoch();
 
-        uint256 timeToNextEpochDvp = dvp.timeToNextEpoch();
-        uint256 timeToNextEpochDvp2 = dvp2.timeToNextEpoch();
+        Epoch memory dvpEpoch = dvp.getEpoch();
+        Epoch memory dvp2Epoch = dvp2.getEpoch();
+
+        uint256 timeToNextEpochDvp = dvpEpoch.timeToNextEpoch();
+        uint256 timeToNextEpochDvp2 = dvp2Epoch.timeToNextEpoch();
 
         assertEq(0, timeToNextEpochDvp);
         assertApproxEqAbs(86400, timeToNextEpochDvp2, 10);

@@ -93,4 +93,8 @@ contract MockedVault is Vault {
             IERC20(token).transfer(msg.sender, absAmount);
         }
     }
+
+    function currentEpoch() external view returns (uint256) {
+        return getEpoch().current;
+    }
 }

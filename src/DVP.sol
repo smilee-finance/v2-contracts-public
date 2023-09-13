@@ -14,11 +14,13 @@ import {Position} from "./lib/Position.sol";
 import {SignedMath} from "./lib/SignedMath.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
+import {Epoch, EpochController} from "./lib/EpochController.sol";
 
 abstract contract DVP is IDVP, EpochControls {
     using AmountsMath for uint256;
     using Position for Position.Info;
     using Notional for Notional.Info;
+    using EpochController for Epoch;
 
     /// @inheritdoc IDVPImmutables
     address public immutable override baseToken;
@@ -66,7 +68,7 @@ abstract contract DVP is IDVP, EpochControls {
     error MissingPriceOracle();
     error SlippedMarketValue();
 
-    function _whenVaultIsNotPaused() private {
+    function _whenVaultIsNotPaused() private view {
         if (IEpochControls(vault).isPaused()) {
             revert VaultPaused();
         }
@@ -76,7 +78,7 @@ abstract contract DVP is IDVP, EpochControls {
         address vault_,
         bool optionType_,
         address addressProvider_
-    ) EpochControls(IEpochControls(vault_).epochFrequency()) {
+    ) EpochControls(IEpochControls(vault_).getEpoch().frequency) {
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);
@@ -106,13 +108,13 @@ abstract contract DVP is IDVP, EpochControls {
         Notional.Amount memory amount,
         uint256 expectedPremium,
         uint256 maxSlippage
-    ) internal epochInitialized epochNotFrozen whenNotPaused returns (uint256 premium_) {
-        _whenVaultIsNotPaused();
+    ) internal returns (uint256 premium_) {
+        _mintBurnChecks();
         if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
         }
 
-        Notional.Info storage liquidity = _liquidity[currentEpoch];
+        Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         // Check available liquidity:
         if (
@@ -145,8 +147,8 @@ abstract contract DVP is IDVP, EpochControls {
         liquidity.increaseUsage(strike, OptionStrategy.PUT, amount.down);
 
         // Create or update position:
-        Position.Info storage position = _getPosition(currentEpoch, recipient, strike);
-        position.epoch = currentEpoch;
+        Position.Info storage position = _getPosition(getEpoch().current, recipient, strike);
+        position.epoch = getEpoch().current;
         position.strike = strike;
         position.amountUp += amount.up;
         position.amountDown += amount.down;
@@ -169,7 +171,7 @@ abstract contract DVP is IDVP, EpochControls {
 
     /**
         @notice Burn or decrease a position.
-        @param epoch The epoch of the position.
+        @param epoch_ The epoch of the position.
         @param recipient The wallet of the recipient for the opened position.
         @param strike The strike
         @param amount The notional.
@@ -178,22 +180,22 @@ abstract contract DVP is IDVP, EpochControls {
         @return paidPayoff The paid payoff.
      */
     function _burn(
-        uint256 epoch,
+        uint256 epoch_,
         address recipient,
         uint256 strike,
         Notional.Amount memory amount,
         uint256 expectedMarketValue,
         uint256 maxSlippage
-    ) internal epochInitialized epochNotFrozen whenNotPaused returns (uint256 paidPayoff) {
-        _whenVaultIsNotPaused();
-        Position.Info storage position = _getPosition(epoch, msg.sender, strike);
+    ) internal returns (uint256 paidPayoff) {
+        _mintBurnChecks();
+        Position.Info storage position = _getPosition(epoch_, msg.sender, strike);
         if (!position.exists()) {
             revert PositionNotFound();
         }
 
         // // If the position reached maturity, the user must close the entire position
         // // NOTE: we have to avoid this due to the PositionManager that holds positions for multiple tokens.
-        // if (position.epoch != currentEpoch) {
+        // if (position.epoch != epoch.current) {
         //     amount = position.amount;
         // }
         if (amount.up == 0 && amount.down == 0) {
@@ -205,10 +207,10 @@ abstract contract DVP is IDVP, EpochControls {
             revert CantBurnMoreThanMinted();
         }
 
-        Notional.Info storage liquidity = _liquidity[epoch];
+        Notional.Info storage liquidity = _liquidity[epoch_];
 
         bool pastEpoch = true;
-        if (epoch == currentEpoch) {
+        if (epoch_ == getEpoch().current) {
             pastEpoch = false;
             // TBD: add comments
             uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
@@ -245,9 +247,24 @@ abstract contract DVP is IDVP, EpochControls {
         emit Burn(msg.sender);
     }
 
+    function _mintBurnChecks() private view {
+        Epoch memory epoch = getEpoch();
+        // Ensures that the current epoch holds a valid value
+        if (!epoch.isInitialized()) {
+            revert EpochNotInitialized();
+        }
+        // Ensures that the current epoch is not concluded
+        if (epoch.isFinished()) {
+            // NOTE: reverts also if the epoch has not been initialized
+            revert EpochFrozen();
+        }
+        _requireNotPaused();
+        _whenVaultIsNotPaused();
+    }
+
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override {
-        if (_isEpochInitialized()) {
+        if (getEpoch().isInitialized()) {
             // Accounts the payoff for each strike and strategy of the positions in circulation that is still to be redeemed:
             _accountResidualPayoffs();
             // Reserve the payoff of those positions:
@@ -284,7 +301,7 @@ abstract contract DVP is IDVP, EpochControls {
         @notice Utility function made in order to simplify the work done in _accountResidualPayoffs().
      */
     function _accountResidualPayoff(uint256 strike, bool strategy) internal {
-        Notional.Info storage liquidity = _liquidity[currentEpoch];
+        Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         // computes the payoff to be set aside at the end of the epoch for the provided strike and strategy.
         uint256 payoff_ = 0;
@@ -342,12 +359,12 @@ abstract contract DVP is IDVP, EpochControls {
 
     /// @inheritdoc IDVP
     function payoff(
-        uint256 epoch,
+        uint256 epoch_,
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown
     ) public view virtual returns (uint256 payoff_) {
-        Position.Info storage position = _getPosition(epoch, msg.sender, strike);
+        Position.Info storage position = _getPosition(epoch_, msg.sender, strike);
         if (!position.exists()) {
             // TBD: return 0
             revert PositionNotFound();
@@ -355,7 +372,7 @@ abstract contract DVP is IDVP, EpochControls {
 
         Notional.Amount memory amount_ = Notional.Amount({up: amountUp, down: amountDown});
 
-        if (position.epoch == currentEpoch) {
+        if (position.epoch == getEpoch().current) {
             // The user wants to know how much is her position worth before reaching maturity
             uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
             payoff_ = _getMarketValue(strike, amount_, false, swapPrice);
