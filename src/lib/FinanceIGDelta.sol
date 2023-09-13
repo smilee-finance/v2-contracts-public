@@ -3,8 +3,6 @@ pragma solidity ^0.8.21;
 
 import {SD59x18, sd} from "@prb/math/SD59x18.sol";
 import {UD60x18, ud} from "@prb/math/UD60x18.sol";
-import {InverseTrigonometry} from "@trigonometry/InverseTrigonometry.sol";
-import {Trigonometry} from "@trigonometry/Trigonometry.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {SignedMath} from "./SignedMath.sol";
 
@@ -34,85 +32,6 @@ library FinanceIGDelta {
         int256 alfa2;
     }
 
-    int256 internal constant MAX_EXP = 135305999368893231589;
-
-    ////// DELTA //////
-    /**
-     * @param alfa2 σB
-     * @return m
-     * @return q
-     * @dev m = (-0.22)σB + 1.8 + (σB^2 / 100)
-     * @dev q = 0.95σB - (σB^2 / 10)
-     */
-    function _mqParams(int256 alfa2) internal pure returns (int256 m, int256 q) {
-        uint256 alfaAbs = SignedMath.abs(alfa2);
-        uint256 alfaPow = SignedMath.pow2(alfa2);
-
-        m =
-            SignedMath.revabs(AmountsMath.wrapDecimals(22, 2).wmul(alfaAbs), false) +
-            SignedMath.castInt(AmountsMath.wrapDecimals(18, 1).add((alfaPow / 100)));
-
-        q = SignedMath.castInt(AmountsMath.wrapDecimals(95, 2).wmul(alfaAbs)) - (SignedMath.castInt(alfaPow) / 10);
-    }
-
-    /**
-        @notice Computes unitary delta hedge quantity for bull/bear options
-        @param params The set of Parameters to compute deltas
-        @return igDBull The unitary integer quantity of side token to hedge a bull position
-        @return igDBear The unitary integer quantity of side token to hedge a bear position
-        @dev the formulas are the ones for different ranges of liquidity
-    */
-    function igDeltas(Parameters calldata params) external pure returns (int256 igDBull, int256 igDBear) {
-        uint256 sigmaTaurtd = _sigmaTaurtd(params.sigma, params.tau);
-        int256 z = _z(params.s, params.k, sigmaTaurtd);
-        (int256 m, int256 q) = _mqParams(params.alfa2);
-
-        igDBull = bullDelta(z, sigmaTaurtd, params.limSup, m, q);
-        igDBear = bearDelta(z, sigmaTaurtd, params.limInf, m, q);
-    }
-
-    /// @dev limSup / (1 + e^(-m*z + a*q))
-    function bullDelta(int256 z, uint256 sigmaTaurtd, int256 limSup, int256 m, int256 q) public pure returns (int256) {
-        uint256 sigmaTaurtdPow = sigmaTaurtd.wmul(sigmaTaurtd);
-        int256 a = SignedMath.castInt(AmountsMath.wrapDecimals(9, 1)) -
-            (SignedMath.castInt(sigmaTaurtd) / 2) -
-            SignedMath.castInt(AmountsMath.wrapDecimals(4, 2).wmul(sigmaTaurtdPow));
-
-        // -m*z + a*q
-        int256 expE = SignedMath.revabs(
-            SignedMath.abs(m).wmul(SignedMath.abs(z)),
-            (m > 0 && z < 0) || (m < 0 && z > 0)
-        ) + SignedMath.revabs(SignedMath.abs(a).wmul(SignedMath.abs(q)), (a > 0 && q > 0) || (a < 0 && q < 0));
-        if (expE > MAX_EXP) {
-            return 0;
-        }
-        uint256 denom = 1e18 + sd(expE).exp().intoUint256();
-
-        return SignedMath.castInt(uint256(limSup).wdiv(denom));
-    }
-
-    /// @dev liminf / (1 + e^(m*z + b*q))
-    function bearDelta(int256 z, uint256 sigmaTaurtd, int256 limInf, int256 m, int256 q) public pure returns (int256) {
-        uint256 sigmaTaurtdPow = SignedMath.pow2(SignedMath.castInt(sigmaTaurtd));
-
-        uint256 b = AmountsMath.wrapDecimals(95, 2).add(sigmaTaurtd / 2).add(
-            (AmountsMath.wrapDecimals(8, 2).wmul(sigmaTaurtdPow))
-        );
-
-        // m*z + b*q
-        int256 expE = SignedMath.revabs(
-            SignedMath.abs(m).wmul(SignedMath.abs(z)),
-            (m > 0 && z > 0) || (m < 0 && z < 0)
-        ) + SignedMath.revabs(b.wmul(SignedMath.abs(q)), (q > 0));
-        if (expE > MAX_EXP) {
-            return 0;
-        }
-
-        uint256 denom = 1e18 + sd(expE).exp().intoUint256();
-        return SignedMath.revabs(SignedMath.abs(limInf).wdiv(denom), limInf > 0);
-    }
-
-    // ToDo: add theta and Kb
     struct DeltaHedgeParameters {
         int256 igDBull;
         int256 igDBear;
@@ -130,9 +49,104 @@ library FinanceIGDelta {
         uint256 kb;
     }
 
-    // ToDo: change formula (v6)
-    // ----- NOTE: S0 := K = strike
-    function h(DeltaHedgeParameters memory params) public pure returns (int256 tokensToSwap) {
+    int256 internal constant _MAX_EXP = 135305999368893231589;
+
+    ////// DELTA //////
+    /**
+     * @param alfa2 σB
+     * @return m
+     * @return q
+     * @dev m = (-0.22)σB + 1.8 + (σB^2 / 100)
+     * @dev q = 0.95σB - (σB^2 / 10)
+     */
+    function mqParams(int256 alfa2) internal pure returns (int256 m, int256 q) {
+        uint256 alfaAbs = SignedMath.abs(alfa2);
+        uint256 alfaSqrd = SignedMath.pow2(alfa2);
+
+        m = SignedMath.revabs((alfaAbs * 22) / 100, false) + SignedMath.castInt(uint256(1.8e18).add((alfaSqrd / 100)));
+        q = SignedMath.castInt((alfaAbs * 95) / 100) - (SignedMath.castInt(alfaSqrd) / 10);
+    }
+
+    /**
+        @notice Computes unitary delta hedge quantity for bull/bear options
+        @param params The set of Parameters to compute deltas
+        @return igDBull The unitary integer quantity of side token to hedge a bull position
+        @return igDBear The unitary integer quantity of side token to hedge a bear position
+        @dev the formulas are the ones for different ranges of liquidity
+    */
+    function deltaHedgePercentages(Parameters calldata params) external pure returns (int256 igDBull, int256 igDBear) {
+        uint256 sigmaTaurtd = _sigmaTaurtd(params.sigma, params.tau);
+        int256 z = _z(params.s, params.k, sigmaTaurtd);
+        (int256 m, int256 q) = mqParams(params.alfa2);
+
+        igDBull = bullDelta(z, sigmaTaurtd, params.limSup, m, q);
+        igDBear = bearDelta(z, sigmaTaurtd, params.limInf, m, q);
+    }
+
+    /// @dev limSup / (1 + e^(-m*z + a*q))
+    function bullDelta(
+        int256 z,
+        uint256 sigmaTaurtd,
+        int256 limSup,
+        int256 m,
+        int256 q
+    ) internal pure returns (int256) {
+        uint256 sigmaTaurtdSquared = sigmaTaurtd.wmul(sigmaTaurtd);
+
+        // a := 0.9 - σ√τ / 2 - 0.04 * (σ√τ)^2
+        int256 a = int256(0.9e18) -
+            (SignedMath.castInt(sigmaTaurtd) / 2) -
+            SignedMath.castInt((sigmaTaurtdSquared * 4) / 100);
+
+        // -m*z + a*q
+        int256 expE = SignedMath.revabs(
+            SignedMath.abs(m).wmul(SignedMath.abs(z)),
+            (m > 0 && z < 0) || (m < 0 && z > 0)
+        ) + SignedMath.revabs(SignedMath.abs(a).wmul(SignedMath.abs(q)), (a > 0 && q > 0) || (a < 0 && q < 0));
+        if (expE > _MAX_EXP) {
+            return 0;
+        }
+        uint256 denom = 1e18 + sd(expE).exp().intoUint256();
+
+        return SignedMath.castInt(uint256(limSup).wdiv(denom));
+    }
+
+    /// @dev liminf / (1 + e^(m*z + b*q))
+    function bearDelta(
+        int256 z,
+        uint256 sigmaTaurtd,
+        int256 limInf,
+        int256 m,
+        int256 q
+    ) internal pure returns (int256) {
+        uint256 sigmaTaurtdSquared = sigmaTaurtd.wmul(sigmaTaurtd);
+
+        // b := 0.95 + σ√τ / 2 + 0.08 * (σ√τ)^2
+        uint256 b = uint256(0.95e18).add(sigmaTaurtd / 2).add(((sigmaTaurtdSquared * 8) / 100));
+
+        // m*z + b*q
+        int256 expE = SignedMath.revabs(
+            SignedMath.abs(m).wmul(SignedMath.abs(z)),
+            (m > 0 && z > 0) || (m < 0 && z < 0)
+        ) + SignedMath.revabs(b.wmul(SignedMath.abs(q)), (q > 0));
+        if (expE > _MAX_EXP) {
+            return 0;
+        }
+
+        uint256 denom = 1e18 + sd(expE).exp().intoUint256();
+        return SignedMath.revabs(SignedMath.abs(limInf).wdiv(denom), limInf > 0);
+    }
+
+    function deltaHedgeAmount(DeltaHedgeParameters memory params) public pure returns (int256 tokensToSwap) {
+        return _h(params);
+    }
+
+    /**
+        @notice Return the amount of side tokens to swap.
+        @param params The DeltaHedgeParameters info
+        @return tokensToSwap An integer amount, positive when there are side tokens in excess (need to sell) and negative vice versa
+     */
+    function _h(DeltaHedgeParameters memory params) internal pure returns (int256 tokensToSwap) {
         params.initialLiquidityBull = AmountsMath.wrapDecimals(params.initialLiquidityBull, params.baseTokenDecimals);
         params.initialLiquidityBear = AmountsMath.wrapDecimals(params.initialLiquidityBear, params.baseTokenDecimals);
         params.availableLiquidityBull = AmountsMath.wrapDecimals(
@@ -147,7 +161,6 @@ library FinanceIGDelta {
         uint256 notionalUp = AmountsMath.wrapDecimals(SignedMath.abs(params.notionalUp), params.baseTokenDecimals);
         uint256 notionalDown = AmountsMath.wrapDecimals(SignedMath.abs(params.notionalDown), params.baseTokenDecimals);
         params.sideTokensAmount = AmountsMath.wrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
-        uint256 two = AmountsMath.wrap(2);
 
         uint256 notionalBull = params.availableLiquidityBull;
         if (params.notionalUp >= 0) {
@@ -194,21 +207,21 @@ library FinanceIGDelta {
         uint256 kb,
         uint256 teta,
         uint256 v0
-    ) public pure returns (int256 limSup, int256 limInf) {
+    ) public pure returns (int256 limSup_, int256 limInf_) {
         uint256 krtd = ud(k).sqrt().unwrap();
         uint256 tetaK = teta.wmul(k);
-        limSup = _limSup(krtd, kb, tetaK, v0);
-        limInf = _limInf(krtd, ka, tetaK, v0);
+        limSup_ = _limSup(krtd, kb, tetaK, v0);
+        limInf_ = _limInf(krtd, ka, tetaK, v0);
     }
 
     /// @dev V0 * ((√Kb - √K) / (θ K √Kb))
-    function _limSup(uint256 krtd, uint256 kb, uint256 tetaK, uint256 v0) public pure returns (int256) {
+    function _limSup(uint256 krtd, uint256 kb, uint256 tetaK, uint256 v0) internal pure returns (int256) {
         uint256 kbrtd = ud(kb).sqrt().unwrap();
         return SignedMath.castInt((kbrtd - krtd).wdiv(tetaK.wmul(kbrtd)).wmul(v0));
     }
 
     /// @dev V0 * (√Ka - √K) / (θ K √Ka)
-    function _limInf(uint256 krtd, uint256 ka, uint256 tetaK, uint256 v0) public pure returns (int256) {
+    function _limInf(uint256 krtd, uint256 ka, uint256 tetaK, uint256 v0) internal pure returns (int256) {
         uint256 kartd = ud(ka).sqrt().unwrap();
         return SignedMath.revabs((krtd - kartd).wdiv(tetaK.wmul(kartd)).wmul(v0), false);
     }
@@ -224,7 +237,7 @@ library FinanceIGDelta {
         @return alfa2 α2 = ln(Kb / K) / σ√T [= -α1 when log-symmetric Ka - K - Kb]
         // T è D-X/365 dove D è il giorno della scadenza e X è il giorno attuale (7-2/365);
      */
-    function _alfas(
+    function alfas(
         uint256 k,
         uint256 ka,
         uint256 kb,
@@ -242,20 +255,13 @@ library FinanceIGDelta {
         }
     }
 
-    /// @dev arctanx = arcsin x / √(1 + x^2)
-    function atan(int256 x) public pure returns (int256 result) {
-        uint256 xAbs = SignedMath.abs(x);
-        uint256 den = ud(1e18 + xAbs.wmul(xAbs)).sqrt().unwrap();
-        return InverseTrigonometry.arcsin(SignedMath.revabs(xAbs.wdiv(den), x > 0));
-    }
-
     /// @dev σ√τ
-    function _sigmaTaurtd(uint256 sigma, uint256 tau) public pure returns (uint256) {
+    function _sigmaTaurtd(uint256 sigma, uint256 tau) internal pure returns (uint256) {
         return sigma.wmul(ud(tau).sqrt().unwrap());
     }
 
     /// @dev ln(S / K) / σ√τ
-    function _z(uint256 s, uint256 k, uint256 sigmaTaurtd) public pure returns (int256) {
+    function _z(uint256 s, uint256 k, uint256 sigmaTaurtd) internal pure returns (int256) {
         int256 n = sd(SignedMath.castInt(s.wdiv(k))).ln().unwrap();
         return SignedMath.revabs(SignedMath.abs(n).wdiv(sigmaTaurtd), n > 0);
     }

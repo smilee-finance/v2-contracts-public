@@ -183,7 +183,7 @@ contract IG is DVP {
 
         {
             uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(block.timestamp, currentEpoch));
-            (_currentFinanceParameters.alphaA, _currentFinanceParameters.alphaB) = FinanceIGDelta._alfas(
+            (_currentFinanceParameters.alphaA, _currentFinanceParameters.alphaB) = FinanceIGDelta.alfas(
                 strike,
                 _currentFinanceParameters.kA,
                 _currentFinanceParameters.kB,
@@ -205,7 +205,7 @@ contract IG is DVP {
                 deltaParams.alfa2 = _currentFinanceParameters.alphaB;
             }
 
-            (params.igDBull, params.igDBear) = FinanceIGDelta.igDeltas(deltaParams);
+            (params.igDBull, params.igDBear) = FinanceIGDelta.deltaHedgePercentages(deltaParams);
 
             params.strike = strike;
             (, params.sideTokensAmount) = IVault(vault).balances();
@@ -224,7 +224,7 @@ contract IG is DVP {
             params.kb = _currentFinanceParameters.kB;
         }
 
-        int256 tokensToSwap = FinanceIGDelta.h(params);
+        int256 tokensToSwap = FinanceIGDelta.deltaHedgeAmount(params);
         if (tokensToSwap == 0) {
             return oraclePrice;
         }

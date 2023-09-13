@@ -3,8 +3,8 @@
 
 
 import json
+import sys
 
-chainid = [31338]
 scripts = {
     "01_CoreFoundations.s.sol": ["run"],
     "02_Token.s.sol": ["deployToken"],
@@ -13,9 +13,15 @@ scripts = {
 
 contracts = {}
 
+chainid = 31337
+if len(sys.argv) <= 1:
+    print("Missing chain id parameter, using 31337")
+else:
+    chainid = sys.argv[1]
+
 for k in scripts.keys():
     for fun in scripts[k]:
-        f = open(f"broadcast/{k}/{chainid[0]}/{fun}-latest.json")
+        f = open(f"broadcast/{k}/{chainid}/{fun}-latest.json")
         data = json.load(f)
 
         create_ct_txs = [tx for tx in data["transactions"] if tx["transactionType"] == "CREATE"]

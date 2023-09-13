@@ -303,11 +303,7 @@ library FinanceIGPrice {
 
     /// @dev σ√τ
     function _sigmaTaurtd(uint256 sigma, uint256 tau) public pure returns (uint256) {
-        UD60x18 sigmax18 = ud(sigma);
-        UD60x18 taux18 = ud(tau);
-
-        UD60x18 res = sigmax18.mul(taux18.sqrt());
-        return res.unwrap();
+        return sigma.wmul(ud(tau).sqrt().unwrap());
     }
 
     //////  OTHER //////

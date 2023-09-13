@@ -148,7 +148,7 @@ contract FinanceLibJsonTest is Test {
                 uint256 counterStack = counter++;
                 TestCaseJson memory t = scenario.testCases[j];
                 uint256 tau = WadTime.nYears(t.tau);
-                (alfa1, alfa2) = FinanceIGDelta._alfas(scenario.constants.k, scenario.constants.ka, scenario.constants.kb, scenario.constants.sigma, tau);
+                (alfa1, alfa2) = FinanceIGDelta.alfas(scenario.constants.k, scenario.constants.ka, scenario.constants.kb, scenario.constants.sigma, tau);
                 FinanceIGDelta.Parameters memory deltaParams = FinanceIGDelta.Parameters(
                     scenario.constants.sigma,
                     scenario.constants.k,
@@ -181,12 +181,7 @@ contract FinanceLibJsonTest is Test {
         for (uint s = 0; s < scenariosNumber; s++) {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
-                uint256 sigmaTaurtd = FinanceIGDelta._sigmaTaurtd(testCases[i].deltaParams.sigma, testCases[i].deltaParams.tau);
-                int256 x = FinanceIGDelta._z(testCases[i].deltaParams.s, testCases[i].deltaParams.k, sigmaTaurtd);
-
-                assertApproxEqAbs(testCases[i].delta.x, x, D_ERR);
-
-                (int256 igDBull, int256 igDBear) = FinanceIGDelta.igDeltas(testCases[i].deltaParams);
+                (int256 igDBull, int256 igDBear) = FinanceIGDelta.deltaHedgePercentages(testCases[i].deltaParams);
 
                 assertApproxEqAbs(testCases[i].delta.igDBull, igDBull, D_ERR);
                 assertApproxEqAbs(testCases[i].delta.igDBear, igDBear, D_ERR);
