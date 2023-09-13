@@ -144,7 +144,11 @@ contract IG is DVP {
     ) public view returns (uint256 sigma) {
         uint256 baselineVolatility = _currentFinanceParameters.sigmaZero;
 
-        uint256 U = _getPostTradeUtilizationRate(amount, tradeIsBuy);
+        uint256 U = _liquidity[currentEpoch].postTradeUtilizationRate(
+            currentStrike,
+            AmountsMath.wrapDecimals(amount.up + amount.down, _baseTokenDecimals),
+            tradeIsBuy
+        );
         uint256 t0 = lastRolledEpoch();
         uint256 T = currentEpoch - t0;
 
@@ -159,31 +163,6 @@ contract IG is DVP {
                     t0
                 )
             );
-    }
-
-    // TBD: move into library
-    // TBD: inline
-    /**
-        @notice Preview the utilization rate that will result from a given trade.
-        @param amount The trade notional (positive for buy, negative for sell).
-        @return utilizationRate The post-trade utilization rate.
-     */
-    function _getPostTradeUtilizationRate(
-        Notional.Amount memory amount,
-        bool tradeIsBuy
-    ) internal view returns (uint256 utilizationRate) {
-        (uint256 used, uint256 total) = _getUtilizationRateFactors();
-        if (total == 0) {
-            return 0;
-        }
-        uint256 amountWad = AmountsMath.wrapDecimals(amount.up + amount.down, _baseTokenDecimals);
-
-        // TBD: check division by zero
-        if (tradeIsBuy) {
-            return (used.add(amountWad)).wdiv(total);
-        } else {
-            return (used.sub(amountWad)).wdiv(total);
-        }
     }
 
     // TBD: wrap parameters in a "Trade" struct
@@ -363,16 +342,5 @@ contract IG is DVP {
         uint256 halfInitialCapital = initialCapital / 2;
         liquidity.setInitial(currentStrike, OptionStrategy.CALL, halfInitialCapital);
         liquidity.setInitial(currentStrike, OptionStrategy.PUT, initialCapital - halfInitialCapital);
-    }
-
-    /// @inheritdoc DVP
-    function _getUtilizationRateFactors() internal view virtual override returns (uint256 used, uint256 total) {
-        Notional.Info storage liquidity = _liquidity[currentEpoch];
-
-        used += liquidity.getUsed(currentStrike, OptionStrategy.CALL);
-        used += liquidity.getUsed(currentStrike, OptionStrategy.PUT);
-
-        total += liquidity.getInitial(currentStrike, OptionStrategy.CALL);
-        total += liquidity.getInitial(currentStrike, OptionStrategy.PUT);
     }
 }

@@ -24,17 +24,20 @@ abstract contract DVP is IDVP, EpochControls {
     address public immutable override baseToken;
     /// @inheritdoc IDVPImmutables
     address public immutable override sideToken;
-    // /// @inheritdoc IDVPImmutables
+    /// @inheritdoc IDVPImmutables
     bool public immutable override optionType; // ToDo: review (it's a DVPType)
     /// @inheritdoc IDVP
     address public immutable override vault;
+
     AddressProvider internal immutable _addressProvider;
+    uint8 internal immutable _baseTokenDecimals;
+    uint8 internal immutable _sideTokenDecimals;
+
     /// @dev mutable parameter for the computation of the trade volatility
     uint256 internal _tradeVolatilityUtilizationRateFactor;
     /// @dev mutable parameter for the computation of the trade volatility
     uint256 internal _tradeVolatilityTimeDecay;
-    uint8 internal immutable _baseTokenDecimals;
-    uint8 internal immutable _sideTokenDecimals;
+
     // ToDo: define lot size
 
     // TBD: extract payoff from Notional.Info
@@ -63,11 +66,10 @@ abstract contract DVP is IDVP, EpochControls {
     error MissingPriceOracle();
     error SlippedMarketValue();
 
-    modifier whenVaultIsNotPaused() {
+    function _whenVaultIsNotPaused() private {
         if (IEpochControls(vault).isPaused()) {
             revert VaultPaused();
         }
-        _;
     }
 
     constructor(
@@ -104,7 +106,8 @@ abstract contract DVP is IDVP, EpochControls {
         Notional.Amount memory amount,
         uint256 expectedPremium,
         uint256 maxSlippage
-    ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 premium_) {
+    ) internal epochInitialized epochNotFrozen whenNotPaused returns (uint256 premium_) {
+        _whenVaultIsNotPaused();
         if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
         }
@@ -181,7 +184,8 @@ abstract contract DVP is IDVP, EpochControls {
         Notional.Amount memory amount,
         uint256 expectedMarketValue,
         uint256 maxSlippage
-    ) internal epochInitialized epochNotFrozen whenNotPaused whenVaultIsNotPaused returns (uint256 paidPayoff) {
+    ) internal epochInitialized epochNotFrozen whenNotPaused returns (uint256 paidPayoff) {
+        _whenVaultIsNotPaused();
         Position.Info storage position = _getPosition(epoch, msg.sender, strike);
         if (!position.exists()) {
             revert PositionNotFound();
@@ -352,13 +356,11 @@ abstract contract DVP is IDVP, EpochControls {
         Notional.Amount memory amount_ = Notional.Amount({up: amountUp, down: amountDown});
 
         if (position.epoch == currentEpoch) {
-            // The user wants to know how much it can receive from selling the position before its maturity:
+            // The user wants to know how much is her position worth before reaching maturity
             uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
             payoff_ = _getMarketValue(strike, amount_, false, swapPrice);
         } else {
-            // // The position reached maturity, hence the user must close the entire position:
-            // // NOTE: we have to avoid this due to the PositionManager that holds positions for multiple tokens.
-            // positionAmount = position.amount;
+            // The position expired, the user must close the entire position
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
             if (amount_.up > 0) {
                 payoff_ += _liquidity[position.epoch].shareOfPayoff(
@@ -394,23 +396,6 @@ abstract contract DVP is IDVP, EpochControls {
     ) internal view returns (Position.Info storage position_) {
         return _epochPositions[epoch][Position.getID(owner, strike)];
     }
-
-    /**
-        @notice Get the overall used and total liquidity of the current epoche, independent of strike and strategy.
-        @return used The overall used liquidity.
-        @return total The overall liquidity.
-     */
-    function _getUtilizationRateFactors() internal view virtual returns (uint256 used, uint256 total);
-
-    // TBD: is this needed ?
-    // function getUtilizationRate() public view returns (uint256) {
-    //     (uint256 used, uint256 total) = _getUtilizationRateFactors();
-
-    //     used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
-    //     total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
-
-    //     return used.wdiv(total);
-    // }
 
     // TBD: make an updateMarketOracle instead of a getter
     function _getMarketOracle() internal view returns (address) {

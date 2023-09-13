@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {AmountsMath} from "./AmountsMath.sol";
+import {OptionStrategy} from "./OptionStrategy.sol";
 
 /**
     @title Simple library to ease DVP liquidity access and modification
@@ -128,20 +129,20 @@ library Notional {
     }
 
     /**
-        @notice Record the redeem of part of the residual payoff setted aside for the expired options not yet redeemed.
-        @param strike the reference strike.
-        @param strategy the reference strategy.
-        @param amount the redeemed payoff.
+        @notice Record the redeem of part of the residual payoff setted aside for the expired options not yet redeemed
+        @param strike The reference strike
+        @param strategy The reference strategy
+        @param amount The redeemed payoff
      */
     function decreasePayoff(Info storage self, uint256 strike, bool strategy, uint256 amount) public {
         self.payoff[strike][_strategyIdx(strategy)] -= amount;
     }
 
     /**
-        @notice Get the residual payoff setted aside for the expired options not yet redeemed.
-        @param strike the reference strike.
-        @param strategy the reference strategy.
-        @return payoff_ the payoff set aside.
+        @notice Get the residual payoff setted aside for the expired options not yet redeemed
+        @param strike The reference strike
+        @param strategy The reference strategy
+        @return payoff_ The payoff set aside
      */
     function getAccountedPayoff(
         Info storage self,
@@ -152,13 +153,13 @@ library Notional {
     }
 
     /**
-        @notice Get the share of residual payoff setted aside for the given expired position.
-        @param strike the position strike.
-        @param strategy the position strategy.
-        @param amount the position notional.
-        @param decimals the notional's token number of decimals.
-        @return payoff_ the owed payoff.
-        @dev It relies on the calls of decreaseUsage and decreasePayoff after each position is decreased.
+        @notice Get the share of residual payoff setted aside for the given expired position
+        @param strike The position strike
+        @param strategy The position strategy
+        @param amount The position notional
+        @param decimals The notional's token number of decimals
+        @return payoff_ The owed payoff
+        @dev It relies on the calls of decreaseUsage and decreasePayoff after each position is decreased
      */
     function shareOfPayoff(
         Info storage self,
@@ -174,5 +175,44 @@ library Notional {
         // amount : used = share : payoff
         payoff_ = amount.wmul(payoff).wdiv(used);
         payoff_ = AmountsMath.unwrapDecimals(payoff_, decimals);
+    }
+
+    /**
+        @notice Get the overall used and total liquidity for a given strike
+        @return used The overall used liquidity
+        @return total The overall liquidity
+     */
+    function utilizationRateFactors(
+        Info storage self,
+        uint256 strike
+    ) public view returns (uint256 used, uint256 total) {
+        used += getUsed(self, strike, OptionStrategy.CALL);
+        used += getUsed(self, strike, OptionStrategy.PUT);
+        total += getInitial(self, strike, OptionStrategy.CALL);
+        total += getInitial(self, strike, OptionStrategy.PUT);
+    }
+
+    /**
+        @notice Get the utilization rate that will result after a given trade
+        @param amount The trade notional for CALL and PUT strategies
+        @param tradeIsBuy True for a buy trade, false for sell
+        @return utilizationRate The post-trade utilization rate
+     */
+    function postTradeUtilizationRate(
+        Info storage self,
+        uint256 strike,
+        uint256 amount,
+        bool tradeIsBuy
+    ) public view returns (uint256 utilizationRate) {
+        (uint256 used, uint256 total) = utilizationRateFactors(self, strike);
+        if (total == 0) {
+            return 0;
+        }
+
+        if (tradeIsBuy) {
+            return (used.add(amount)).wdiv(total);
+        } else {
+            return (used.sub(amount)).wdiv(total);
+        }
     }
 }

@@ -12,6 +12,7 @@ import {IG} from "../../src/IG.sol";
 //ToDo: Add comments
 contract MockedIG is IG {
     using AmountsMath for uint256;
+    using Notional for Notional.Info;
 
     bool internal _fakePremium;
     bool internal _fakePayoff;
@@ -98,7 +99,7 @@ contract MockedIG is IG {
     }
 
     function getUtilizationRate() public view returns (uint256) {
-        (uint256 used, uint256 total) = _getUtilizationRateFactors();
+        (uint256 used, uint256 total) = _liquidity[currentEpoch].utilizationRateFactors(currentStrike);
 
         used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
         total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
