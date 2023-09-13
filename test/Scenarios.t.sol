@@ -147,6 +147,21 @@ contract TestScenariosJson is Test {
         _checkScenario("scenario_4");
     }
 
+    function testScenario5() public {
+        _checkScenario("scenario_5");
+    }
+
+    function testScenario6() public {
+        _checkScenario("scenario_6");
+    }
+
+    function testScenario7() public {
+        _checkScenario("scenario_7");
+    }
+
+    function testScenario8() public {
+        _checkScenario("scenario_8");
+    }
 
     function _checkScenario(string memory scenarioName) internal {
         console.log(string.concat("Executing scenario: ", scenarioName));

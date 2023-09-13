@@ -1,0 +1,191 @@
+{
+    "startEpoch": {
+        "post": {
+            "baseTokenAmount": 50000000000000000000000,
+            "sideTokenAmount": 26315789474000000000,
+            "strike": 1900000000000000000000,
+            "kA": 827740291430000000000,
+            "kB": 4361271327940000000000,
+            "theta": 679920030000000000,
+            "limInf": -39869992691600000000,
+            "limSup": 26315789473700000000
+        },
+        "pre": {
+            "sideTokenPrice": 1900000000000000000000,
+            "impliedVolatility": 2000000000000000000,
+            "riskFreeRate": 30000000000000000,
+            "tradeVolatilityUtilizationRateFactor": 2000000000000000000,
+            "tradeVolatilityTimeDecay": 250000000000000000,
+            "sigmaMultiplier": 3000000000000000000
+        },
+        "v0": 100000000000000000000000,
+        "duration": 7000000000000000000
+    },
+    "tradeNumber": 6,
+    "trades": [
+        {
+            "pre": {
+                "sideTokenPrice": 1900000000000000000000,
+                "volatility": 1735700000000000000,
+                "riskFreeRate": 30000000000000000,
+                "baseTokenAmount": 50000000000000000000000,
+                "sideTokenAmount": 26315789474000000000,
+                "utilizationRate": 0,
+                "availableNotionalBear": 50000000000000000000000,
+                "availableNotionalBull": 50000000000000000000000
+            },
+            "post": {
+                "marketValue": 181846508067000000000,
+                "volatility": 1737500000000000000,
+                "baseTokenAmount": 50921031297520300000000,
+                "sideTokenAmount": 25926744848000000000,
+                "utilizationRate": 100000000000000000,
+                "availableNotionalBear": 45000000000000000000000,
+                "availableNotionalBull": 45000000000000000000000
+            },
+            "elapsedTimeSeconds": 86400,
+            "amountUp": 5000000000000000000000,
+            "amountDown": 5000000000000000000000,
+            "isMint": true,
+            "epochOfBurnedPosition": 0
+        },
+        {
+            "pre": {
+                "sideTokenPrice": 2300000000000000000000,
+                "volatility": 1673100000000000000,
+                "riskFreeRate": 30000000000000000,
+                "baseTokenAmount": 50921030000000000000000,
+                "sideTokenAmount": 25926744848000000000,
+                "utilizationRate": 100000000000000000,
+                "availableNotionalBear": 45000000000000000000000,
+                "availableNotionalBull": 45000000000000000000000
+            },
+            "post": {
+                "marketValue": 305265851087000000000,
+                "volatility": 1684800000000000000,
+                "baseTokenAmount": 63259203580612000000000,
+                "sideTokenAmount": 20695046399000000000,
+                "utilizationRate": 200000000000000000,
+                "availableNotionalBear": 40000000000000000000000,
+                "availableNotionalBull": 40000000000000000000000
+            },
+            "elapsedTimeSeconds": 86400,
+            "amountUp": 5000000000000000000000,
+            "amountDown": 5000000000000000000000,
+            "isMint": true,
+            "epochOfBurnedPosition": 0
+        },
+        {
+            "pre": {
+                "sideTokenPrice": 2500000000000000000000,
+                "volatility": 1620000000000000000,
+                "riskFreeRate": 30000000000000000,
+                "baseTokenAmount": 63259200000000000000000,
+                "sideTokenAmount": 20695046399000000000,
+                "utilizationRate": 200000000000000000,
+                "availableNotionalBear": 40000000000000000000000,
+                "availableNotionalBull": 40000000000000000000000
+            },
+            "post": {
+                "marketValue": 444521563520000000000,
+                "volatility": 1650500000000000000,
+                "baseTokenAmount": 67999387847655000000000,
+                "sideTokenAmount": 18976781318000000000,
+                "utilizationRate": 300000000000000000,
+                "availableNotionalBear": 35000000000000000000000,
+                "availableNotionalBull": 35000000000000000000000
+            },
+            "elapsedTimeSeconds": 86400,
+            "amountUp": 5000000000000000000000,
+            "amountDown": 5000000000000000000000,
+            "isMint": true,
+            "epochOfBurnedPosition": 0
+        },
+        {
+            "pre": {
+                "sideTokenPrice": 3000000000000000000000,
+                "volatility": 1584500000000000000,
+                "riskFreeRate": 30000000000000000,
+                "baseTokenAmount": 67999390000000000000000,
+                "sideTokenAmount": 18976781318000000000,
+                "utilizationRate": 300000000000000000,
+                "availableNotionalBear": 35000000000000000000000,
+                "availableNotionalBull": 35000000000000000000000
+            },
+            "post": {
+                "marketValue": 1071107801450000000000,
+                "volatility": 1641600000000000000,
+                "baseTokenAmount": 80303836552150000000000,
+                "sideTokenAmount": 15232334350000000000,
+                "utilizationRate": 400000000000000000,
+                "availableNotionalBear": 30000000000000000000000,
+                "availableNotionalBull": 30000000000000000000000
+            },
+            "elapsedTimeSeconds": 86400,
+            "amountUp": 5000000000000000000000,
+            "amountDown": 5000000000000000000000,
+            "isMint": true,
+            "epochOfBurnedPosition": 0
+        },
+        {
+            "pre": {
+                "sideTokenPrice": 3500000000000000000000,
+                "volatility": 1573200000000000000,
+                "riskFreeRate": 30000000000000000,
+                "baseTokenAmount": 80303840000000000000000,
+                "sideTokenAmount": 15232334350000000000,
+                "utilizationRate": 400000000000000000,
+                "availableNotionalBear": 30000000000000000000000,
+                "availableNotionalBull": 30000000000000000000000
+            },
+            "post": {
+                "marketValue": 12590962913216000000000,
+                "volatility": 2957100000000000000,
+                "baseTokenAmount": 54102706532008000000000,
+                "sideTokenAmount": 26315789474000000000,
+                "utilizationRate": 1000000000000000000,
+                "availableNotionalBear": 0,
+                "availableNotionalBull": 0
+            },
+            "elapsedTimeSeconds": 86400,
+            "amountUp": 30000000000000000000000,
+            "amountDown": 30000000000000000000000,
+            "isMint": true,
+            "epochOfBurnedPosition": 0
+        },
+        {
+            "pre": {
+                "sideTokenPrice": 4000000000000000000000,
+                "volatility": 2828600000000000000,
+                "riskFreeRate": 30000000000000000,
+                "baseTokenAmount": 54102710000000000000000,
+                "sideTokenAmount": 26315789474000000000,
+                "utilizationRate": 1000000000000000000,
+                "availableNotionalBear": 0,
+                "availableNotionalBull": 0
+            },
+            "post": {
+                "marketValue": 30191755406277000000000,
+                "volatility": 1414300000000000000,
+                "baseTokenAmount": 126328649513722000000000,
+                "sideTokenAmount": 711364877000000000,
+                "utilizationRate": 0,
+                "availableNotionalBear": 50000000000000000000000,
+                "availableNotionalBull": 50000000000000000000000
+            },
+            "elapsedTimeSeconds": 86400,
+            "amountUp": 50000000000000000000000,
+            "amountDown": 50000000000000000000000,
+            "isMint": false,
+            "epochOfBurnedPosition": 0
+        }
+    ],
+    "rebalance": {
+        "depositAmount": 40000000000000000000000,
+        "withdrawSharesAmount": 20000000000000000000000,
+        "baseTokenAmount": 71669643608187000000000,
+        "sideTokenAmount": 17917410902000000000,
+        "sideTokenPrice": 4000000000000000000000,
+        "v0": 143339290000000000000000
+    }
+}
