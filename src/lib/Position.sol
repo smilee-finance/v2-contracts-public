@@ -32,7 +32,7 @@ library Position {
         @param self The position to update.
         @dev a position exists if its epoch is set.
      */
-    function exists(Info storage self) public view returns (bool) {
+    function exists(Info memory self) public pure returns (bool) {
         return self.epoch != 0;
     }
 }

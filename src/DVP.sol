@@ -45,7 +45,6 @@ abstract contract DVP is IDVP, EpochControls {
      */
     mapping(uint256 => Notional.Info) internal _liquidity;
 
-    // ToDo: review definition of position ID
     // TBD: use a user-defined type for the position ID, as well as for the epoch
     /**
         @notice Users positions
@@ -63,25 +62,20 @@ abstract contract DVP is IDVP, EpochControls {
     error MissingPriceOracle();
     error SlippedMarketValue();
 
-    function _whenVaultIsNotPaused() private view {
-        if (IEpochControls(vault).isPaused()) {
-            revert VaultPaused();
-        }
-    }
-
     constructor(
         address vault_,
         bool optionType_,
         address addressProvider_
     ) EpochControls(IEpochControls(vault_).getEpoch().frequency) {
+        // ToDo: validate parameters
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);
         baseToken = vaultCt.baseToken();
         sideToken = vaultCt.sideToken();
-        _addressProvider = AddressProvider(addressProvider_);
         _baseTokenDecimals = IToken(baseToken).decimals();
         _sideTokenDecimals = IToken(sideToken).decimals();
+        _addressProvider = AddressProvider(addressProvider_);
     }
 
     /**
@@ -106,7 +100,8 @@ abstract contract DVP is IDVP, EpochControls {
             revert AmountZero();
         }
 
-        Notional.Info storage liquidity = _liquidity[getEpoch().current];
+        Epoch memory epoch = getEpoch();
+        Notional.Info storage liquidity = _liquidity[epoch.current];
 
         // Check available liquidity:
         if (
@@ -121,8 +116,7 @@ abstract contract DVP is IDVP, EpochControls {
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         // Revert if actual price exceeds the previewed premium
-        // ----- TBD: use the approved premium as a reference ? No due to the PositionManager...
-        // ----- TBD: Right now we may choose to use a DVP-wide slippage of +10% (-10% for burn).
+        // NOTE: cannot use the approved premium as a reference due to the PositionManager...
         if (premium_ > expectedPremium + expectedPremium.wmul(maxSlippage)) {
             revert SlippedMarketValue();
         }
@@ -135,12 +129,11 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         // Decrease available liquidity:
-        liquidity.increaseUsage(strike, OptionStrategy.CALL, amount.up);
-        liquidity.increaseUsage(strike, OptionStrategy.PUT, amount.down);
+        liquidity.increaseUsage(strike, amount);
 
         // Create or update position:
-        Position.Info storage position = _getPosition(getEpoch().current, recipient, strike);
-        position.epoch = getEpoch().current;
+        Position.Info storage position = _getPosition(epoch.current, recipient, strike);
+        position.epoch = epoch.current;
         position.strike = strike;
         position.amountUp += amount.up;
         position.amountDown += amount.down;
@@ -215,8 +208,7 @@ abstract contract DVP is IDVP, EpochControls {
             // Compute the payoff to be paid:
             (uint256 payoffCall_, uint256 payoffPut_) = liquidity.shareOfPayoff(strike, amount.up, amount.down, _baseTokenDecimals);
             // Account transfer of setted aside payoff:
-            liquidity.decreasePayoff(strike, OptionStrategy.CALL, payoffCall_);
-            liquidity.decreasePayoff(strike, OptionStrategy.PUT, payoffPut_);
+            liquidity.decreasePayoff(strike, Notional.Amount({up: payoffCall_, down: payoffPut_}));
 
             paidPayoff = payoffCall_ + payoffPut_;
         }
@@ -225,8 +217,7 @@ abstract contract DVP is IDVP, EpochControls {
         position.amountUp -= amount.up;
         position.amountDown -= amount.down;
         // NOTE: must be updated after the previous computations based on used liquidity.
-        liquidity.decreaseUsage(strike, OptionStrategy.CALL, amount.up);
-        liquidity.decreaseUsage(strike, OptionStrategy.PUT, amount.down);
+        liquidity.decreaseUsage(strike, amount);
 
         IVault(vault).transferPayoff(recipient, paidPayoff, pastEpoch);
 
@@ -245,7 +236,10 @@ abstract contract DVP is IDVP, EpochControls {
             revert EpochFrozen();
         }
         _requireNotPaused();
-        _whenVaultIsNotPaused();
+
+        if (IEpochControls(vault).isPaused()) {
+            revert VaultPaused();
+        }
     }
 
     /// @inheritdoc EpochControls
@@ -290,6 +284,7 @@ abstract contract DVP is IDVP, EpochControls {
         Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         // computes the payoff to be set aside at the end of the epoch for the provided strike.
+        // TBD: move into a single library function
         (uint256 residualAmountUp, uint256 residualAmountDown) = liquidity.getUsed(strike);
         (uint256 percentageUp, uint256 percentageDown) = _residualPayoffPerc(strike);
         (uint256 payoffUp_, uint256 payoffDown_) = Finance.computeResidualPayoffs(residualAmountUp, percentageUp, residualAmountDown, percentageDown, _baseTokenDecimals);

@@ -172,7 +172,7 @@ contract IG is DVP {
             );
     }
 
-    // TBD: wrap parameters in a "Trade" struct
+    // TBD: wrap parameters in a "Trade" struct (there's an overlap with Position.Info)
     /// @inheritdoc DVP
     function _deltaHedgePosition(
         uint256 strike,
@@ -340,12 +340,9 @@ contract IG is DVP {
         Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         // The impermanent gain DVP only has one strike:
-        liquidity.setup(currentStrike);
-
         // The initialCapital is split 50:50 on the two strategies:
         uint256 halfInitialCapital = initialCapital / 2;
-        liquidity.setInitial(currentStrike, OptionStrategy.CALL, halfInitialCapital);
-        liquidity.setInitial(currentStrike, OptionStrategy.PUT, initialCapital - halfInitialCapital);
+        liquidity.setInitial(currentStrike, Notional.Amount({up: halfInitialCapital, down: initialCapital - halfInitialCapital}));
     }
 
     /// @dev must be defined in Wad
