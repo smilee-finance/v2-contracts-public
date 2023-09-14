@@ -3,18 +3,17 @@ pragma solidity ^0.8.21;
 
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
-import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
+import {Epoch, EpochController} from "./lib/EpochController.sol";
+import {Finance} from "./lib/Finance.sol";
 import {Notional} from "./lib/Notional.sol";
 import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
-import {SignedMath} from "./lib/SignedMath.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
-import {Epoch, EpochController} from "./lib/EpochController.sol";
 
 abstract contract DVP is IDVP, EpochControls {
     using AmountsMath for uint256;
@@ -35,11 +34,6 @@ abstract contract DVP is IDVP, EpochControls {
     uint8 internal immutable _baseTokenDecimals;
     uint8 internal immutable _sideTokenDecimals;
 
-    /// @dev mutable parameter for the computation of the trade volatility
-    uint256 internal _tradeVolatilityUtilizationRateFactor;
-    /// @dev mutable parameter for the computation of the trade volatility
-    uint256 internal _tradeVolatilityTimeDecay;
-
     // ToDo: define lot size
 
     // TBD: extract payoff from Notional.Info
@@ -52,6 +46,7 @@ abstract contract DVP is IDVP, EpochControls {
     mapping(uint256 => Notional.Info) internal _liquidity;
 
     // ToDo: review definition of position ID
+    // TBD: use a user-defined type for the position ID, as well as for the epoch
     /**
         @notice Users positions
         @dev mapping epoch -> Position.getID(...) -> Position.Info
@@ -87,9 +82,6 @@ abstract contract DVP is IDVP, EpochControls {
         _addressProvider = AddressProvider(addressProvider_);
         _baseTokenDecimals = IToken(baseToken).decimals();
         _sideTokenDecimals = IToken(sideToken).decimals();
-
-        _tradeVolatilityUtilizationRateFactor = AmountsMath.wrap(2);
-        _tradeVolatilityTimeDecay = AmountsMath.wrap(1) / 4; // 0.25
     }
 
     /**
@@ -221,18 +213,12 @@ abstract contract DVP is IDVP, EpochControls {
             }
         } else {
             // Compute the payoff to be paid:
-            if (amount.up > 0) {
-                uint256 payoff_ = liquidity.shareOfPayoff(strike, OptionStrategy.CALL, amount.up, _baseTokenDecimals);
-                paidPayoff += payoff_;
-                // Account transfer of setted aside payoff:
-                liquidity.decreasePayoff(strike, OptionStrategy.CALL, payoff_);
-            }
-            if (amount.down > 0) {
-                uint256 payoff_ = liquidity.shareOfPayoff(strike, OptionStrategy.PUT, amount.down, _baseTokenDecimals);
-                paidPayoff += payoff_;
-                // Account transfer of setted aside payoff:
-                liquidity.decreasePayoff(strike, OptionStrategy.PUT, payoff_);
-            }
+            (uint256 payoffCall_, uint256 payoffPut_) = liquidity.shareOfPayoff(strike, amount.up, amount.down, _baseTokenDecimals);
+            // Account transfer of setted aside payoff:
+            liquidity.decreasePayoff(strike, OptionStrategy.CALL, payoffCall_);
+            liquidity.decreasePayoff(strike, OptionStrategy.PUT, payoffPut_);
+
+            paidPayoff = payoffCall_ + payoffPut_;
         }
 
         // Account change of used liquidity between wallet and protocol:
@@ -300,16 +286,15 @@ abstract contract DVP is IDVP, EpochControls {
     /**
         @notice Utility function made in order to simplify the work done in _accountResidualPayoffs().
      */
-    function _accountResidualPayoff(uint256 strike, bool strategy) internal {
+    function _accountResidualPayoff(uint256 strike) internal {
         Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
-        // computes the payoff to be set aside at the end of the epoch for the provided strike and strategy.
-        uint256 payoff_ = 0;
-        uint256 residualAmount = liquidity.getUsed(strike, strategy);
-        if (residualAmount > 0) {
-            payoff_ = _computeResidualPayoff(strike, strategy, residualAmount);
-        }
-        liquidity.accountPayoff(strike, strategy, payoff_);
+        // computes the payoff to be set aside at the end of the epoch for the provided strike.
+        (uint256 residualAmountUp, uint256 residualAmountDown) = liquidity.getUsed(strike);
+        (uint256 percentageUp, uint256 percentageDown) = _residualPayoffPerc(strike);
+        (uint256 payoffUp_, uint256 payoffDown_) = Finance.computeResidualPayoffs(residualAmountUp, percentageUp, residualAmountDown, percentageDown, _baseTokenDecimals);
+
+        liquidity.accountPayoffs(strike, payoffUp_, payoffDown_);
     }
 
     /**
@@ -319,35 +304,14 @@ abstract contract DVP is IDVP, EpochControls {
      */
     function _residualPayoff() internal view virtual returns (uint256 residualPayoff);
 
-    // TBD: inline with _accountResidualPayoff
     /**
-        @notice Compute the payoff of a position within the current epoch.
-        @param strike the position strike.
-        @param strategy the position strategy.
-        @param amount the position notional.
-        @return payoff_ The payoff value.
-        @dev It's also used for the DVP's overall position at maturity.
-     */
-    function _computeResidualPayoff(
-        uint256 strike,
-        bool strategy,
-        uint256 amount
-    ) internal view returns (uint256 payoff_) {
-        amount = AmountsMath.wrapDecimals(amount, _baseTokenDecimals);
-        uint256 percentage = _residualPayoffPerc(strike, strategy);
-
-        payoff_ = amount.wmul(percentage);
-        payoff_ = AmountsMath.unwrapDecimals(payoff_, _baseTokenDecimals);
-    }
-
-    /**
-        @notice computes the payoff percentage (a scale factor) for the given strike and strategy at epoch end.
+        @notice computes the payoff percentage (a scale factor) for the given strike at epoch end.
         @param strike the reference strike.
-        @param strategy the reference strategy.
-        @return percentage the payoff percentage.
+        @return percentageCall the payoff percentage.
+        @return percentagePut the payoff percentage.
         @dev The percentage is expected to be defined in Wad (i.e. 100 % := 1e18)
      */
-    function _residualPayoffPerc(uint256 strike, bool strategy) internal view virtual returns (uint256 percentage);
+    function _residualPayoffPerc(uint256 strike) internal view virtual returns (uint256 percentageCall, uint256 percentagePut);
 
     /// @dev computes the premium/payoff with the given amount, swap price and post-trade volatility
     function _getMarketValue(
@@ -379,22 +343,8 @@ abstract contract DVP is IDVP, EpochControls {
         } else {
             // The position expired, the user must close the entire position
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
-            if (amount_.up > 0) {
-                payoff_ += _liquidity[position.epoch].shareOfPayoff(
-                    position.strike,
-                    OptionStrategy.CALL,
-                    amount_.up,
-                    _baseTokenDecimals
-                );
-            }
-            if (amount_.down > 0) {
-                payoff_ += _liquidity[position.epoch].shareOfPayoff(
-                    position.strike,
-                    OptionStrategy.PUT,
-                    amount_.down,
-                    _baseTokenDecimals
-                );
-            }
+            (uint256 payoffCall_, uint256 payoffPut_) = _liquidity[position.epoch].shareOfPayoff(position.strike, amount_.up, amount_.down, _baseTokenDecimals);
+            payoff_ = payoffCall_ + payoffPut_;
         }
     }
 
@@ -411,6 +361,7 @@ abstract contract DVP is IDVP, EpochControls {
         address owner,
         uint256 strike
     ) internal view returns (Position.Info storage position_) {
+        // TBD: compute the ID without a library call
         return _epochPositions[epoch][Position.getID(owner, strike)];
     }
 
@@ -436,15 +387,4 @@ abstract contract DVP is IDVP, EpochControls {
         return priceOracle;
     }
 
-    // must be defined in Wad
-    function setTradeVolatilityUtilizationRateFactor(uint256 utilizationRateFactor) external onlyOwner {
-        // ToDo: make the change effective from the next epoch
-        _tradeVolatilityUtilizationRateFactor = utilizationRateFactor;
-    }
-
-    // must be defined in Wad
-    function setTradeVolatilityTimeDecay(uint256 timeDecay) external onlyOwner {
-        // ToDo: make the change effective from the next epoch
-        _tradeVolatilityTimeDecay = timeDecay;
-    }
 }

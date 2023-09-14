@@ -74,11 +74,11 @@ contract MockedIG is IG {
         return super._getMarketValue(strike, amount, tradeIsBuy, swapPrice);
     }
 
-    function _residualPayoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256 percentage) {
+    function _residualPayoffPerc(uint256 strike) internal view virtual override returns (uint256 percentageCall, uint256 percentagePut) {
         if (_fakePayoff) {
-            return _payoffPercentage;
+            return (_payoffPercentage, _payoffPercentage);
         }
-        return super._residualPayoffPerc(strike, strategy);
+        return super._residualPayoffPerc(strike);
     }
 
     function _deltaHedgePosition(uint256 strike, Notional.Amount memory amount, bool tradeIsBuy) internal override returns (uint256 swapPrice) {

@@ -9,6 +9,7 @@ import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 import {DVPType} from "./lib/DVPType.sol";
+import {Epoch, EpochController} from "./lib/EpochController.sol";
 import {FinanceIGDelta} from "./lib/FinanceIGDelta.sol";
 import {FinanceIGPayoff} from "./lib/FinanceIGPayoff.sol";
 import {FinanceIGPrice} from "./lib/FinanceIGPrice.sol";
@@ -18,14 +19,11 @@ import {SignedMath} from "./lib/SignedMath.sol";
 import {WadTime} from "./lib/WadTime.sol";
 import {DVP} from "./DVP.sol";
 import {EpochControls} from "./EpochControls.sol";
-import {Epoch, EpochController} from "./lib/EpochController.sol";
 
 contract IG is DVP {
     using AmountsMath for uint256;
     using Notional for Notional.Info;
     using EpochController for Epoch;
-
-    error StrikeDoesNotMatch();
 
     // ToDo: review
     struct FinanceParameters {
@@ -45,8 +43,15 @@ contract IG is DVP {
     // ToDo: review
     FinanceParameters internal _currentFinanceParameters;
 
+    /// @dev mutable parameter for the computation of the trade volatility
+    uint256 internal _tradeVolatilityUtilizationRateFactor;
+    /// @dev mutable parameter for the computation of the trade volatility
+    uint256 internal _tradeVolatilityTimeDecay;
+
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
-        _currentFinanceParameters.sigmaMultiplier = AmountsMath.wrap(2);
+        _currentFinanceParameters.sigmaMultiplier = 2e18;
+        _tradeVolatilityUtilizationRateFactor = 2e18;
+        _tradeVolatilityTimeDecay = 0.25e18;
     }
 
     /// @inheritdoc IDVP
@@ -102,6 +107,7 @@ contract IG is DVP {
         bool tradeIsBuy,
         uint256 swapPrice
     ) internal view virtual override returns (uint256 marketValue) {
+        // TBD: move everything to the FinanceIGPrice library
         FinanceIGPrice.Parameters memory params;
         {
             params.r = IMarketOracle(_getMarketOracle()).getRiskFreeRate(sideToken, baseToken);
@@ -115,15 +121,10 @@ contract IG is DVP {
         }
         (uint256 igPBull, uint256 igPBear) = FinanceIGPrice.igPrices(params);
 
-        amount.up = AmountsMath.wrapDecimals(amount.up, _baseTokenDecimals);
-        amount.down = AmountsMath.wrapDecimals(amount.down, _baseTokenDecimals);
-
-        // igP multiplies a notional computed as follow:
-        // V0 * user% = V0 * amount / initial(strategy) = V0 * amount / (V0/2) = amount * 2
-        marketValue = 2 * amount.up.wmul(igPBull).add(amount.down.wmul(igPBear));
-        marketValue = AmountsMath.unwrapDecimals(marketValue, _baseTokenDecimals);
+        marketValue = FinanceIGPrice.getMarketValue(amount.up, igPBull,  amount.down, igPBear, _baseTokenDecimals);
     }
 
+    // ToDo: review
     function notional()
         public
         view
@@ -155,7 +156,7 @@ contract IG is DVP {
             AmountsMath.wrapDecimals(amount.up + amount.down, _baseTokenDecimals),
             tradeIsBuy
         );
-        uint256 t0 = epoch.previous;
+        uint256 t0 = epoch.lastRolled();
         uint256 T = epoch.current - t0;
 
         return
@@ -246,40 +247,34 @@ contract IG is DVP {
     }
 
     /// @inheritdoc DVP
-    function _residualPayoffPerc(uint256 strike, bool strategy) internal view virtual override returns (uint256) {
-        (uint256 igPOBull, uint256 igPOBear) = FinanceIGPayoff.igPayoffPerc(
+    function _residualPayoffPerc(uint256 strike) internal view virtual override returns (uint256, uint256) {
+        return FinanceIGPayoff.igPayoffPerc(
             IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken),
             strike,
             _currentFinanceParameters.kA,
             _currentFinanceParameters.kB,
             _currentFinanceParameters.theta
         );
-        if (strategy == OptionStrategy.CALL) {
-            return igPOBull;
-        } else {
-            return igPOBear;
-        }
     }
 
     /// @inheritdoc DVP
     function _residualPayoff() internal view virtual override returns (uint256 residualPayoff) {
         Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
-        uint256 pCall = liquidity.getAccountedPayoff(currentStrike, OptionStrategy.CALL);
-        uint256 pPut = liquidity.getAccountedPayoff(currentStrike, OptionStrategy.PUT);
+        (uint256 pCall, uint256 pPut) = liquidity.getAccountedPayoffs(currentStrike);
 
         residualPayoff = pCall + pPut;
     }
 
     /// @inheritdoc DVP
     function _accountResidualPayoffs() internal virtual override {
-        _accountResidualPayoff(currentStrike, OptionStrategy.CALL);
-        _accountResidualPayoff(currentStrike, OptionStrategy.PUT);
+        _accountResidualPayoff(currentStrike);
     }
 
     /// @inheritdoc EpochControls
     function _afterRollEpoch() internal virtual override {
         Epoch memory epoch = getEpoch();
+        // TBD: use a better if condition or explain it
         if (epoch.previous != 0) {
             // ToDo: check if vault is dead
 
@@ -287,13 +282,14 @@ contract IG is DVP {
                 // Update strike price:
                 // NOTE: both amounts are after equal weight rebalance, hence we can just compute their ratio.
                 (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
-                baseTokenAmount = AmountsMath.wrapDecimals(baseTokenAmount, _baseTokenDecimals);
-                sideTokenAmount = AmountsMath.wrapDecimals(sideTokenAmount, _sideTokenDecimals);
                 // ToDo: add test where we roll epochs without deposit
                 // check division by zero
                 if (baseTokenAmount == 0 || sideTokenAmount == 0) {
                     currentStrike = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
                 } else {
+                    baseTokenAmount = AmountsMath.wrapDecimals(baseTokenAmount, _baseTokenDecimals);
+                    sideTokenAmount = AmountsMath.wrapDecimals(sideTokenAmount, _sideTokenDecimals);
+
                     currentStrike = baseTokenAmount.wdiv(sideTokenAmount);
                 }
             }
@@ -306,6 +302,7 @@ contract IG is DVP {
                     currentStrike,
                     epoch.frequency
                 );
+                // ToDo: test what happens when epoch.previous is not equal to block.timestamp
                 uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(epoch.previous, epoch.current));
                 (_currentFinanceParameters.kA, _currentFinanceParameters.kB) = FinanceIGPrice.liquidityRange(
                     FinanceIGPrice.LiquidityRangeParams(
@@ -317,7 +314,7 @@ contract IG is DVP {
                 );
 
                 // Multiply baselineVolatility for a safety margin of 0.9 after have calculated kA and Kb.
-                _currentFinanceParameters.sigmaZero = _currentFinanceParameters.sigmaZero.wmul(0.9e18);
+                _currentFinanceParameters.sigmaZero = (_currentFinanceParameters.sigmaZero * 90) / 100;
 
                 _currentFinanceParameters.theta = FinanceIGPrice._teta(
                     currentStrike,
@@ -325,13 +322,12 @@ contract IG is DVP {
                     _currentFinanceParameters.kB
                 );
 
-                uint256 v0 = IVault(vault).v0();
                 (_currentFinanceParameters.limSup, _currentFinanceParameters.limInf) = FinanceIGDelta.lims(
                     currentStrike,
                     _currentFinanceParameters.kA,
                     _currentFinanceParameters.kB,
                     _currentFinanceParameters.theta,
-                    v0
+                    IVault(vault).v0()
                 );
             }
         }
@@ -350,5 +346,17 @@ contract IG is DVP {
         uint256 halfInitialCapital = initialCapital / 2;
         liquidity.setInitial(currentStrike, OptionStrategy.CALL, halfInitialCapital);
         liquidity.setInitial(currentStrike, OptionStrategy.PUT, initialCapital - halfInitialCapital);
+    }
+
+    /// @dev must be defined in Wad
+    function setTradeVolatilityUtilizationRateFactor(uint256 utilizationRateFactor) external onlyOwner {
+        // ToDo: make the change effective from the next epoch
+        _tradeVolatilityUtilizationRateFactor = utilizationRateFactor;
+    }
+
+    /// @dev must be defined in Wad
+    function setTradeVolatilityTimeDecay(uint256 timeDecay) external onlyOwner {
+        // ToDo: make the change effective from the next epoch
+        _tradeVolatilityTimeDecay = timeDecay;
     }
 }

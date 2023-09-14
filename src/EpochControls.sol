@@ -11,6 +11,8 @@ abstract contract EpochControls is IEpochControls, Pausable, Ownable {
 
     Epoch private _epoch;
 
+    event EpochRolled(uint256 indexed currentEpoch, uint256 previousEpoch);
+
     constructor(uint256 epochFrequency_) Pausable() Ownable() {
         _epoch.init(epochFrequency_);
     }
@@ -28,7 +30,7 @@ abstract contract EpochControls is IEpochControls, Pausable, Ownable {
         _epoch.roll();
         _afterRollEpoch();
 
-        // ToDo: emit event
+        emit EpochRolled(_epoch.current, _epoch.previous);
     }
 
     /**

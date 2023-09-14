@@ -7,11 +7,11 @@ import {IExchange} from "./interfaces/IExchange.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
+import {Epoch, EpochController} from "./lib/EpochController.sol";
 import {TokensPair} from "./lib/TokensPair.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
-import {Epoch, EpochController} from "./lib/EpochController.sol";
 
 contract Vault is IVault, ERC20, EpochControls {
     using AmountsMath for uint256;

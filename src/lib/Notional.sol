@@ -110,22 +110,24 @@ library Notional {
     /**
         @notice Get the amount of liquidity used by options.
         @param strike the reference strike.
-        @param strategy the reference strategy.
-        @return optioned_ The used liquidity.
+        @return optionedCall_ The used liquidity.
+        @return optionedPut_ The used liquidity.
      */
-    function getUsed(Info storage self, uint256 strike, bool strategy) public view returns (uint256 optioned_) {
-        return self.used[strike][_strategyIdx(strategy)];
+    function getUsed(Info storage self, uint256 strike) public view returns (uint256 optionedCall_, uint256 optionedPut_) {
+        optionedCall_ = self.used[strike][_strategyIdx(OptionStrategy.CALL)];
+        optionedPut_ = self.used[strike][_strategyIdx(OptionStrategy.PUT)];
     }
 
     /**
         @notice Record the residual payoff setted aside for the expired options not yet redeemed.
         @param strike the reference strike.
-        @param strategy the reference strategy.
-        @param payoff_ the payoff set aside.
+        @param payoffCall_ the payoff set aside for the call strategy.
+        @param payoffPut_ the payoff set aside for the put strategy.
      */
-    function accountPayoff(Info storage self, uint256 strike, bool strategy, uint256 payoff_) public {
+    function accountPayoffs(Info storage self, uint256 strike, uint256 payoffCall_, uint256 payoffPut_) public {
         // TBD: revert if already done
-        self.payoff[strike][_strategyIdx(strategy)] = payoff_;
+        self.payoff[strike][_strategyIdx(OptionStrategy.CALL)] = payoffCall_;
+        self.payoff[strike][_strategyIdx(OptionStrategy.PUT)] = payoffPut_;
     }
 
     /**
@@ -141,40 +143,55 @@ library Notional {
     /**
         @notice Get the residual payoff setted aside for the expired options not yet redeemed
         @param strike The reference strike
-        @param strategy The reference strategy
-        @return payoff_ The payoff set aside
+        @return payoffUp_ The payoff set aside for the call strategy
+        @return payoffDown_ The payoff set aside for the put strategy
      */
-    function getAccountedPayoff(
+    function getAccountedPayoffs(
         Info storage self,
-        uint256 strike,
-        bool strategy
-    ) public view returns (uint256 payoff_) {
-        return self.payoff[strike][_strategyIdx(strategy)];
+        uint256 strike
+    ) public view returns (uint256 payoffUp_, uint256 payoffDown_) {
+        payoffUp_ = self.payoff[strike][_strategyIdx(OptionStrategy.CALL)];
+        payoffDown_ = self.payoff[strike][_strategyIdx(OptionStrategy.PUT)];
     }
 
     /**
         @notice Get the share of residual payoff setted aside for the given expired position
         @param strike The position strike
-        @param strategy The position strategy
-        @param amount The position notional
+        @param amountCall The position notional
+        @param amountPut The position notional
         @param decimals The notional's token number of decimals
-        @return payoff_ The owed payoff
+        @return payoffCall_ The owed payoff
+        @return payoffPut_ The owed payoff
         @dev It relies on the calls of decreaseUsage and decreasePayoff after each position is decreased
      */
     function shareOfPayoff(
         Info storage self,
         uint256 strike,
-        bool strategy,
-        uint256 amount,
+        uint256 amountCall,
+        uint256 amountPut,
         uint8 decimals
-    ) public view returns (uint256 payoff_) {
-        amount = AmountsMath.wrapDecimals(amount, decimals);
-        uint256 used = AmountsMath.wrapDecimals(getUsed(self, strike, strategy), decimals);
-        uint256 payoff = AmountsMath.wrapDecimals(getAccountedPayoff(self, strike, strategy), decimals);
+    ) public view returns (uint256 payoffCall_, uint256 payoffPut_) {
+        (uint256 usedCall_, uint256 usedPut_) = getUsed(self, strike);
+        (uint256 accountedPayoffCall_, uint256 accountedPayoffPut_) = getAccountedPayoffs(self, strike);
 
-        // amount : used = share : payoff
-        payoff_ = amount.wmul(payoff).wdiv(used);
-        payoff_ = AmountsMath.unwrapDecimals(payoff_, decimals);
+        if (amountCall > 0) {
+            amountCall = AmountsMath.wrapDecimals(amountCall, decimals);
+            usedCall_ = AmountsMath.wrapDecimals(usedCall_, decimals);
+            accountedPayoffCall_ = AmountsMath.wrapDecimals(accountedPayoffCall_, decimals);
+
+            // amount : used = share : payoff
+            payoffCall_ = amountCall.wmul(accountedPayoffCall_).wdiv(usedCall_);
+            payoffCall_ = AmountsMath.unwrapDecimals(payoffCall_, decimals);
+        }
+
+        if (amountPut > 0) {
+            amountPut = AmountsMath.wrapDecimals(amountPut, decimals);
+            usedPut_ = AmountsMath.wrapDecimals(usedPut_, decimals);
+            accountedPayoffPut_ = AmountsMath.wrapDecimals(accountedPayoffPut_, decimals);
+
+            payoffPut_ = amountPut.wmul(accountedPayoffPut_).wdiv(usedPut_);
+            payoffPut_ = AmountsMath.unwrapDecimals(payoffPut_, decimals);
+        }
     }
 
     /**
@@ -186,8 +203,8 @@ library Notional {
         Info storage self,
         uint256 strike
     ) public view returns (uint256 used, uint256 total) {
-        used += getUsed(self, strike, OptionStrategy.CALL);
-        used += getUsed(self, strike, OptionStrategy.PUT);
+        (uint256 usedCall_, uint256 usedPut_) = getUsed(self, strike);
+        used = usedCall_ + usedPut_;
         total += getInitial(self, strike, OptionStrategy.CALL);
         total += getInitial(self, strike, OptionStrategy.PUT);
     }

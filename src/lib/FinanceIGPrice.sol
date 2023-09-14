@@ -366,4 +366,20 @@ library FinanceIGPrice {
 
         return params.sigma0.wmul(baselineVolatilityFactor).wmul(timeFactor);
     }
+
+    function getMarketValue(
+        uint256 amountUp,
+        uint256 priceUp,
+        uint256 amountDown,
+        uint256 priceDown,
+        uint8 decimals
+    ) public pure returns (uint256 marketValue_) {
+        amountUp = AmountsMath.wrapDecimals(amountUp, decimals);
+        amountDown = AmountsMath.wrapDecimals(amountDown, decimals);
+
+        // igP multiplies a notional computed as follow:
+        // V0 * user% = V0 * amount / initial(strategy) = V0 * amount / (V0/2) = amount * 2
+        marketValue_ = 2 * amountUp.wmul(priceUp).add(amountDown.wmul(priceDown));
+        return AmountsMath.unwrapDecimals(marketValue_, decimals);
+    }
 }
