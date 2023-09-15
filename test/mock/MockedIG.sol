@@ -2,7 +2,9 @@
 pragma solidity ^0.8.15;
 
 import {IVault} from "../../src/interfaces/IVault.sol";
+import {Amount} from "../../src/lib/Amount.sol";
 import {AmountsMath} from "../../src/lib/AmountsMath.sol";
+import {FinanceParameters} from "../../src/lib/FinanceIG.sol";
 import {Notional} from "../../src/lib/Notional.sol";
 import {OptionStrategy} from "../../src/lib/OptionStrategy.sol";
 import {Position} from "../../src/lib/Position.sol";
@@ -59,7 +61,7 @@ contract MockedIG is IG {
         return super.premium(strike, amountUp, amountDown);
     }
 
-    function _getMarketValue(uint256 strike, Notional.Amount memory amount, bool tradeIsBuy, uint256 swapPrice) internal view virtual override returns (uint256) {
+    function _getMarketValue(uint256 strike, Amount memory amount, bool tradeIsBuy, uint256 swapPrice) internal view virtual override returns (uint256) {
         if (_fakePremium || _fakePayoff) {
             // ToDo: review
             uint256 amountAbs = amount.up + amount.down;
@@ -81,7 +83,7 @@ contract MockedIG is IG {
         return super._residualPayoffPerc(strike);
     }
 
-    function _deltaHedgePosition(uint256 strike, Notional.Amount memory amount, bool tradeIsBuy) internal override returns (uint256 swapPrice) {
+    function _deltaHedgePosition(uint256 strike, Amount memory amount, bool tradeIsBuy) internal override returns (uint256 swapPrice) {
         if (_fakeDeltaHedge) {
             IVault(vault).deltaHedge(-int256((amount.up + amount.down) / 4));
             return 1e18;
@@ -101,7 +103,7 @@ contract MockedIG is IG {
     }
 
     function getUtilizationRate() public view returns (uint256) {
-        (uint256 used, uint256 total) = _liquidity[getEpoch().current].utilizationRateFactors(currentStrike);
+        (uint256 used, uint256 total) = _liquidity[getEpoch().current].utilizationRateFactors(_financeParameters.currentStrike);
 
         used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
         total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
@@ -110,11 +112,11 @@ contract MockedIG is IG {
     }
 
     function getCurrentFinanceParameters() public view returns (FinanceParameters memory) {
-        return _currentFinanceParameters;
+        return _financeParameters;
     }
 
     function setSigmaMultiplier(uint256 value) public {
-        _currentFinanceParameters.sigmaMultiplier = value;
+        _financeParameters.sigmaMultiplier = value;
     }
 
     /**

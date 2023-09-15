@@ -5,8 +5,9 @@ import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import {Amount} from "../src/lib/Amount.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
-import {Notional} from "../src/lib/Notional.sol";
+import {FinanceParameters} from "../src/lib/FinanceIG.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {SignedMath} from "../src/lib/SignedMath.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
@@ -211,7 +212,7 @@ contract TestScenariosJson is Test {
         assertApproxEqAbs(t0.post.baseTokenAmount, baseTokenAmount, _toleranceOnAmount);
         assertApproxEqAbs(t0.post.sideTokenAmount, sideTokenAmount, _toleranceOnAmount);
         assertApproxEqAbs(t0.post.strike, _dvp.currentStrike(), _toleranceOnAmount);
-        IG.FinanceParameters memory financeParams = _dvp.getCurrentFinanceParameters();
+        FinanceParameters memory financeParams = _dvp.getCurrentFinanceParameters();
         assertApproxEqAbs(t0.post.kA, financeParams.kA, _toleranceOnAmount);
         assertApproxEqAbs(t0.post.kB, financeParams.kB, _toleranceOnAmount);
         assertApproxEqAbs(t0.post.theta, financeParams.theta, _toleranceOnAmount);
@@ -237,7 +238,7 @@ contract TestScenariosJson is Test {
         assertEq(t.pre.availableNotionalBear, availableBearNotional);
         assertEq(t.pre.availableNotionalBull, availableBullNotional);
         uint256 strike = _dvp.currentStrike();
-        assertApproxEqAbs(t.pre.volatility, _dvp.getPostTradeVolatility(strike, Notional.Amount({up: 0, down: 0}), true), _toleranceOnPercentage);
+        assertApproxEqAbs(t.pre.volatility, _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true), _toleranceOnPercentage);
 
         // actual trade:
         uint256 marketValue;
@@ -261,7 +262,7 @@ contract TestScenariosJson is Test {
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
         assertEq(t.post.availableNotionalBear, availableBearNotional);
         assertEq(t.post.availableNotionalBull, availableBullNotional);
-        assertApproxEqAbs(t.post.volatility, _dvp.getPostTradeVolatility(strike, Notional.Amount({up: 0, down: 0}), true), _toleranceOnPercentage);
+        assertApproxEqAbs(t.post.volatility, _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true), _toleranceOnPercentage);
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
 

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {Amount, AmountHelper} from "./Amount.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {OptionStrategy} from "./OptionStrategy.sol";
 
+// TBD: rename
 /**
     @title Simple library to ease DVP liquidity access and modification
  */
 library Notional {
     using AmountsMath for uint256;
+    using AmountHelper for Amount;
 
     // NOTE: each one of the fields is a mapping strike -> [call_notional, put_notional]
     // TBD: use a mapping strike -> StrikeInfo
@@ -22,42 +25,35 @@ library Notional {
         mapping(uint256 => Amount) payoff; // TBD: rename "residualPayoff"
     }
 
-    struct Amount {
-        uint256 up;
-        uint256 down;
-    }
-
     /**
         @notice Set the initial capital for the given strike and strategy.
         @param strike the reference strike.
         @param notional the initial capital.
      */
     function setInitial(Info storage self, uint256 strike, Amount memory notional) public {
-        self.initial[strike].up = notional.up;
-        self.initial[strike].down = notional.down;
+        self.initial[strike] = notional;
     }
 
     /**
         @notice Get the amount of liquidity used by options.
         @param strike the reference strike.
-        @return initialCall_ The used liquidity.
-        @return initialPut_ The used liquidity.
+        @return amount The used liquidity.
      */
-    function getInitial(Info storage self, uint256 strike) public view returns (uint256 initialCall_, uint256 initialPut_) {
-        return (self.initial[strike].up, self.initial[strike].down);
+    function getInitial(Info storage self, uint256 strike) public view returns (Amount memory amount) {
+        amount = self.initial[strike];
     }
 
     /**
         @notice Get the amount of liquidity available for new options.
         @param strike the reference strike.
-        @param strategy the reference strategy.
         @return available_ The available liquidity.
      */
-    function available(Info storage self, uint256 strike, bool strategy) public view returns (uint256 available_) {
-        uint256 initial = (strategy == OptionStrategy.CALL) ? self.initial[strike].up : self.initial[strike].down;
-        uint256 used = (strategy == OptionStrategy.CALL) ? self.used[strike].up : self.used[strike].down;
+    function available(Info storage self, uint256 strike) public view returns (Amount memory available_) {
+        Amount memory initial = self.initial[strike];
+        Amount memory used = self.used[strike];
 
-        return initial - used;
+        available_.up = initial.up - used.up;
+        available_.down = initial.down - used.down;
     }
 
     function aggregatedInfo(
@@ -79,8 +75,7 @@ library Notional {
         @dev Overflow checks must be done externally.
      */
     function increaseUsage(Info storage self, uint256 strike, Amount memory amount) public {
-        self.used[strike].up += amount.up;
-        self.used[strike].down += amount.down;
+        self.used[strike].increase(amount);
     }
 
     /**
@@ -90,8 +85,7 @@ library Notional {
         @dev Underflow checks must be done externally.
      */
     function decreaseUsage(Info storage self, uint256 strike, Amount memory amount) public {
-        self.used[strike].up -= amount.up;
-        self.used[strike].down -= amount.down;
+        self.used[strike].decrease(amount);
     }
 
     /**
@@ -101,8 +95,7 @@ library Notional {
         @return optionedPut_ The used liquidity.
      */
     function getUsed(Info storage self, uint256 strike) public view returns (uint256 optionedCall_, uint256 optionedPut_) {
-        optionedCall_ = self.used[strike].up;
-        optionedPut_ = self.used[strike].down;
+        return self.used[strike].getRaw();
     }
 
     /**
@@ -113,8 +106,7 @@ library Notional {
      */
     function accountPayoffs(Info storage self, uint256 strike, uint256 payoffCall_, uint256 payoffPut_) public {
         // TBD: revert if already done
-        self.payoff[strike].up = payoffCall_;
-        self.payoff[strike].down = payoffPut_;
+        self.payoff[strike].setRaw(payoffCall_, payoffPut_);
     }
 
     /**
@@ -123,8 +115,7 @@ library Notional {
         @param amount The redeemed payoff
      */
     function decreasePayoff(Info storage self, uint256 strike, Amount memory amount) public {
-        self.payoff[strike].up -= amount.up;
-        self.payoff[strike].down -= amount.down;
+        self.payoff[strike].decrease(amount);
     }
 
     /**
@@ -191,10 +182,8 @@ library Notional {
         Info storage self,
         uint256 strike
     ) public view returns (uint256 used, uint256 total) {
-        (uint256 usedCall_, uint256 usedPut_) = getUsed(self, strike);
-        used = usedCall_ + usedPut_;
-        (uint256 initialCall_, uint256 initialPut_) = getInitial(self, strike);
-        total = initialCall_ + initialPut_;
+        used = self.used[strike].getTotal();
+        total = self.initial[strike].getTotal();
     }
 
     /**

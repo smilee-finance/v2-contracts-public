@@ -6,6 +6,7 @@ import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
+import {Amount} from "./lib/Amount.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
 import {Finance} from "./lib/Finance.sol";
@@ -91,7 +92,7 @@ abstract contract DVP is IDVP, EpochControls {
     function _mint(
         address recipient,
         uint256 strike,
-        Notional.Amount memory amount,
+        Amount memory amount,
         uint256 expectedPremium,
         uint256 maxSlippage
     ) internal returns (uint256 premium_) {
@@ -104,9 +105,10 @@ abstract contract DVP is IDVP, EpochControls {
         Notional.Info storage liquidity = _liquidity[epoch.current];
 
         // Check available liquidity:
+        Amount memory availableLiquidity = liquidity.available(strike);
         if (
-            liquidity.available(strike, OptionStrategy.CALL) < amount.up ||
-            liquidity.available(strike, OptionStrategy.PUT) < amount.down
+            availableLiquidity.up < amount.up ||
+            availableLiquidity.down < amount.down
         ) {
             revert NotEnoughLiquidity();
         }
@@ -150,7 +152,7 @@ abstract contract DVP is IDVP, EpochControls {
      */
     function _deltaHedgePosition(
         uint256 strike,
-        Notional.Amount memory amount,
+        Amount memory amount,
         bool tradeIsBuy
     ) internal virtual returns (uint256 swapPrice);
 
@@ -168,7 +170,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 epoch_,
         address recipient,
         uint256 strike,
-        Notional.Amount memory amount,
+        Amount memory amount,
         uint256 expectedMarketValue,
         uint256 maxSlippage
     ) internal returns (uint256 paidPayoff) {
@@ -208,7 +210,7 @@ abstract contract DVP is IDVP, EpochControls {
             // Compute the payoff to be paid:
             (uint256 payoffCall_, uint256 payoffPut_) = liquidity.shareOfPayoff(strike, amount.up, amount.down, _baseTokenDecimals);
             // Account transfer of setted aside payoff:
-            liquidity.decreasePayoff(strike, Notional.Amount({up: payoffCall_, down: payoffPut_}));
+            liquidity.decreasePayoff(strike, Amount({up: payoffCall_, down: payoffPut_}));
 
             paidPayoff = payoffCall_ + payoffPut_;
         }
@@ -311,7 +313,7 @@ abstract contract DVP is IDVP, EpochControls {
     /// @dev computes the premium/payoff with the given amount, swap price and post-trade volatility
     function _getMarketValue(
         uint256 strike,
-        Notional.Amount memory amount,
+        Amount memory amount,
         bool tradeIsBuy,
         uint256 swapPrice
     ) internal view virtual returns (uint256);
@@ -329,7 +331,7 @@ abstract contract DVP is IDVP, EpochControls {
             revert PositionNotFound();
         }
 
-        Notional.Amount memory amount_ = Notional.Amount({up: amountUp, down: amountDown});
+        Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
         if (position.epoch == getEpoch().current) {
             // The user wants to know how much is her position worth before reaching maturity

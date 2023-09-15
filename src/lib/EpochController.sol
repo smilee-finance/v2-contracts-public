@@ -10,12 +10,14 @@ struct Epoch {
     uint256 numberOfRolledEpochs;
 }
 
+// TBD: split into EpochController (storage) and EpochHelper (memory)
 library EpochController {
 
     error EpochFrozen();
     error EpochNotInitialized();
     error EpochNotFinished();
 
+    // ToDo: rename as "init" conflicts with the used "initialized" semantic
     function init(Epoch storage epoch, uint256 epochFrequency) public {
         epoch.current = 0;
         epoch.previous = 0;
@@ -37,12 +39,13 @@ library EpochController {
             revert EpochNotFinished();
         }
 
-        // _beforeRollEpoch();
+        epoch.previous = epoch.current;
 
         if (!isInitialized(epoch)) {
             // ToDo: review as we probably want a more specific/precise reference timestamp!
             epoch.current = block.timestamp;
         }
+
         // ToDo: review as the custom timestamps are not done properly...
         uint256 nextEpoch = EpochFrequency.nextExpiry(epoch.current, epoch.frequency);
 
@@ -53,17 +56,15 @@ library EpochController {
             nextEpoch = EpochFrequency.nextExpiry(nextEpoch, epoch.frequency);
         }
 
-        epoch.previous = epoch.current;
         epoch.current = nextEpoch;
         epoch.numberOfRolledEpochs++;
-
-        // _afterRollEpoch();
     }
 
     function timeToNextEpoch(Epoch memory epoch) public view returns (uint256) {
-        if (block.timestamp > epoch.current) {
+        if (block.timestamp >= epoch.current) {
             return 0;
         }
+
         return epoch.current - block.timestamp;
     }
 
@@ -85,6 +86,7 @@ library EpochController {
         return epoch.current > 0;
     }
 
+    // ToDo: review
     /**
         @dev Second last timestamp
      */
