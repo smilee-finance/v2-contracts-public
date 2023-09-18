@@ -11,6 +11,7 @@ contract AddressProvider is Ownable {
     address public registry;
     address public dvpPositionManager;
     address public vaultProxy;
+    address public feeManager;
 
     constructor() Ownable() {}
 
@@ -36,5 +37,9 @@ contract AddressProvider is Ownable {
 
     function setVaultProxy(address vaultProxy_) public onlyOwner {
         vaultProxy = vaultProxy_;
+    }
+
+    function setFeeManager(address feeManager_) public onlyOwner {
+        feeManager = feeManager_;
     }
 }

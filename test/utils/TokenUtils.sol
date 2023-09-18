@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {Vm} from "forge-std/Vm.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
+import {FeeManager} from "../../src/FeeManager.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
@@ -37,6 +38,13 @@ library TokenUtils {
             TestnetPriceOracle priceOracle = new TestnetPriceOracle(tokenAddr);
             priceOracleAddress = address(priceOracle);
             ap.setPriceOracle(priceOracleAddress);
+        }
+
+        address feeManagerAddress = ap.feeManager();
+        if (feeManagerAddress == address(0)) {
+            FeeManager feeManager =  new FeeManager(3.5e15, 0.125e18, 1.5e15, 0.125e18);
+            feeManagerAddress = address(feeManager);
+            ap.setFeeManager(feeManagerAddress);
         }
 
         address marketOracleAddress = ap.marketOracle();

@@ -100,10 +100,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
                 revert NotOwner();
             }
             // Check token compatibility:
-            if (
-                position.dvpAddr != params.dvpAddr ||
-                position.strike != params.strike
-            ) {
+            if (position.dvpAddr != params.dvpAddr || position.strike != params.strike) {
                 revert InvalidTokenID();
             }
             Epoch memory epoch = dvp.getEpoch();
@@ -111,8 +108,8 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
                 revert PositionExpired();
             }
         }
-
-        premium = dvp.premium(params.strike, params.notionalUp, params.notionalDown);
+        uint256 fee;
+        (premium, fee) = dvp.premium(params.strike, params.notionalUp, params.notionalDown);
 
         // Transfer premium:
         // NOTE: The PositionManager is just a middleman between the user and the DVP
@@ -122,11 +119,21 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             revert TransferFailed();
         }
 
+        // Premium already include fee
         ok = baseToken.approve(params.dvpAddr, premium);
         if (!ok) {
             revert ApproveFailed();
         }
-        premium = dvp.mint(address(this), params.strike, params.notionalUp, params.notionalDown, params.expectedPremium, params.maxSlippage);
+
+        // TBD: add fees?
+        premium = dvp.mint(
+            address(this),
+            params.strike,
+            params.notionalUp,
+            params.notionalDown,
+            params.expectedPremium,
+            params.maxSlippage
+        );
 
         if (params.tokenId == 0) {
             // Mint token:
@@ -170,7 +177,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         uint256 expectedMarketValue = 0;
         Epoch memory epoch = IDVP(position.dvpAddr).getEpoch();
         if (epoch.current == position.expiry) {
-            expectedMarketValue = IDVP(position.dvpAddr).payoff(
+            (expectedMarketValue, ) = IDVP(position.dvpAddr).payoff(
                 position.expiry,
                 position.strike,
                 position.notionalUp,
@@ -184,10 +191,22 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff) {
         // TBD: burn if params.notional == 0 ?
         // TBD: burn if position is expired ?
-        payoff = _sell(params.tokenId, params.notionalUp, params.notionalDown, params.expectedMarketValue, params.maxSlippage);
+        payoff = _sell(
+            params.tokenId,
+            params.notionalUp,
+            params.notionalDown,
+            params.expectedMarketValue,
+            params.maxSlippage
+        );
     }
 
-    function _sell(uint256 tokenId, uint256 notionalUp, uint256 notionalDown, uint256 expectedMarketValue, uint256 maxSlippage) internal returns (uint256 payoff) {
+    function _sell(
+        uint256 tokenId,
+        uint256 notionalUp,
+        uint256 notionalDown,
+        uint256 expectedMarketValue,
+        uint256 maxSlippage
+    ) internal returns (uint256 payoff) {
         ManagedPosition storage position = _positions[tokenId];
         // NOTE: as the positions within the DVP are all of the PositionManager, we must replicate this check here.
         if (notionalUp > position.notionalUp || notionalDown > position.notionalDown) {
@@ -208,7 +227,8 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         // NOTE: premium fix for the leverage issue annotated in the mint flow.
         // notional : position.notional = fix : position.premium
-        uint256 premiumFix = ((notionalUp + notionalDown) * position.premium) / (position.notionalUp + position.notionalDown);
+        uint256 premiumFix = ((notionalUp + notionalDown) * position.premium) /
+            (position.notionalUp + position.notionalDown);
         position.premium -= premiumFix;
         position.cumulatedPayoff += payoff;
         position.notionalUp -= notionalUp;

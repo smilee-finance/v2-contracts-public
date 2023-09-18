@@ -9,6 +9,7 @@ import {Notional} from "../../src/lib/Notional.sol";
 import {OptionStrategy} from "../../src/lib/OptionStrategy.sol";
 import {Position} from "../../src/lib/Position.sol";
 import {SignedMath} from "../../src/lib/SignedMath.sol";
+import {FeeManager} from "../../src/FeeManager.sol";
 import {IG} from "../../src/IG.sol";
 import {Epoch, EpochController} from "../../src/lib/EpochController.sol";
 
@@ -54,9 +55,11 @@ contract MockedIG is IG {
         _fakePayoff = false;
     }
 
-    function premium(uint256 strike, uint256 amountUp, uint256 amountDown) public view override returns (uint256) {
+    function premium(uint256 strike, uint256 amountUp, uint256 amountDown) public view override returns (uint256, uint256) {
         if (_fakePremium) {
-            return ((amountUp + amountDown) * _optionPrice) / 10000;
+            uint256 premium_ = ((amountUp + amountDown) * _optionPrice) / 10000;
+            uint256 fee = FeeManager(_getFeeManager()).calculateTradeFee(amountUp + amountDown, premium_, _baseTokenDecimals, false);
+            return (premium_ + fee, fee);
         }
         return super.premium(strike, amountUp, amountDown);
     }

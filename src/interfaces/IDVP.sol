@@ -35,8 +35,9 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param amountUp The amount of options to be paid for the "Up" strategy
         @param amountDown The amount of options to be paid for the "Down" strategy
         @return premium The amount of base tokens that need to be paid to mint an option
+        @return fee The amount of base tokens that will be paid as fee.
      */
-    function premium(uint256 strike, uint256 amountUp, uint256 amountDown) external view returns (uint256 premium);
+    function premium(uint256 strike, uint256 amountUp, uint256 amountDown) external view returns (uint256 premium, uint256 fee);
 
     /**
         @notice Returns the payoff of the given position
@@ -45,8 +46,9 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @param amountUp The position amount used to compute payoff for the "Up" strategy
         @param amountDown The position amount used to compute payoff for the "Down" strategy
         @return payoff The current value of the position
+        @return fee The amount of base tokens that will be paid as fee.
      */
-    function payoff(uint256 epoch, uint256 strike, uint256 amountUp, uint256 amountDown) external view returns (uint256);
+    function payoff(uint256 epoch, uint256 strike, uint256 amountUp, uint256 amountDown) external view returns (uint256 payoff, uint256 fee);
 
     ////// USER ACTIONS
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
+import "forge-std/console.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
@@ -14,6 +15,7 @@ import {Notional} from "./lib/Notional.sol";
 import {Position} from "./lib/Position.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
+import {FeeManager} from "./FeeManager.sol";
 
 abstract contract DVP is IDVP, EpochControls {
     using AmountHelper for Amount;
@@ -54,6 +56,7 @@ abstract contract DVP is IDVP, EpochControls {
      */
     mapping(uint256 => mapping(bytes32 => Position.Info)) internal _epochPositions;
 
+    error ApproveFailed();
     error TransferFailed();
     error NotEnoughLiquidity();
     error PositionNotFound();
@@ -61,6 +64,7 @@ abstract contract DVP is IDVP, EpochControls {
     error VaultPaused();
     error MissingMarketOracle();
     error MissingPriceOracle();
+    error MissingFeeManager();
     error SlippedMarketValue();
 
     constructor(
@@ -114,21 +118,31 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
+        FeeManager feeManager = FeeManager(_getFeeManager());
 
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
+        uint256 fee = feeManager.calculateTradeFee(amount.up + amount.down, premium_, _baseTokenDecimals, false);
+
         // Revert if actual price exceeds the previewed premium
         // NOTE: cannot use the approved premium as a reference due to the PositionManager...
-        if (premium_ > expectedPremium + expectedPremium.wmul(maxSlippage)) {
+        if (premium_ + fee > expectedPremium + expectedPremium.wmul(maxSlippage)) {
             revert SlippedMarketValue();
         }
         // ToDo: revert if the premium is zero due to an underflow
         // ----- it may be avoided by asking for a positive number of lots as notional...
 
         // Get premium from sender:
+        // NOTE: Premium doesn't include the fee
         if (!IToken(baseToken).transferFrom(msg.sender, vault, premium_)) {
             revert TransferFailed();
         }
+
+        // Send fee to FeeManager
+        if (!IToken(baseToken).transferFrom(msg.sender, address(feeManager), fee)) {
+            revert TransferFailed();
+        }
+        feeManager.notifyTransfer(vault, fee);
 
         // Decrease available liquidity:
         liquidity.increaseUsage(strike, amount);
@@ -195,6 +209,7 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         Notional.Info storage liquidity = _liquidity[epoch_];
+        FeeManager feeManager = FeeManager(_getFeeManager());
 
         bool pastEpoch = true;
         if (epoch_ == getEpoch().current) {
@@ -214,6 +229,9 @@ abstract contract DVP is IDVP, EpochControls {
 
             paidPayoff = payoff_.getTotal();
         }
+        
+        uint256 fee = feeManager.calculateTradeFee(amount.up + amount.down, paidPayoff, _baseTokenDecimals, pastEpoch);
+        paidPayoff -= fee;
 
         // Account change of used liquidity between wallet and protocol:
         position.amountUp -= amount.up;
@@ -222,6 +240,8 @@ abstract contract DVP is IDVP, EpochControls {
         liquidity.decreaseUsage(strike, amount);
 
         IVault(vault).transferPayoff(recipient, paidPayoff, pastEpoch);
+        IVault(vault).transferPayoff(address(feeManager), fee, pastEpoch);
+        feeManager.notifyTransfer(address(vault), fee);
 
         emit Burn(msg.sender);
     }
@@ -288,7 +308,13 @@ abstract contract DVP is IDVP, EpochControls {
         // TBD: move into a single library function
         (uint256 residualAmountUp, uint256 residualAmountDown) = liquidity.getUsed(strike);
         (uint256 percentageUp, uint256 percentageDown) = _residualPayoffPerc(strike);
-        (uint256 payoffUp_, uint256 payoffDown_) = Finance.computeResidualPayoffs(residualAmountUp, percentageUp, residualAmountDown, percentageDown, _baseTokenDecimals);
+        (uint256 payoffUp_, uint256 payoffDown_) = Finance.computeResidualPayoffs(
+            residualAmountUp,
+            percentageUp,
+            residualAmountDown,
+            percentageDown,
+            _baseTokenDecimals
+        );
 
         liquidity.accountPayoffs(strike, payoffUp_, payoffDown_);
     }
@@ -307,7 +333,9 @@ abstract contract DVP is IDVP, EpochControls {
         @return percentagePut the payoff percentage.
         @dev The percentage is expected to be defined in Wad (i.e. 100 % := 1e18)
      */
-    function _residualPayoffPerc(uint256 strike) internal view virtual returns (uint256 percentageCall, uint256 percentagePut);
+    function _residualPayoffPerc(
+        uint256 strike
+    ) internal view virtual returns (uint256 percentageCall, uint256 percentagePut);
 
     /// @dev computes the premium/payoff with the given amount, swap price and post-trade volatility
     function _getMarketValue(
@@ -323,7 +351,7 @@ abstract contract DVP is IDVP, EpochControls {
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown
-    ) public view virtual returns (uint256 payoff_) {
+    ) public view virtual returns (uint256 payoff_, uint256 fee_) {
         Position.Info storage position = _getPosition(epoch_, msg.sender, strike);
         if (!position.exists()) {
             // TBD: return 0
@@ -331,8 +359,9 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
+        bool reachedMaturity = position.epoch != getEpoch().current;
 
-        if (position.epoch == getEpoch().current) {
+        if (!reachedMaturity) {
             // The user wants to know how much is her position worth before reaching maturity
             uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
             payoff_ = _getMarketValue(strike, amount_, false, swapPrice);
@@ -342,6 +371,10 @@ abstract contract DVP is IDVP, EpochControls {
             Amount memory payoffAmount_ = _liquidity[position.epoch].shareOfPayoff(position.strike, amount_, _baseTokenDecimals);
             payoff_ = payoffAmount_.getTotal();
         }
+
+        FeeManager feeManager = FeeManager(_getFeeManager());
+        fee_ = feeManager.calculateTradeFee(amount_.up + amount_.down, payoff_, _baseTokenDecimals, reachedMaturity);
+        payoff_ + fee_;
     }
 
     /**
@@ -383,4 +416,13 @@ abstract contract DVP is IDVP, EpochControls {
         return priceOracle;
     }
 
+    function _getFeeManager() internal view returns (address) {
+        address feeManager = _addressProvider.feeManager();
+
+        if (feeManager == address(0)) {
+            revert MissingFeeManager();
+        }
+
+        return feeManager;
+    }
 }

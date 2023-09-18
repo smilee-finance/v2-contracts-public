@@ -52,6 +52,8 @@ contract TestnetToken is ERC20, Ownable {
                 _addressProvider.exchangeAdapter() != to &&
                 _addressProvider.dvpPositionManager() != from &&
                 _addressProvider.dvpPositionManager() != to &&
+                _addressProvider.feeManager() != from &&
+                _addressProvider.feeManager() != to &&
                 _addressProvider.vaultProxy() != from &&
                 _addressProvider.vaultProxy() != to &&
                 !registry.isRegisteredVault(from) &&

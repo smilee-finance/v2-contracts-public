@@ -44,6 +44,10 @@ contract TestScenariosJson is Test {
         uint256 tradeVolatilityUtilizationRateFactor;
         uint256 tradeVolatilityTimeDecay;
         uint256 sigmaMultiplier;
+        uint256 fee;
+        uint256 capFee;
+        uint256 feeMaturity;
+        uint256 capFeeMaturity;
     }
 
     struct StartEpochPostConditions {
@@ -328,13 +332,17 @@ contract TestScenariosJson is Test {
     }
 
     function _getStartEpochFromJson(string memory json) private returns (StartEpoch memory) {
-        string[15] memory paths = [
+        string[19] memory paths = [
             "pre.sideTokenPrice",
             "pre.impliedVolatility",
             "pre.riskFreeRate",
             "pre.tradeVolatilityUtilizationRateFactor",
             "pre.tradeVolatilityTimeDecay",
             "pre.sigmaMultiplier",
+            "pre.fee",
+            "pre.capFee",
+            "pre.feeMaturity",
+            "pre.capFeeMaturity",
             "v0",
             "post.baseTokenAmount",
             "post.sideTokenAmount",
@@ -345,7 +353,7 @@ contract TestScenariosJson is Test {
             "post.limInf",
             "post.limSup"
         ];
-        uint256[15] memory vars;
+        uint256[19] memory vars;
 
         string memory fixedJsonPath = "$.startEpoch";
         for (uint256 i = 0; i < paths.length; i++) {
@@ -365,7 +373,11 @@ contract TestScenariosJson is Test {
                 riskFreeRate: vars[counter++],
                 tradeVolatilityUtilizationRateFactor: vars[counter++],
                 tradeVolatilityTimeDecay: vars[counter++],
-                sigmaMultiplier: vars[counter++]
+                sigmaMultiplier: vars[counter++],
+                fee: vars[counter++],
+                capFee: vars[counter++],
+                feeMaturity: vars[counter++],
+                capFeeMaturity: vars[counter++]
             }),
             v0: vars[counter++],
             post: StartEpochPostConditions({

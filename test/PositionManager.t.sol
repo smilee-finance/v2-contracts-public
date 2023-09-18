@@ -13,6 +13,7 @@ import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
+import {FeeManager} from "../src/FeeManager.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 
 contract PositionManagerTest is Test {
@@ -33,6 +34,7 @@ contract PositionManagerTest is Test {
     IPositionManager pm;
     TestnetRegistry registry;
     AddressProvider ap;
+    FeeManager feeManager;
 
     constructor() {
         vm.warp(EpochFrequency.REF_TS + 1);
@@ -45,6 +47,11 @@ contract PositionManagerTest is Test {
         sideToken = vault.sideToken();
 
         registry = TestnetRegistry(ap.registry());
+        vm.startPrank(admin);
+        feeManager = new FeeManager(3.5e15, 0.125e18, 1.5e15, 0.125e18);
+        
+        ap.setFeeManager(address(feeManager));
+        vm.stopPrank();
     }
 
     function setUp() public {
@@ -79,7 +86,7 @@ contract PositionManagerTest is Test {
 
         uint256 strike = ig.currentStrike();
 
-        uint256 expectedMarketValue = ig.premium(0, 10 ether, 0);
+        (uint256 expectedMarketValue, ) = ig.premium(0, 10 ether, 0);
         // NOTE: somehow, the sender is something else without this prank...
         vm.prank(DEFAULT_SENDER);
         (tokenId, ) = pm.mint(
@@ -194,7 +201,7 @@ contract PositionManagerTest is Test {
 
         uint256 strike = ig.currentStrike();
 
-        uint256 expectedMarketValue = ig.premium(strike, 10 ether, 0);
+        (uint256 expectedMarketValue, ) = ig.premium(strike, 10 ether, 0);
 
         vm.prank(alice);
 

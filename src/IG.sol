@@ -14,6 +14,7 @@ import {Notional} from "./lib/Notional.sol";
 import {SignedMath} from "./lib/SignedMath.sol";
 import {DVP} from "./DVP.sol";
 import {EpochControls} from "./EpochControls.sol";
+import {FeeManager} from "./FeeManager.sol";
 
 contract IG is DVP {
     using AmountHelper for Amount;
@@ -69,7 +70,7 @@ contract IG is DVP {
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown
-    ) public view virtual override returns (uint256 premium_) {
+    ) public view virtual override returns (uint256 premium_, uint256 fee) {
         strike;
         _checkEpochInitialized();
 
@@ -77,6 +78,13 @@ contract IG is DVP {
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
         premium_ = _getMarketValue(_financeParameters.currentStrike, amount_, true, swapPrice);
+        fee = FeeManager(_getFeeManager()).calculateTradeFee(
+            amountUp + amountDown,
+            premium_,
+            _baseTokenDecimals,
+            false
+        );
+        premium_ += fee;
     }
 
     /// @inheritdoc DVP
