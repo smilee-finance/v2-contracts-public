@@ -131,7 +131,7 @@ contract MockedIG is IG {
         @dev Second last timestamp
      */
     function lastRolledEpoch() public view returns (uint256 lastEpoch) {
-        lastEpoch = getEpoch().lastRolled();
+        lastEpoch = getEpoch().previous;
     }
 
     function currentEpoch() external view returns (uint256) {

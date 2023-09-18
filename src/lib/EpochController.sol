@@ -86,15 +86,4 @@ library EpochController {
         return epoch.current > 0;
     }
 
-    // ToDo: review
-    /**
-        @dev Second last timestamp
-     */
-    function lastRolled(Epoch memory epoch) public pure returns (uint256 lastEpoch) {
-        if (!isInitialized(epoch)) {
-            revert EpochNotInitialized();
-        }
-        lastEpoch = epoch.previous;
-    }
-
 }

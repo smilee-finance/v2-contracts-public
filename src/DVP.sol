@@ -6,17 +6,17 @@ import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
-import {Amount} from "./lib/Amount.sol";
+import {Amount, AmountHelper} from "./lib/Amount.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
 import {Finance} from "./lib/Finance.sol";
 import {Notional} from "./lib/Notional.sol";
-import {OptionStrategy} from "./lib/OptionStrategy.sol";
 import {Position} from "./lib/Position.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 abstract contract DVP is IDVP, EpochControls {
+    using AmountHelper for Amount;
     using AmountsMath for uint256;
     using Position for Position.Info;
     using Notional for Notional.Info;
@@ -208,11 +208,11 @@ abstract contract DVP is IDVP, EpochControls {
             }
         } else {
             // Compute the payoff to be paid:
-            (uint256 payoffCall_, uint256 payoffPut_) = liquidity.shareOfPayoff(strike, amount.up, amount.down, _baseTokenDecimals);
+            Amount memory payoff_ = liquidity.shareOfPayoff(strike, amount, _baseTokenDecimals);
             // Account transfer of setted aside payoff:
-            liquidity.decreasePayoff(strike, Amount({up: payoffCall_, down: payoffPut_}));
+            liquidity.decreasePayoff(strike, payoff_);
 
-            paidPayoff = payoffCall_ + payoffPut_;
+            paidPayoff = payoff_.getTotal();
         }
 
         // Account change of used liquidity between wallet and protocol:
@@ -227,16 +227,15 @@ abstract contract DVP is IDVP, EpochControls {
     }
 
     function _mintBurnChecks() private view {
-        Epoch memory epoch = getEpoch();
         // Ensures that the current epoch holds a valid value
-        if (!epoch.isInitialized()) {
-            revert EpochNotInitialized();
-        }
-        // Ensures that the current epoch is not concluded
-        if (epoch.isFinished()) {
+        _checkEpochInitialized();
+        // TBD: consider epoch check methods in EpochControls
+        // Ensures that the current epoch is not concluded:
+        if (getEpoch().isFinished()) {
             // NOTE: reverts also if the epoch has not been initialized
             revert EpochFrozen();
         }
+
         _requireNotPaused();
 
         if (IEpochControls(vault).isPaused()) {
@@ -340,8 +339,8 @@ abstract contract DVP is IDVP, EpochControls {
         } else {
             // The position expired, the user must close the entire position
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
-            (uint256 payoffCall_, uint256 payoffPut_) = _liquidity[position.epoch].shareOfPayoff(position.strike, amount_.up, amount_.down, _baseTokenDecimals);
-            payoff_ = payoffCall_ + payoffPut_;
+            Amount memory payoffAmount_ = _liquidity[position.epoch].shareOfPayoff(position.strike, amount_, _baseTokenDecimals);
+            payoff_ = payoffAmount_.getTotal();
         }
     }
 

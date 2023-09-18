@@ -56,18 +56,6 @@ library Notional {
         available_.down = initial.down - used.down;
     }
 
-    function aggregatedInfo(
-        Info storage self,
-        uint256 strike
-    ) public view returns (uint256 put, uint256 call, uint256 putAvail, uint256 callAvail) {
-        return (
-            self.initial[strike].down,
-            self.initial[strike].up,
-            self.initial[strike].down - self.used[strike].down,
-            self.initial[strike].up - self.used[strike].up
-        );
-    }
-
     /**
         @notice Record the increased usage of liquidity.
         @param strike the reference strike.
@@ -121,55 +109,49 @@ library Notional {
     /**
         @notice Get the residual payoff setted aside for the expired options not yet redeemed
         @param strike The reference strike
-        @return payoffUp_ The payoff set aside for the call strategy
-        @return payoffDown_ The payoff set aside for the put strategy
+        @return amount The payoff set aside
      */
-    function getAccountedPayoffs(
+    function getAccountedPayoff(
         Info storage self,
         uint256 strike
-    ) public view returns (uint256 payoffUp_, uint256 payoffDown_) {
-        payoffUp_ = self.payoff[strike].up;
-        payoffDown_ = self.payoff[strike].down;
+    ) public view returns (Amount memory amount) {
+        amount = self.payoff[strike];
     }
 
-    // TBD: accept and return Amount(s)
     /**
         @notice Get the share of residual payoff setted aside for the given expired position
         @param strike The position strike
-        @param amountCall The position notional
-        @param amountPut The position notional
+        @param amount_ The position notional
         @param decimals The notional's token number of decimals
-        @return payoffCall_ The owed payoff
-        @return payoffPut_ The owed payoff
+        @return payoff_ The owed payoff
         @dev It relies on the calls of decreaseUsage and decreasePayoff after each position is decreased
      */
     function shareOfPayoff(
         Info storage self,
         uint256 strike,
-        uint256 amountCall,
-        uint256 amountPut,
+        Amount memory amount_,
         uint8 decimals
-    ) public view returns (uint256 payoffCall_, uint256 payoffPut_) {
+    ) public view returns (Amount memory payoff_) {
         (uint256 usedCall_, uint256 usedPut_) = getUsed(self, strike);
-        (uint256 accountedPayoffCall_, uint256 accountedPayoffPut_) = getAccountedPayoffs(self, strike);
+        Amount memory accountedPayoff_ = getAccountedPayoff(self, strike);
 
-        if (amountCall > 0) {
-            amountCall = AmountsMath.wrapDecimals(amountCall, decimals);
+        if (amount_.up > 0) {
+            amount_.up = AmountsMath.wrapDecimals(amount_.up, decimals);
             usedCall_ = AmountsMath.wrapDecimals(usedCall_, decimals);
-            accountedPayoffCall_ = AmountsMath.wrapDecimals(accountedPayoffCall_, decimals);
+            accountedPayoff_.up = AmountsMath.wrapDecimals(accountedPayoff_.up, decimals);
 
             // amount : used = share : payoff
-            payoffCall_ = amountCall.wmul(accountedPayoffCall_).wdiv(usedCall_);
-            payoffCall_ = AmountsMath.unwrapDecimals(payoffCall_, decimals);
+            payoff_.up = amount_.up.wmul(accountedPayoff_.up).wdiv(usedCall_);
+            payoff_.up = AmountsMath.unwrapDecimals(payoff_.up, decimals);
         }
 
-        if (amountPut > 0) {
-            amountPut = AmountsMath.wrapDecimals(amountPut, decimals);
+        if (amount_.down > 0) {
+            amount_.down = AmountsMath.wrapDecimals(amount_.down, decimals);
             usedPut_ = AmountsMath.wrapDecimals(usedPut_, decimals);
-            accountedPayoffPut_ = AmountsMath.wrapDecimals(accountedPayoffPut_, decimals);
+            accountedPayoff_.down = AmountsMath.wrapDecimals(accountedPayoff_.down, decimals);
 
-            payoffPut_ = amountPut.wmul(accountedPayoffPut_).wdiv(usedPut_);
-            payoffPut_ = AmountsMath.unwrapDecimals(payoffPut_, decimals);
+            payoff_.down = amount_.down.wmul(accountedPayoff_.down).wdiv(usedPut_);
+            payoff_.down = AmountsMath.unwrapDecimals(payoff_.down, decimals);
         }
     }
 
@@ -195,18 +177,22 @@ library Notional {
     function postTradeUtilizationRate(
         Info storage self,
         uint256 strike,
-        uint256 amount,
-        bool tradeIsBuy
+        Amount memory amount,
+        bool tradeIsBuy,
+        uint8 tokenDecimals
     ) public view returns (uint256 utilizationRate) {
         (uint256 used, uint256 total) = utilizationRateFactors(self, strike);
         if (total == 0) {
             return 0;
         }
 
+        uint256 totalAmount = amount.getTotal();
+        totalAmount = AmountsMath.wrapDecimals(totalAmount, tokenDecimals);
+
         if (tradeIsBuy) {
-            return (used.add(amount)).wdiv(total);
+            return (used.add(totalAmount)).wdiv(total);
         } else {
-            return (used.sub(amount)).wdiv(total);
+            return (used.sub(totalAmount)).wdiv(total);
         }
     }
 }

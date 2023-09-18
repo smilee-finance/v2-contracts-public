@@ -5,18 +5,18 @@ import {IDVP} from "./interfaces/IDVP.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
-import {Amount} from "./lib/Amount.sol";
+import {Amount, AmountHelper} from "./lib/Amount.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 import {DVPType} from "./lib/DVPType.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
 import {FinanceParameters, FinanceIG} from "./lib/FinanceIG.sol";
-import {FinanceIGPrice} from "./lib/FinanceIGPrice.sol";
 import {Notional} from "./lib/Notional.sol";
 import {SignedMath} from "./lib/SignedMath.sol";
 import {DVP} from "./DVP.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 contract IG is DVP {
+    using AmountHelper for Amount;
     using AmountsMath for uint256;
     using Notional for Notional.Info;
     using EpochController for Epoch;
@@ -71,10 +71,8 @@ contract IG is DVP {
         uint256 amountDown
     ) public view virtual override returns (uint256 premium_) {
         strike;
-        // TBD: consider a check initialized method in EpochControls
-        if (!getEpoch().isInitialized()) {
-            revert EpochNotInitialized();
-        }
+        _checkEpochInitialized();
+
         uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
@@ -94,24 +92,28 @@ contract IG is DVP {
         marketValue = FinanceIG.getMarketValue(_financeParameters, amount, postTradeVolatility, swapPrice, riskFreeRate, _baseTokenDecimals);
     }
 
-    // ToDo: review
     function notional()
         public
         view
         returns (uint256 bearNotional, uint256 bullNotional, uint256 bearAvailNotional, uint256 bullAvailNotional)
     {
-        Notional.Info storage liquidity = _liquidity[getEpoch().current];
-        return liquidity.aggregatedInfo(_financeParameters.currentStrike);
+        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+
+        Amount memory initial = liquidity.getInitial(_financeParameters.currentStrike);
+        Amount memory available = liquidity.available(_financeParameters.currentStrike);
+
+        return (initial.down, initial.up, available.down, available.up);
     }
 
     // NOTE: public for frontend usage
-    // TODO: add a modifier to check lastRolledEpoch is < epoch.current
     /**
         @notice Get the estimated implied volatility from a given trade.
         @param strike The trade strike.
-        @param amount The trade notional (positive for buy, negative for sell).
+        @param amount The trade notional.
+        @param tradeIsBuy positive for buy, negative for sell.
         @return sigma The estimated implied volatility.
         @dev The oracle must provide an updated baseline volatility, computed just before the start of the epoch.
+        @dev it reverts if there's no previous epoch
      */
     function getPostTradeVolatility(
         uint256 strike,
@@ -119,28 +121,18 @@ contract IG is DVP {
         bool tradeIsBuy
     ) public view returns (uint256 sigma) {
         strike;
-        Epoch memory epoch = getEpoch();
+        _checkEpochInitialized();
 
-        // TBD: move in library
-        uint256 U = _liquidity[epoch.current].postTradeUtilizationRate(
+        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+        uint256 U = liquidity.postTradeUtilizationRate(
             _financeParameters.currentStrike,
-            AmountsMath.wrapDecimals(amount.up + amount.down, _baseTokenDecimals),
-            tradeIsBuy
+            amount,
+            tradeIsBuy,
+            _baseTokenDecimals
         );
-        uint256 t0 = epoch.lastRolled();
-        uint256 T = epoch.current - t0;
+        uint256 t0 = getEpoch().previous;
 
-        return
-            FinanceIGPrice.tradeVolatility(
-                FinanceIGPrice.TradeVolatilityParams(
-                    _financeParameters.sigmaZero, // baselineVolatility
-                    _financeParameters.tradeVolatilityUtilizationRateFactor,
-                    _financeParameters.tradeVolatilityTimeDecay,
-                    U,
-                    T,
-                    t0
-                )
-            );
+        return FinanceIG.getPostTradeVolatility(_financeParameters, U, t0);
     }
 
     // TBD: wrap parameters in a "Trade" struct (there's an overlap with Position.Info)
@@ -176,8 +168,10 @@ contract IG is DVP {
 
         // NOTE: We negate the value because the protocol will sell side tokens when `h` is positive.
         uint256 exchangedBaseTokens = IVault(vault).deltaHedge(-tokensToSwap);
-        exchangedBaseTokens = AmountsMath.wrapDecimals(exchangedBaseTokens, _baseTokenDecimals);
 
+        // TBD: move in library
+        // Compute swap price:
+        exchangedBaseTokens = AmountsMath.wrapDecimals(exchangedBaseTokens, _baseTokenDecimals);
         swapPrice = exchangedBaseTokens.wdiv(
             AmountsMath.wrapDecimals(SignedMath.abs(tokensToSwap), _sideTokenDecimals)
         );
@@ -192,12 +186,10 @@ contract IG is DVP {
 
     /// @inheritdoc DVP
     function _residualPayoff() internal view virtual override returns (uint256 residualPayoff) {
-        Notional.Info storage liquidity = _liquidity[getEpoch().current];
+        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+        Amount memory payoff = liquidity.getAccountedPayoff(_financeParameters.currentStrike);
 
-        // ToDo: (review usage and) return Amount and use .getTotal()
-        (uint256 pCall, uint256 pPut) = liquidity.getAccountedPayoffs(_financeParameters.currentStrike);
-
-        residualPayoff = pCall + pPut;
+        residualPayoff = payoff.getTotal();
     }
 
     /// @inheritdoc DVP
@@ -235,18 +227,20 @@ contract IG is DVP {
         super._afterRollEpoch();
 
         // NOTE: initial liquidity is allocated by the DVP call
-        Notional.Info storage liquidity = _liquidity[getEpoch().current];
+        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
         _financeParameters.initialLiquidity = liquidity.getInitial(_financeParameters.currentStrike);
     }
 
     /// @inheritdoc DVP
     function _allocateLiquidity(uint256 initialCapital) internal virtual override {
-        Notional.Info storage liquidity = _liquidity[getEpoch().current];
-
-        // The impermanent gain DVP only has one strike:
         // The initialCapital is split 50:50 on the two strategies:
         uint256 halfInitialCapital = initialCapital / 2;
-        liquidity.setInitial(_financeParameters.currentStrike, Amount({up: halfInitialCapital, down: initialCapital - halfInitialCapital}));
+        Amount memory allocation = Amount({up: halfInitialCapital, down: initialCapital - halfInitialCapital});
+
+        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+
+        // The impermanent gain (IG) DVP only has one strike:
+        liquidity.setInitial(_financeParameters.currentStrike, allocation);
     }
 
     /// @dev must be defined in Wad

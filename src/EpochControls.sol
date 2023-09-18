@@ -6,6 +6,7 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
 
+// ToDo: move Pausable and Ownable out of this contract
 abstract contract EpochControls is IEpochControls, Pausable, Ownable {
     using EpochController for Epoch;
 
@@ -42,6 +43,14 @@ abstract contract EpochControls is IEpochControls, Pausable, Ownable {
         @notice Hook that is called after rolling the epoch.
      */
     function _afterRollEpoch() internal virtual {}
+
+    // TBD: move into EpochController
+    /// @notice Ensures that the current epoch holds a valid value
+    function _checkEpochInitialized() internal view {
+        if (!_epoch.isInitialized()) {
+            revert EpochNotInitialized();
+        }
+    }
 
     /// @inheritdoc IEpochControls
     function changePauseState() external override {
