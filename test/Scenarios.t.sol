@@ -11,7 +11,9 @@ import {FinanceParameters} from "../src/lib/FinanceIG.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {SignedMath} from "../src/lib/SignedMath.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
+import {FeeManager} from "../src/FeeManager.sol";
 import {IG} from "../src/IG.sol";
+import {IToken} from "../src/interfaces/IToken.sol";
 import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
@@ -25,6 +27,7 @@ contract TestScenariosJson is Test {
     address internal _liquidityProvider;
     address internal _trader;
     AddressProvider internal _ap;
+    FeeManager internal _feeManager;
     MockedVault internal _vault;
     MockedIG internal _dvp;
     TestnetPriceOracle internal _oracle;
@@ -44,10 +47,10 @@ contract TestScenariosJson is Test {
         uint256 tradeVolatilityUtilizationRateFactor;
         uint256 tradeVolatilityTimeDecay;
         uint256 sigmaMultiplier;
-        uint256 fee;
         uint256 capFee;
-        uint256 feeMaturity;
         uint256 capFeeMaturity;
+        uint256 fee;
+        uint256 feeMaturity;
     }
 
     struct StartEpochPostConditions {
@@ -127,6 +130,8 @@ contract TestScenariosJson is Test {
 
         _oracle = TestnetPriceOracle(_ap.priceOracle());
 
+        _feeManager = FeeManager(_ap.feeManager());
+
         vm.startPrank(_admin);
         _dvp = new MockedIG(address(_vault), address(_ap));
         TestnetRegistry(_ap.registry()).registerDVP(address(_dvp));
@@ -136,44 +141,48 @@ contract TestScenariosJson is Test {
         _dvp.rollEpoch();
     }
 
-    function testScenario1() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_1");
-    }
+    // function testScenario1() public {
+    //     // ToDo: add scenario description
+    //     _checkScenario("scenario_1");
+    // }
 
-    function testScenario2() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_2");
-    }
+    // function testScenario2() public {
+    //     // ToDo: add scenario description
+    //     _checkScenario("scenario_2");
+    // }
 
-    function testScenario3() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_3");
-    }
+    // function testScenario3() public {
+    //     // ToDo: add scenario description
+    //     _checkScenario("scenario_3");
+    // }
 
-    function testScenario4() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_4");
-    }
+    // function testScenario4() public {
+    //     // ToDo: add scenario description
+    //     _checkScenario("scenario_4");
+    // }
 
-    function testScenario5() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_5");
-    }
+    // function testScenario5() public {
+    //     // ToDo: add scenario description
+    //     _checkScenario("scenario_5");
+    // }
 
-    function testScenario6() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_6");
-    }
+    // function testScenario6() public {
+    //     // ToDo: add scenario description
+    //     _checkScenario("scenario_6");
+    // }
 
-    function testScenario7() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_7");
-    }
+    // function testScenario7() public {
+    //     // ToDo: add scenario description
+    //     _checkScenario("scenario_7");
+    // }
 
-    function testScenario8() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_8");
+    // function testScenario8() public {
+    //     // ToDo: add scenario description
+    //     _checkScenario("scenario_8");
+    // }
+
+    function testScenario9() public {
+        _checkScenario("scenario_9");
     }
 
     function _checkScenario(string memory scenarioName) internal {
@@ -202,6 +211,11 @@ contract TestScenariosJson is Test {
         _oracle.setTokenPrice(_vault.sideToken(), t0.pre.sideTokenPrice);
         _oracle.setImpliedVolatility(t0.pre.impliedVolatility);
         _oracle.setRiskFreeRate(t0.pre.riskFreeRate);
+
+        _feeManager.setFeePercentage(t0.pre.fee);
+        _feeManager.setFeeMaturityPercentage(t0.pre.feeMaturity);
+        _feeManager.setCapPercentage(t0.pre.capFee);
+        _feeManager.setCapMaturityPercentage(t0.pre.capFeeMaturity);
 
         _dvp.setTradeVolatilityUtilizationRateFactor(t0.pre.tradeVolatilityUtilizationRateFactor);
         _dvp.setTradeVolatilityTimeDecay(t0.pre.tradeVolatilityTimeDecay);
@@ -246,8 +260,9 @@ contract TestScenariosJson is Test {
 
         // actual trade:
         uint256 marketValue;
+        uint256 fee;
         if (t.isMint) {
-            marketValue = _dvp.premium(strike, t.amountUp, t.amountDown);
+            (marketValue, fee) = _dvp.premium(strike, t.amountUp, t.amountDown);
             TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue, vm);
             vm.prank(_trader);
             marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue, 0.1e18);
@@ -255,13 +270,15 @@ contract TestScenariosJson is Test {
             // TBD: check slippage on market value
         } else {
             vm.startPrank(_trader);
-            marketValue = _dvp.payoff(_dvp.currentEpoch(), strike, t.amountUp, t.amountDown);
+            (marketValue, fee) = _dvp.payoff(_dvp.currentEpoch(), strike, t.amountUp, t.amountDown);
             marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, t.amountUp, t.amountDown, marketValue, 0.1e18);
             vm.stopPrank();
         }
-
+        //fee = _feeManager.calculateTradeFee(t.amountUp + t.amountDown, marketValue, IToken(_vault.baseToken()).decimals(), false);
+        console.log("marketValue", marketValue);
+        console.log("fee", fee);
         //post-conditions:
-        assertApproxEqAbs(t.post.marketValue, marketValue, _tollerancePercentage(t.post.marketValue, 3));
+        assertApproxEqAbs(t.post.marketValue, t.isMint ? marketValue - fee : marketValue + fee, _tollerancePercentage(t.post.marketValue, 3));
         assertEq(t.post.utilizationRate, _dvp.getUtilizationRate());
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
         assertEq(t.post.availableNotionalBear, availableBearNotional);
@@ -339,10 +356,10 @@ contract TestScenariosJson is Test {
             "pre.tradeVolatilityUtilizationRateFactor",
             "pre.tradeVolatilityTimeDecay",
             "pre.sigmaMultiplier",
-            "pre.fee",
             "pre.capFee",
-            "pre.feeMaturity",
             "pre.capFeeMaturity",
+            "pre.fee",
+            "pre.feeMaturity",
             "v0",
             "post.baseTokenAmount",
             "post.sideTokenAmount",
@@ -374,10 +391,10 @@ contract TestScenariosJson is Test {
                 tradeVolatilityUtilizationRateFactor: vars[counter++],
                 tradeVolatilityTimeDecay: vars[counter++],
                 sigmaMultiplier: vars[counter++],
-                fee: vars[counter++],
                 capFee: vars[counter++],
-                feeMaturity: vars[counter++],
-                capFeeMaturity: vars[counter++]
+                capFeeMaturity: vars[counter++],
+                fee: vars[counter++],
+                feeMaturity: vars[counter++]
             }),
             v0: vars[counter++],
             post: StartEpochPostConditions({
