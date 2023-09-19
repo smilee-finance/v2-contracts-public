@@ -9,7 +9,7 @@ import {Notional} from "../../src/lib/Notional.sol";
 import {OptionStrategy} from "../../src/lib/OptionStrategy.sol";
 import {Position} from "../../src/lib/Position.sol";
 import {SignedMath} from "../../src/lib/SignedMath.sol";
-import {FeeManager} from "../../src/FeeManager.sol";
+import {IFeeManager} from "../../src/interfaces/IFeeManager.sol";
 import {IG} from "../../src/IG.sol";
 import {Epoch, EpochController} from "../../src/lib/EpochController.sol";
 
@@ -55,16 +55,30 @@ contract MockedIG is IG {
         _fakePayoff = false;
     }
 
-    function premium(uint256 strike, uint256 amountUp, uint256 amountDown) public view override returns (uint256, uint256) {
+    function premium(
+        uint256 strike,
+        uint256 amountUp,
+        uint256 amountDown
+    ) public view override returns (uint256, uint256) {
         if (_fakePremium) {
             uint256 premium_ = ((amountUp + amountDown) * _optionPrice) / 10000;
-            uint256 fee = FeeManager(_getFeeManager()).calculateTradeFee(amountUp + amountDown, premium_, _baseTokenDecimals, false);
+            uint256 fee = IFeeManager(_getFeeManager()).calculateTradeFee(
+                amountUp + amountDown,
+                premium_,
+                _baseTokenDecimals,
+                false
+            );
             return (premium_ + fee, fee);
         }
         return super.premium(strike, amountUp, amountDown);
     }
 
-    function _getMarketValue(uint256 strike, Amount memory amount, bool tradeIsBuy, uint256 swapPrice) internal view virtual override returns (uint256) {
+    function _getMarketValue(
+        uint256 strike,
+        Amount memory amount,
+        bool tradeIsBuy,
+        uint256 swapPrice
+    ) internal view virtual override returns (uint256) {
         if (_fakePremium || _fakePayoff) {
             // ToDo: review
             uint256 amountAbs = amount.up + amount.down;
@@ -79,14 +93,20 @@ contract MockedIG is IG {
         return super._getMarketValue(strike, amount, tradeIsBuy, swapPrice);
     }
 
-    function _residualPayoffPerc(uint256 strike) internal view virtual override returns (uint256 percentageCall, uint256 percentagePut) {
+    function _residualPayoffPerc(
+        uint256 strike
+    ) internal view virtual override returns (uint256 percentageCall, uint256 percentagePut) {
         if (_fakePayoff) {
             return (_payoffPercentage, _payoffPercentage);
         }
         return super._residualPayoffPerc(strike);
     }
 
-    function _deltaHedgePosition(uint256 strike, Amount memory amount, bool tradeIsBuy) internal override returns (uint256 swapPrice) {
+    function _deltaHedgePosition(
+        uint256 strike,
+        Amount memory amount,
+        bool tradeIsBuy
+    ) internal override returns (uint256 swapPrice) {
         if (_fakeDeltaHedge) {
             IVault(vault).deltaHedge(-int256((amount.up + amount.down) / 4));
             return 1e18;
@@ -106,7 +126,9 @@ contract MockedIG is IG {
     }
 
     function getUtilizationRate() public view returns (uint256) {
-        (uint256 used, uint256 total) = _liquidity[getEpoch().current].utilizationRateFactors(_financeParameters.currentStrike);
+        (uint256 used, uint256 total) = _liquidity[getEpoch().current].utilizationRateFactors(
+            _financeParameters.currentStrike
+        );
 
         used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
         total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
@@ -126,7 +148,7 @@ contract MockedIG is IG {
         @notice Get number of past and current epochs
         @return number The number of past and current epochs
      */
-    function getNumberOfEpochs() external view returns(uint256 number) {
+    function getNumberOfEpochs() external view returns (uint256 number) {
         number = getEpoch().numberOfRolledEpochs;
     }
 
@@ -140,5 +162,4 @@ contract MockedIG is IG {
     function currentEpoch() external view returns (uint256) {
         return getEpoch().current;
     }
-
 }

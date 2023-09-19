@@ -5,7 +5,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 
-// Add events
 contract FeeManager is IFeeManager, Ownable {
     using AmountsMath for uint256;
 
@@ -21,10 +20,10 @@ contract FeeManager is IFeeManager, Ownable {
     /// @notice CAP percentage, works like feePercentage in WAD after maturity, but it's used to calculate fees on premium.
     uint256 public maturityCapPercentage;
 
-    event UpdateFeePercentage(uint256 previous, uint256 fee);
-    event UpdateCapPercentage(uint256 previous, uint256 fee);
-    event UpdateFeePercentageMaturity(uint256 previous, uint256 fee);
-    event UpdateCapPercentageMaturity(uint256 previous, uint256 fee);
+    event UpdateFeePercentage(uint256 fee, uint256 previous);
+    event UpdateCapPercentage(uint256 fee, uint256 previous);
+    event UpdateFeePercentageMaturity(uint256 fee, uint256 previous);
+    event UpdateCapPercentageMaturity(uint256 fee, uint256 previous);
 
     constructor(
         uint256 feePercentage_,
@@ -67,31 +66,35 @@ contract FeeManager is IFeeManager, Ownable {
     /// @inheritdoc IFeeManager
     function notifyTransfer(address vault, uint256 feeAmount) public {}
 
-    /// @notice Change fee percentage value
+    /// @notice Update fee percentage value
     function setFeePercentage(uint256 feePercentage_) public onlyOwner {
-        uint256 feePercentageOld = feePercentage;
+        uint256 previousFeePercentage = feePercentage;
         feePercentage = feePercentage_;
-        emit UpdateFeePercentage(feePercentageOld, feePercentage);
+
+        emit UpdateFeePercentage(feePercentage, previousFeePercentage);
     }
 
-    /// @notice Change cap percentage value
+    /// @notice Update cap percentage value
     function setCapPercentage(uint256 capPercentage_) public onlyOwner {
-        uint256 capPercentageOld = capPercentage;
+        uint256 previousCapPercentage = capPercentage;
         capPercentage = capPercentage_;
-        emit UpdateCapPercentage(capPercentageOld, capPercentageOld);
+
+        emit UpdateCapPercentage(capPercentage, previousCapPercentage);
     }
 
-    /// @notice Change fee percentage value at maturity
+    /// @notice Update fee percentage value at maturity
     function setFeeMaturityPercentage(uint256 maturityFeePercentage_) public onlyOwner {
-        uint256 maturityFeePercentageOld = maturityFeePercentage;
+        uint256 previousMaturityFeePercentage = maturityFeePercentage;
         maturityFeePercentage = maturityFeePercentage_;
-        emit UpdateFeePercentageMaturity(maturityFeePercentageOld, maturityFeePercentage);
+
+        emit UpdateFeePercentageMaturity(maturityFeePercentage, previousMaturityFeePercentage);
     }
 
-    /// @notice Change cap percentage value at maturity
+    /// @notice Update cap percentage value at maturity
     function setCapMaturityPercentage(uint256 maturityCapPercentage_) public onlyOwner {
-        uint256 maturityCapPercentageOld = maturityCapPercentage;
+        uint256 previousMaturityCapPercentage = maturityCapPercentage;
         maturityCapPercentage = maturityCapPercentage_;
-        emit UpdateCapPercentageMaturity(maturityCapPercentageOld, maturityCapPercentageOld);
+
+        emit UpdateCapPercentageMaturity(maturityCapPercentage, previousMaturityCapPercentage);
     }
 }

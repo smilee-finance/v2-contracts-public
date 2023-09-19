@@ -191,7 +191,7 @@ contract TestScenariosJson is Test {
 
         Trade[] memory trades = _getTradesFromJson(scenariosJSON);
         for (uint i = 0; i < trades.length; i++) {
-            console.log("- Checking trade number", i+1);
+            console.log("- Checking trade number", i + 1);
             _checkTrade(trades[i]);
         }
 
@@ -252,7 +252,11 @@ contract TestScenariosJson is Test {
         assertEq(t.pre.availableNotionalBear, availableBearNotional);
         assertEq(t.pre.availableNotionalBull, availableBullNotional);
         uint256 strike = _dvp.currentStrike();
-        assertApproxEqAbs(t.pre.volatility, _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true), _toleranceOnPercentage);
+        assertApproxEqAbs(
+            t.pre.volatility,
+            _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true),
+            _toleranceOnPercentage
+        );
 
         // actual trade:
         uint256 marketValue;
@@ -267,19 +271,30 @@ contract TestScenariosJson is Test {
         } else {
             vm.startPrank(_trader);
             (marketValue, fee) = _dvp.payoff(_dvp.currentEpoch(), strike, t.amountUp, t.amountDown);
-            marketValue = _dvp.burn(_dvp.currentEpoch(), _trader, strike, t.amountUp, t.amountDown, marketValue, 0.1e18);
+            marketValue = _dvp.burn(
+                _dvp.currentEpoch(),
+                _trader,
+                strike,
+                t.amountUp,
+                t.amountDown,
+                marketValue,
+                0.1e18
+            );
             vm.stopPrank();
         }
         //fee = _feeManager.calculateTradeFee(t.amountUp + t.amountDown, marketValue, IToken(_vault.baseToken()).decimals(), false);
-        console.log("marketValue", marketValue);
-        console.log("fee", fee);
+
         //post-conditions:
         assertApproxEqAbs(t.post.marketValue, marketValue, _tollerancePercentage(t.post.marketValue, 3));
         assertEq(t.post.utilizationRate, _dvp.getUtilizationRate());
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
         assertEq(t.post.availableNotionalBear, availableBearNotional);
         assertEq(t.post.availableNotionalBull, availableBullNotional);
-        assertApproxEqAbs(t.post.volatility, _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true), _toleranceOnPercentage);
+        assertApproxEqAbs(
+            t.post.volatility,
+            _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true),
+            _toleranceOnPercentage
+        );
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
 
@@ -323,11 +338,7 @@ contract TestScenariosJson is Test {
             _tollerancePercentage(rebalance.sideTokenAmount, 3)
         );
 
-        assertApproxEqAbs(
-            rebalance.v0,
-            _vault.v0(),
-            _tollerancePercentage(rebalance.v0, 3)
-        );
+        assertApproxEqAbs(rebalance.v0, _vault.v0(), _tollerancePercentage(rebalance.v0, 3));
 
         // TBD: add missing "complete withdraw"
     }
