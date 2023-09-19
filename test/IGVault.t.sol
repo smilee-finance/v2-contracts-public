@@ -190,7 +190,7 @@ contract IGVaultTest is Test {
         // Mint without rolling epoch doesn't change the vaule of initialLiquidity
         assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
 
-        (uint256 davidInitialBalance, uint256 davidMintFee) = _assurePremium(
+        (uint256 davidInitialBalance, ) = _assurePremium(
             david,
             0,
             (params.optionStrategy) ? params.davidAmount : 0,
@@ -303,7 +303,7 @@ contract IGVaultTest is Test {
             0.1e18
         );
 
-        (uint256 davidInitialBalance, uint256 davidMintFee) = _assurePremium(
+        (uint256 davidInitialBalance, ) = _assurePremium(
             david,
             0,
             (params.optionStrategy) ? params.davidAmount : 0,
@@ -377,7 +377,11 @@ contract IGVaultTest is Test {
 
         assertApproxEqAbs(charliePayoff + charlieFeePayoff, pendingPayoff, 1e2);
 
-        assertApproxEqAbs(vaultNotionalBeforeRollEpoch - (davidPayoff + davidFeePayoff) - (charliePayoff + charlieFeePayoff) , vault.notional(), 1e3);
+        assertApproxEqAbs(
+            vaultNotionalBeforeRollEpoch - (davidPayoff + davidFeePayoff) - (charliePayoff + charlieFeePayoff),
+            vault.notional(),
+            1e3
+        );
         assertApproxEqAbs(davidInitialBalance + davidPayoff, baseToken.balanceOf(david), 1e3);
     }
 
@@ -463,8 +467,6 @@ contract IGVaultTest is Test {
         vm.expectRevert("Pausable: paused");
         ig.rollEpoch();
     }
-
-    function testMintFee() public {}
 
     function _assurePremium(
         address user,

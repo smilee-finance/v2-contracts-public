@@ -14,7 +14,7 @@ import {Notional} from "./lib/Notional.sol";
 import {SignedMath} from "./lib/SignedMath.sol";
 import {DVP} from "./DVP.sol";
 import {EpochControls} from "./EpochControls.sol";
-import {FeeManager} from "./FeeManager.sol";
+import {IFeeManager} from "./interfaces/IFeeManager.sol";
 
 contract IG is DVP {
     using AmountHelper for Amount;
@@ -78,7 +78,7 @@ contract IG is DVP {
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
         premium_ = _getMarketValue(_financeParameters.currentStrike, amount_, true, swapPrice);
-        fee = FeeManager(_getFeeManager()).calculateTradeFee(
+        fee = IFeeManager(_getFeeManager()).calculateTradeFee(
             amountUp + amountDown,
             premium_,
             _baseTokenDecimals,
@@ -97,7 +97,14 @@ contract IG is DVP {
         uint256 postTradeVolatility = getPostTradeVolatility(strike, amount, tradeIsBuy);
         uint256 riskFreeRate = IMarketOracle(_getMarketOracle()).getRiskFreeRate(sideToken, baseToken);
 
-        marketValue = FinanceIG.getMarketValue(_financeParameters, amount, postTradeVolatility, swapPrice, riskFreeRate, _baseTokenDecimals);
+        marketValue = FinanceIG.getMarketValue(
+            _financeParameters,
+            amount,
+            postTradeVolatility,
+            swapPrice,
+            riskFreeRate,
+            _baseTokenDecimals
+        );
     }
 
     function notional()
@@ -217,7 +224,14 @@ contract IG is DVP {
             // Update strike price:
             (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
             uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-            FinanceIG.updateStrike(_financeParameters, oraclePrice, baseTokenAmount, sideTokenAmount, _baseTokenDecimals, _sideTokenDecimals);
+            FinanceIG.updateStrike(
+                _financeParameters,
+                oraclePrice,
+                baseTokenAmount,
+                sideTokenAmount,
+                _baseTokenDecimals,
+                _sideTokenDecimals
+            );
         }
 
         {

@@ -47,11 +47,7 @@ contract PositionManagerTest is Test {
         sideToken = vault.sideToken();
 
         registry = TestnetRegistry(ap.registry());
-        vm.startPrank(admin);
-        feeManager = new FeeManager(3.5e15, 0.125e18, 1.5e15, 0.125e18);
-        
-        ap.setFeeManager(address(feeManager));
-        vm.stopPrank();
+        feeManager = FeeManager(ap.feeManager());
     }
 
     function setUp() public {

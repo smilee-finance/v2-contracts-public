@@ -14,7 +14,7 @@ import {Notional} from "./lib/Notional.sol";
 import {Position} from "./lib/Position.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
-import {FeeManager} from "./FeeManager.sol";
+import {IFeeManager} from "./interfaces/IFeeManager.sol";
 
 abstract contract DVP is IDVP, EpochControls {
     using AmountHelper for Amount;
@@ -114,12 +114,12 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
-        FeeManager feeManager = FeeManager(_getFeeManager());
+        IFeeManager feeManager = IFeeManager(_getFeeManager());
 
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         uint256 fee = feeManager.calculateTradeFee(amount.up + amount.down, premium_, _baseTokenDecimals, false);
-        
+
         // Revert if actual price exceeds the previewed premium
         // NOTE: cannot use the approved premium as a reference due to the PositionManager...
         if (premium_ + fee > expectedPremium + expectedPremium.wmul(maxSlippage)) {
@@ -207,7 +207,7 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         Notional.Info storage liquidity = _liquidity[epoch_];
-        FeeManager feeManager = FeeManager(_getFeeManager());
+        IFeeManager feeManager = IFeeManager(_getFeeManager());
 
         bool reachedMaturity = epoch_ != getEpoch().current;
         uint256 fee;
@@ -239,7 +239,6 @@ abstract contract DVP is IDVP, EpochControls {
             );
             // Account transfer of setted aside payoff:
             liquidity.decreasePayoff(strike, payoff_);
-
         }
 
         paidPayoff -= fee;
@@ -387,7 +386,7 @@ abstract contract DVP is IDVP, EpochControls {
             payoff_ = payoffAmount_.getTotal();
         }
 
-        FeeManager feeManager = FeeManager(_getFeeManager());
+        IFeeManager feeManager = IFeeManager(_getFeeManager());
         fee_ = feeManager.calculateTradeFee(amount_.up + amount_.down, payoff_, _baseTokenDecimals, reachedMaturity);
         payoff_ = payoff_ - fee_;
     }
