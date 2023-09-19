@@ -15,16 +15,21 @@ contract FeeManagerTest is Test {
         feeManager = new FeeManager(0.035e18, 0.125e18, 0.01e18, 0.1e18);
     }
 
-    function testFeeManagerSetter(uint256 feePercentage, uint256 capPercertage, uint256 mFeePercentage, uint256 mCapPercentage) public {
+    function testFeeManagerSetter(
+        uint256 feePercentage,
+        uint256 capPercertage,
+        uint256 mFeePercentage,
+        uint256 mCapPercentage
+    ) public {
         vm.startPrank(admin);
         feeManager.setFeePercentage(feePercentage);
-        assertEq(feePercentage ,feeManager.feePercentage());
+        assertEq(feePercentage, feeManager.feePercentage());
         feeManager.setCapPercentage(capPercertage);
-        assertEq(capPercertage ,feeManager.capPercentage());
+        assertEq(capPercertage, feeManager.capPercentage());
         feeManager.setFeeMaturityPercentage(mFeePercentage);
-        assertEq(mFeePercentage ,feeManager.maturityFeePercentage());
+        assertEq(mFeePercentage, feeManager.maturityFeePercentage());
         feeManager.setCapMaturityPercentage(mCapPercentage);
-        assertEq(mCapPercentage ,feeManager.maturityCapPercentage());
+        assertEq(mCapPercentage, feeManager.maturityCapPercentage());
         vm.stopPrank();
     }
 
@@ -33,8 +38,7 @@ contract FeeManagerTest is Test {
         uint256 amountUp = 30000e18;
         uint256 amountDown = 5e18;
 
-
-        uint256 expectedFee = 7e15;
+        uint256 expectedFee = 7e15; 
 
         uint256 fee = feeManager.calculateTradeFee(premium, amountUp + amountDown, 18, false);
         assertEq(expectedFee, fee);
@@ -45,10 +49,9 @@ contract FeeManagerTest is Test {
         uint256 amountUp = 30000e18;
         uint256 amountDown = 5e18;
 
-
         uint256 expectedFee = 2e15;
 
-        uint256 fee = feeManager.calculateTradeFee(premium, amountUp +  amountDown, 18, true);
+        uint256 fee = feeManager.calculateTradeFee(premium, amountUp + amountDown, 18, true);
         assertEq(expectedFee, fee);
     }
 }

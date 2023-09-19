@@ -141,48 +141,44 @@ contract TestScenariosJson is Test {
         _dvp.rollEpoch();
     }
 
-    // function testScenario1() public {
-    //     // ToDo: add scenario description
-    //     _checkScenario("scenario_1");
-    // }
+    function testScenario1() public {
+        // ToDo: add scenario description
+        _checkScenario("scenario_1");
+    }
 
-    // function testScenario2() public {
-    //     // ToDo: add scenario description
-    //     _checkScenario("scenario_2");
-    // }
+    function testScenario2() public {
+        // ToDo: add scenario description
+        _checkScenario("scenario_2");
+    }
 
-    // function testScenario3() public {
-    //     // ToDo: add scenario description
-    //     _checkScenario("scenario_3");
-    // }
+    function testScenario3() public {
+        // ToDo: add scenario description
+        _checkScenario("scenario_3");
+    }
 
-    // function testScenario4() public {
-    //     // ToDo: add scenario description
-    //     _checkScenario("scenario_4");
-    // }
+    function testScenario4() public {
+        // ToDo: add scenario description
+        _checkScenario("scenario_4");
+    }
 
-    // function testScenario5() public {
-    //     // ToDo: add scenario description
-    //     _checkScenario("scenario_5");
-    // }
+    function testScenario5() public {
+        // ToDo: add scenario description
+        _checkScenario("scenario_5");
+    }
 
-    // function testScenario6() public {
-    //     // ToDo: add scenario description
-    //     _checkScenario("scenario_6");
-    // }
+    function testScenario6() public {
+        // ToDo: add scenario description
+        _checkScenario("scenario_6");
+    }
 
-    // function testScenario7() public {
-    //     // ToDo: add scenario description
-    //     _checkScenario("scenario_7");
-    // }
+    function testScenario7() public {
+        // ToDo: add scenario description
+        _checkScenario("scenario_7");
+    }
 
-    // function testScenario8() public {
-    //     // ToDo: add scenario description
-    //     _checkScenario("scenario_8");
-    // }
-
-    function testScenario9() public {
-        _checkScenario("scenario_9");
+    function testScenario8() public {
+        // ToDo: add scenario description
+        _checkScenario("scenario_8");
     }
 
     function _checkScenario(string memory scenarioName) internal {
@@ -278,7 +274,7 @@ contract TestScenariosJson is Test {
         console.log("marketValue", marketValue);
         console.log("fee", fee);
         //post-conditions:
-        assertApproxEqAbs(t.post.marketValue, t.isMint ? marketValue - fee : marketValue + fee, _tollerancePercentage(t.post.marketValue, 3));
+        assertApproxEqAbs(t.post.marketValue, marketValue, _tollerancePercentage(t.post.marketValue, 3));
         assertEq(t.post.utilizationRate, _dvp.getUtilizationRate());
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
         assertEq(t.post.availableNotionalBear, availableBearNotional);

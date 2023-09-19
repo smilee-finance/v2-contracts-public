@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import "forge-std/console.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
@@ -110,10 +109,7 @@ abstract contract DVP is IDVP, EpochControls {
 
         // Check available liquidity:
         Amount memory availableLiquidity = liquidity.available(strike);
-        if (
-            availableLiquidity.up < amount.up ||
-            availableLiquidity.down < amount.down
-        ) {
+        if (availableLiquidity.up < amount.up || availableLiquidity.down < amount.down) {
             revert NotEnoughLiquidity();
         }
 
@@ -123,7 +119,7 @@ abstract contract DVP is IDVP, EpochControls {
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         uint256 fee = feeManager.calculateTradeFee(amount.up + amount.down, premium_, _baseTokenDecimals, false);
-
+        
         // Revert if actual price exceeds the previewed premium
         // NOTE: cannot use the approved premium as a reference due to the PositionManager...
         if (premium_ + fee > expectedPremium + expectedPremium.wmul(maxSlippage)) {
@@ -143,6 +139,8 @@ abstract contract DVP is IDVP, EpochControls {
             revert TransferFailed();
         }
         feeManager.notifyTransfer(vault, fee);
+
+        premium_ += fee;
 
         // Decrease available liquidity:
         liquidity.increaseUsage(strike, amount);
@@ -211,26 +209,39 @@ abstract contract DVP is IDVP, EpochControls {
         Notional.Info storage liquidity = _liquidity[epoch_];
         FeeManager feeManager = FeeManager(_getFeeManager());
 
-        bool pastEpoch = true;
-        if (epoch_ == getEpoch().current) {
-            pastEpoch = false;
+        bool reachedMaturity = epoch_ != getEpoch().current;
+        uint256 fee;
+        if (!reachedMaturity) {
             // TBD: add comments
             uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
-            if (paidPayoff < expectedMarketValue - expectedMarketValue.wmul(maxSlippage)) {
+            fee = feeManager.calculateTradeFee(
+                amount.up + amount.down,
+                paidPayoff,
+                _baseTokenDecimals,
+                reachedMaturity
+            );
+
+            if (paidPayoff + fee < expectedMarketValue - expectedMarketValue.wmul(maxSlippage)) {
                 revert SlippedMarketValue();
             }
         } else {
             // Compute the payoff to be paid:
             Amount memory payoff_ = liquidity.shareOfPayoff(strike, amount, _baseTokenDecimals);
+            paidPayoff = payoff_.getTotal();
+            // Compute fee:
+            fee = feeManager.calculateTradeFee(
+                amount.up + amount.down,
+                paidPayoff,
+                _baseTokenDecimals,
+                reachedMaturity
+            );
             // Account transfer of setted aside payoff:
             liquidity.decreasePayoff(strike, payoff_);
 
-            paidPayoff = payoff_.getTotal();
         }
-        
-        uint256 fee = feeManager.calculateTradeFee(amount.up + amount.down, paidPayoff, _baseTokenDecimals, pastEpoch);
+
         paidPayoff -= fee;
 
         // Account change of used liquidity between wallet and protocol:
@@ -239,8 +250,8 @@ abstract contract DVP is IDVP, EpochControls {
         // NOTE: must be updated after the previous computations based on used liquidity.
         liquidity.decreaseUsage(strike, amount);
 
-        IVault(vault).transferPayoff(recipient, paidPayoff, pastEpoch);
-        IVault(vault).transferPayoff(address(feeManager), fee, pastEpoch);
+        IVault(vault).transferPayoff(recipient, paidPayoff, reachedMaturity);
+        IVault(vault).transferPayoff(address(feeManager), fee, reachedMaturity);
         feeManager.notifyTransfer(address(vault), fee);
 
         emit Burn(msg.sender);
@@ -368,13 +379,17 @@ abstract contract DVP is IDVP, EpochControls {
         } else {
             // The position expired, the user must close the entire position
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
-            Amount memory payoffAmount_ = _liquidity[position.epoch].shareOfPayoff(position.strike, amount_, _baseTokenDecimals);
+            Amount memory payoffAmount_ = _liquidity[position.epoch].shareOfPayoff(
+                position.strike,
+                amount_,
+                _baseTokenDecimals
+            );
             payoff_ = payoffAmount_.getTotal();
         }
 
         FeeManager feeManager = FeeManager(_getFeeManager());
         fee_ = feeManager.calculateTradeFee(amount_.up + amount_.down, payoff_, _baseTokenDecimals, reachedMaturity);
-        payoff_ + fee_;
+        payoff_ = payoff_ - fee_;
     }
 
     /**

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
@@ -117,7 +116,7 @@ contract IGVaultTest is Test {
         ig.rollEpoch();
 
         uint256 vaultNotionalBeforeMint = vault.notional();
-        uint256 premium = _assurePremium(charlie, 0, optionAmount, 0);
+        (uint256 premium, uint256 fee) = _assurePremium(charlie, 0, optionAmount, 0);
 
         vm.startPrank(charlie);
         premium = ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18);
@@ -130,7 +129,7 @@ contract IGVaultTest is Test {
 
         (uint256 amount, , , ) = ig.positions(posId);
         assertEq(amount, optionAmount);
-        assertEq(vaultNotionalBeforeMint + premium, vaultNotionalAfterMint);
+        assertEq(vaultNotionalBeforeMint + premium - fee, vaultNotionalAfterMint);
     }
 
     struct Parameters {
@@ -171,7 +170,7 @@ contract IGVaultTest is Test {
         uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
         assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
 
-        uint256 premium = _assurePremium(
+        (uint256 premium, ) = _assurePremium(
             charlie,
             0,
             (params.optionStrategy) ? params.charlieAmount : 0,
@@ -191,22 +190,15 @@ contract IGVaultTest is Test {
         // Mint without rolling epoch doesn't change the vaule of initialLiquidity
         assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
 
-        uint256 davidInitialBalance = _assurePremium(
+        (uint256 davidInitialBalance, uint256 davidMintFee) = _assurePremium(
             david,
             0,
             (params.optionStrategy) ? params.davidAmount : 0,
             (params.optionStrategy) ? 0 : params.davidAmount
         );
         uint256 strike = ig.currentStrike();
-        uint256 davidMintFee;
         {
             uint256 davidPremium;
-            (, davidMintFee) = ig.premium(
-                strike,
-                (params.optionStrategy) ? params.davidAmount : 0,
-                (params.optionStrategy) ? 0 : params.davidAmount
-            );
-
             vm.prank(david);
             davidPremium = ig.mint(
                 david,
@@ -231,18 +223,18 @@ contract IGVaultTest is Test {
         }
 
         uint256 davidPayoff;
-        uint256 davidFee;
+        uint256 davidPayoffFee;
         {
             vm.startPrank(david);
             bool optionStrategy = params.optionStrategy;
-            (davidPayoff, davidFee) = ig.payoff(
+            (davidPayoff, davidPayoffFee) = ig.payoff(
                 ig.currentEpoch(),
                 strike,
                 (optionStrategy) ? davidAmountToBurn : 0,
                 (optionStrategy) ? 0 : davidAmountToBurn
             );
 
-            ig.burn(
+            davidPayoff = ig.burn(
                 ig.currentEpoch(),
                 david,
                 strike,
@@ -261,11 +253,9 @@ contract IGVaultTest is Test {
         uint256 vaultNotionalAfterBurn = vault.notional();
         (uint256 amountAfterBurn, , , ) = ig.positions(posId);
 
-        console.log("Sono qui ");
-        assertEq(davidInitialBalance + davidPayoff - davidFee - davidMintFee, baseToken.balanceOf(david));
-        console.log("Sono qui 2");
+        assertEq(davidInitialBalance + davidPayoff, baseToken.balanceOf(david));
         assertEq(amountBeforeBurn - davidAmountToBurn, amountAfterBurn);
-        assertEq(vaultNotionalBeforeBurn, vaultNotionalAfterBurn + davidPayoff);
+        assertEq(vaultNotionalBeforeBurn, vaultNotionalAfterBurn + davidPayoff + davidPayoffFee);
     }
 
     function testBuyTwoOptionOneBurnAfterMaturity(
@@ -292,13 +282,12 @@ contract IGVaultTest is Test {
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();
-
         {
             uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
             assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
         }
 
-        uint256 premium = _assurePremium(
+        (uint256 premium, ) = _assurePremium(
             charlie,
             0,
             (params.optionStrategy) ? params.charlieAmount : 0,
@@ -314,22 +303,15 @@ contract IGVaultTest is Test {
             0.1e18
         );
 
-        uint256 davidInitialBalance = _assurePremium(
+        (uint256 davidInitialBalance, uint256 davidMintFee) = _assurePremium(
             david,
             0,
             (params.optionStrategy) ? params.davidAmount : 0,
             (params.optionStrategy) ? 0 : params.davidAmount
         );
-        uint256 davidMintFee;
         {
-            uint256 davidPremium;
-            (davidPremium, davidMintFee) = ig.premium(
-                0,
-                (params.optionStrategy) ? params.davidAmount : 0,
-                (params.optionStrategy) ? 0 : params.davidAmount
-            );
             vm.prank(david);
-            davidPremium = ig.mint(
+            uint256 davidPremium = ig.mint(
                 david,
                 0,
                 (params.optionStrategy) ? params.davidAmount : 0,
@@ -354,32 +336,33 @@ contract IGVaultTest is Test {
         // }
 
         vm.prank(charlie);
-        (uint256 charliePayoff, ) = ig.payoff(
+        (uint256 charliePayoff, uint256 charlieFeePayoff) = ig.payoff(
             positionEpoch,
             positionStrike,
             (params.optionStrategy) ? params.charlieAmount : 0,
             (params.optionStrategy) ? 0 : params.charlieAmount
         );
 
-        assertApproxEqAbs(params.charlieAmount / 10, charliePayoff, 1e2);
+        assertApproxEqAbs(params.charlieAmount / 10, charliePayoff + charlieFeePayoff, 1e2);
 
         vm.prank(david);
-        (uint256 davidPayoff, uint256 davidFee) = ig.payoff(
+        (uint256 davidPayoff, uint256 davidFeePayoff) = ig.payoff(
             positionEpoch,
             positionStrike,
             (params.optionStrategy) ? params.davidAmount : 0,
             (params.optionStrategy) ? 0 : params.davidAmount
         );
 
-        assertApproxEqAbs(params.davidAmount / 10, davidPayoff, 1e2);
+        assertApproxEqAbs(params.davidAmount / 10, davidPayoff + davidFeePayoff, 1e2);
 
         uint256 pendingPayoff = VaultUtils.vaultState(vault).liquidity.pendingPayoffs;
-        assertApproxEqAbs(charliePayoff + davidPayoff, pendingPayoff, 1e2);
-        {   
+        assertApproxEqAbs((charliePayoff + charlieFeePayoff) + (davidPayoff + davidFeePayoff), pendingPayoff, 1e2);
+
+        {
             bool optionStrategy = params.optionStrategy;
             uint256 davidAmount = params.davidAmount;
             vm.prank(david);
-            ig.burn(
+            davidPayoff = ig.burn(
                 positionEpoch,
                 david,
                 positionStrike,
@@ -388,14 +371,14 @@ contract IGVaultTest is Test {
                 davidPayoff,
                 0.1e18
             );
-
         }
 
         pendingPayoff = VaultUtils.vaultState(vault).liquidity.pendingPayoffs;
-        assertApproxEqAbs(charliePayoff, pendingPayoff, 1e2);
 
-        assertApproxEqAbs(vaultNotionalBeforeRollEpoch - davidPayoff - charliePayoff, vault.notional(), 1e3);
-        assertApproxEqAbs(davidInitialBalance + davidPayoff - davidFee - davidMintFee, baseToken.balanceOf(david), 1e3);
+        assertApproxEqAbs(charliePayoff + charlieFeePayoff, pendingPayoff, 1e2);
+
+        assertApproxEqAbs(vaultNotionalBeforeRollEpoch - (davidPayoff + davidFeePayoff) - (charliePayoff + charlieFeePayoff) , vault.notional(), 1e3);
+        assertApproxEqAbs(davidInitialBalance + davidPayoff, baseToken.balanceOf(david), 1e3);
     }
 
     /**
@@ -439,7 +422,7 @@ contract IGVaultTest is Test {
         ig.rollEpoch();
 
         uint256 optionAmount = 250e18;
-        uint256 premium = _assurePremium(charlie, 0, optionAmount, 0);
+        (uint256 premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
         // Mint option of 125:
         vm.prank(charlie);
         ig.mint(charlie, 0, optionAmount / 2, 0, premium, 0.1e18);
@@ -488,8 +471,7 @@ contract IGVaultTest is Test {
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown
-    ) private returns (uint256 premium_) {
-        uint256 fee;
+    ) private returns (uint256 premium_, uint256 fee) {
         (premium_, fee) = ig.premium(strike, amountUp, amountDown);
         TokenUtils.provideApprovedTokens(admin, address(baseToken), user, address(ig), premium_, vm);
     }
