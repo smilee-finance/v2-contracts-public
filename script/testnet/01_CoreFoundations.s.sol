@@ -53,6 +53,9 @@ contract DeployCoreFoundations is Script {
         TestnetSwapAdapter swapper = new TestnetSwapAdapter(address(priceOracle));
         ap.setExchangeAdapter(address(swapper));
 
+        FeeManager feeManager = new FeeManager(0.0035e18, 0.125e18, 0.0015e18, 0.125e18);
+        ap.setFeeManager(address(feeManager));
+
         TestnetRegistry registry = new TestnetRegistry();
         ap.setRegistry(address(registry));
 
