@@ -172,7 +172,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     }
 
     /// @inheritdoc IPositionManager
-    function burn(uint256 tokenId) external override isOwner(tokenId) returns (uint256 payoff) {
+    function burn(uint256 tokenId) external override isOwner(tokenId) returns (uint256 payoff_) {
         ManagedPosition storage position = _positions[tokenId];
         uint256 expectedMarketValue = 0;
         Epoch memory epoch = IDVP(position.dvpAddr).getEpoch();
@@ -184,14 +184,19 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
                 position.notionalDown
             );
         }
-        payoff = _sell(tokenId, position.notionalUp, position.notionalDown, expectedMarketValue, 0.1e18);
+        payoff_ = _sell(tokenId, position.notionalUp, position.notionalDown, expectedMarketValue, 0.1e18);
+    }
+
+    function payoff(uint256 tokenId, uint256 notionalUp, uint256 notionalDown) external view returns (uint256 payoff_, uint256 fee) {
+        ManagedPosition storage position = _positions[tokenId];
+        return IDVP(position.dvpAddr).payoff(position.expiry, position.strike, notionalUp, notionalDown);
     }
 
     // ToDo: review usage and signature
-    function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff) {
+    function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff_) {
         // TBD: burn if params.notional == 0 ?
         // TBD: burn if position is expired ?
-        payoff = _sell(
+        payoff_ = _sell(
             params.tokenId,
             params.notionalUp,
             params.notionalDown,
@@ -206,7 +211,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         uint256 notionalDown,
         uint256 expectedMarketValue,
         uint256 maxSlippage
-    ) internal returns (uint256 payoff) {
+    ) internal returns (uint256 payoff_) {
         ManagedPosition storage position = _positions[tokenId];
         // NOTE: as the positions within the DVP are all of the PositionManager, we must replicate this check here.
         if (notionalUp > position.notionalUp || notionalDown > position.notionalDown) {
@@ -215,7 +220,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         // NOTE: the DVP already checks that the burned notional is lesser or equal to the position notional.
         // NOTE: the payoff is transferred directly from the DVP
-        payoff = IDVP(position.dvpAddr).burn(
+        payoff_ = IDVP(position.dvpAddr).burn(
             position.expiry,
             msg.sender,
             position.strike,
@@ -230,7 +235,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         uint256 premiumFix = ((notionalUp + notionalDown) * position.premium) /
             (position.notionalUp + position.notionalDown);
         position.premium -= premiumFix;
-        position.cumulatedPayoff += payoff;
+        position.cumulatedPayoff += payoff_;
         position.notionalUp -= notionalUp;
         position.notionalDown -= notionalDown;
 
@@ -239,7 +244,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             _burn(tokenId);
         }
 
-        emit SoldDVP(tokenId, (notionalUp + notionalDown), payoff);
+        emit SoldDVP(tokenId, (notionalUp + notionalDown), payoff_);
     }
 
     /// @inheritdoc ERC721Enumerable
