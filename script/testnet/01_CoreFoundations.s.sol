@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {Script} from "forge-std/Script.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
+import {FeeManager} from "../../src/FeeManager.sol";
 import {PositionManager} from "../../src/PositionManager.sol";
 // import {Factory} from "../../src/Factory.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
