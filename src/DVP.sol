@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
+import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
@@ -14,9 +17,8 @@ import {Notional} from "./lib/Notional.sol";
 import {Position} from "./lib/Position.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
-import {IFeeManager} from "./interfaces/IFeeManager.sol";
 
-abstract contract DVP is IDVP, EpochControls {
+abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
     using AmountHelper for Amount;
     using AmountsMath for uint256;
     using Position for Position.Info;
@@ -70,7 +72,7 @@ abstract contract DVP is IDVP, EpochControls {
         address vault_,
         bool optionType_,
         address addressProvider_
-    ) EpochControls(IEpochControls(vault_).getEpoch().frequency) {
+    ) EpochControls(IEpochControls(vault_).getEpoch().frequency) Ownable() Pausable() {
         // ToDo: validate parameters
         optionType = optionType_;
         vault = vault_;
@@ -257,24 +259,19 @@ abstract contract DVP is IDVP, EpochControls {
     }
 
     function _mintBurnChecks() private view {
-        // Ensures that the current epoch holds a valid value
         _checkEpochInitialized();
-        // TBD: consider epoch check methods in EpochControls
-        // Ensures that the current epoch is not concluded:
-        if (getEpoch().isFinished()) {
-            // NOTE: reverts also if the epoch has not been initialized
-            revert EpochFrozen();
-        }
+        _checkEpochNotFinished();
 
         _requireNotPaused();
-
-        if (IEpochControls(vault).isPaused()) {
+        if (IVault(vault).isPaused()) {
             revert VaultPaused();
         }
     }
 
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override {
+        _requireNotPaused();
+
         if (getEpoch().isInitialized()) {
             // Accounts the payoff for each strike and strategy of the positions in circulation that is still to be redeemed:
             _accountResidualPayoffs();
@@ -438,5 +435,22 @@ abstract contract DVP is IDVP, EpochControls {
         }
 
         return feeManager;
+    }
+
+    /// @inheritdoc IDVP
+    function changePauseState() external override {
+        _checkOwner();
+
+        if (paused()) {
+            _unpause();
+        } else {
+            _pause();
+        }
+    }
+
+    // ToDo: try to remove as `paused` is already public
+    /// @inheritdoc IDVP
+    function isPaused() public view override returns (bool paused_) {
+        paused_ = paused();
     }
 }

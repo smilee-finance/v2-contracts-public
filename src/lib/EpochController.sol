@@ -3,6 +3,7 @@ pragma solidity ^0.8.21;
 
 import {EpochFrequency} from "./EpochFrequency.sol";
 
+// TBD: move to IEpochControls
 struct Epoch {
     uint256 current;
     uint256 previous;
@@ -13,24 +14,22 @@ struct Epoch {
 // TBD: split into EpochController (storage) and EpochHelper (memory)
 library EpochController {
 
-    error EpochFrozen();
-    error EpochNotInitialized();
     error EpochNotFinished();
 
-    // ToDo: rename as "init" conflicts with the used "initialized" semantic
     function init(Epoch storage epoch, uint256 epochFrequency) public {
+        // ToDo: revert or no-op if already initialized
+
         epoch.current = 0;
         epoch.previous = 0;
         EpochFrequency.validityCheck(epochFrequency);
         epoch.frequency = epochFrequency;
         epoch.numberOfRolledEpochs = 0;
-    }
 
-    function checkNotFrozen(Epoch memory epoch) public view {
-        if (isFinished(epoch)) {
-            // NOTE: reverts also if the epoch has not been initialized
-            revert EpochFrozen();
-        }
+        // ToDo: review
+        //       roll the first epoch so that it actually initialize the epoch
+        //       it may be done in the calling contract (in order to leverage hooks)
+        // NOTE: right now the test were built assuming that the first epoch must be manually rolled
+        //       in order to let the other concrete contracts be used
     }
 
     function roll(Epoch storage epoch) public {
@@ -42,7 +41,8 @@ library EpochController {
         epoch.previous = epoch.current;
 
         if (!isInitialized(epoch)) {
-            // ToDo: review as we probably want a more specific/precise reference timestamp!
+            // TBD: accept an initial reference expiry in `init` ?
+            // NOTE: beware of `nextExpiry` gas usage on first rolled epoch
             epoch.current = block.timestamp;
         }
 
@@ -60,12 +60,12 @@ library EpochController {
         epoch.numberOfRolledEpochs++;
     }
 
-    function timeToNextEpoch(Epoch memory epoch) public view returns (uint256) {
-        if (block.timestamp >= epoch.current) {
-            return 0;
-        }
-
-        return epoch.current - block.timestamp;
+    /**
+        @notice Check if has been rolled the first epoch
+        @return True if the first epoch has been rolled, false otherwise
+     */
+    function isInitialized(Epoch memory epoch) public pure returns (bool) {
+        return epoch.current > 0;
     }
 
     /**
@@ -78,12 +78,12 @@ library EpochController {
         return block.timestamp > epoch.current;
     }
 
-    /**
-        @notice Check if has been rolled the first epoch
-        @return True if the first epoch has been rolled, false otherwise
-     */
-    function isInitialized(Epoch memory epoch) public pure returns (bool) {
-        return epoch.current > 0;
+    function timeToNextEpoch(Epoch memory epoch) public view returns (uint256) {
+        if (block.timestamp > epoch.current) {
+            return 0;
+        }
+
+        return epoch.current - block.timestamp;
     }
 
 }

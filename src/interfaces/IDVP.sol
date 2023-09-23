@@ -93,4 +93,15 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         uint256 expectedMarketValue,
         uint256 maxSlippage
     ) external returns (uint256 paidPayoff);
+
+    /**
+        @notice Pause/Unpause
+     */
+    function changePauseState() external;
+
+    /**
+        @notice Allow to check if the contract is paused.
+        @return paused The pause state.
+     */
+    function isPaused() external view returns(bool paused);
 }

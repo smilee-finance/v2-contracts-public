@@ -31,8 +31,8 @@ contract IG is DVP {
     }
 
     /// @notice Common strike price for all impermanent gain positions in this DVP, set at epoch start
-    function currentStrike() public view returns (uint256) {
-        return _financeParameters.currentStrike;
+    function currentStrike() external view returns (uint256 strike_) {
+        strike_ = _financeParameters.currentStrike;
     }
 
     /// @inheritdoc IDVP

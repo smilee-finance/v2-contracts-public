@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
@@ -13,7 +15,7 @@ import {VaultLib} from "./lib/VaultLib.sol";
 import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
-contract Vault is IVault, ERC20, EpochControls {
+contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     using AmountsMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
     using EpochController for Epoch;
@@ -71,7 +73,7 @@ contract Vault is IVault, ERC20, EpochControls {
         address sideToken_,
         uint256 epochFrequency_,
         address addressProvider_
-    ) EpochControls(epochFrequency_) ERC20("", "") {
+    ) ERC20("", "") EpochControls(epochFrequency_) Ownable() Pausable() {
         TokensPair.validate(TokensPair.Pair({baseToken: baseToken_, sideToken: sideToken_}));
         baseToken = baseToken_;
         sideToken = sideToken_;
@@ -208,6 +210,23 @@ contract Vault is IVault, ERC20, EpochControls {
         return _state.liquidity.lockedInitially;
     }
 
+    /// @inheritdoc IVault
+    function changePauseState() external override {
+        _checkOwner();
+
+        if (paused()) {
+            _unpause();
+        } else {
+            _pause();
+        }
+    }
+
+    // ToDo: try to remove as `paused` is already public
+    /// @inheritdoc IVault
+    function isPaused() public view override returns (bool paused_) {
+        paused_ = paused();
+    }
+
     // ------------------------------------------------------------------------
     // USER OPERATIONS
     // ------------------------------------------------------------------------
@@ -217,11 +236,8 @@ contract Vault is IVault, ERC20, EpochControls {
         uint256 amount,
         address receiver
     ) external isNotDead whenNotPaused {
-        Epoch memory epoch = getEpoch();
-        if (!epoch.isInitialized()) {
-            revert EpochNotInitialized();
-        }
-        epoch.checkNotFrozen();
+        _checkEpochInitialized();
+        _checkEpochNotFinished();
         if (amount == 0) {
             revert AmountZero();
         }
@@ -350,7 +366,7 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @inheritdoc IVault
     function initiateWithdraw(uint256 shares) external whenNotPaused {
-        getEpoch().checkNotFrozen();
+        _checkEpochNotFinished();
         _initiateWithdraw(shares, false);
     }
 
@@ -421,7 +437,7 @@ contract Vault is IVault, ERC20, EpochControls {
         @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
      */
     function completeWithdraw() external whenNotPaused {
-        getEpoch().checkNotFrozen();
+        _checkEpochNotFinished();
         _completeWithdraw();
     }
 
@@ -502,6 +518,8 @@ contract Vault is IVault, ERC20, EpochControls {
 
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override isNotDead {
+        _requireNotPaused();
+
         if (dvp != address(0) && msg.sender != dvp) {
             // NOTE: must be called only by the DVP after a DVP has been set.
             revert OnlyDVPAllowed();

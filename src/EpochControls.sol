@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
 
-// ToDo: move Pausable and Ownable out of this contract
-abstract contract EpochControls is IEpochControls, Pausable, Ownable {
+abstract contract EpochControls is IEpochControls {
     using EpochController for Epoch;
 
     Epoch private _epoch;
 
-    event EpochRolled(uint256 indexed currentEpoch, uint256 previousEpoch);
+    error EpochFinished();
+    error EpochNotInitialized();
 
-    constructor(uint256 epochFrequency_) Pausable() Ownable() {
+    event EpochRolled(uint256 previousEpoch, uint256 currentEpoch);
+
+    constructor(uint256 epochFrequency_) {
         _epoch.init(epochFrequency_);
+        // TBD: review in order to roll the first epoch
     }
 
     /// @inheritdoc IEpochControls
@@ -25,48 +26,31 @@ abstract contract EpochControls is IEpochControls, Pausable, Ownable {
 
     /// @inheritdoc IEpochControls
     function rollEpoch() external virtual override {
-        _requireNotPaused();
-
         _beforeRollEpoch();
         _epoch.roll();
         _afterRollEpoch();
 
-        emit EpochRolled(_epoch.current, _epoch.previous);
+        emit EpochRolled(_epoch.previous, _epoch.current);
     }
 
-    /**
-        @notice Hook that is called before rolling the epoch.
-     */
+    /// @notice Hook that is called before rolling the epoch.
     function _beforeRollEpoch() internal virtual {}
 
-    /**
-        @notice Hook that is called after rolling the epoch.
-     */
+    /// @notice Hook that is called after rolling the epoch.
     function _afterRollEpoch() internal virtual {}
 
-    // TBD: move into EpochController
-    /// @notice Ensures that the current epoch holds a valid value
+    /// @notice Ensures that the current epoch holds a valid value.
     function _checkEpochInitialized() internal view {
         if (!_epoch.isInitialized()) {
             revert EpochNotInitialized();
         }
     }
 
-    /// @inheritdoc IEpochControls
-    function changePauseState() external override {
-        _checkOwner();
-
-        if (paused()) {
-            _unpause();
-        } else {
-            _pause();
+    /// @notice Ensures that the current epoch is not concluded.
+    function _checkEpochNotFinished() internal view {
+        if (_epoch.isFinished()) {
+            revert EpochFinished();
         }
-    }
-
-    // ToDo: try to remove as `paused` is already public
-    /// @inheritdoc IEpochControls
-    function isPaused() public view override returns(bool paused_) {
-        return paused();
     }
 
 }

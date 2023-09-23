@@ -20,7 +20,7 @@ import {AddressProvider} from "../src/AddressProvider.sol";
 contract VaultDeathTest is Test {
     bytes4 constant NothingToRescue = bytes4(keccak256("NothingToRescue()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
-    bytes4 constant EpochFrozen = bytes4(keccak256("EpochFrozen()"));
+    bytes4 constant EpochFinished = bytes4(keccak256("EpochFinished()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
     bytes4 constant DeadManualKillReason = bytes4(keccak256("ManualKill"));
 
@@ -312,7 +312,7 @@ contract VaultDeathTest is Test {
         assertEq(200e18, baseToken.balanceOf(bob));
     }
 
-    function testVaultManualDeadInitiateBeforeEpochOfDeathEpochFrozen() public {
+    function testVaultManualDeadInitiateBeforeEpochOfDeathEpochFinished() public {
         VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
@@ -335,7 +335,7 @@ contract VaultDeathTest is Test {
         Utils.skipDay(true, vm);
         
         vm.prank(alice);
-        vm.expectRevert(EpochFrozen);
+        vm.expectRevert(EpochFinished);
         vault.completeWithdraw();
         
         vm.prank(alice);

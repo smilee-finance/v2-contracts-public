@@ -19,7 +19,7 @@ contract VaultSharesTest is Test {
     bytes4 constant EpochNotInitialized = bytes4(keccak256("EpochNotInitialized()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
-    bytes4 constant EpochFrozen = bytes4(keccak256("EpochFrozen()"));
+    bytes4 constant EpochFinished = bytes4(keccak256("EpochFinished()"));
     bytes4 constant WithdrawNotInitiated = bytes4(keccak256("WithdrawNotInitiated()"));
     bytes4 constant WithdrawTooEarly = bytes4(keccak256("WithdrawTooEarly()"));
 
@@ -96,25 +96,25 @@ contract VaultSharesTest is Test {
         vault.deposit(0, alice);
     }
 
-    function testDepositEpochFrozenFail() public {
+    function testDepositEpochFinishedFail() public {
         VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
         Utils.skipDay(false, vm);
-        vm.expectRevert(EpochFrozen);
+        vm.expectRevert(EpochFinished);
         vault.deposit(100, alice);
     }
 
-    function testInitWithdrawEpochFrozenFail() public {
+    function testInitWithdrawEpochFinishedFail() public {
         VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
         Utils.skipDay(false, vm);
-        vm.expectRevert(EpochFrozen);
+        vm.expectRevert(EpochFinished);
         vault.initiateWithdraw(100);
     }
 
-    function testCompleteWithdrawEpochFrozenFail() public {
+    function testCompleteWithdrawEpochFinishedFail() public {
         VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
@@ -132,7 +132,7 @@ contract VaultSharesTest is Test {
         vault.rollEpoch();
 
         Utils.skipDay(false, vm);
-        vm.expectRevert(EpochFrozen);
+        vm.expectRevert(EpochFinished);
         vault.completeWithdraw();
     }
 
