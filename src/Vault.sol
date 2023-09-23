@@ -520,6 +520,9 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     function _beforeRollEpoch() internal virtual override isNotDead {
         _requireNotPaused();
 
+        if (dvp == address(0)) {
+            _checkOwner();
+        }
         if (dvp != address(0) && msg.sender != dvp) {
             // NOTE: must be called only by the DVP after a DVP has been set.
             revert OnlyDVPAllowed();

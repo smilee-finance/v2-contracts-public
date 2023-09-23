@@ -270,6 +270,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override {
+        _checkOwner();
         _requireNotPaused();
 
         if (getEpoch().isInitialized()) {

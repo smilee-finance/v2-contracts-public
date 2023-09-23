@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
+import {Epoch} from "../src/lib/EpochController.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {IExchange} from "../src/interfaces/IExchange.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
@@ -18,6 +19,7 @@ import {AddressProvider} from "../src/AddressProvider.sol";
 contract VaultStateTest is Test {
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
     bytes4 constant ExceedsMaxDeposit = bytes4(keccak256("ExceedsMaxDeposit()"));
+    bytes4 constant OnlyDVPAllowed = bytes4(keccak256("OnlyDVPAllowed()"));
     bytes constant VaultPaused = bytes("Pausable: paused");
     bytes constant OwnerError = bytes("Ownable: caller is not the owner");
 
@@ -38,7 +40,59 @@ contract VaultStateTest is Test {
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
+        vm.prank(admin);
         vault.rollEpoch();
+    }
+
+    function testEpochRollableOnlyByAdminWhenNotLinkedToDVP() public {
+        assertEq(address(0), vault.dvp());
+
+        Epoch memory epoch = vault.getEpoch();
+        assertNotEq(epoch.previous, epoch.current);
+        uint256 epochBeforeRoll = epoch.current;
+
+        Utils.skipDay(true, vm);
+
+        vm.prank(alice);
+        vm.expectRevert(OwnerError);
+        vault.rollEpoch();
+
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        epoch = vault.getEpoch();
+        assertEq(epochBeforeRoll, epoch.previous);
+        assertNotEq(epoch.previous, epoch.current);
+    }
+
+    function testEpochRollableOnlyByDVPWhenLinked() public {
+        assertEq(address(0), vault.dvp());
+
+        Epoch memory epoch = vault.getEpoch();
+        assertNotEq(epoch.previous, epoch.current);
+        uint256 epochBeforeRoll = epoch.current;
+
+        Utils.skipDay(true, vm);
+
+        address dvp = address(0x04);
+
+        vm.prank(admin);
+        MockedVault(vault).setAllowedDVP(dvp);
+
+        vm.prank(alice);
+        vm.expectRevert(OnlyDVPAllowed);
+        vault.rollEpoch();
+
+        vm.prank(admin);
+        vm.expectRevert(OnlyDVPAllowed);
+        vault.rollEpoch();
+
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        epoch = vault.getEpoch();
+        assertEq(epochBeforeRoll, epoch.previous);
+        assertNotEq(epoch.previous, epoch.current);
     }
 
     function testCheckPendingDepositAmount() public {
@@ -56,6 +110,7 @@ contract VaultStateTest is Test {
         assertEq(200, stateDepositAmount);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
@@ -68,6 +123,7 @@ contract VaultStateTest is Test {
         vault.deposit(100, alice);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         vm.prank(alice);
@@ -77,6 +133,7 @@ contract VaultStateTest is Test {
         assertEq(50, newHeldShares);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         uint256 heldShares = VaultUtils.vaultState(vault).withdrawals.heldShares;
@@ -104,6 +161,7 @@ contract VaultStateTest is Test {
         priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         uint256 expectedBaseTokens = amountToDeposit / 2;
@@ -152,6 +210,7 @@ contract VaultStateTest is Test {
         vault.deposit(amountToDeposit, alice);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         (uint256 btAmount, uint256 stAmount) = vault.balances();
@@ -182,6 +241,7 @@ contract VaultStateTest is Test {
         // assertEq(0, initialLiquidity);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
@@ -194,6 +254,7 @@ contract VaultStateTest is Test {
         vault.initiateWithdraw(0.5 ether);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
         // Alice 0.5 ether + bob 0.5 ether
         initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
@@ -203,6 +264,7 @@ contract VaultStateTest is Test {
         vault.completeWithdraw();
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
         // Complete withdraw without any operation cannot update the initialLiquidity state
         initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
@@ -220,6 +282,7 @@ contract VaultStateTest is Test {
         assertEq(cumulativeAmount, 100e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         // simple withdraw
@@ -232,6 +295,7 @@ contract VaultStateTest is Test {
         assertEq(cumulativeAmount, 90e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         // simple deposit
@@ -246,6 +310,7 @@ contract VaultStateTest is Test {
         assertEq(cumulativeAmount, 110e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         // withdraw and deposit
@@ -259,6 +324,7 @@ contract VaultStateTest is Test {
         assertEq(cumulativeAmount, 90e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         vm.prank(alice);
@@ -277,6 +343,7 @@ contract VaultStateTest is Test {
         assertEq(cumulativeAmount, 30e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         vm.prank(alice);
@@ -292,6 +359,7 @@ contract VaultStateTest is Test {
         assertEq(cumulativeAmount, 20e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         // threshold check
@@ -309,6 +377,7 @@ contract VaultStateTest is Test {
         TokenUtils.provideApprovedTokens(admin, vault.baseToken(), alice, address(vault), 1 ether, vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         assertEq(vault.isPaused(), false);
@@ -334,6 +403,7 @@ contract VaultStateTest is Test {
         Utils.skipDay(true, vm);
 
         vm.expectRevert(VaultPaused);
+        vm.prank(admin);
         vault.rollEpoch();
 
         // From here on, all the vault functions should working properly
@@ -341,16 +411,20 @@ contract VaultStateTest is Test {
         vault.changePauseState();
         assertEq(vault.isPaused(), false);
 
+        vm.prank(admin);
         vault.rollEpoch();
 
         vm.startPrank(alice);
         vault.deposit(1e17, alice);
 
         vault.initiateWithdraw(1e17);
+        vm.stopPrank();
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
+        vm.prank(alice);
         vault.completeWithdraw();
     }
 

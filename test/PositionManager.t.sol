@@ -58,18 +58,20 @@ contract PositionManagerTest is Test {
         ap.setDvpPositionManager(address(pm));
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
 
         // Suppose Vault has already liquidity
         VaultUtils.addVaultDeposit(alice, 100 ether, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         vault.rollEpoch();
     }
 
     function initAndMint() private returns (uint256 tokenId, IG ig) {
+        vm.startPrank(admin);
         ig = new IG(address(vault), address(ap));
-        vm.prank(admin);
         vault.setAllowedDVP(address(ig));
 
         Utils.skipDay(true, vm);
@@ -77,6 +79,7 @@ contract PositionManagerTest is Test {
         // NOTE: needed because the DVP doesn't know that its vault has already done an epoch by itself
         Utils.skipDay(true, vm);
         ig.rollEpoch();
+        vm.stopPrank();
 
         TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), 10 ether, vm);
 

@@ -61,12 +61,14 @@ contract IGTest is Test {
 
         // Roll first epoch (this enables deposits)
         Utils.skipDay(false, vm);
+        vm.prank(admin);
         ig.rollEpoch();
 
         // Suppose Vault has already liquidity
         VaultUtils.addVaultDeposit(alice, 100 ether, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
     }
 
@@ -280,6 +282,7 @@ contract IGTest is Test {
 
         Utils.skipDay(true, vm);
 
+        vm.prank(admin);
         vm.expectRevert(IGPaused);
         ig.rollEpoch();
 
@@ -288,6 +291,7 @@ contract IGTest is Test {
         ig.changePauseState();
         assertEq(ig.isPaused(), false);
 
+        vm.prank(admin);
         ig.rollEpoch();
 
         epoch = ig.currentEpoch();
@@ -314,6 +318,7 @@ contract IGTest is Test {
         uint256 epochNumbers = ig.getNumberOfEpochs();
         assertEq(epochNumbers, 2);
 
+        vm.prank(admin);
         ig.rollEpoch();
         uint256 nextEpoch = ig.currentEpoch();
         uint256 lastEpoch = ig.lastRolledEpoch();

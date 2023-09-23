@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
+import {Epoch} from "../src/lib/EpochController.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
@@ -25,6 +26,7 @@ import {FeeManager} from "../src/FeeManager.sol";
 contract IGVaultTest is Test {
     bytes4 constant NotEnoughLiquidity = bytes4(keccak256("NotEnoughLiquidity()"));
     bytes4 constant VaultPaused = bytes4(keccak256("VaultPaused()"));
+    bytes constant OwnerError = bytes("Ownable: caller is not the owner");
 
     address admin = address(0x1);
 
@@ -71,6 +73,26 @@ contract IGVaultTest is Test {
         feeManager = FeeManager(ap.feeManager());
 
         ig.rollEpoch();
+    }
+
+    function testEpochRollableOnlyByAdmin() public {
+        assertNotEq(address(0), vault.dvp());
+
+        Epoch memory epoch = vault.getEpoch();
+        assertNotEq(epoch.previous, epoch.current);
+        uint256 epochBeforeRoll = epoch.current;
+
+        Utils.skipDay(true, vm);
+
+        vm.prank(alice);
+        vm.expectRevert(OwnerError);
+        ig.rollEpoch();
+
+        ig.rollEpoch();
+
+        epoch = vault.getEpoch();
+        assertEq(epochBeforeRoll, epoch.previous);
+        assertNotEq(epoch.previous, epoch.current);
     }
 
     // Verificare sempre la liquidità in tutti i test

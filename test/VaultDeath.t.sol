@@ -41,6 +41,7 @@ contract VaultDeathTest is Test {
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
     }
 
@@ -55,6 +56,7 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
@@ -64,6 +66,7 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(false, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
@@ -82,6 +85,7 @@ contract VaultDeathTest is Test {
         vault.moveValue(-10000);
 
         Utils.skipDay(false, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         assertEq(true, VaultUtils.vaultState(vault).dead);
@@ -113,6 +117,7 @@ contract VaultDeathTest is Test {
 
         Utils.skipDay(true, vm);
 
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
@@ -120,11 +125,13 @@ contract VaultDeathTest is Test {
         assertEq(100, heldByVaultAlice);
 
         Utils.skipDay(false, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vault.moveValue(-10000);
 
         Utils.skipDay(false, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         assertEq(true, VaultUtils.vaultState(vault).dead);
@@ -144,6 +151,7 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
@@ -151,6 +159,7 @@ contract VaultDeathTest is Test {
         assertEq(100, heldByVaultAlice);
 
         Utils.skipDay(false, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         // NOTE: cause the locked liquidity to go to zero; this, in turn, cause the vault death
@@ -159,6 +168,7 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(false, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         assertEq(true, VaultUtils.vaultState(vault).dead);
@@ -194,6 +204,7 @@ contract VaultDeathTest is Test {
         vm.stopPrank();
         Utils.skipDay(true, vm);
 
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
@@ -201,6 +212,7 @@ contract VaultDeathTest is Test {
         assertEq(100, heldByVaultAlice);
 
         Utils.skipDay(false, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
     }
 
@@ -211,6 +223,7 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
         Utils.skipDay(true, vm);
 
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
@@ -222,6 +235,7 @@ contract VaultDeathTest is Test {
         // assertEq(0, vault.v0());
 
         Utils.skipDay(false, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         assertEq(100, vault.totalSupply());
@@ -238,6 +252,7 @@ contract VaultDeathTest is Test {
 
     function testVaultManualDead() public {
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(tokenAdmin);
@@ -246,6 +261,7 @@ contract VaultDeathTest is Test {
         assertEq(true, vault.manualKill());
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         assertEq(true, VaultUtils.vaultState(vault).dead);
@@ -256,12 +272,14 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(tokenAdmin);
         vault.killVault();
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);
@@ -279,12 +297,14 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(bob, 200e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(tokenAdmin);
         vault.killVault();
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);
@@ -316,18 +336,21 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);
         vault.initiateWithdraw(50e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(tokenAdmin);
         vault.killVault();
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         // Skip another day to simulate the epochFrozen scenarios.
@@ -356,18 +379,21 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);
         vault.initiateWithdraw(50e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(tokenAdmin);
         vault.killVault();
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
         
         vm.prank(alice);
@@ -401,6 +427,7 @@ contract VaultDeathTest is Test {
         VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
@@ -409,6 +436,7 @@ contract VaultDeathTest is Test {
         vault.killVault();
 
         Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);

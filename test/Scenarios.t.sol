@@ -136,9 +136,9 @@ contract TestScenariosJson is Test {
         _dvp = new MockedIG(address(_vault), address(_ap));
         TestnetRegistry(_ap.registry()).registerDVP(address(_dvp));
         MockedVault(_vault).setAllowedDVP(address(_dvp));
-        vm.stopPrank();
 
         _dvp.rollEpoch();
+        vm.stopPrank();
     }
 
     function testScenario1() public {
@@ -219,6 +219,7 @@ contract TestScenariosJson is Test {
         vm.stopPrank();
 
         Utils.skipWeek(true, vm);
+        vm.prank(_admin);
         _dvp.rollEpoch();
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
@@ -324,6 +325,7 @@ contract TestScenariosJson is Test {
         vm.stopPrank();
 
         vm.warp(_dvp.currentEpoch() + 1);
+        vm.prank(_admin);
         _dvp.rollEpoch();
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();

@@ -94,7 +94,9 @@ contract VaultProxyTest is Test {
                 vm
             )
         );
+        vm.prank(_tokenAdmin);
         _vault0.rollEpoch();
+        vm.prank(_tokenAdmin);
         _vault1.rollEpoch();
 
         vm.prank(_tokenAdmin);
@@ -109,6 +111,7 @@ contract VaultProxyTest is Test {
         vm.prank(_alice);
         _proxy.deposit(IVaultProxy.DepositParams(address(_vault0), _alice, 100));
         Utils.skipDay(false, vm);
+        vm.prank(_tokenAdmin);
         _vault0.rollEpoch();
 
         (, uint256 unredeemedShares) = _vault0.shareBalances(_alice);
@@ -129,11 +132,13 @@ contract VaultProxyTest is Test {
         _proxy.deposit(IVaultProxy.DepositParams(address(_vault1), _alice, 100));
 
         Utils.skipDay(false, vm);
+        vm.prank(_tokenAdmin);
         _vault0.rollEpoch();
 
         for (uint256 i = 0; i < 6; i++) {
             Utils.skipDay(false, vm);
         }
+        vm.prank(_tokenAdmin);
         _vault1.rollEpoch();
 
         (, uint256 unredeemedShares0) = _vault0.shareBalances(_alice);
