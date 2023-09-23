@@ -1,21 +1,28 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.21;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {IMarketOracle} from "../interfaces/IMarketOracle.sol";
 import {AmountsMath} from "../lib/AmountsMath.sol";
 
+struct OracleValue {
+    uint256 value;
+    uint256 lastUpdate;
+}
+
 /// @dev everything is expressed in Wad (18 decimals)
 contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
-    using AmountsMath for uint;
+    using AmountsMath for uint256;
 
-    address referenceToken;
-    mapping(address => uint) tokenPrices;
-    mapping(address => bool) priceSet;
+    // IPriceOracle data:
+    // @inheritdoc IPriceOracle
+    address public referenceToken;
+    mapping(address => OracleValue) internal _prices;
 
-    uint256 _iv;
-    uint256 _rfRate;
+    // IMarketOracle data:
+    OracleValue internal _iv;
+    OracleValue internal _rfRate;
 
     error AddressZero();
     error TokenNotSupported();
@@ -23,57 +30,72 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
     error PriceTooHigh();
 
     constructor(address referenceToken_) Ownable() {
-        if (referenceToken_ == address(0)) {
-            revert AddressZero();
-        }
         referenceToken = referenceToken_;
-        _iv = 5e17; // 0.5
-        _rfRate = 3e16; // 0.03 == 3%
+        setTokenPrice(referenceToken, 1e18); // 1
+
+        _iv.value = 0.5e18;      // 50 %
+        _iv.lastUpdate = block.timestamp;
+        _rfRate.value = 0.03e18; //  3 %
+        _rfRate.lastUpdate = block.timestamp;
     }
 
-    // NOTE: the price is with 18 decimals and is expected to be in USD
-    function setTokenPrice(address token, uint price) external onlyOwner {
+    // ------------------------------------------------------------------------
+    // IPriceOracle
+    // ------------------------------------------------------------------------
+
+    // NOTE: the price is with 18 decimals and is expected to be in referenceToken
+    function setTokenPrice(address token, uint256 price) public onlyOwner {
         if (token == address(0)) {
             revert AddressZero();
         }
 
-        // TODO fix
+        // ToDo: review
         if (price > type(uint256).max / 1e18) {
             revert PriceTooHigh();
         }
 
-        tokenPrices[token] = price;
-        priceSet[token] = true;
+        OracleValue storage price_ = _prices[token];
+        price_.value = price;
+        price_.lastUpdate = block.timestamp;
     }
 
-    function getTokenPrice(address token) public view returns (uint) {
+    // @inheritdoc IPriceOracle
+    function getTokenPrice(address token) public view returns (uint256) {
         if (token == address(0)) {
             revert AddressZero();
         }
 
-        if (token == referenceToken && !priceSet[referenceToken]) {
-            return 1e18;
-        }
-
-        if (!priceSet[token]) {
+        if (!_priceIsSet(token)) {
             revert TokenNotSupported();
         }
 
-        return tokenPrices[token];
+        OracleValue memory price = _prices[token];
+        // TBD: revert if price is too old
+        return price.value;
+    }
+
+    function _priceIsSet(address token) internal view returns (bool) {
+        return _prices[token].lastUpdate > 0;
     }
 
     // @inheritdoc IPriceOracle
-    function getPrice(address token0, address token1) external view returns (uint) {
-        uint token0Price = getTokenPrice(token0);
-        uint token1Price = getTokenPrice(token1);
+    function getPrice(address token0, address token1) external view returns (uint256) {
+        uint256 token0Price = getTokenPrice(token0);
+        uint256 token1Price = getTokenPrice(token1);
 
         if (token1Price == 0) {
+            // TBD: improve error
             revert PriceZero();
         }
 
         return token0Price.wdiv(token1Price);
     }
 
+    // ------------------------------------------------------------------------
+    // IMarketOracle
+    // ------------------------------------------------------------------------
+
+    // @inheritdoc IMarketOracle
     function getImpliedVolatility(
         address token0,
         address token1,
@@ -84,20 +106,28 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
         token1;
         strikePrice;
         frequency;
-        return _iv;
+
+        iv = _iv.value;
     }
 
     function setImpliedVolatility(uint256 percentage) external onlyOwner {
-        _iv = percentage;
+        _iv.value = percentage;
+        _iv.lastUpdate = block.timestamp;
     }
 
-    function getRiskFreeRate(address token0, address token1) external view returns (uint256 rate) {
+    // @inheritdoc IMarketOracle
+    function getRiskFreeRate(
+        address token0,
+        address token1
+    ) external view returns (uint256 rate) {
         token0;
         token1;
-        return _rfRate;
+
+        rate = _rfRate.value;
     }
 
     function setRiskFreeRate(uint256 percentage) external onlyOwner {
-        _rfRate = percentage;
+        _rfRate.value = percentage;
+        _rfRate.lastUpdate = block.timestamp;
     }
 }
