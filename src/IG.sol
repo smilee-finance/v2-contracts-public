@@ -87,6 +87,18 @@ contract IG is DVP {
         premium_ += fee;
     }
 
+    /// @inheritdoc IDVP
+    function getUtilizationRate() public view returns (uint256) {
+        (uint256 used, uint256 total) = _liquidity[getEpoch().current].utilizationRateFactors(
+            _financeParameters.currentStrike
+        );
+
+        used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
+        total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
+
+        return used.wdiv(total);
+    }
+
     /// @inheritdoc DVP
     function _getMarketValue(
         uint256 strike,

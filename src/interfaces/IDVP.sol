@@ -37,7 +37,11 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @return premium The amount of base tokens that need to be paid to mint an option
         @return fee The amount of base tokens that will be paid as fee.
      */
-    function premium(uint256 strike, uint256 amountUp, uint256 amountDown) external view returns (uint256 premium, uint256 fee);
+    function premium(
+        uint256 strike,
+        uint256 amountUp,
+        uint256 amountDown
+    ) external view returns (uint256 premium, uint256 fee);
 
     /**
         @notice Returns the payoff of the given position
@@ -48,7 +52,18 @@ interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
         @return payoff The current value of the position
         @return fee The amount of base tokens that will be paid as fee.
      */
-    function payoff(uint256 epoch, uint256 strike, uint256 amountUp, uint256 amountDown) external view returns (uint256 payoff, uint256 fee);
+    function payoff(
+        uint256 epoch,
+        uint256 strike,
+        uint256 amountUp,
+        uint256 amountDown
+    ) external view returns (uint256 payoff, uint256 fee);
+
+    /**
+        @notice Returns the utilization rate of the notional used on the relative Vault
+        @return utilizationRate The utilization rate
+     */
+    function getUtilizationRate() external view returns (uint256);
 
     ////// USER ACTIONS
 

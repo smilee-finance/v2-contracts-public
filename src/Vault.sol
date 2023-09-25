@@ -128,6 +128,16 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         manualKill = true;
     }
 
+    /**
+     *
+     * @return totalDeposit Represent the overall deposit value
+     * @return dead Check if the vault is dead or not
+     * @return deadReason The reason of the death
+     */
+    function getInfo() external view returns (uint256, bool, bytes4) {
+        return (_state.liquidity.totalDeposit, _state.dead, _state.deadReason);
+    }
+
     // ToDo: review as it's currently used only by tests
     function vaultState()
         external

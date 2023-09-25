@@ -125,17 +125,6 @@ contract MockedIG is IG {
         return (amount, strategy, position.strike, position.epoch);
     }
 
-    function getUtilizationRate() public view returns (uint256) {
-        (uint256 used, uint256 total) = _liquidity[getEpoch().current].utilizationRateFactors(
-            _financeParameters.currentStrike
-        );
-
-        used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
-        total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
-
-        return used.wdiv(total);
-    }
-
     function getCurrentFinanceParameters() public view returns (FinanceParameters memory) {
         return _financeParameters;
     }
