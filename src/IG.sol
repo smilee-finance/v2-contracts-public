@@ -280,12 +280,14 @@ contract IG is DVP {
     /// @dev must be defined in Wad
     function setTradeVolatilityUtilizationRateFactor(uint256 utilizationRateFactor) external onlyOwner {
         // ToDo: make the change effective from the next epoch
+        // ToDo: check range
         _financeParameters.tradeVolatilityUtilizationRateFactor = utilizationRateFactor;
     }
 
     /// @dev must be defined in Wad
     function setTradeVolatilityTimeDecay(uint256 timeDecay) external onlyOwner {
         // ToDo: make the change effective from the next epoch
+        // ToDo: check range
         _financeParameters.tradeVolatilityTimeDecay = timeDecay;
     }
 }

@@ -3,11 +3,11 @@ pragma solidity ^0.8.21;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
-import {IToken} from "./interfaces/IToken.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {Amount, AmountHelper} from "./lib/Amount.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
@@ -79,8 +79,8 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         IVault vaultCt = IVault(vault);
         baseToken = vaultCt.baseToken();
         sideToken = vaultCt.sideToken();
-        _baseTokenDecimals = IToken(baseToken).decimals();
-        _sideTokenDecimals = IToken(sideToken).decimals();
+        _baseTokenDecimals = IERC20Metadata(baseToken).decimals();
+        _sideTokenDecimals = IERC20Metadata(sideToken).decimals();
         _addressProvider = AddressProvider(addressProvider_);
     }
 
@@ -132,12 +132,12 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
         // Get premium from sender:
         // NOTE: Premium doesn't include the fee
-        if (!IToken(baseToken).transferFrom(msg.sender, vault, premium_)) {
+        if (!IERC20Metadata(baseToken).transferFrom(msg.sender, vault, premium_)) {
             revert TransferFailed();
         }
 
         // Send fee to FeeManager
-        if (!IToken(baseToken).transferFrom(msg.sender, address(feeManager), fee)) {
+        if (!IERC20Metadata(baseToken).transferFrom(msg.sender, address(feeManager), fee)) {
             revert TransferFailed();
         }
         feeManager.notifyTransfer(vault, fee);

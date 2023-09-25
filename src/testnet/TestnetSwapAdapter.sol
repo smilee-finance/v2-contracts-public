@@ -2,9 +2,9 @@
 pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IExchange} from "../interfaces/IExchange.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
-import {IToken} from "../interfaces/IToken.sol";
 import {AmountsMath} from "../lib/AmountsMath.sol";
 import {TestnetToken} from "../testnet/TestnetToken.sol";
 
@@ -30,13 +30,13 @@ contract TestnetSwapAdapter is IExchange, Ownable {
 
     function _getAmountOut(address tokenIn, address tokenOut, uint amountIn) internal view returns (uint) {
         uint tokenOutPrice = _priceOracle.getPrice(tokenIn, tokenOut);
-        amountIn = AmountsMath.wrapDecimals(amountIn, IToken(tokenIn).decimals());
-        return AmountsMath.unwrapDecimals(amountIn.wmul(tokenOutPrice), IToken(tokenOut).decimals());
+        amountIn = AmountsMath.wrapDecimals(amountIn, IERC20Metadata(tokenIn).decimals());
+        return AmountsMath.unwrapDecimals(amountIn.wmul(tokenOutPrice), IERC20Metadata(tokenOut).decimals());
     }
 
     // @inheritdoc IExchange
     function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 amountOut) {
-        if (!IToken(tokenIn).transferFrom(msg.sender, address(this), amountIn)) {
+        if (!IERC20Metadata(tokenIn).transferFrom(msg.sender, address(this), amountIn)) {
             revert TransferFailed();
         }
         TestnetToken(tokenIn).burn(address(this), amountIn);
@@ -58,15 +58,15 @@ contract TestnetSwapAdapter is IExchange, Ownable {
             revert PriceZero();
         }
 
-        amountOut = AmountsMath.wrapDecimals(amountOut, IToken(tokenOut).decimals());
-        return AmountsMath.unwrapDecimals(amountOut.wmul(tokenInPrice), IToken(tokenIn).decimals());
+        amountOut = AmountsMath.wrapDecimals(amountOut, IERC20Metadata(tokenOut).decimals());
+        return AmountsMath.unwrapDecimals(amountOut.wmul(tokenInPrice), IERC20Metadata(tokenIn).decimals());
     }
 
     // @inheritdoc IExchange
     function swapOut(address tokenIn, address tokenOut, uint256 amountOut) external returns (uint256 amountIn) {
         amountIn = _getAmountIn(tokenIn, tokenOut, amountOut);
 
-        if (!IToken(tokenIn).transferFrom(msg.sender, address(this), amountIn)) {
+        if (!IERC20Metadata(tokenIn).transferFrom(msg.sender, address(this), amountIn)) {
             revert TransferFailed();
         }
 

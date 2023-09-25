@@ -7,21 +7,25 @@ interface IExchange {
         @param tokenIn The address of the input token.
         @param tokenOut The address of the output token.
         @param amountIn The amount of input token to be provided.
-        @return tokenOutAmount The amount of output token given by the exchange.
+        @return amountOut The amount of output token given by the exchange.
         @dev The client choose how much tokenIn it wants to provide.
         @dev The client needs to approve the amountIn of tokenIn.
      */
-    function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 tokenOutAmount);
+    function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 amountOut);
 
     /**
         @notice Preview how much tokenOut will be given back in exchange of an amount of tokenIn.
         @param tokenIn The address of the input token.
         @param tokenOut The address of the output token.
         @param amountIn The amount of input token to be provided.
-        @return tokenOutAmount The amount of output tokens that will be given back in exchange of `amountIn`.
+        @return amountOut The amount of output tokens that will be given back in exchange of `amountIn`.
         @dev Allows to preview the amount of tokenOut that will be swapped by `swapIn`.
      */
-    function getOutputAmount(address tokenIn, address tokenOut, uint256 amountIn) external view returns (uint256 tokenOutAmount);
+    function getOutputAmount(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn
+    ) external view returns (uint256 amountOut);
 
     /**
         @notice Preview how much tokenIn will be taken in exchange for an amount of tokenOut.
@@ -31,7 +35,11 @@ interface IExchange {
         @return tokenInAmount The amount of input tokens that will be taken in exchange of `amountOut`.
         @dev Allows to preview the amount of tokenIn that will be swapped by `swapOut`.
      */
-    function getInputAmount(address tokenIn, address tokenOut, uint256 amountOut) external view returns (uint256 tokenInAmount);
+    function getInputAmount(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut
+    ) external view returns (uint256 tokenInAmount);
 
     /**
         @notice Swaps some tokenIn tokens in exchange for the given amount of tokenOut tokens.

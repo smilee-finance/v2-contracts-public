@@ -80,7 +80,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
 
         _addressProvider = AddressProvider(addressProvider_);
         // ToDo: Add constructor parameter
-        maxDeposit = 1e25;
+        maxDeposit = 10_000_000e18;
         _secondaryMarkedAllowed = false;
     }
 
@@ -109,19 +109,20 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     }
 
     /**
-        @notice Allows the contract's owner to set the DVP paired with this vault.
-        @dev The address is injected after-build, because the DVP needs an already built vault as constructor-injected dependency.
+        @notice Allows the contract's owner to set the DVP paired with this vault
+        @dev The address is injected after-build, because the DVP needs an already built vault as constructor-injected dependency
      */
     function setAllowedDVP(address dvp_) external onlyOwner {
+        // TODO - make this one a one time method
         dvp = dvp_;
     }
 
     /**
-        @notice Set LimitTVL
-        @param limitTVL_ LimitTVL to set
+        @notice Set maximum deposit capacity for the Vault
+        @param maxDeposit_ The number to set
      */
-    function setMaxDeposit(uint256 limitTVL_) external onlyOwner {
-        maxDeposit = limitTVL_;
+    function setMaxDeposit(uint256 maxDeposit_) external onlyOwner {
+        maxDeposit = maxDeposit_;
     }
 
     function killVault() public onlyOwner isNotDead {
@@ -242,12 +243,10 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     // ------------------------------------------------------------------------
 
     /// @inheritdoc IVault
-    function deposit(
-        uint256 amount,
-        address receiver
-    ) external isNotDead whenNotPaused {
+    function deposit(uint256 amount, address receiver) external isNotDead whenNotPaused {
         _checkEpochInitialized();
         _checkEpochNotFinished();
+
         if (amount == 0) {
             revert AmountZero();
         }

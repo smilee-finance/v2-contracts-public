@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.21;
 
 /// @dev everything is expressed in Wad (18 decimals)
 interface IPriceOracle {

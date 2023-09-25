@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
-import {IToken} from "../../interfaces/IToken.sol";
 import {AmountsMath} from "../../lib/AmountsMath.sol";
 
 contract UniswapPriceOracle is IPriceOracle {
@@ -48,8 +48,8 @@ contract UniswapPriceOracle is IPriceOracle {
         IUniswapV3Pool pool = _getPool(token0, token1);
         (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
 
-        uint8 poolToken0Decimal = IToken(pool.token0()).decimals();
-        uint8 poolToken1Decimal = IToken(pool.token1()).decimals();
+        uint8 poolToken0Decimal = IERC20Metadata(pool.token0()).decimals();
+        uint8 poolToken1Decimal = IERC20Metadata(pool.token1()).decimals();
 
         uint256 price = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
 

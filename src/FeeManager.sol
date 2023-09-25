@@ -68,6 +68,7 @@ contract FeeManager is IFeeManager, Ownable {
 
     /// @notice Update fee percentage value
     function setFeePercentage(uint256 feePercentage_) public onlyOwner {
+        // ToDo: check range
         uint256 previousFeePercentage = feePercentage;
         feePercentage = feePercentage_;
 
@@ -76,6 +77,7 @@ contract FeeManager is IFeeManager, Ownable {
 
     /// @notice Update cap percentage value
     function setCapPercentage(uint256 capPercentage_) public onlyOwner {
+        // ToDo: check range
         uint256 previousCapPercentage = capPercentage;
         capPercentage = capPercentage_;
 
@@ -84,6 +86,7 @@ contract FeeManager is IFeeManager, Ownable {
 
     /// @notice Update fee percentage value at maturity
     function setFeeMaturityPercentage(uint256 maturityFeePercentage_) public onlyOwner {
+        // ToDo: check range
         uint256 previousMaturityFeePercentage = maturityFeePercentage;
         maturityFeePercentage = maturityFeePercentage_;
 
@@ -92,6 +95,7 @@ contract FeeManager is IFeeManager, Ownable {
 
     /// @notice Update cap percentage value at maturity
     function setCapMaturityPercentage(uint256 maturityCapPercentage_) public onlyOwner {
+        // ToDo: check range
         uint256 previousMaturityCapPercentage = maturityCapPercentage;
         maturityCapPercentage = maturityCapPercentage_;
 

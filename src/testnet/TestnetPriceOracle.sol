@@ -33,7 +33,7 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
         referenceToken = referenceToken_;
         setTokenPrice(referenceToken, 1e18); // 1
 
-        _iv.value = 0.5e18;      // 50 %
+        _iv.value = 0.5e18; // 50 %
         _iv.lastUpdate = block.timestamp;
         _rfRate.value = 0.03e18; //  3 %
         _rfRate.lastUpdate = block.timestamp;
@@ -111,15 +111,13 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
     }
 
     function setImpliedVolatility(uint256 percentage) external onlyOwner {
+        // ToDo: check range
         _iv.value = percentage;
         _iv.lastUpdate = block.timestamp;
     }
 
     // @inheritdoc IMarketOracle
-    function getRiskFreeRate(
-        address token0,
-        address token1
-    ) external view returns (uint256 rate) {
+    function getRiskFreeRate(address token0, address token1) external view returns (uint256 rate) {
         token0;
         token1;
 
@@ -127,6 +125,7 @@ contract TestnetPriceOracle is IPriceOracle, IMarketOracle, Ownable {
     }
 
     function setRiskFreeRate(uint256 percentage) external onlyOwner {
+        // ToDo: check rangu
         _rfRate.value = percentage;
         _rfRate.lastUpdate = block.timestamp;
     }
