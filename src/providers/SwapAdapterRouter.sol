@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IExchange} from "../interfaces/IExchange.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
+import {ISwapAdapter} from "../interfaces/ISwapAdapter.sol";
 
 /**
     @title A simple contract delegated to exchange selection for token pairs swap
@@ -90,60 +91,6 @@ contract SwapAdapterRouter is IExchange, Ownable {
         _slippage[_encodePath(tokenIn, tokenOut)] = slippage;
     }
 
-    /// @inheritdoc IExchange
-    function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 amountOut) {
-        _zeroAddressCheck(tokenIn);
-        _zeroAddressCheck(tokenOut);
-        address adapter = _adapters[_encodePath(tokenIn, tokenOut)];
-        _zeroAddressCheck(adapter);
-
-        (uint256 amountOutMin, uint256 amountOutMax) = _slippedValueOut(tokenIn, tokenOut, amountIn);
-
-        // TBD - delegate call to adapter
-        IERC20Metadata(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
-        IERC20Metadata(tokenIn).safeApprove(adapter, amountIn);
-        amountOut = IExchange(adapter).swapIn(tokenIn, tokenOut, amountIn);
-
-        if (amountOut == 0) {
-            revert SwapZero();
-        }
-
-        if (amountOut < amountOutMin || amountOut > amountOutMax) {
-            revert Slippage();
-        }
-
-        IERC20Metadata(tokenOut).safeTransfer(msg.sender, amountOut);
-    }
-
-    /// @inheritdoc IExchange
-    function swapOut(address tokenIn, address tokenOut, uint256 amountOut) external returns (uint256 amountIn) {
-        _zeroAddressCheck(tokenIn);
-        _zeroAddressCheck(tokenOut);
-        address adapter = _adapters[_encodePath(tokenIn, tokenOut)];
-        _zeroAddressCheck(adapter);
-
-        (uint256 amountInMax, uint256 amountInMin) = _slippedValueIn(tokenIn, tokenOut, amountOut);
-
-        // TBD - delegate call to adapter
-        IERC20Metadata(tokenIn).safeTransferFrom(msg.sender, address(this), amountInMax);
-        IERC20Metadata(tokenIn).safeApprove(adapter, amountInMax);
-        amountIn = IExchange(adapter).swapOut(tokenIn, tokenOut, amountOut);
-
-        // Only approved amountInMax so if transaction is requiring more should revert
-        if (amountIn < amountInMin) {
-            revert Slippage();
-        }
-
-        IERC20Metadata(tokenOut).safeTransfer(msg.sender, amountOut);
-
-        // If the actual amount spent (amountIn) is less than the specified maximum amount, we must refund the msg.sender
-        // Also reset approval in any case
-        IERC20Metadata(tokenIn).safeApprove(adapter, 0);
-        if (amountIn < amountInMax) {
-            IERC20Metadata(tokenIn).safeTransfer(msg.sender, amountInMax - amountIn);
-        }
-    }
-
     /**
         @inheritdoc IExchange
         @dev implementation return amountOutMin because we also consider slippage to be consistent with getInputAmount impl.
@@ -170,6 +117,64 @@ contract SwapAdapterRouter is IExchange, Ownable {
         _zeroAddressCheck(tokenIn);
         _zeroAddressCheck(tokenOut);
         (amountIn, ) = _slippedValueIn(tokenIn, tokenOut, amountOut);
+    }
+
+    /// @inheritdoc ISwapAdapter
+    function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 amountOut) {
+        _zeroAddressCheck(tokenIn);
+        _zeroAddressCheck(tokenOut);
+        address adapter = _adapters[_encodePath(tokenIn, tokenOut)];
+        _zeroAddressCheck(adapter);
+
+        (uint256 amountOutMin, uint256 amountOutMax) = _slippedValueOut(tokenIn, tokenOut, amountIn);
+
+        // TBD - delegate call to adapter
+        IERC20Metadata(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
+        IERC20Metadata(tokenIn).safeApprove(adapter, amountIn);
+        amountOut = ISwapAdapter(adapter).swapIn(tokenIn, tokenOut, amountIn);
+
+        if (amountOut == 0) {
+            revert SwapZero();
+        }
+
+        if (amountOut < amountOutMin || amountOut > amountOutMax) {
+            revert Slippage();
+        }
+
+        IERC20Metadata(tokenOut).safeTransfer(msg.sender, amountOut);
+    }
+
+    /// @inheritdoc ISwapAdapter
+    function swapOut(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut,
+        uint256 preApprovedAmountIn
+    ) external returns (uint256 amountIn) {
+        _zeroAddressCheck(tokenIn);
+        _zeroAddressCheck(tokenOut);
+        address adapter = _adapters[_encodePath(tokenIn, tokenOut)];
+        _zeroAddressCheck(adapter);
+
+        (uint256 amountInMax, uint256 amountInMin) = _slippedValueIn(tokenIn, tokenOut, amountOut);
+
+        // TBD - delegate call to adapter
+        IERC20Metadata(tokenIn).safeTransferFrom(msg.sender, address(this), preApprovedAmountIn);
+        IERC20Metadata(tokenIn).safeApprove(adapter, preApprovedAmountIn);
+        amountIn = ISwapAdapter(adapter).swapOut(tokenIn, tokenOut, amountOut, preApprovedAmountIn);
+
+        if (amountIn < amountInMin || amountIn > amountInMax) {
+            revert Slippage();
+        }
+
+        IERC20Metadata(tokenOut).safeTransfer(msg.sender, amountOut);
+
+        // If the actual amount spent (amountIn) is less than the specified maximum amount, we must refund the msg.sender
+        // Also reset approval in any case
+        IERC20Metadata(tokenIn).safeApprove(adapter, 0);
+        if (amountIn < preApprovedAmountIn) {
+            IERC20Metadata(tokenIn).safeTransfer(msg.sender, preApprovedAmountIn - amountIn);
+        }
     }
 
     /**

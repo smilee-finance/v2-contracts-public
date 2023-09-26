@@ -141,7 +141,7 @@ contract TestnetSwapAdapterTest is Test {
         assertEq(10 ether, amountToGive);
 
         vm.prank(alice);
-        dex.swapOut(address(WETH), address(WBTC), wanted);
+        dex.swapOut(address(WETH), address(WBTC), wanted, amountToGive);
 
         assertEq(90 ether, WETH.balanceOf(alice));
         assertEq(wanted, WBTC.balanceOf(alice));
@@ -199,7 +199,7 @@ contract TestnetSwapAdapterTest is Test {
         TokenUtils.provideApprovedTokens(adminWallet, address(WETH), alice, address(dex), wethForWbtcAmount, vm);
 
         vm.prank(alice);
-        dex.swapOut(address(WETH), address(WBTC), output);
+        dex.swapOut(address(WETH), address(WBTC), output, wethForWbtcAmount);
         assertEq(0, WETH.balanceOf(alice));
         assertEq(output, WBTC.balanceOf(alice));
     }

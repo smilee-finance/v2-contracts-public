@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.21;
 
 import {Test} from "forge-std/Test.sol";
 import {IExchange} from "../src/interfaces/IExchange.sol";
@@ -128,9 +128,10 @@ contract SwapProviderRouterBaseTest is Test {
         _adminSetup(amount, realPriceRef, swapPriceRef, maxSlippage, false);
 
         vm.startPrank(_alice);
-        _token0.approve(address(_swapRouter), _token0.balanceOf(_alice));
+        uint256 t0IniBal = _token0.balanceOf(_alice);
+        _token0.approve(address(_swapRouter), t0IniBal);
         vm.expectRevert("ERC20: insufficient allowance");
-        _swapRouter.swapOut(address(_token0), address(_token1), amount);
+        _swapRouter.swapOut(address(_token0), address(_token1), amount, t0IniBal);
         vm.stopPrank();
     }
 
@@ -143,9 +144,10 @@ contract SwapProviderRouterBaseTest is Test {
         _adminSetup(amount, realPriceRef, swapPriceRef, maxSlippage, false);
 
         vm.startPrank(_alice);
-        _token0.approve(address(_swapRouter), _token0.balanceOf(_alice));
+        uint256 t0IniBal = _token0.balanceOf(_alice);
+        _token0.approve(address(_swapRouter), t0IniBal);
         vm.expectRevert(_SLIPPAGE);
-        _swapRouter.swapOut(address(_token0), address(_token1), amount);
+        _swapRouter.swapOut(address(_token0), address(_token1), amount, t0IniBal);
         vm.stopPrank();
     }
 
@@ -160,7 +162,7 @@ contract SwapProviderRouterBaseTest is Test {
         uint256 t0IniBal = _token0.balanceOf(_alice);
         uint256 shouldSpend = (amount * swapPriceRef) / 10 ** _token1.decimals();
         _token0.approve(address(_swapRouter), t0IniBal);
-        uint256 spent = _swapRouter.swapOut(address(_token0), address(_token1), amount);
+        uint256 spent = _swapRouter.swapOut(address(_token0), address(_token1), amount, t0IniBal);
         assertApproxEqAbs(shouldSpend, spent, 1e3);
         assertEq(t0IniBal - spent, _token0.balanceOf(_alice));
         assertEq(amount, _token1.balanceOf(_alice));

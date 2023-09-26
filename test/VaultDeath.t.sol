@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.21;
 
-import "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
@@ -356,11 +355,11 @@ contract VaultDeathTest is Test {
         // Skip another day to simulate the epochFrozen scenarios.
         // In this case, the "traditional" completeWithdraw shouldn't work due to epochFrozen error.
         Utils.skipDay(true, vm);
-        
+
         vm.prank(alice);
         vm.expectRevert(EpochFinished);
         vault.completeWithdraw();
-        
+
         vm.prank(alice);
         vault.rescueShares();
 
@@ -395,7 +394,7 @@ contract VaultDeathTest is Test {
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
-        
+
         vm.prank(alice);
         vault.completeWithdraw();
 
@@ -408,7 +407,7 @@ contract VaultDeathTest is Test {
         assertEq(0, heldByVaultAlice);
         assertEq(50e18, heldByAccountAlice);
         assertEq(50e18, baseToken.balanceOf(alice));
-        
+
         vm.prank(alice);
         vault.rescueShares();
 

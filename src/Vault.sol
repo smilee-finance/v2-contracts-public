@@ -301,14 +301,6 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         });
     }
 
-    // ToDo: review
-    // /**
-    //      @notice Enables withdraw assets deposited in the same epoch (withdraws using the outstanding
-    //              `DepositReceipt.amount`)
-    //      @param amount is the amount to withdraw
-    //  */
-    // function withdrawInstantly(uint256 amount) external;
-
     /**
         @notice Get wallet balance of actual owned shares and owed shares.
         @return heldByAccount The amount of shares owned by the wallet
@@ -713,7 +705,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         if (!ok) {
             revert ApproveFailed();
         }
-        baseTokens = exchange.swapOut(baseToken, sideToken, amount);
+        baseTokens = exchange.swapOut(baseToken, sideToken, amount, baseTokensAmount);
     }
 
     /**
