@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+// ToDo: change the library so that it's used only for fixed lenght frequencies
+// ----- delegate the custom behaviour (i.e. third friday of the month) to an external contract (address in Epoch struct ?).
 /// @title Simple library to manage DVPs epoch rolls.
 library EpochFrequency {
     /// @notice Friday 2023-04-21 08:00 UTC
@@ -8,9 +10,11 @@ library EpochFrequency {
 
     /// Enum values ///
 
+    // TBD: replace values with the actual timespan (use 0 for custom)
     uint256 public constant DAILY = 0;
     uint256 public constant WEEKLY = 1;
     uint256 public constant TRD_FRI_MONTH = 2;
+    uint256 public constant THIRTY_DAYS = 3;
 
     /// Errors ///
 
@@ -20,7 +24,7 @@ library EpochFrequency {
     /// Logic ///
 
     function validityCheck(uint256 epochFrequency) external pure {
-        if (epochFrequency != DAILY && epochFrequency != WEEKLY && epochFrequency != TRD_FRI_MONTH) {
+        if (epochFrequency != DAILY && epochFrequency != WEEKLY && epochFrequency != TRD_FRI_MONTH && epochFrequency != THIRTY_DAYS) {
             revert UnsupportedFrequency();
         }
     }
@@ -34,6 +38,9 @@ library EpochFrequency {
         }
         if (frequency == WEEKLY) {
             return _nextTimeSpanExpiry(ts, 7 days);
+        }
+        if (frequency == THIRTY_DAYS) {
+            return _nextTimeSpanExpiry(ts, 30 days);
         }
         if (frequency == TRD_FRI_MONTH) {
             return _nextCustomExpiry(ts, frequency);

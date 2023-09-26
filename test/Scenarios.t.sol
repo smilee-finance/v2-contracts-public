@@ -8,11 +8,10 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Amount} from "../src/lib/Amount.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {FinanceParameters} from "../src/lib/FinanceIG.sol";
-import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
 import {SignedMath} from "../src/lib/SignedMath.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
 import {FeeManager} from "../src/FeeManager.sol";
-import {IG} from "../src/IG.sol";
+import {MarketOracle} from "../src/MarketOracle.sol";
 import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
@@ -30,6 +29,7 @@ contract TestScenariosJson is Test {
     MockedVault internal _vault;
     MockedIG internal _dvp;
     TestnetPriceOracle internal _oracle;
+    MarketOracle internal _marketOracle;
     uint256 internal _toleranceOnPercentage;
     uint256 internal _toleranceOnAmount;
 
@@ -128,6 +128,7 @@ contract TestScenariosJson is Test {
         _vault = MockedVault(VaultUtils.createVault(EpochFrequency.WEEKLY, _ap, _admin, vm));
 
         _oracle = TestnetPriceOracle(_ap.priceOracle());
+        _marketOracle = MarketOracle(_ap.marketOracle());
 
         _feeManager = FeeManager(_ap.feeManager());
 
@@ -204,8 +205,8 @@ contract TestScenariosJson is Test {
 
         vm.startPrank(_admin);
         _oracle.setTokenPrice(_vault.sideToken(), t0.pre.sideTokenPrice);
-        _oracle.setImpliedVolatility(t0.pre.impliedVolatility);
-        _oracle.setRiskFreeRate(t0.pre.riskFreeRate);
+        _marketOracle.setImpliedVolatility(t0.pre.impliedVolatility);
+        _marketOracle.setRiskFreeRate(t0.pre.riskFreeRate);
 
         _feeManager.setFeePercentage(t0.pre.fee);
         _feeManager.setFeeMaturityPercentage(t0.pre.feeMaturity);
@@ -239,7 +240,7 @@ contract TestScenariosJson is Test {
         // pre-conditions:
         vm.warp(block.timestamp + t.elapsedTimeSeconds);
         vm.startPrank(_admin);
-        _oracle.setRiskFreeRate(t.pre.riskFreeRate);
+        _marketOracle.setRiskFreeRate(t.pre.riskFreeRate);
         _oracle.setTokenPrice(_vault.sideToken(), t.pre.sideTokenPrice);
         vm.stopPrank();
 

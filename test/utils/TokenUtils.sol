@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import {Vm} from "forge-std/Vm.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {FeeManager} from "../../src/FeeManager.sol";
+import {MarketOracle} from "../../src/MarketOracle.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
@@ -49,7 +50,8 @@ library TokenUtils {
 
         address marketOracleAddress = ap.marketOracle();
         if (marketOracleAddress == address(0)) {
-            marketOracleAddress = priceOracleAddress;
+            MarketOracle marketOracle = new MarketOracle();
+            marketOracleAddress = address(marketOracle);
             ap.setMarketOracle(marketOracleAddress);
         }
 

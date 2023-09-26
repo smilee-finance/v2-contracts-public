@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {IExchange} from "../src/interfaces/IExchange.sol";
 import {IPriceOracle} from "../src/interfaces/IPriceOracle.sol";
@@ -11,7 +10,6 @@ import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
-import {MockPriceOracle} from "./mock/MockPriceOracle.sol";
 
 contract SwapProviderRouterBaseTest is Test {
     bytes4 constant _ADDRESS_ZERO = bytes4(keccak256("AddressZero()"));
@@ -23,7 +21,7 @@ contract SwapProviderRouterBaseTest is Test {
 
     TestnetToken _token0;
     TestnetToken _token1;
-    IPriceOracle _oracle = new MockPriceOracle();
+    IPriceOracle _oracle;
     SwapAdapterRouter _swapRouter;
     IPriceOracle _swapOracle;
     IExchange _swap;
@@ -31,6 +29,7 @@ contract SwapProviderRouterBaseTest is Test {
     function setUp() public {
         vm.startPrank(_admin);
 
+        _oracle = new TestnetPriceOracle(address(0x123));
         _swapOracle = new TestnetPriceOracle(address(0x123));
         _swap = new TestnetSwapAdapter(address(_swapOracle));
         _swapRouter = new SwapAdapterRouter(address(_oracle));
@@ -242,8 +241,8 @@ contract SwapProviderRouterBaseTest is Test {
         bool isIn
     ) private {
         vm.startPrank(_admin);
-        MockPriceOracle(address(_oracle)).setPrice(address(_token0), 1e18);
-        MockPriceOracle(address(_oracle)).setPrice(address(_token1), realPriceRef);
+        TestnetPriceOracle(address(_oracle)).setTokenPrice(address(_token0), 1e18);
+        TestnetPriceOracle(address(_oracle)).setTokenPrice(address(_token1), realPriceRef);
         TestnetPriceOracle(address(_swapOracle)).setTokenPrice(address(_token0), 1e18);
         TestnetPriceOracle(address(_swapOracle)).setTokenPrice(address(_token1), swapPriceRef);
         _swapRouter.setPriceOracle(address(_oracle));
@@ -264,29 +263,16 @@ contract SwapProviderRouterBaseTest is Test {
     }
 
     /// @dev Tells if the swap price within a range from the real one +/- slippage
-    function _priceRangeOk(uint256 realPrice, uint256 swapPrice, uint256 maxSlippage) private returns (bool) {
-        console.log("realPrice", realPrice);
-        console.log("swapPrice", swapPrice);
-        console.log("swapPrice * 1e18", swapPrice * 1e18);
-        console.log("realPrice * (1e18 + maxSlippage)", realPrice * (1e18 + maxSlippage));
-        console.log("realPrice * (1e18 - maxSlippage)", realPrice * (1e18 - maxSlippage));
-        console.log(
-            "swapPrice * 1e18 <= realPrice * (1e18 + maxSlippage)",
-            swapPrice * 1e18 <= realPrice * (1e18 + maxSlippage)
-        );
-        console.log(
-            "swapPrice * 1e18 >= realPrice * (1e18 - maxSlippage)",
-            swapPrice * 1e18 >= realPrice * (1e18 - maxSlippage)
-        );
+    function _priceRangeOk(uint256 realPrice, uint256 swapPrice, uint256 maxSlippage) private pure returns (bool) {
         return
             _priceRangeOkHigh(realPrice, swapPrice, maxSlippage) && _priceRangeOkLow(realPrice, swapPrice, maxSlippage);
     }
 
-    function _priceRangeOkHigh(uint256 realPrice, uint256 swapPrice, uint256 maxSlippage) private returns (bool) {
+    function _priceRangeOkHigh(uint256 realPrice, uint256 swapPrice, uint256 maxSlippage) private pure returns (bool) {
         return swapPrice * 1e18 <= realPrice * (1e18 + maxSlippage);
     }
 
-    function _priceRangeOkLow(uint256 realPrice, uint256 swapPrice, uint256 maxSlippage) private returns (bool) {
+    function _priceRangeOkLow(uint256 realPrice, uint256 swapPrice, uint256 maxSlippage) private pure returns (bool) {
         return swapPrice * 1e18 >= realPrice * (1e18 - maxSlippage);
     }
 }
