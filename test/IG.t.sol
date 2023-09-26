@@ -40,7 +40,6 @@ contract IGTest is Test {
         ap = new AddressProvider();
         registry = new TestnetRegistry();
         ap.setRegistry(address(registry));
-        ap.setFeeManager(address(feeManager));
         vm.stopPrank();
 
         vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));

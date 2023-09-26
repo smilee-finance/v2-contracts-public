@@ -40,6 +40,7 @@ contract ChainlinkPriceOracle is IPriceOracle, Ownable {
         }
         // TBD: use feed.description() (returns "BTC / USD") to check that the feed is right for the ERC20 token requested
         // ---- beware of wrapped tokens (e.g. WETH)
+        // TBD: check feed.decimals() size
 
         _feeds[token] = AggregatorV3Interface(feed);
 
