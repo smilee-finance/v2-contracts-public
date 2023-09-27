@@ -32,7 +32,7 @@ contract UniswapAdapterTest is Test {
 
         _uniswap = new UniswapAdapter(_UNIV3_ROUTER, _UNIV3_FACTORY);
 
-        // Set single pool path for <WETH, USDC> to WETH -> DAI [0.3%]
+        // Set single pool path for <WETH, USDC> to WETH -> USDC [0.3%]
         bytes memory wethUsdcPath = abi.encodePacked(address(_WETH), uint24(3000), address(_USDC));
         _uniswap.setPath(wethUsdcPath, address(_WETH), address(_USDC));
 

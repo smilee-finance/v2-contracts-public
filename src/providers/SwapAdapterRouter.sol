@@ -85,7 +85,7 @@ contract SwapAdapterRouter is IExchange, Ownable {
         @notice Sets a slippage parameter for a given tokens pair swap
         @param tokenIn The address of the input token of the swap
         @param tokenOut The address of the output token of the swap
-        @param slippage The maximum accepted slippage for the swap
+        @param slippage The maximum accepted slippage for the swap in wad (1e18 = 100%)
      */
     function setSlippage(address tokenIn, address tokenOut, uint256 slippage) external onlyOwner {
         _slippage[_encodePath(tokenIn, tokenOut)] = slippage;
@@ -211,7 +211,8 @@ contract SwapAdapterRouter is IExchange, Ownable {
         uint256 amountIn
     ) private view returns (uint256 amountOutMin, uint256 amountOutMax) {
         uint256 price = _priceOracle.getPrice(tokenIn, tokenOut);
-        uint256 amountOut = (price * amountIn) / 10 ** IERC20Metadata(tokenIn).decimals();
+        uint256 amountOut = (price * amountIn * 10 ** IERC20Metadata(tokenOut).decimals()) /
+            10 ** (18 + (IERC20Metadata(tokenIn).decimals()));
         amountOutMin = (amountOut * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
         amountOutMax = (amountOut * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
     }
@@ -230,7 +231,8 @@ contract SwapAdapterRouter is IExchange, Ownable {
         uint256 amountOut
     ) private view returns (uint256 amountInMax, uint256 amountInMin) {
         uint256 price = _priceOracle.getPrice(tokenOut, tokenIn);
-        uint256 amountIn = (price * amountOut) / 10 ** IERC20Metadata(tokenOut).decimals();
+        uint256 amountIn = (price * amountOut * 10 ** IERC20Metadata(tokenIn).decimals()) /
+            10 ** (18 + (IERC20Metadata(tokenOut).decimals()));
         amountInMax = (amountIn * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
         amountInMin = (amountIn * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
     }

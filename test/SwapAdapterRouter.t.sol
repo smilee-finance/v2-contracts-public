@@ -11,7 +11,7 @@ import {TestnetSwapAdapter} from "../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 
-contract SwapProviderRouterBaseTest is Test {
+contract SwapProviderRouterTest is Test {
     bytes4 constant _ADDRESS_ZERO = bytes4(keccak256("AddressZero()"));
     bytes4 constant _SLIPPAGE = bytes4(keccak256("Slippage()"));
     bytes4 constant _SWAP_ZERO = bytes4(keccak256("SwapZero()"));
