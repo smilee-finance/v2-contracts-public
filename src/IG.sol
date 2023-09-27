@@ -25,7 +25,7 @@ contract IG is DVP {
     FinanceParameters internal _financeParameters;
 
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
-        _financeParameters.sigmaMultiplier = 2e18;
+        _financeParameters.sigmaMultiplier = 3e18; // ToDo: rendere modificabile al lancio
         _financeParameters.tradeVolatilityUtilizationRateFactor = 2e18;
         _financeParameters.tradeVolatilityTimeDecay = 0.25e18;
     }

@@ -2,15 +2,15 @@
 pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
 // import {DVPType} from "./lib/DVPType.sol";
-import {AddressProvider} from "./AddressProvider.sol";
 import {IG} from "./IG.sol";
 import {Vault} from "./Vault.sol";
 
 contract Factory is Ownable {
 
-    AddressProvider internal _addressProvider;
+    IAddressProvider internal _addressProvider;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -29,7 +29,7 @@ contract Factory is Ownable {
     //////////////////////////////////////////////////////////////*/
 
     constructor(address addressProvider) Ownable() {
-        _addressProvider = AddressProvider(addressProvider);
+        _addressProvider = IAddressProvider(addressProvider);
     }
 
     /*//////////////////////////////////////////////////////////////

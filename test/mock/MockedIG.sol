@@ -129,6 +129,7 @@ contract MockedIG is IG {
         return _financeParameters;
     }
 
+    // ToDo: move back into contract
     function setSigmaMultiplier(uint256 value) public {
         _financeParameters.sigmaMultiplier = value;
     }

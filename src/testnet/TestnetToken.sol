@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
 import {IRegistry} from "../interfaces/IRegistry.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {AddressProvider} from "../AddressProvider.sol";
 
 /**
     @notice Token contract to be used under testnet condition.
@@ -16,7 +16,7 @@ contract TestnetToken is ERC20, Ownable {
     // TBD: just use the TestnetRegistry contract...
 
     bool _transferRestricted;
-    AddressProvider private _addressProvider;
+    IAddressProvider private _addressProvider;
 
     error NotInitialized();
     error Unauthorized();
@@ -67,7 +67,7 @@ contract TestnetToken is ERC20, Ownable {
     /// LOGIC ///
 
     function setAddressProvider(address addressProvider) external onlyOwner {
-        _addressProvider = AddressProvider(addressProvider);
+        _addressProvider = IAddressProvider(addressProvider);
     }
 
     function getAddressProvider() external view returns (address) {

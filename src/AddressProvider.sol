@@ -2,10 +2,12 @@
 pragma solidity ^0.8.21;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 
-// ToDo: add TimeLock
+// TBD: add TimeLock
+// TBD: return an immutable view to be used on each epoch ?
 // TBD: merge with Registry.sol
-contract AddressProvider is Ownable {
+contract AddressProvider is Ownable, IAddressProvider {
     address public exchangeAdapter;
     address public priceOracle;
     address public marketOracle;

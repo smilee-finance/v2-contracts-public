@@ -257,7 +257,7 @@ contract VaultDeathTest is Test {
         vm.prank(tokenAdmin);
         vault.killVault();
 
-        assertEq(true, vault.manualKill());
+        assertEq(true, vault.manuallyKilled());
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);

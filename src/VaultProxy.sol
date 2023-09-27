@@ -2,10 +2,10 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultProxy} from "./interfaces/IVaultProxy.sol";
-import {AddressProvider} from "./AddressProvider.sol";
 
 contract VaultProxy is IVaultProxy {
     address private _addressProvider;
@@ -20,7 +20,7 @@ contract VaultProxy is IVaultProxy {
 
     /// @inheritdoc IVaultProxy
     function deposit(DepositParams calldata params) external {
-        IRegistry registry = IRegistry(AddressProvider(_addressProvider).registry());
+        IRegistry registry = IRegistry(IAddressProvider(_addressProvider).registry());
         if (!registry.isRegisteredVault(params.vault)) {
             revert DepositToNonVaultContract();
         }

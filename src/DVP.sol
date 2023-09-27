@@ -4,6 +4,7 @@ pragma solidity ^0.8.21;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
@@ -15,7 +16,6 @@ import {Epoch, EpochController} from "./lib/EpochController.sol";
 import {Finance} from "./lib/Finance.sol";
 import {Notional} from "./lib/Notional.sol";
 import {Position} from "./lib/Position.sol";
-import {AddressProvider} from "./AddressProvider.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
@@ -34,7 +34,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
     /// @inheritdoc IDVP
     address public immutable override vault;
 
-    AddressProvider internal immutable _addressProvider;
+    IAddressProvider internal immutable _addressProvider;
     uint8 internal immutable _baseTokenDecimals;
     uint8 internal immutable _sideTokenDecimals;
 
@@ -81,7 +81,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         sideToken = vaultCt.sideToken();
         _baseTokenDecimals = IERC20Metadata(baseToken).decimals();
         _sideTokenDecimals = IERC20Metadata(sideToken).decimals();
-        _addressProvider = AddressProvider(addressProvider_);
+        _addressProvider = IAddressProvider(addressProvider_);
     }
 
     /**

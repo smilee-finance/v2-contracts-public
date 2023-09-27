@@ -14,7 +14,7 @@ library EpochFrequency {
     uint256 public constant DAILY = 0;
     uint256 public constant WEEKLY = 1;
     uint256 public constant TRD_FRI_MONTH = 2;
-    uint256 public constant THIRTY_DAYS = 3;
+    uint256 public constant FOUR_WEEKS = 3;
 
     /// Errors ///
 
@@ -24,7 +24,7 @@ library EpochFrequency {
     /// Logic ///
 
     function validityCheck(uint256 epochFrequency) external pure {
-        if (epochFrequency != DAILY && epochFrequency != WEEKLY && epochFrequency != TRD_FRI_MONTH && epochFrequency != THIRTY_DAYS) {
+        if (epochFrequency != DAILY && epochFrequency != WEEKLY && epochFrequency != TRD_FRI_MONTH && epochFrequency != FOUR_WEEKS) {
             revert UnsupportedFrequency();
         }
     }
@@ -39,8 +39,8 @@ library EpochFrequency {
         if (frequency == WEEKLY) {
             return _nextTimeSpanExpiry(ts, 7 days);
         }
-        if (frequency == THIRTY_DAYS) {
-            return _nextTimeSpanExpiry(ts, 30 days);
+        if (frequency == FOUR_WEEKS) {
+            return _nextTimeSpanExpiry(ts, 28 days);
         }
         if (frequency == TRD_FRI_MONTH) {
             return _nextCustomExpiry(ts, frequency);

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.15;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 library TokensPair {
     struct Pair {
@@ -15,13 +14,13 @@ library TokensPair {
     error InvalidToken(address token);
 
     function getBalances(Pair memory pair, address wallet) public view returns (uint baseTokenBalance, uint sideTokenBalance) {
-        baseTokenBalance = IERC20(pair.baseToken).balanceOf(wallet);
-        sideTokenBalance = IERC20(pair.sideToken).balanceOf(wallet);
+        baseTokenBalance = IERC20Metadata(pair.baseToken).balanceOf(wallet);
+        sideTokenBalance = IERC20Metadata(pair.sideToken).balanceOf(wallet);
     }
 
     function getDecimals(Pair memory pair) public view returns (uint baseTokenDecimals, uint sideTokenDecimals) {
-        baseTokenDecimals = ERC20(pair.baseToken).decimals();
-        sideTokenDecimals = ERC20(pair.sideToken).decimals();
+        baseTokenDecimals = IERC20Metadata(pair.baseToken).decimals();
+        sideTokenDecimals = IERC20Metadata(pair.sideToken).decimals();
     }
 
     function validate(Pair memory pair) public view {
@@ -31,12 +30,12 @@ library TokensPair {
         if (pair.baseToken == pair.sideToken) {
             revert SameToken();
         }
-        try IERC20(pair.baseToken).balanceOf(address(this)) returns (uint) {
+        try IERC20Metadata(pair.baseToken).balanceOf(address(this)) returns (uint) {
             // no-op
         } catch {
             revert InvalidToken(pair.baseToken);
         }
-        try IERC20(pair.sideToken).balanceOf(address(this)) returns (uint) {
+        try IERC20Metadata(pair.sideToken).balanceOf(address(this)) returns (uint) {
             // no-op
         } catch {
             revert InvalidToken(pair.sideToken);
