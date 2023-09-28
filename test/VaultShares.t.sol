@@ -54,7 +54,7 @@ contract VaultSharesTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(EpochNotInitialized);
-        notActiveVault.deposit(100, alice);
+        notActiveVault.deposit(100, alice, 0);
     }
 
     function testDeposit() public {
@@ -97,7 +97,7 @@ contract VaultSharesTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(AmountZero);
-        vault.deposit(0, alice);
+        vault.deposit(0, alice, 0);
     }
 
     function testDepositEpochFinishedFail() public {
@@ -106,7 +106,7 @@ contract VaultSharesTest is Test {
 
         Utils.skipDay(false, vm);
         vm.expectRevert(EpochFinished);
-        vault.deposit(100, alice);
+        vault.deposit(100, alice, 0);
     }
 
     function testInitWithdrawEpochFinishedFail() public {
@@ -148,8 +148,8 @@ contract VaultSharesTest is Test {
     function testDoubleDepositSameEpoch() public {
         TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
         vm.startPrank(alice);
-        vault.deposit(50, alice);
-        vault.deposit(50, alice);
+        vault.deposit(50, alice, 0);
+        vault.deposit(50, alice, 0);
         vm.stopPrank();
 
         vm.warp(block.timestamp + 1 days + 1);

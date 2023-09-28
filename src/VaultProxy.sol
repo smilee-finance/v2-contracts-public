@@ -34,7 +34,7 @@ contract VaultProxy is IVaultProxy {
         if (!ok) {
             revert ApproveFailed();
         }
-        vault.deposit(params.amount, params.recipient);
+        vault.deposit(params.amount, params.recipient, params.accessTokenId);
 
         emit Deposit(params.vault, params.recipient, msg.sender, params.amount);
     }

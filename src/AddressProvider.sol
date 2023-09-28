@@ -15,6 +15,7 @@ contract AddressProvider is Ownable, IAddressProvider {
     address public dvpPositionManager;
     address public vaultProxy;
     address public feeManager;
+    address public vaultAccessNFT;
 
     error AddressZero();
 
@@ -95,5 +96,14 @@ contract AddressProvider is Ownable, IAddressProvider {
         feeManager = feeManager_;
 
         emit ChangedFeeManager(feeManager_, previous);
+    }
+
+    function setVaultAccessNFT(address vaultAccessNFT_) public onlyOwner {
+        _checkZeroAddress(vaultAccessNFT_);
+
+        address previous = vaultAccessNFT;
+        vaultAccessNFT = vaultAccessNFT_;
+
+        emit ChangedFeeManager(vaultAccessNFT_, previous);
     }
 }

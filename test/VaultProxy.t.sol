@@ -109,7 +109,7 @@ contract VaultProxyTest is Test {
     function testDeposit() public {
         TokenUtils.provideApprovedTokens(_tokenAdmin, address(_baseToken), _alice, address(_proxy), 100, vm);
         vm.prank(_alice);
-        _proxy.deposit(IVaultProxy.DepositParams(address(_vault0), _alice, 100));
+        _proxy.deposit(IVaultProxy.DepositParams(address(_vault0), _alice, 100, 0));
         Utils.skipDay(false, vm);
         vm.prank(_tokenAdmin);
         _vault0.rollEpoch();
@@ -126,10 +126,10 @@ contract VaultProxyTest is Test {
         TokenUtils.provideApprovedTokens(_tokenAdmin, address(_baseToken), _alice, address(_proxy), 200, vm);
 
         vm.prank(_alice);
-        _proxy.deposit(IVaultProxy.DepositParams(address(_vault0), _alice, 100));
+        _proxy.deposit(IVaultProxy.DepositParams(address(_vault0), _alice, 100, 0));
 
         vm.prank(_alice);
-        _proxy.deposit(IVaultProxy.DepositParams(address(_vault1), _alice, 100));
+        _proxy.deposit(IVaultProxy.DepositParams(address(_vault1), _alice, 100, 0));
 
         Utils.skipDay(false, vm);
         vm.prank(_tokenAdmin);
@@ -162,7 +162,7 @@ contract VaultProxyTest is Test {
         vm.prank(_alice);
         // vm.expectRevert("Contract does not have fallback nor receive functions");
         vm.expectRevert(DEPOSIT_TO_NON_VAULT_CONTRACT);
-        _proxy.deposit(IVaultProxy.DepositParams(address(receiver), _alice, 100));
+        _proxy.deposit(IVaultProxy.DepositParams(address(receiver), _alice, 100, 0));
     }
 
     /**
@@ -176,6 +176,6 @@ contract VaultProxyTest is Test {
 
         vm.prank(_alice);
         vm.expectRevert(DEPOSIT_TO_NON_VAULT_CONTRACT);
-        _proxy.deposit(IVaultProxy.DepositParams(address(receiver), _alice, 100));
+        _proxy.deposit(IVaultProxy.DepositParams(address(receiver), _alice, 100, 0));
     }
 }

@@ -98,14 +98,14 @@ contract VaultStateTest is Test {
     function testCheckPendingDepositAmount() public {
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
-        vault.deposit(100, alice);
+        vault.deposit(100, alice, 0);
 
         uint256 stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
         assertEq(100, stateDepositAmount);
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
-        vault.deposit(100, alice);
+        vault.deposit(100, alice, 0);
         stateDepositAmount = VaultUtils.vaultState(vault).liquidity.pendingDeposits;
         assertEq(200, stateDepositAmount);
 
@@ -120,7 +120,7 @@ contract VaultStateTest is Test {
     function testHeldShares() public {
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
         vm.prank(alice);
-        vault.deposit(100, alice);
+        vault.deposit(100, alice, 0);
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
@@ -153,7 +153,7 @@ contract VaultStateTest is Test {
         uint256 amountToDeposit = 100 ether;
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
         vm.prank(alice);
-        vault.deposit(amountToDeposit, alice);
+        vault.deposit(amountToDeposit, alice, 0);
 
         vm.assume(sideTokenPrice > 0 && sideTokenPrice < type(uint64).max);
         TestnetPriceOracle priceOracle = TestnetPriceOracle(AddressProvider(vault.addressProvider()).priceOracle());
@@ -207,7 +207,7 @@ contract VaultStateTest is Test {
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), amountToDeposit, vm);
         vm.prank(alice);
-        vault.deposit(amountToDeposit, alice);
+        vault.deposit(amountToDeposit, alice, 0);
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
@@ -366,7 +366,7 @@ contract VaultStateTest is Test {
 
         TokenUtils.provideApprovedTokens(admin, vault.baseToken(), alice, address(vault), 1000 ether, vm);
         vm.expectRevert(ExceedsMaxDeposit);
-        vault.deposit(941e18, alice);
+        vault.deposit(941e18, alice, 0);
     }
 
     /**
@@ -391,7 +391,7 @@ contract VaultStateTest is Test {
 
         vm.startPrank(alice);
         vm.expectRevert(VaultPaused);
-        vault.deposit(1e16, alice);
+        vault.deposit(1e16, alice, 0);
 
         vm.expectRevert(VaultPaused);
         vault.initiateWithdraw(1e17);
@@ -415,7 +415,7 @@ contract VaultStateTest is Test {
         vault.rollEpoch();
 
         vm.startPrank(alice);
-        vault.deposit(1e17, alice);
+        vault.deposit(1e17, alice, 0);
 
         vault.initiateWithdraw(1e17);
         vm.stopPrank();
@@ -435,7 +435,7 @@ contract VaultStateTest is Test {
     //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
 
     //     vm.prank(alice);
-    //     vault.deposit(100);
+    //     vault.deposit(100, 0);
     //     assertEq(100, baseToken.balanceOf(address(vault)));
     //     // assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 
@@ -458,7 +458,7 @@ contract VaultStateTest is Test {
     //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
 
     //     vm.prank(alice);
-    //     vault.deposit(100);
+    //     vault.deposit(100, 0);
     //     assertEq(100, baseToken.balanceOf(address(vault)));
     //     // assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 
@@ -476,7 +476,7 @@ contract VaultStateTest is Test {
     //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
 
     //     vm.prank(alice);
-    //     vault.deposit(100);
+    //     vault.deposit(100, 0);
     //     assertEq(100, baseToken.balanceOf(address(vault)));
     //     // assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 
@@ -507,7 +507,7 @@ contract VaultStateTest is Test {
     //     TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
 
     //     vm.prank(alice);
-    //     vault.deposit(100);
+    //     vault.deposit(100, 0);
     //     assertEq(100, baseToken.balanceOf(address(vault)));
     //     assertEq(0, VaultUtils.vaultState(vault).liquidity.locked);
 

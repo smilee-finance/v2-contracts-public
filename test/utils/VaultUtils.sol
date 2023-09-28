@@ -105,7 +105,7 @@ library VaultUtils {
         TokenUtils.provideApprovedTokens(tokenAdmin, vault.baseToken(), user, vaultAddress, amount, vm);
 
         vm.prank(user);
-        vault.deposit(amount, user);
+        vault.deposit(amount, user, 0);
     }
 
     function logState(MockedVault vault) public view {

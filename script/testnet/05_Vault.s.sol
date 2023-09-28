@@ -48,7 +48,7 @@ contract VaultOps is EnhancedScript {
 
         // Deposit:
         baseToken.approve(vaultAddr, amount);
-        vault.deposit(amount, _deployerAddress);
+        vault.deposit(amount, _deployerAddress, 0);
 
         vm.stopBroadcast();
     }

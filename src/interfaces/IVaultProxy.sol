@@ -14,6 +14,8 @@ interface IVaultProxy {
         address recipient;
         // Deposited amount (in vault's base tokens)
         uint256 amount;
+        // NFT token to enable priority access
+        uint256 accessTokenId;
     }
 
     /**

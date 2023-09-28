@@ -9,6 +9,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
 import {IVault} from "./interfaces/IVault.sol";
+import {IVaultAccessNFT} from "./interfaces/IVaultAccessNFT.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
@@ -31,7 +32,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     /// @notice The address of the DVP paired with this vault
     address public dvp; // NOTE: public for frontend purposes
 
-    // TBD: move to state or a "controls" struct, together with _secondaryMarkedAllowed
+    // TBD: move to state or a "controls" struct, together with _secondaryMarketAllowed
     /// @notice Maximum threshold for users cumulative deposit (see VaultLib.VaultState.liquidity.totalDeposit)
     uint256 public maxDeposit;
 
@@ -44,7 +45,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     mapping(uint256 => uint256) public epochPricePerShare; // NOTE: public for frontend and historical data purposes
 
     /// @notice Whether the transfer of shares between wallets is allowed or not
-    bool internal _secondaryMarkedAllowed;
+    bool internal _secondaryMarketAllowed;
 
     VaultLib.VaultState internal _state;
 
@@ -52,7 +53,11 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     // TBD: move to state ?
     bool public manuallyKilled;
 
+    /// @notice The provider for external services addresses
     IAddressProvider internal immutable _addressProvider;
+
+    /// @notice A flag to tell if this vault is currently bound to priority access for deposits
+    bool public priorityAccessFlag = false;
 
     error AddressZero();
     error AmountZero();
@@ -63,7 +68,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     error NothingToRescue();
     error NothingToWithdraw();
     error OnlyDVPAllowed();
-    error SecondaryMarkedNotAllowed();
+    error PriorityAccessDenied();
+    error SecondaryMarketNotAllowed();
     error VaultDead();
     error VaultNotDead();
     error WithdrawNotInitiated();
@@ -88,7 +94,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         _addressProvider = IAddressProvider(addressProvider_);
         // ToDo: move to constructor parameter (wrong decimals)
         setMaxDeposit(10_000_000e18);
-        _secondaryMarkedAllowed = false;
+        _secondaryMarketAllowed = false;
     }
 
     modifier isNotDead() {
@@ -258,7 +264,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     // ------------------------------------------------------------------------
 
     /// @inheritdoc IVault
-    function deposit(uint256 amount, address receiver) external isNotDead whenNotPaused {
+    function deposit(uint256 amount, address receiver, uint256 accessTokenId) external isNotDead whenNotPaused {
         _checkEpochInitialized();
         _checkEpochNotFinished();
 
@@ -275,6 +281,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         if (amount > depositCapacity) {
             revert ExceedsMaxDeposit();
         }
+
+        _usePriorityAccess(amount, receiver, accessTokenId);
 
         _state.liquidity.pendingDeposits += amount;
         _state.liquidity.totalDeposit += amount;
@@ -327,10 +335,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
 
         heldByAccount = balanceOf(account);
 
-        heldByVault = depositReceipt.getSharesFromReceipt(
-            getEpoch().current,
-            epochPricePerShare[depositReceipt.epoch]
-        );
+        heldByVault = depositReceipt.getSharesFromReceipt(getEpoch().current, epochPricePerShare[depositReceipt.epoch]);
     }
 
     /**
@@ -532,6 +537,20 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
 
         _initiateWithdraw(0, true);
         _completeWithdraw();
+    }
+
+    /**
+        @notice Allows the contract's owner to enable or disable the secondary market for the vault's shares
+     */
+    function setAllowedSecondaryMarket(bool allowed) external onlyOwner {
+        _secondaryMarketAllowed = allowed;
+    }
+
+    /**
+        @notice Allows the contract's owner to enable or disable the priority access to deposit operations
+     */
+    function setPriorityAccessFlag(bool flag) external onlyOwner {
+        priorityAccessFlag = flag;
     }
 
     // ------------------------------------------------------------------------
@@ -793,15 +812,22 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
             // it's a vault operation
             return;
         }
-        if (!_secondaryMarkedAllowed) {
-            revert SecondaryMarkedNotAllowed();
+        if (!_secondaryMarketAllowed) {
+            revert SecondaryMarketNotAllowed();
         }
     }
 
-    /**
-        @notice Allows the contract's owner to enable or disable the secondary market for the vault's shares.
-     */
-    function setAllowedSecondaryMarked(bool allowed) external onlyOwner {
-        _secondaryMarkedAllowed = allowed;
+    /// @dev Checks if given deposit is allowed to be made and calls nft usage callback function if needed
+    function _usePriorityAccess(uint256 amount, address receiver, uint256 accessTokenId) private {
+        if (priorityAccessFlag) {
+            IVaultAccessNFT nft = IVaultAccessNFT(_addressProvider.vaultAccessNFT());
+            if (accessTokenId == 0 || nft.ownerOf(accessTokenId) != receiver) {
+                revert PriorityAccessDenied();
+            }
+            if (amount > nft.priorityAmount(accessTokenId)) {
+                revert PriorityAccessDenied();
+            }
+            nft.decreasePriorityAmount(accessTokenId, amount);
+        }
     }
 }
