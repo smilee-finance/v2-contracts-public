@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IDVPEvents} from "./IDVPEvents.sol";
 import {IDVPImmutables} from "./IDVPImmutables.sol";
 import {IEpochControls} from "./IEpochControls.sol";
 
 /// @title The interface for Smilee DVP
 /// @notice A DVP (Decentralized Volatility Product) is basically a generator for options on volatility
-interface IDVP is IDVPImmutables, IDVPEvents, IEpochControls {
+interface IDVP is IDVPImmutables, IEpochControls {
     ////// ERRORS
     error AmountZero();
     error InvalidStrategy();

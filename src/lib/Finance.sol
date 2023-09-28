@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.21;
 
+import {Amount} from "./Amount.sol";
 import {AmountsMath} from "./AmountsMath.sol";
+import {SignedMath} from "./SignedMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library Finance {
@@ -28,5 +30,31 @@ library Finance {
             payoffDown_ = residualAmountDown.wmul(percentageDown);
             payoffDown_ = AmountsMath.unwrapDecimals(payoffDown_, baseTokenDecimals);
         }
+    }
+
+    function getIntrinsicValue(
+        Amount memory amount,
+        uint256 payoffPercUp,
+        uint256 payoffPercDown,
+        uint8 tokenDecimals
+    ) internal pure returns (uint256 intrinsicValue) {
+        // intrinsicValue := payoffPercUp * v0 * amountUp / (v0/2) + payoffPercDown * v0 * amountDown / (v0/2) =
+        //                 = payoffPercUp * 2 * amountUp + payoffPercDown * 2 * amountDown
+        intrinsicValue = payoffPercUp.wrapDecimals(tokenDecimals).wmul(2 * amount.up).add(
+            payoffPercDown.wrapDecimals(tokenDecimals).wmul(2 * amount.down)
+        );
+        intrinsicValue = intrinsicValue.unwrapDecimals(tokenDecimals);
+    }
+
+    function getSwapPrice(
+        int256 tokensToSwap,
+        uint256 exchangedTokens,
+        uint8 swappedTokenDecimals,
+        uint8 exchangeTokenDecimals
+    ) public pure returns (uint256 swapPrice) {
+        exchangedTokens = AmountsMath.wrapDecimals(exchangedTokens, exchangeTokenDecimals);
+        uint256 tokensToSwap_ = SignedMath.abs(tokensToSwap).wrapDecimals(swappedTokenDecimals);
+
+        swapPrice = exchangedTokens.wdiv(tokensToSwap_);
     }
 }

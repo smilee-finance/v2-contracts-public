@@ -455,9 +455,11 @@ contract IGVaultTest is Test {
         vault.changePauseState();
 
         // Try Mint option after Vault was paused
-        vm.startPrank(charlie);
+        vm.prank(charlie);
         (uint256 expectedMarketValue, ) = ig.premium(0, optionAmount, 0);
-        vm.expectRevert(VaultPaused);
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), charlie, address(ig), expectedMarketValue, vm);
+        vm.startPrank(charlie);
+        vm.expectRevert("Pausable: paused");
         ig.mint(charlie, 0, optionAmount, 0, expectedMarketValue, 0.1e18);
         vm.stopPrank();
 
@@ -466,7 +468,7 @@ contract IGVaultTest is Test {
         uint256 strike = ig.currentStrike();
         vm.startPrank(charlie);
         (expectedMarketValue, ) = ig.payoff(currentEpoch, strike, optionAmount / 2, 0);
-        vm.expectRevert(VaultPaused);
+        vm.expectRevert("Pausable: paused");
         ig.burn(currentEpoch, charlie, strike, optionAmount / 2, 0, expectedMarketValue, 0.1e18);
         vm.stopPrank();
 

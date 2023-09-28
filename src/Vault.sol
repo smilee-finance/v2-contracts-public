@@ -140,7 +140,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         maxDeposit = maxDeposit_;
     }
 
-    function killVault() external onlyOwner isNotDead {
+    function killVault() external onlyOwner {
         manuallyKilled = true;
     }
 
@@ -343,7 +343,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         @notice Redeems shares held by the vault for the calling wallet
         @param shares is the number of shares to redeem
      */
-    function redeem(uint256 shares) external {
+    function redeem(uint256 shares) external whenNotPaused {
         if (shares == 0) {
             revert AmountZero();
         }
@@ -463,9 +463,6 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
      */
     function completeWithdraw() external whenNotPaused {
-        // ToDo: review if needed
-        _checkEpochNotFinished();
-
         _completeWithdraw();
     }
 
@@ -509,7 +506,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     /**
         @notice Enables user withdrawal of a deposits executed during an epoch causing Vault death
      */
-    function rescueDeposit() external isDead {
+    function rescueDeposit() external isDead whenNotPaused {
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
 
         // User enabled to rescue only if the user has deposited in the last epoch before the Vault died.
@@ -525,7 +522,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     }
 
     // ToDo: add doc
-    function rescueShares() external isDead {
+    function rescueShares() external isDead whenNotPaused {
         // ToDo: Change reason
         require(_state.deadReason == VaultLib.DeadManualKillReason, "Vault dead due to market conditions");
 
@@ -561,8 +558,6 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     // TBD: split on _afterRollEpoch
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override isNotDead {
-        _requireNotPaused();
-
         if (dvp == address(0)) {
             _checkOwner();
         }
@@ -727,7 +722,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     }
 
     /// @inheritdoc IVault
-    function deltaHedge(int256 sideTokensAmount) external onlyDVP isNotDead returns (uint256 baseTokens) {
+    function deltaHedge(int256 sideTokensAmount) external onlyDVP isNotDead whenNotPaused returns (uint256 baseTokens) {
         return _deltaHedge(sideTokensAmount);
     }
 
@@ -798,7 +793,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     }
 
     /// @inheritdoc IVault
-    function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external onlyDVP {
+    function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external onlyDVP whenNotPaused {
         if (amount == 0) {
             return;
         }
@@ -821,7 +816,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     /// @inheritdoc ERC20
     /// @dev Block transfer of shares when not allowed (for testnet purposes)
     /// TODO AUDIT REMOVE
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal view override {
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal view override whenNotPaused {
         amount;
         if (from == address(0) || to == address(0)) {
             // it's a valid mint/burn

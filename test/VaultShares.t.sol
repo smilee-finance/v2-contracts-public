@@ -104,30 +104,6 @@ contract VaultSharesTest is Test {
         vault.initiateWithdraw(100);
     }
 
-    function testCompleteWithdrawEpochFinishedFail() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
-        assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
-
-        Utils.skipDay(false, vm);
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
-
-        (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(100, heldByVaultAlice);
-        assertEq(100, vault.totalSupply()); // shares are minted at next epoch change
-
-        vm.prank(alice);
-        vault.initiateWithdraw(100);
-
-        Utils.skipDay(false, vm);
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
-
-        Utils.skipDay(false, vm);
-        vm.expectRevert(EpochFinished);
-        vault.completeWithdraw();
-    }
-
     /**
         Wallet deposits twice (or more) in the same epoch. The amount of the shares minted for the user is the sum of all deposits.
      */

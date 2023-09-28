@@ -328,6 +328,7 @@ contract VaultDeathTest is Test {
         assertEq(200e18, baseToken.balanceOf(bob));
     }
 
+    // ToDo: review as now the completeWithdraw can be done even if the epoch finished
     function testVaultManualDeadInitiateBeforeEpochOfDeathEpochFinished() public {
         VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
@@ -352,10 +353,6 @@ contract VaultDeathTest is Test {
         // Skip another day to simulate the epochFrozen scenarios.
         // In this case, the "traditional" completeWithdraw shouldn't work due to epochFrozen error.
         Utils.skipDay(true, vm);
-
-        vm.prank(alice);
-        vm.expectRevert(EpochFinished);
-        vault.completeWithdraw();
 
         vm.prank(alice);
         vault.rescueShares();

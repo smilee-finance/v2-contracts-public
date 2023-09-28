@@ -85,7 +85,9 @@ interface IVault is IVaultParams {
     function v0() external view returns (uint256 v0_);
 
     /**
-        ToDo
+        @notice Adjust the portfolio by trading the given amount of side tokens.
+        @param sideTokensAmount The amount of side tokens to buy (positive value) / sell (negative value).
+        @return baseTokens The amount of exchanged base tokens.
      */
     function deltaHedge(int256 sideTokensAmount) external returns (uint256 baseTokens);
 

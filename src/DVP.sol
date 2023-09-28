@@ -40,7 +40,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
     uint8 internal immutable _baseTokenDecimals;
     uint8 internal immutable _sideTokenDecimals;
 
-    // ToDo: define lot size
+    // TBD: define lot size
 
     // TBD: extract payoff from Notional.Info
     // TBD: move strike and strategy outside of struct as indexes
@@ -59,16 +59,26 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
      */
     mapping(uint256 => mapping(bytes32 => Position.Info)) internal _epochPositions;
 
-    error ApproveFailed();
-    error TransferFailed();
     error NotEnoughLiquidity();
     error PositionNotFound();
     error CantBurnMoreThanMinted();
-    error VaultPaused();
     error MissingMarketOracle();
     error MissingPriceOracle();
     error MissingFeeManager();
     error SlippedMarketValue();
+
+    /**
+        @notice Emitted when option is minted for a given position
+        @param sender The address that minted the option
+        @param owner The owner of the option
+     */
+    event Mint(address sender, address indexed owner);
+
+    /**
+        @notice Emitted when a position's option is destroyed
+        @param owner The owner of the position that is being burnt
+     */
+    event Burn(address indexed owner);
 
     constructor(
         address vault_,
@@ -118,21 +128,13 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         }
 
         uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
+
         IFeeManager feeManager = IFeeManager(_getFeeManager());
 
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         {
-            uint256 amountUp = amount.up;
-            uint256 amountDown = amount.down;
-
-            (uint256 igPOUp, uint256 igPODown) = _residualPayoffPerc(strike);
-            // intrinsicValue := igPOUp*v0*amountUp / (v0/2) + igPODown*v0*amountDown / (v0/2) =
-            //                 =  igPOUp*2*amountUp + igPODown*2*amountDown
-            uint256 intrinsicValue = igPOUp.wrapDecimals(_baseTokenDecimals).wmul(2 * amountUp).add(
-                igPODown.wrapDecimals(_baseTokenDecimals).wmul(2 * amountDown)
-            );
-
+            uint256 intrinsicValue = _getIntrinsicValue(amount, strike);
             liquidity.updateNetPremia(premium_, intrinsicValue, true);
         }
 
@@ -146,14 +148,15 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         // ToDo: revert if the premium is zero due to an underflow
         // ----- it may be avoided by asking for a positive number of lots as notional...
 
-        // Get premium from sender:
-        // NOTE: Premium doesn't include the fee
+        // Get base premium from sender:
         IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_);
 
+        // Get fees from sender:
         IERC20Metadata(baseToken).safeTransferFrom(msg.sender, address(this), fee);
         IERC20Metadata(baseToken).safeApprove(address(feeManager), fee);
         feeManager.receiveFee(fee);
 
+        // Update user premium:
         premium_ += fee;
 
         // Decrease available liquidity:
@@ -167,6 +170,11 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         position.amountDown += amount.down;
 
         emit Mint(msg.sender, recipient);
+    }
+
+    function _getIntrinsicValue(Amount memory amount, uint256 strike) internal view returns (uint256 intrinsicValue) {
+        (uint256 igPOUp, uint256 igPODown) = _residualPayoffPerc(strike);
+        intrinsicValue = Finance.getIntrinsicValue(amount, igPOUp, igPODown, _baseTokenDecimals);
     }
 
     /**
@@ -213,7 +221,6 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         // }
         if (amount.up == 0 && amount.down == 0) {
             // NOTE: a zero amount may have some parasite effect, henct we proactively protect against it.
-            // ToDo: review
             revert AmountZero();
         }
         if (amount.up > position.amountUp || amount.down > position.amountDown) {
@@ -226,23 +233,12 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         bool reachedMaturity = epoch_ != getEpoch().current;
         uint256 fee;
         if (!reachedMaturity) {
-            // TBD: add comments
             uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
 
             {
-                (uint256 igPOUp, uint256 igPODown) = _residualPayoffPerc(strike);
-
-                uint256 amountUp = amount.up;
-                uint256 amountDown = amount.down;
-
-                // intrinsicValue := igPOUp*v0*amountUp / (v0/2) + igPODown*v0*amountDown / (v0/2) =
-                //                 =  igPOUp*2*amountUp + igPODown*2*amountDown
-                uint256 intrinsicValue = igPOUp.wrapDecimals(_baseTokenDecimals).wmul(2 * amountUp).add(
-                    igPODown.wrapDecimals(_baseTokenDecimals).wmul(2 * amountDown)
-                );
-
+                uint256 intrinsicValue = _getIntrinsicValue(amount, strike);
                 liquidity.updateNetPremia(paidPayoff, intrinsicValue, false);
             }
 
@@ -260,6 +256,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
             // Compute the payoff to be paid:
             Amount memory payoff_ = liquidity.shareOfPayoff(strike, amount, _baseTokenDecimals);
             paidPayoff = payoff_.getTotal();
+
             // Compute fee:
             fee = feeManager.calculateTradeFee(
                 amount.up + amount.down,
@@ -267,6 +264,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
                 _baseTokenDecimals,
                 reachedMaturity
             );
+
             // Account transfer of setted aside payoff:
             liquidity.decreasePayoff(strike, payoff_);
         }
@@ -280,6 +278,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         liquidity.decreaseUsage(strike, amount);
 
         IVault(vault).transferPayoff(recipient, paidPayoff, reachedMaturity);
+
         IVault(vault).transferPayoff(address(this), fee, reachedMaturity);
         IERC20Metadata(baseToken).safeApprove(address(feeManager), fee);
         feeManager.receiveFee(fee);
@@ -289,11 +288,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
     function _mintBurnChecks() private view {
         _checkEpochNotFinished();
-
         _requireNotPaused();
-        if (IVault(vault).isPaused()) {
-            revert VaultPaused();
-        }
     }
 
     /// @inheritdoc EpochControls
@@ -321,8 +316,6 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
     /// @inheritdoc EpochControls
     function _afterRollEpoch() internal virtual override {
-        // TBD: check if the epoch was initialized ?
-        // TBD: set a specific internal state if the initial capital is zero ?
         uint256 initialCapital = IVault(vault).v0();
         _allocateLiquidity(initialCapital);
     }
@@ -440,36 +433,28 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         return _epochPositions[epoch][Position.getID(owner, strike)];
     }
 
-    // TBD: make an updateMarketOracle instead of a getter
-    function _getMarketOracle() internal view returns (address) {
-        address marketOracle = _addressProvider.marketOracle();
+    function _getMarketOracle() internal view returns (address marketOracle) {
+        marketOracle = _addressProvider.marketOracle();
 
         if (marketOracle == address(0)) {
             revert MissingMarketOracle();
         }
-
-        return marketOracle;
     }
 
-    // TBD: make an updatePriceOracle instead of a getter
-    function _getPriceOracle() internal view returns (address) {
-        address priceOracle = _addressProvider.priceOracle();
+    function _getPriceOracle() internal view returns (address priceOracle) {
+        priceOracle = _addressProvider.priceOracle();
 
         if (priceOracle == address(0)) {
             revert MissingPriceOracle();
         }
-
-        return priceOracle;
     }
 
-    function _getFeeManager() internal view returns (address) {
-        address feeManager = _addressProvider.feeManager();
+    function _getFeeManager() internal view returns (address feeManager) {
+        feeManager = _addressProvider.feeManager();
 
         if (feeManager == address(0)) {
             revert MissingFeeManager();
         }
-
-        return feeManager;
     }
 
     /// @inheritdoc IDVP

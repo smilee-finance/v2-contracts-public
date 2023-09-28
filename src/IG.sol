@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.21;
 
 import {IDVP} from "./interfaces/IDVP.sol";
+import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
@@ -9,12 +10,11 @@ import {Amount, AmountHelper} from "./lib/Amount.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 import {DVPType} from "./lib/DVPType.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
+import {Finance} from "./lib/Finance.sol";
 import {FinanceParameters, FinanceIG} from "./lib/FinanceIG.sol";
 import {Notional} from "./lib/Notional.sol";
-import {SignedMath} from "./lib/SignedMath.sol";
 import {DVP} from "./DVP.sol";
 import {EpochControls} from "./EpochControls.sol";
-import {IFeeManager} from "./interfaces/IFeeManager.sol";
 
 contract IG is DVP {
     using AmountHelper for Amount;
@@ -194,12 +194,8 @@ contract IG is DVP {
         // NOTE: We negate the value because the protocol will sell side tokens when `h` is positive.
         uint256 exchangedBaseTokens = IVault(vault).deltaHedge(-tokensToSwap);
 
-        // TBD: move in library
         // Compute swap price:
-        exchangedBaseTokens = AmountsMath.wrapDecimals(exchangedBaseTokens, _baseTokenDecimals);
-        swapPrice = exchangedBaseTokens.wdiv(
-            AmountsMath.wrapDecimals(SignedMath.abs(tokensToSwap), _sideTokenDecimals)
-        );
+        swapPrice = Finance.getSwapPrice(tokensToSwap, exchangedBaseTokens, _sideTokenDecimals, _baseTokenDecimals);
     }
 
     /// @inheritdoc DVP
