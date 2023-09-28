@@ -51,7 +51,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         @param expiry The maturity timestamp of the position
         @param notional The amount of token that is held by the position
      */
-    event BuyedDVP(uint256 indexed tokenId, uint256 expiry, uint256 notional);
+    event BuyDVP(uint256 indexed tokenId, uint256 expiry, uint256 notional);
 
     /**
         @notice Emitted when option notional is decreased
@@ -59,7 +59,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         @param notional The amount by which liquidity for the NFT position was decreased
         @param payoff The amount of token that was paid back for burning the position
      */
-    event SoldDVP(uint256 indexed tokenId, uint256 notional, uint256 payoff);
+    event SellDVP(uint256 indexed tokenId, uint256 notional, uint256 payoff);
 
     /**
         @notice Returns the position information associated with a given token ID.

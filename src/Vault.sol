@@ -802,6 +802,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
 
     /// @inheritdoc ERC20
     /// @dev Block transfer of shares when not allowed (for testnet purposes)
+    /// TODO AUDIT REMOVE
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal view override {
         amount;
         if (from == address(0) || to == address(0)) {

@@ -36,7 +36,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     error InvalidTokenID();
     error NotOwner();
     error PositionExpired();
-    error SecondaryMarkedNotAllowed();
+    error SecondaryMarketNotAllowed();
     error TransferFailed();
 
     constructor() ERC721Enumerable() ERC721("Smilee V0 Trade Positions", "SMIL-V0-TRAD") Ownable() {
@@ -168,7 +168,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             position.leverage = (position.notionalUp + position.notionalDown) / position.premium;
         }
 
-        emit BuyedDVP(tokenId, _positions[tokenId].expiry, params.notionalUp + params.notionalDown);
+        emit BuyDVP(tokenId, _positions[tokenId].expiry, params.notionalUp + params.notionalDown);
     }
 
     /// @inheritdoc IPositionManager
@@ -244,10 +244,11 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             _burn(tokenId);
         }
 
-        emit SoldDVP(tokenId, (notionalUp + notionalDown), payoff_);
+        emit SellDVP(tokenId, (notionalUp + notionalDown), payoff_);
     }
 
     /// @inheritdoc ERC721Enumerable
+    /// TODO AUDIT REMOVE
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -255,7 +256,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         uint256 batchSize
     ) internal virtual override {
         if (from != address(0) && to != address(0) && !_secondaryMarkedAllowed) {
-            revert SecondaryMarkedNotAllowed();
+            revert SecondaryMarketNotAllowed();
         }
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
