@@ -39,9 +39,6 @@ contract VaultDeathTest is Test {
         vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
-
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
     }
 
     /**

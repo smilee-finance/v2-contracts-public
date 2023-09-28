@@ -16,7 +16,6 @@ contract VaultSharesTest is Test {
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
     bytes4 constant ExistingIncompleteWithdraw = bytes4(keccak256("ExistingIncompleteWithdraw()"));
-    bytes4 constant EpochNotInitialized = bytes4(keccak256("EpochNotInitialized()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
     bytes4 constant EpochFinished = bytes4(keccak256("EpochFinished()"));
@@ -42,19 +41,6 @@ contract VaultSharesTest is Test {
         vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
-
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
-    }
-
-    function testDepositFail() public {
-        Vault notActiveVault = new Vault(address(baseToken), address(sideToken), EpochFrequency.DAILY, address(0x1));
-
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(notActiveVault), 100, vm);
-
-        vm.prank(alice);
-        vm.expectRevert(EpochNotInitialized);
-        notActiveVault.deposit(100, alice, 0);
     }
 
     function testDeposit() public {

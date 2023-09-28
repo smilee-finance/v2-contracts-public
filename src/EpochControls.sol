@@ -10,13 +10,11 @@ abstract contract EpochControls is IEpochControls {
     Epoch private _epoch;
 
     error EpochFinished();
-    error EpochNotInitialized();
 
     event EpochRolled(uint256 previousEpoch, uint256 currentEpoch);
 
     constructor(uint256 epochFrequency_) {
         _epoch.init(epochFrequency_);
-        // TBD: review in order to roll the first epoch
     }
 
     /// @inheritdoc IEpochControls
@@ -38,13 +36,6 @@ abstract contract EpochControls is IEpochControls {
 
     /// @notice Hook that is called after rolling the epoch.
     function _afterRollEpoch() internal virtual {}
-
-    /// @notice Ensures that the current epoch holds a valid value.
-    function _checkEpochInitialized() internal view {
-        if (!_epoch.isInitialized()) {
-            revert EpochNotInitialized();
-        }
-    }
 
     /// @notice Ensures that the current epoch is not concluded.
     function _checkEpochNotFinished() internal view {

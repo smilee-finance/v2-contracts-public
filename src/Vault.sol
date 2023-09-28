@@ -267,7 +267,6 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
 
     /// @inheritdoc IVault
     function deposit(uint256 amount, address receiver, uint256 accessTokenId) external isNotDead whenNotPaused {
-        _checkEpochInitialized();
         _checkEpochNotFinished();
 
         if (amount == 0) {

@@ -164,9 +164,6 @@ contract RegistryTest is Test {
         vm.stopPrank();
 
         vm.warp(EpochFrequency.REF_TS);
-        dvp.rollEpoch();
-
-        Utils.skipDay(true, vm);
 
         MockedVault vault2 = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         MockedIG dvp2 = new MockedIG(address(vault2), address(ap));
@@ -180,15 +177,15 @@ contract RegistryTest is Test {
         po.setTokenPrice(vault2.baseToken(), 1e18);
         vm.stopPrank();
 
+        Utils.skipDay(true, vm);
         dvp2.rollEpoch();
 
         Epoch memory dvpEpoch = dvp.getEpoch();
-        Epoch memory dvp2Epoch = dvp2.getEpoch();
-
         uint256 timeToNextEpochDvp = dvpEpoch.timeToNextEpoch();
-        uint256 timeToNextEpochDvp2 = dvp2Epoch.timeToNextEpoch();
-
         assertEq(0, timeToNextEpochDvp);
+
+        Epoch memory dvp2Epoch = dvp2.getEpoch();
+        uint256 timeToNextEpochDvp2 = dvp2Epoch.timeToNextEpoch();
         assertApproxEqAbs(86400, timeToNextEpochDvp2, 10);
 
         (address[] memory dvps, uint256 dvpsToRoll) = registry.getUnrolledDVPs();

@@ -40,10 +40,8 @@ contract VaultPriorityAccessTest is Test {
         TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _alice, address(_vault), 1000e18, vm);
         TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _bob, address(_vault), 1000e18, vm);
 
-        vm.startPrank(_admin);
+        vm.prank(_admin);
         _vault.setPriorityAccessFlag(true);
-        _vault.rollEpoch();
-        vm.stopPrank();
     }
 
     function testPriorityAccessFlag() public {

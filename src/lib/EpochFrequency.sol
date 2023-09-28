@@ -10,11 +10,10 @@ library EpochFrequency {
 
     /// Enum values ///
 
-    // TBD: replace values with the actual timespan (use 0 for custom)
-    uint256 public constant DAILY = 0;
-    uint256 public constant WEEKLY = 1;
-    uint256 public constant TRD_FRI_MONTH = 2;
-    uint256 public constant FOUR_WEEKS = 3;
+    uint256 public constant TRD_FRI_MONTH = 0;
+    uint256 public constant DAILY = 1 days;
+    uint256 public constant WEEKLY = 7 days;
+    uint256 public constant FOUR_WEEKS = 28 days;
 
     /// Errors ///
 
@@ -23,7 +22,7 @@ library EpochFrequency {
 
     /// Logic ///
 
-    function validityCheck(uint256 epochFrequency) external pure {
+    function validityCheck(uint256 epochFrequency) public pure {
         if (epochFrequency != DAILY && epochFrequency != WEEKLY && epochFrequency != TRD_FRI_MONTH && epochFrequency != FOUR_WEEKS) {
             revert UnsupportedFrequency();
         }
@@ -33,20 +32,13 @@ library EpochFrequency {
     /// @param ts The reference timestamp
     /// @param frequency The frequency of the sequence, chosen from the available ones
     function nextExpiry(uint256 ts, uint256 frequency) public pure returns (uint256 expiry) {
-        if (frequency == DAILY) {
-            return _nextTimeSpanExpiry(ts, 1 days);
-        }
-        if (frequency == WEEKLY) {
-            return _nextTimeSpanExpiry(ts, 7 days);
-        }
-        if (frequency == FOUR_WEEKS) {
-            return _nextTimeSpanExpiry(ts, 28 days);
-        }
-        if (frequency == TRD_FRI_MONTH) {
-            return _nextCustomExpiry(ts, frequency);
+        validityCheck(frequency);
+
+        if (frequency == 0) {
+            return _nextCustomExpiry(ts, TRD_FRI_MONTH);
         }
 
-        revert UnsupportedFrequency();
+        return _nextTimeSpanExpiry(ts, frequency);
     }
 
     /**

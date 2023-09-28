@@ -57,16 +57,8 @@ contract PositionManagerTest is Test {
         vm.prank(admin);
         ap.setDvpPositionManager(address(pm));
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        vault.rollEpoch();
-
         // Suppose Vault has already liquidity
         VaultUtils.addVaultDeposit(alice, 100 ether, admin, address(vault), vm);
-
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        vault.rollEpoch();
     }
 
     function initAndMint() private returns (uint256 tokenId, IG ig) {

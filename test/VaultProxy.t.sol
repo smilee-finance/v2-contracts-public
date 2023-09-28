@@ -94,10 +94,6 @@ contract VaultProxyTest is Test {
                 vm
             )
         );
-        vm.prank(_tokenAdmin);
-        _vault0.rollEpoch();
-        vm.prank(_tokenAdmin);
-        _vault1.rollEpoch();
 
         vm.prank(_tokenAdmin);
         registry.registerVault(address(_vault0));

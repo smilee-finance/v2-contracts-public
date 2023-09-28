@@ -39,9 +39,6 @@ contract VaultStateTest is Test {
         vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
-
-        vm.prank(admin);
-        vault.rollEpoch();
     }
 
     function testEpochRollableOnlyByAdminWhenNotLinkedToDVP() public {

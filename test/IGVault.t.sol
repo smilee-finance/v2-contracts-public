@@ -71,8 +71,6 @@ contract IGVaultTest is Test {
         vm.prank(admin);
         MockedVault(vault).setAllowedDVP(address(ig));
         feeManager = FeeManager(ap.feeManager());
-
-        ig.rollEpoch();
     }
 
     function testEpochRollableOnlyByAdmin() public {

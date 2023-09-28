@@ -139,7 +139,6 @@ contract TestScenariosJson is Test {
         TestnetRegistry(_ap.registry()).registerDVP(address(_dvp));
         MockedVault(_vault).setAllowedDVP(address(_dvp));
 
-        _dvp.rollEpoch();
         vm.stopPrank();
     }
 

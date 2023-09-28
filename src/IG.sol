@@ -72,7 +72,6 @@ contract IG is DVP {
         uint256 amountDown
     ) public view virtual override returns (uint256 premium_, uint256 fee) {
         strike;
-        _checkEpochInitialized();
 
         uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
@@ -148,7 +147,6 @@ contract IG is DVP {
         bool tradeIsBuy
     ) public view returns (uint256 sigma) {
         strike;
-        _checkEpochInitialized();
 
         Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
         uint256 U = liquidity.postTradeUtilizationRate(

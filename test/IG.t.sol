@@ -15,7 +15,6 @@ import {FeeManager} from "../src/FeeManager.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 
 contract IGTest is Test {
-    bytes4 constant EpochNotInitialized = bytes4(keccak256("EpochNotInitialized()"));
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
@@ -42,15 +41,14 @@ contract IGTest is Test {
         ap.setRegistry(address(registry));
         vm.stopPrank();
 
-        vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         feeManager = FeeManager(ap.feeManager());
 
+        vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
     }
 
     function setUp() public {
-        vm.warp(EpochFrequency.REF_TS + 1);
         vm.startPrank(admin);
         ig = new MockedIG(address(vault), address(ap));
         registry.register(address(ig));
@@ -58,13 +56,10 @@ contract IGTest is Test {
         vm.stopPrank();
         ig.useFakeDeltaHedge();
 
-        // Roll first epoch (this enables deposits)
-        Utils.skipDay(false, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
-
         // Suppose Vault has already liquidity
         VaultUtils.addVaultDeposit(alice, 100 ether, admin, address(vault), vm);
+
+        vm.warp(EpochFrequency.REF_TS + 1);
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
@@ -76,15 +71,6 @@ contract IGTest is Test {
     //     vm.expectRevert(AddressZero);
     //   //     new MockedIG(address(vault));
     // }
-
-    // ToDo: Add test for rollEpoch before will become active
-
-    function testCantUse() public {
-        IDVP ig_ = new MockedIG(address(vault), address(ap));
-
-        vm.expectRevert(EpochNotInitialized);
-        ig_.mint(address(0x1), 0, 1, 0, 0, 0.1e18);
-    }
 
     function testCanUse() public {
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), 1, vm);

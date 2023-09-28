@@ -288,7 +288,6 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
     }
 
     function _mintBurnChecks() private view {
-        _checkEpochInitialized();
         _checkEpochNotFinished();
 
         _requireNotPaused();
@@ -302,13 +301,17 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         _checkOwner();
         _requireNotPaused();
 
-        if (getEpoch().isInitialized()) {
+
+        // NOTE: avoids breaking computations when there is nothing to compute.
+        //       This may break when the underlying vault has no liquidity (e.g. on the very first epoch).
+        IVault vaultCt = IVault(vault);
+        if (vaultCt.v0() > 0) {
             // Accounts the payoff for each strike and strategy of the positions in circulation that is still to be redeemed:
             _accountResidualPayoffs();
             uint256 currentEpoch = getEpoch().current;
             // Reserve the payoff of those positions:
             uint256 payoffToReserve = _residualPayoff();
-            IVault(vault).reserve(payoffToReserve, _liquidity[currentEpoch].netPremia);
+            vaultCt.reserve(payoffToReserve, _liquidity[currentEpoch].netPremia);
             _liquidity[currentEpoch].netPremia = 0;
         }
 

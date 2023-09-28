@@ -17,7 +17,9 @@ library EpochController {
     error EpochNotFinished();
 
     function init(Epoch storage epoch, uint256 epochFrequency) public {
-        // ToDo: revert or no-op if already initialized
+        if (epoch.current > 0) {
+            return;
+        }
 
         epoch.current = 0;
         epoch.previous = 0;
@@ -25,11 +27,8 @@ library EpochController {
         epoch.frequency = epochFrequency;
         epoch.numberOfRolledEpochs = 0;
 
-        // ToDo: review
-        //       roll the first epoch so that it actually initialize the epoch
-        //       it may be done in the calling contract (in order to leverage hooks)
-        // NOTE: right now the test were built assuming that the first epoch must be manually rolled
-        //       in order to let the other concrete contracts be used
+        // TBD: it may be done in the calling contract (in order to leverage hooks)
+        roll(epoch);
     }
 
     function roll(Epoch storage epoch) public {

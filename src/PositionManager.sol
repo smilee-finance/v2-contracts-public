@@ -247,8 +247,8 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         emit SellDVP(tokenId, (notionalUp + notionalDown), payoff_);
     }
 
-    /// @inheritdoc ERC721Enumerable
     /// TODO AUDIT REMOVE
+    /// @inheritdoc ERC721Enumerable
     function _beforeTokenTransfer(
         address from,
         address to,
