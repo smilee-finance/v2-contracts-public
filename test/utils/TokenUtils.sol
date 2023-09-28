@@ -43,7 +43,7 @@ library TokenUtils {
 
         address feeManagerAddress = ap.feeManager();
         if (feeManagerAddress == address(0)) {
-            FeeManager feeManager =  new FeeManager(0.0035e18, 0.125e18, 0.0015e18, 0.125e18);
+            FeeManager feeManager =  new FeeManager(0.0035e18, 0.125e18, 0.0015e18, 0.125e18, 0);
             feeManagerAddress = address(feeManager);
             ap.setFeeManager(feeManagerAddress);
         }

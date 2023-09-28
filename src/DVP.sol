@@ -4,6 +4,7 @@ pragma solidity ^0.8.21;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
@@ -24,6 +25,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
     using Position for Position.Info;
     using Notional for Notional.Info;
     using EpochController for Epoch;
+    using SafeERC20 for IERC20Metadata;
 
     /// @inheritdoc IDVPImmutables
     address public immutable override baseToken;
@@ -120,6 +122,20 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
+        {
+            uint256 amountUp = amount.up;
+            uint256 amountDown = amount.down;
+
+            (uint256 igPOUp, uint256 igPODown) = _residualPayoffPerc(strike);
+            // intrinsicValue := igPOUp*v0*amountUp / (v0/2) + igPODown*v0*amountDown / (v0/2) =
+            //                 =  igPOUp*2*amountUp + igPODown*2*amountDown
+            uint256 intrinsicValue = igPOUp.wrapDecimals(_baseTokenDecimals).wmul(2 * amountUp).add(
+                igPODown.wrapDecimals(_baseTokenDecimals).wmul(2 * amountDown)
+            );
+
+            liquidity.updateNetPremia(premium_, intrinsicValue, true);
+        }
+
         uint256 fee = feeManager.calculateTradeFee(amount.up + amount.down, premium_, _baseTokenDecimals, false);
 
         // Revert if actual price exceeds the previewed premium
@@ -132,15 +148,11 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
         // Get premium from sender:
         // NOTE: Premium doesn't include the fee
-        if (!IERC20Metadata(baseToken).transferFrom(msg.sender, vault, premium_)) {
-            revert TransferFailed();
-        }
+        IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_);
 
-        // Send fee to FeeManager
-        if (!IERC20Metadata(baseToken).transferFrom(msg.sender, address(feeManager), fee)) {
-            revert TransferFailed();
-        }
-        feeManager.notifyTransfer(vault, fee);
+        IERC20Metadata(baseToken).safeTransferFrom(msg.sender, address(this), fee);
+        IERC20Metadata(baseToken).safeApprove(address(feeManager), fee);
+        feeManager.receiveFee(fee);
 
         premium_ += fee;
 
@@ -218,6 +230,22 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
             uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
+
+            {
+                (uint256 igPOUp, uint256 igPODown) = _residualPayoffPerc(strike);
+
+                uint256 amountUp = amount.up;
+                uint256 amountDown = amount.down;
+
+                // intrinsicValue := igPOUp*v0*amountUp / (v0/2) + igPODown*v0*amountDown / (v0/2) =
+                //                 =  igPOUp*2*amountUp + igPODown*2*amountDown
+                uint256 intrinsicValue = igPOUp.wrapDecimals(_baseTokenDecimals).wmul(2 * amountUp).add(
+                    igPODown.wrapDecimals(_baseTokenDecimals).wmul(2 * amountDown)
+                );
+
+                liquidity.updateNetPremia(paidPayoff, intrinsicValue, false);
+            }
+
             fee = feeManager.calculateTradeFee(
                 amount.up + amount.down,
                 paidPayoff,
@@ -252,8 +280,9 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         liquidity.decreaseUsage(strike, amount);
 
         IVault(vault).transferPayoff(recipient, paidPayoff, reachedMaturity);
-        IVault(vault).transferPayoff(address(feeManager), fee, reachedMaturity);
-        feeManager.notifyTransfer(address(vault), fee);
+        IVault(vault).transferPayoff(address(this), fee, reachedMaturity);
+        IERC20Metadata(baseToken).safeApprove(address(feeManager), fee);
+        feeManager.receiveFee(fee);
 
         emit Burn(msg.sender);
     }
@@ -276,9 +305,11 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         if (getEpoch().isInitialized()) {
             // Accounts the payoff for each strike and strategy of the positions in circulation that is still to be redeemed:
             _accountResidualPayoffs();
+            uint256 currentEpoch = getEpoch().current;
             // Reserve the payoff of those positions:
             uint256 payoffToReserve = _residualPayoff();
-            IVault(vault).reservePayoff(payoffToReserve);
+            IVault(vault).reserve(payoffToReserve, _liquidity[currentEpoch].netPremia);
+            _liquidity[currentEpoch].netPremia = 0;
         }
 
         IEpochControls(vault).rollEpoch();

@@ -49,7 +49,11 @@ library FinanceIG {
         deltaHedgeParams.notionalUp = SignedMath.revabs(amount.up, tradeIsBuy);
         deltaHedgeParams.notionalDown = SignedMath.revabs(amount.down, tradeIsBuy);
 
-        (deltaHedgeParams.igDBull, deltaHedgeParams.igDBear) = _getDeltaHedgePercentages(params, postTradeVolatility, oraclePrice);
+        (deltaHedgeParams.igDBull, deltaHedgeParams.igDBear) = _getDeltaHedgePercentages(
+            params,
+            postTradeVolatility,
+            oraclePrice
+        );
 
         deltaHedgeParams.strike = params.currentStrike;
         deltaHedgeParams.sideTokensAmount = sideTokensAmount;
@@ -121,13 +125,14 @@ library FinanceIG {
         FinanceParameters memory params,
         uint256 oraclePrice
     ) public pure returns (uint256, uint256) {
-        return FinanceIGPayoff.igPayoffPerc(
-            oraclePrice,
-            params.currentStrike, // ToDo: Verify that is always the current one
-            params.kA,
-            params.kB,
-            params.theta
-        );
+        return
+            FinanceIGPayoff.igPayoffPerc(
+                oraclePrice,
+                params.currentStrike, // ToDo: Verify that is always the current one
+                params.kA,
+                params.kB,
+                params.theta
+            );
     }
 
     function updateStrike(
@@ -174,11 +179,7 @@ library FinanceIG {
         // Multiply baselineVolatility for a safety margin of 0.9 after have calculated kA and Kb.
         params.sigmaZero = (params.sigmaZero * 90) / 100;
 
-        params.theta = FinanceIGPrice._teta(
-            params.currentStrike,
-            params.kA,
-            params.kB
-        );
+        params.theta = FinanceIGPrice._teta(params.currentStrike, params.kA, params.kB);
 
         (params.limSup, params.limInf) = FinanceIGDelta.lims(
             params.currentStrike,

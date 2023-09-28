@@ -23,6 +23,8 @@ library Notional {
         mapping(uint256 => Amount) used;
         // payoff set aside
         mapping(uint256 => Amount) payoff; // TBD: rename "residualPayoff"
+        //
+        int256 netPremia;
     }
 
     /**
@@ -82,7 +84,10 @@ library Notional {
         @return optionedCall_ The used liquidity.
         @return optionedPut_ The used liquidity.
      */
-    function getUsed(Info storage self, uint256 strike) public view returns (uint256 optionedCall_, uint256 optionedPut_) {
+    function getUsed(
+        Info storage self,
+        uint256 strike
+    ) public view returns (uint256 optionedCall_, uint256 optionedPut_) {
         return self.used[strike].getRaw();
     }
 
@@ -111,10 +116,7 @@ library Notional {
         @param strike The reference strike
         @return amount The payoff set aside
      */
-    function getAccountedPayoff(
-        Info storage self,
-        uint256 strike
-    ) public view returns (Amount memory amount) {
+    function getAccountedPayoff(Info storage self, uint256 strike) public view returns (Amount memory amount) {
         amount = self.payoff[strike];
     }
 
@@ -193,6 +195,22 @@ library Notional {
             return (used.add(totalAmount)).wdiv(total);
         } else {
             return (used.sub(totalAmount)).wdiv(total);
+        }
+    }
+
+    /**
+        @notice Record the netPremia value used to calculate the RY APY.
+        @param premium  The premium paid/received from/by the user.
+        @param intrinsicValue The payoff if the position were to be sold at the exact moment of the trading action
+        @param tradeIsBuy Mint/Burn operation
+     */
+    function updateNetPremia(Info storage self, uint256 premium, uint256 intrinsicValue, bool tradeIsBuy) public {
+        int256 premium_ = int256(premium);
+        int256 intrinsicValue_ = int256(intrinsicValue);
+        if (tradeIsBuy) {
+            self.netPremia += premium_ - intrinsicValue_;
+        } else {
+            self.netPremia += intrinsicValue_ - premium_;
         }
     }
 }

@@ -80,6 +80,7 @@ library VaultUtils {
                     totalWithdrawAmount,
                     pendingPayoffs,
                     0,
+                    0,
                     totalDeposit
                 ),
                 VaultLib.VaultWithdrawals(queuedWithdrawShares, currentQueuedWithdrawShares),

@@ -12,7 +12,7 @@ contract FeeManagerTest is Test {
 
     function setUp() public {
         vm.prank(admin);
-        feeManager = new FeeManager(0.035e18, 0.125e18, 0.01e18, 0.1e18);
+        feeManager = new FeeManager(0.035e18, 0.125e18, 0.01e18, 0.1e18, 0);
     }
 
     function testFeeManagerSetter(

@@ -5,9 +5,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
+import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultAccessNFT} from "./interfaces/IVaultAccessNFT.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
@@ -577,6 +579,22 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         // NOTE: the share price needs to account also the payoffs
         lockedLiquidity -= _state.liquidity.newPendingPayoffs;
 
+        {
+            uint256 fee = IFeeManager(_addressProvider.feeManager()).calculateVaultAPYFee(
+                _state.liquidity.netPremia,
+                IERC20Metadata(baseToken).decimals()
+            );
+
+            if (fee != 0 && lockedLiquidity - fee >= _state.liquidity.lockedInitially) {
+                IERC20(baseToken).safeApprove(_addressProvider.feeManager(), fee);
+                IFeeManager(_addressProvider.feeManager()).receiveFee(fee);
+                // ToDo: Notify Fee Manager
+                lockedLiquidity -= fee;
+            }
+            // TBD: Leave current value without reset
+            _state.liquidity.netPremia = 0;
+        }
+
         // TBD: move to _afterRollEpoch
         if (manuallyKilled) {
             _state.dead = true;
@@ -775,8 +793,9 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     }
 
     /// @inheritdoc IVault
-    function reservePayoff(uint256 residualPayoff) external onlyDVP {
+    function reserve(uint256 residualPayoff, int256 netPremia) external onlyDVP {
         _state.liquidity.newPendingPayoffs = residualPayoff;
+        _state.liquidity.netPremia = netPremia;
     }
 
     /// @inheritdoc IVault

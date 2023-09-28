@@ -6,7 +6,7 @@ interface IFeeManager {
      * Calculate trade fee given notional and premium
      * @param notional The notional to apply fee
      * @param premium The premium to apply fee
-     * @param tokenDecimals The token decimals
+     * @param tokenDecimals Decimals of token
      * @param reachedMaturity Is used to apply different fees based on the maturity of the position itself.
      * @return fee_ The fee to pay
      */
@@ -18,9 +18,24 @@ interface IFeeManager {
     ) external view returns (uint256 fee_);
 
     /**
-     * Notify that fee has been transfered to the FeeManager
-     * @param vault The vault address
+     * Calculate trade fee given netPremia
+     * @param netPremia The netPremia to apply fee
+     * @param tokenDecimals Decimals of token
+     * @return vaultAPYFee The fee to pay
+     */
+    function calculateVaultAPYFee(int256 netPremia, uint8 tokenDecimals) external view returns (uint256 vaultAPYFee);
+
+    /**
+     * Receive fee from sender and record the value into account
      * @param feeAmount The amount transfered to the FeeManager
      */
-    function notifyTransfer(address vault, uint256 feeAmount) external;
+    function receiveFee(uint256 feeAmount) external;
+
+    /**
+     *
+     * @param receiver The address where fees will send to.
+     * @param sender The address who has paid fees.
+     * @param feeAmount The fee amount to withdraw.
+     */
+    function withdrawFee(address receiver, address sender, uint256 feeAmount) external;
 }

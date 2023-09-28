@@ -85,6 +85,7 @@ contract TestScenariosJson is Test {
         uint256 availableNotionalBull;
         uint256 baseTokenAmount;
         uint256 marketValue; // premium/payoff
+        int256 netPremia;
         uint256 sideTokenAmount;
         uint256 utilizationRate;
         uint256 volatility;
@@ -101,6 +102,7 @@ contract TestScenariosJson is Test {
     }
 
     struct Rebalance {
+        //int256 apy;
         uint256 baseTokenAmount;
         uint256 depositAmount;
         uint256 sideTokenAmount;
@@ -287,6 +289,7 @@ contract TestScenariosJson is Test {
 
         //post-conditions:
         assertApproxEqAbs(t.post.marketValue, marketValue, _tollerancePercentage(t.post.marketValue, 3));
+        assertApproxEqAbs(t.post.netPremia, _dvp.getNetPremia(), _tollerancePercentage(t.post.netPremia, 3));
         assertEq(t.post.utilizationRate, _dvp.getUtilizationRate());
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
         assertEq(t.post.availableNotionalBear, availableBearNotional);
@@ -347,6 +350,10 @@ contract TestScenariosJson is Test {
 
     function _tollerancePercentage(uint256 value, uint256 percentage) private pure returns (uint256) {
         return (value * (percentage * 1e2)) / 10000;
+    }
+
+    function _tollerancePercentage(int256 value, uint256 percentage) private pure returns (uint256) {
+        return uint256((value * (int256(percentage) * 1e2)) / 10000);
     }
 
     function _getTestsFromJson(string memory filename) internal view returns (string memory) {

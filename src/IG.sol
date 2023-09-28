@@ -208,6 +208,7 @@ contract IG is DVP {
     function _residualPayoffPerc(uint256 strike) internal view virtual override returns (uint256, uint256) {
         strike;
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+
         return FinanceIG.getPayoffPercentages(_financeParameters, oraclePrice);
     }
 
