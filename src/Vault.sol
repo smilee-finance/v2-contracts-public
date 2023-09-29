@@ -568,19 +568,19 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         lockedLiquidity -= _state.liquidity.newPendingPayoffs;
 
         {
-            uint256 fee = IFeeManager(_addressProvider.feeManager()).calculateVaultAPYFee(
-                _state.liquidity.netPremia,
-                IERC20Metadata(baseToken).decimals()
-            );
+            if (lockedLiquidity > _state.liquidity.lockedInitially) {
+                uint256 netPerformance = lockedLiquidity - _state.liquidity.lockedInitially;
+                uint256 fee = IFeeManager(_addressProvider.feeManager()).calculateVaultFee(
+                    netPerformance,
+                    IERC20Metadata(baseToken).decimals()
+                );
 
-            if (fee != 0 && lockedLiquidity - fee >= _state.liquidity.lockedInitially) {
-                IERC20(baseToken).safeApprove(_addressProvider.feeManager(), fee);
-                IFeeManager(_addressProvider.feeManager()).receiveFee(fee);
-                // ToDo: Notify Fee Manager
-                lockedLiquidity -= fee;
+                if (fee != 0 && lockedLiquidity - fee >= _state.liquidity.lockedInitially) {
+                    IERC20(baseToken).safeApprove(_addressProvider.feeManager(), fee);
+                    IFeeManager(_addressProvider.feeManager()).receiveFee(fee);
+                    lockedLiquidity -= fee;
+                }
             }
-            // TBD: Leave current value without reset
-            _state.liquidity.netPremia = 0;
         }
 
         // TBD: move to _afterRollEpoch
@@ -781,9 +781,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     }
 
     /// @inheritdoc IVault
-    function reserve(uint256 residualPayoff, int256 netPremia) external onlyDVP {
+    function reservePayoff(uint256 residualPayoff) external onlyDVP {
         _state.liquidity.newPendingPayoffs = residualPayoff;
-        _state.liquidity.netPremia = netPremia;
     }
 
     /// @inheritdoc IVault

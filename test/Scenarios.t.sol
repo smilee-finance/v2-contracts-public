@@ -85,7 +85,6 @@ contract TestScenariosJson is Test {
         uint256 availableNotionalBull;
         uint256 baseTokenAmount;
         uint256 marketValue; // premium/payoff
-        int256 netPremia;
         uint256 sideTokenAmount;
         uint256 utilizationRate;
         uint256 volatility;
@@ -246,8 +245,8 @@ contract TestScenariosJson is Test {
         vm.stopPrank();
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
-        assertApproxEqAbs(t.pre.baseTokenAmount, baseTokenAmount, _tollerancePercentage(t.pre.baseTokenAmount, 3));
-        assertApproxEqAbs(t.pre.sideTokenAmount, sideTokenAmount, _tollerancePercentage(t.pre.sideTokenAmount, 3));
+        assertApproxEqAbs(t.pre.baseTokenAmount, baseTokenAmount, _tollerancePercentage(t.pre.baseTokenAmount, 1));
+        assertApproxEqAbs(t.pre.sideTokenAmount, sideTokenAmount, _tollerancePercentage(t.pre.sideTokenAmount, 1));
 
         assertEq(t.pre.utilizationRate, _dvp.getUtilizationRate());
         (, , uint256 availableBearNotional, uint256 availableBullNotional) = _dvp.notional();
@@ -287,8 +286,7 @@ contract TestScenariosJson is Test {
         //fee = _feeManager.calculateTradeFee(t.amountUp + t.amountDown, marketValue, IToken(_vault.baseToken()).decimals(), false);
 
         //post-conditions:
-        assertApproxEqAbs(t.post.marketValue, marketValue, _tollerancePercentage(t.post.marketValue, 3));
-        assertApproxEqAbs(t.post.netPremia, _dvp.getNetPremia(), _tollerancePercentage(t.post.netPremia, 3));
+        assertApproxEqAbs(t.post.marketValue, marketValue, _tollerancePercentage(t.post.marketValue, 1));
         assertEq(t.post.utilizationRate, _dvp.getUtilizationRate());
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
         assertEq(t.post.availableNotionalBear, availableBearNotional);
@@ -301,8 +299,8 @@ contract TestScenariosJson is Test {
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
 
-        assertApproxEqAbs(t.post.baseTokenAmount, baseTokenAmount, _tollerancePercentage(t.post.baseTokenAmount, 3));
-        assertApproxEqAbs(t.post.sideTokenAmount, sideTokenAmount, _tollerancePercentage(t.post.sideTokenAmount, 3));
+        assertApproxEqAbs(t.post.baseTokenAmount, baseTokenAmount, _tollerancePercentage(t.post.baseTokenAmount, 1));
+        assertApproxEqAbs(t.post.sideTokenAmount, sideTokenAmount, _tollerancePercentage(t.post.sideTokenAmount, 1));
     }
 
     function _checkRebalance(string memory json) private {

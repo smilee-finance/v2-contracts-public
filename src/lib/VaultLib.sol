@@ -34,8 +34,6 @@ library VaultLib {
         uint256 pendingPayoffs;
         // Liquidity to put aside before the next epoch
         uint256 newPendingPayoffs;
-        // netPremia to be used before the next epoch
-        int256 netPremia;
         // Cumulative base token deposits across all accounts
         uint256 totalDeposit;
     }

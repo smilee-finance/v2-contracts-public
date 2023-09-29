@@ -45,8 +45,7 @@
                 "sideTokenAmount": 26315789474000000000,
                 "utilizationRate": 1000000000000000000,
                 "availableNotionalBear": 0,
-                "availableNotionalBull": 0,
-                "netPremia": 7071536707654000000000
+                "availableNotionalBull": 0
             },
             "elapsedTimeSeconds": 86400,
             "amountUp": 50000000000000000000000,
@@ -72,8 +71,7 @@
                 "sideTokenAmount": 26417597923000000000,
                 "utilizationRate": 900000000000000000,
                 "availableNotionalBear": 5000000000000000000000,
-                "availableNotionalBull": 5000000000000000000000,
-                "netPremia": 6666525550787000000000
+                "availableNotionalBull": 5000000000000000000000
             },
             "elapsedTimeSeconds": 86400,
             "amountUp": 5000000000000000000000,
@@ -99,8 +97,7 @@
                 "sideTokenAmount": 27442049033000000000,
                 "utilizationRate": 800000000000000000,
                 "availableNotionalBear": 10000000000000000000000,
-                "availableNotionalBull": 10000000000000000000000,
-                "netPremia": 6449685157039000000000
+                "availableNotionalBull": 10000000000000000000000
             },
             "elapsedTimeSeconds": 86400,
             "amountUp": 5000000000000000000000,
@@ -126,8 +123,7 @@
                 "sideTokenAmount": 31648096867000000000,
                 "utilizationRate": 600000000000000000,
                 "availableNotionalBear": 20000000000000000000000,
-                "availableNotionalBull": 20000000000000000000000,
-                "netPremia": 6268471015324000000000
+                "availableNotionalBull": 20000000000000000000000
             },
             "elapsedTimeSeconds": 86400,
             "amountUp": 10000000000000000000000,
@@ -153,8 +149,7 @@
                 "sideTokenAmount": 48132033091000000000,
                 "utilizationRate": 400000000000000000,
                 "availableNotionalBear": 30000000000000000000000,
-                "availableNotionalBull": 30000000000000000000000,
-                "netPremia": 6198706494827000000000
+                "availableNotionalBull": 30000000000000000000000
             },
             "elapsedTimeSeconds": 86400,
             "amountUp": 10000000000000000000000,
@@ -180,8 +175,7 @@
                 "sideTokenAmount": 66182326808000000000,
                 "utilizationRate": 0,
                 "availableNotionalBear": 50000000000000000000000,
-                "availableNotionalBull": 50000000000000000000000,
-                "netPremia": 6200350262890000000000
+                "availableNotionalBull": 50000000000000000000000
             },
             "elapsedTimeSeconds": 86400,
             "amountUp": 20000000000000000000000,

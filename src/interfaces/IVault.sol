@@ -92,9 +92,9 @@ interface IVault is IVaultParams {
     function deltaHedge(int256 sideTokensAmount) external returns (uint256 baseTokens);
 
     /**
-        @notice Update Vault State with the amount of reserved payoff and netPremia
+        @notice Update Vault State with the amount of reserved payoff
      */
-    function reserve(uint256 residualPayoff, int256 netPremia) external;
+    function reservePayoff(uint256 residualPayoff) external;
 
     /**
         @notice Tranfer an amount of reserved payoff to the user

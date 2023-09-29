@@ -23,8 +23,6 @@ library Notional {
         mapping(uint256 => Amount) used;
         // payoff set aside
         mapping(uint256 => Amount) payoff; // TBD: rename "residualPayoff"
-        //
-        int256 netPremia;
     }
 
     /**
@@ -195,22 +193,6 @@ library Notional {
             return (used.add(totalAmount)).wdiv(total);
         } else {
             return (used.sub(totalAmount)).wdiv(total);
-        }
-    }
-
-    /**
-        @notice Record the netPremia value used to calculate the RY APY.
-        @param premium  The premium paid/received from/by the user.
-        @param intrinsicValue The payoff if the position were to be sold at the exact moment of the trading action
-        @param tradeIsBuy Mint/Burn operation
-     */
-    function updateNetPremia(Info storage self, uint256 premium, uint256 intrinsicValue, bool tradeIsBuy) public {
-        int256 premium_ = int256(premium);
-        int256 intrinsicValue_ = int256(intrinsicValue);
-        if (tradeIsBuy) {
-            self.netPremia += premium_ - intrinsicValue_;
-        } else {
-            self.netPremia += intrinsicValue_ - premium_;
         }
     }
 }

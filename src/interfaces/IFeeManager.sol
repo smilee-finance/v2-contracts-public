@@ -19,11 +19,11 @@ interface IFeeManager {
 
     /**
      * Calculate trade fee given netPremia
-     * @param netPremia The netPremia to apply fee
+     * @param netPerformance The net performance value to apply the fees
      * @param tokenDecimals Decimals of token
-     * @return vaultAPYFee The fee to pay
+     * @return vaultFee The fee to pay
      */
-    function calculateVaultAPYFee(int256 netPremia, uint8 tokenDecimals) external view returns (uint256 vaultAPYFee);
+    function calculateVaultFee(uint256 netPerformance, uint8 tokenDecimals) external view returns (uint256 vaultFee);
 
     /**
      * Receive fee from sender and record the value into account

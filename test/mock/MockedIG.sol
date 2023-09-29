@@ -147,8 +147,4 @@ contract MockedIG is IG {
     function currentEpoch() external view returns (uint256) {
         return getEpoch().current;
     }
-
-    function getNetPremia() public view returns (int256 netPremia) {
-        netPremia = _liquidity[getEpoch().current].netPremia;
-    }
 }

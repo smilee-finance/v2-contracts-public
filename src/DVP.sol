@@ -130,11 +130,6 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
-        {
-            uint256 intrinsicValue = _getIntrinsicValue(amount, strike);
-            liquidity.updateNetPremia(premium_, intrinsicValue, true);
-        }
-
         IFeeManager feeManager = IFeeManager(_getFeeManager());
         uint256 fee = feeManager.calculateTradeFee(amount.up + amount.down, premium_, _baseTokenDecimals, false);
 
@@ -168,13 +163,13 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         emit Mint(msg.sender, recipient);
     }
 
-    function _getIntrinsicValue(Amount memory amount, uint256 strike) internal view returns (uint256 intrinsicValue) {
-        (uint256 igPOUp, uint256 igPODown) = _residualPayoffPerc(strike);
-
-        intrinsicValue = Finance.getIntrinsicValue(amount, igPOUp, igPODown, _baseTokenDecimals);
-    }
-
-    function _checkSlippage(uint256 marketValue, uint256 fee, uint256 expectedMarketValue, uint256 maxSlippage, bool tradeIsBuy) internal pure {
+    function _checkSlippage(
+        uint256 marketValue,
+        uint256 fee,
+        uint256 expectedMarketValue,
+        uint256 maxSlippage,
+        bool tradeIsBuy
+    ) internal pure {
         uint256 slippage = expectedMarketValue.wmul(maxSlippage);
 
         if (tradeIsBuy && (marketValue + fee > expectedMarketValue + slippage)) {
@@ -245,11 +240,6 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
 
-            {
-                uint256 intrinsicValue = _getIntrinsicValue(amount, strike);
-                liquidity.updateNetPremia(paidPayoff, intrinsicValue, false);
-            }
-
             fee = feeManager.calculateTradeFee(
                 amount.up + amount.down,
                 paidPayoff,
@@ -310,8 +300,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
             _accountResidualPayoffs();
             // Reserve the payoff of those positions:
             uint256 payoffToReserve = _residualPayoff();
-            Notional.Info storage liquidity = _liquidity[getEpoch().current];
-            vaultCt.reserve(payoffToReserve, liquidity.netPremia);
+            vaultCt.reservePayoff(payoffToReserve);
         }
 
         IEpochControls(vault).rollEpoch();
