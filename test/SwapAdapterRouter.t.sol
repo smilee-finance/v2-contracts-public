@@ -11,6 +11,7 @@ import {TestnetSwapAdapter} from "../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {Utils} from "./utils/Utils.sol";
+import {AmountsMath} from "../src/lib/AmountsMath.sol";
 
 contract SwapProviderRouterTest is Test {
     bytes4 constant _ADDRESS_ZERO = bytes4(keccak256("AddressZero()"));
@@ -109,7 +110,8 @@ contract SwapProviderRouterTest is Test {
     }
 
     function testSwapInOk() public {
-        uint256 amount = 1e18;
+        uint256 amount = 1_000_000_000_000e6;
+
         uint256 realPriceRef = 1e18;
         uint256 swapPriceRef = 1.2e18;
         uint256 maxSlippage = 0.2e18;
@@ -119,7 +121,10 @@ contract SwapProviderRouterTest is Test {
         _token0.approve(address(_swapRouter), amount);
         _swapRouter.swapIn(address(_token0), address(_token1), amount);
         assertEq(0, _token0.balanceOf(_alice));
-        assertApproxEqAbs((amount * 10 ** _token0.decimals()) / swapPriceRef, _token1.balanceOf(_alice), amount / 1e18);
+
+        amount = AmountsMath.wrapDecimals(amount, _token0.decimals());
+        uint256 token1Amount = AmountsMath.unwrapDecimals(AmountsMath.wdiv(amount, swapPriceRef), _token1.decimals());
+        assertApproxEqAbs(token1Amount, _token1.balanceOf(_alice), amount / 1e18);
         vm.stopPrank();
     }
 
@@ -164,9 +169,15 @@ contract SwapProviderRouterTest is Test {
 
         vm.startPrank(_alice);
         uint256 t0IniBal = _token0.balanceOf(_alice);
-        uint256 shouldSpend = (amount * swapPriceRef) / 10 ** _token1.decimals();
+
+        amount = AmountsMath.wrapDecimals(amount, _token1.decimals());
+        uint256 shouldSpend = AmountsMath.unwrapDecimals(AmountsMath.wmul(amount, swapPriceRef), _token0.decimals());
+
         _token0.approve(address(_swapRouter), t0IniBal);
+
+        amount = AmountsMath.unwrapDecimals(amount, _token1.decimals());
         uint256 spent = _swapRouter.swapOut(address(_token0), address(_token1), amount, t0IniBal);
+
         assertApproxEqAbs(shouldSpend, spent, 1e3);
         assertEq(t0IniBal - spent, _token0.balanceOf(_alice));
         assertEq(amount, _token1.balanceOf(_alice));

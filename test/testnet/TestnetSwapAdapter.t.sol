@@ -186,6 +186,7 @@ contract TestnetSwapAdapterTest is Test {
             return;
         }
 
+        vm.assume(price < 1e18 * 1e18);
         uint256 output = 1 ether; // WBTC
 
         if (price == 0) {
@@ -195,6 +196,7 @@ contract TestnetSwapAdapterTest is Test {
         }
 
         uint256 wethForWbtcAmount = dex.getInputAmount(address(WETH), address(WBTC), output);
+
         uint256 expextedWethForWbtcAmount = output.wmul(price);
         assertEq(expextedWethForWbtcAmount, wethForWbtcAmount);
 

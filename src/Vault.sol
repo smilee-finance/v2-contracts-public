@@ -103,6 +103,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _grantRole(ROLE_GOD, msg.sender);
     }
 
+    function decimals() public view override returns (uint8) {
+        return IERC20Metadata(baseToken).decimals();
+    }
+
     modifier isNotDead() {
         if (_state.dead) {
             revert VaultDead();
@@ -317,7 +321,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // NOTE: the amount of unredeemed shares is the one of the previous epochs, as we still don't know the share price.
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
             epoch.current,
-            epochPricePerShare[depositReceipt.epoch]
+            epochPricePerShare[depositReceipt.epoch],
+            decimals()
         );
 
         depositReceipt.epoch = epoch.current;
@@ -340,7 +345,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         heldByAccount = balanceOf(account);
 
-        heldByVault = depositReceipt.getSharesFromReceipt(getEpoch().current, epochPricePerShare[depositReceipt.epoch]);
+        heldByVault = depositReceipt.getSharesFromReceipt(
+            getEpoch().current,
+            epochPricePerShare[depositReceipt.epoch],
+            decimals()
+        );
     }
 
     /**
@@ -361,7 +370,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
             epoch.current,
-            epochPricePerShare[depositReceipt.epoch]
+            epochPricePerShare[depositReceipt.epoch],
+            decimals()
         );
 
         if (!isMax && shares > unredeemedShares) {
@@ -482,9 +492,17 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         uint256 amountToWithdraw;
         if (_state.deadReason == VaultLib.DeadManualKillReason && withdrawal.epoch == epoch.current) {
-            amountToWithdraw = VaultLib.sharesToAsset(withdrawal.shares, epochPricePerShare[epoch.previous]);
+            amountToWithdraw = VaultLib.sharesToAsset(
+                withdrawal.shares,
+                epochPricePerShare[epoch.previous],
+                decimals()
+            );
         } else {
-            amountToWithdraw = VaultLib.sharesToAsset(withdrawal.shares, epochPricePerShare[withdrawal.epoch]);
+            amountToWithdraw = VaultLib.sharesToAsset(
+                withdrawal.shares,
+                epochPricePerShare[withdrawal.epoch],
+                decimals()
+            );
         }
 
         // NOTE: the user transferred the required shares to the vault when she initiated the withdraw
@@ -600,7 +618,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // Reserve the liquidity needed to cover the withdrawals initiated in the current epoch:
         // NOTE: here we just account the amounts and we delay all the actual swaps to the final one in order to optimize them.
         // NOTE: if sharePrice is zero, the users will receive zero from withdrawals
-        uint256 newPendingWithdrawals = VaultLib.sharesToAsset(_state.withdrawals.newHeldShares, sharePrice);
+        uint256 newPendingWithdrawals = VaultLib.sharesToAsset(
+            _state.withdrawals.newHeldShares,
+            sharePrice,
+            decimals()
+        );
         _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
         lockedLiquidity -= newPendingWithdrawals;
 
@@ -618,7 +640,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         // Mint shares related to new deposits performed during the closing epoch:
-        uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice);
+        uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice, decimals());
         _mint(address(this), sharesToMint);
 
         lockedLiquidity += _state.liquidity.pendingDeposits;
@@ -649,10 +671,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // NOTE: if the number of shares is 0, pricePerShare will revert due to a division by zero
         if (outstandingShares == 0) {
             // First time mint 1 share for each token
-            sharePrice = VaultLib.UNIT_PRICE;
+            sharePrice = 10 ** decimals();
         } else {
             // NOTE: if the locked liquidity is 0, the price is set to 0
-            sharePrice = VaultLib.pricePerShare(notional_, outstandingShares);
+            sharePrice = VaultLib.pricePerShare(notional_, outstandingShares, decimals());
         }
     }
 

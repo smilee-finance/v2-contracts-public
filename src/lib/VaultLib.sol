@@ -6,9 +6,6 @@ import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 library VaultLib {
     using SafeMath for uint256;
 
-    uint256 constant DECIMALS = 18;
-    uint256 constant UNIT_PRICE = 10 ** DECIMALS;
-
     bytes4 constant DeadMarketReason = bytes4(keccak256("MarketReason"));
     bytes4 constant DeadManualKillReason = bytes4(keccak256("ManualKill"));
 
@@ -61,7 +58,7 @@ library VaultLib {
         @param assetAmount The amount of assets to be converted to shares
         @param sharePrice The price (in asset) for 1 share
      */
-    function assetToShares(uint256 assetAmount, uint256 sharePrice) public pure returns (uint256) {
+    function assetToShares(uint256 assetAmount, uint256 sharePrice, uint8 tokenDecimals) public pure returns (uint256) {
         // If sharePrice goes to zero, the asset cannot minted, this means the assetAmount is to rescue
         if (sharePrice == 0) {
             return 0;
@@ -70,7 +67,7 @@ library VaultLib {
             return 0;
         }
 
-        return assetAmount.mul(UNIT_PRICE).div(sharePrice);
+        return (assetAmount * 10 ** tokenDecimals) / sharePrice;
     }
 
     /**
@@ -78,12 +75,12 @@ library VaultLib {
         @param shares The number of shares to be converted to asset
         @param sharePrice The price (in asset) for 1 share
      */
-    function sharesToAsset(uint256 shares, uint256 sharePrice) public pure returns (uint256) {
-        return shares.mul(sharePrice).div(UNIT_PRICE);
+    function sharesToAsset(uint256 shares, uint256 sharePrice, uint8 tokenDecimals) public pure returns (uint256) {
+        return (shares * sharePrice) / 10 ** tokenDecimals;
     }
 
-    function pricePerShare(uint256 assets, uint256 shares) public pure returns (uint256) {
-        return assets.mul(UNIT_PRICE).div(shares);
+    function pricePerShare(uint256 assets, uint256 shares, uint8 tokenDecimals) public pure returns (uint256) {
+        return (assets * 10 ** tokenDecimals) / shares;
     }
 
     /**
@@ -96,13 +93,14 @@ library VaultLib {
     function getSharesFromReceipt(
         DepositReceipt memory depositReceipt,
         uint256 currentEpoch,
-        uint256 sharePrice
+        uint256 sharePrice,
+        uint8 tokenDecimals
     ) public pure returns (uint256 unredeemedShares) {
         if (depositReceipt.epoch == 0 || depositReceipt.epoch == currentEpoch) {
             return depositReceipt.unredeemedShares;
         }
 
-        uint256 sharesFromRound = assetToShares(depositReceipt.amount, sharePrice);
+        uint256 sharesFromRound = assetToShares(depositReceipt.amount, sharePrice, tokenDecimals);
         return depositReceipt.unredeemedShares.add(sharesFromRound);
     }
 }
