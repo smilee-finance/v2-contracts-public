@@ -230,8 +230,11 @@ contract IG is DVP {
         }
 
         {
+            // Need to get residual payoff of the previous strike (because strike has already been updated)
+            Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+            uint256 residualPayoff = liquidity.getAccountedPayoff(previousStrike).getTotal();
             _accountResidualPayoff(previousStrike, _financeParameters.currentStrike);
-            IVault(vault).adjustReservedPayoff(_residualPayoff());
+            IVault(vault).adjustReservedPayoff(residualPayoff);
         }
     }
 
