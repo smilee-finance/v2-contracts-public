@@ -18,7 +18,10 @@ import {MockedVault} from "./mock/MockedVault.sol";
     @notice A sample non-Vault contract.
  */
 contract NonVault {
-
+    /**
+     * Function used to skip coverage on this file
+     */
+    function testCoverageSkip() private view {}
 }
 
 /**

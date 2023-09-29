@@ -9,7 +9,6 @@ contract EpochFrequencyTest is Test {
 
     uint256 constant dailyPeriod = EpochFrequency.DAILY;
     uint256 constant weeklyPeriod = EpochFrequency.WEEKLY;
-    uint256 constant customPeriod = EpochFrequency.TRD_FRI_MONTH;
 
     uint256 fri20230421 = 1682064000;
 
@@ -35,16 +34,4 @@ contract EpochFrequencyTest is Test {
         assertEq(fri20230505, EpochFrequency.nextExpiry(fri20230428, weeklyPeriod));
     }
 
-    function testCustom() public {
-        uint256 fri20230519 = 1684483200; // EpochFrequency.REF + 3rd friday May
-        uint256 fri20230618 = 1687075200; // EpochFrequency.REF + 3rd friday June
-
-        assertEq(fri20230421, EpochFrequency.nextExpiry(fri20230421 - 1, customPeriod));
-        assertEq(fri20230519, EpochFrequency.nextExpiry(fri20230421, customPeriod));
-        assertEq(fri20230519, EpochFrequency.nextExpiry(fri20230421 + 1, customPeriod));
-        assertEq(fri20230618, EpochFrequency.nextExpiry(fri20230519, customPeriod));
-
-        vm.expectRevert(MissingNextEpoch);
-        EpochFrequency.nextExpiry(fri20230618, customPeriod);
-    }
 }

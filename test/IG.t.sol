@@ -234,14 +234,14 @@ contract IGTest is Test {
         uint256 inputAmount = 1 ether;
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
 
-        assertEq(ig.isPaused(), false);
+        assertEq(ig.paused(), false);
 
         vm.expectRevert(OwnerError);
         ig.changePauseState();
 
         vm.prank(admin);
         ig.changePauseState();
-        assertEq(ig.isPaused(), true);
+        assertEq(ig.paused(), true);
 
         vm.startPrank(alice);
         (uint256 expectedMarketValue, ) = ig.premium(0, inputAmount, 0);
@@ -274,7 +274,7 @@ contract IGTest is Test {
         // From here on, all the IG functions should work properly
         vm.prank(admin);
         ig.changePauseState();
-        assertEq(ig.isPaused(), false);
+        assertEq(ig.paused(), false);
 
         vm.prank(admin);
         ig.rollEpoch();
@@ -321,10 +321,10 @@ contract IGTest is Test {
         ig.setTradeVolatilityTimeDecay(25e16);
 
         vm.expectRevert(OwnerError);
-        ig.setTradeVolatilityUtilizationRateFactor(25e16);
+        ig.setTradeVolatilityUtilizationRateFactor(1.25e18);
 
         vm.startPrank(admin);
-        ig.setTradeVolatilityUtilizationRateFactor(25e16);
+        ig.setTradeVolatilityUtilizationRateFactor(1.25e18);
         ig.setTradeVolatilityTimeDecay(25e16);
         vm.stopPrank();
     }

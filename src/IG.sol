@@ -7,9 +7,8 @@ import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {Amount, AmountHelper} from "./lib/Amount.sol";
-import {AmountsMath} from "./lib/AmountsMath.sol";
 import {DVPType} from "./lib/DVPType.sol";
-import {Epoch, EpochController} from "./lib/EpochController.sol";
+import {Epoch} from "./lib/EpochController.sol";
 import {Finance} from "./lib/Finance.sol";
 import {FinanceParameters, FinanceIG} from "./lib/FinanceIG.sol";
 import {Notional} from "./lib/Notional.sol";
@@ -18,14 +17,14 @@ import {EpochControls} from "./EpochControls.sol";
 
 contract IG is DVP {
     using AmountHelper for Amount;
-    using AmountsMath for uint256;
     using Notional for Notional.Info;
-    using EpochController for Epoch;
 
     FinanceParameters internal _financeParameters;
 
+    error OutOfAllowedRange();
+
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
-        _financeParameters.sigmaMultiplier = 3e18; // ToDo: rendere modificabile al lancio
+        _financeParameters.sigmaMultiplier = 3e18; // ToDo: let the deployer provide it
         _financeParameters.tradeVolatilityUtilizationRateFactor = 2e18;
         _financeParameters.tradeVolatilityTimeDecay = 0.25e18;
     }
@@ -88,14 +87,12 @@ contract IG is DVP {
 
     /// @inheritdoc IDVP
     function getUtilizationRate() public view returns (uint256) {
-        (uint256 used, uint256 total) = _liquidity[getEpoch().current].utilizationRateFactors(
+        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+        (uint256 used, uint256 total) = liquidity.utilizationRateFactors(
             _financeParameters.currentStrike
         );
 
-        used = AmountsMath.wrapDecimals(used, _baseTokenDecimals);
-        total = AmountsMath.wrapDecimals(total, _baseTokenDecimals);
-
-        return used.wdiv(total);
+        return Finance.getUtilizationRate(used, total, _baseTokenDecimals);
     }
 
     /// @inheritdoc DVP
@@ -105,22 +102,18 @@ contract IG is DVP {
         bool tradeIsBuy,
         uint256 swapPrice
     ) internal view virtual override returns (uint256 marketValue) {
-        uint256 postTradeVolatility = getPostTradeVolatility(strike, amount, tradeIsBuy);
-        uint256 riskFreeRate = IMarketOracle(_getMarketOracle()).getRiskFreeRate(sideToken, baseToken);
-
         marketValue = FinanceIG.getMarketValue(
             _financeParameters,
             amount,
-            postTradeVolatility,
+            getPostTradeVolatility(strike, amount, tradeIsBuy),
             swapPrice,
-            riskFreeRate,
+            IMarketOracle(_getMarketOracle()).getRiskFreeRate(sideToken, baseToken),
             _baseTokenDecimals
         );
     }
 
     function notional()
-        public
-        view
+        public view
         returns (uint256 bearNotional, uint256 bullNotional, uint256 bearAvailNotional, uint256 bullAvailNotional)
     {
         Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
@@ -209,9 +202,8 @@ contract IG is DVP {
     /// @inheritdoc DVP
     function _residualPayoff() internal view virtual override returns (uint256 residualPayoff) {
         Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
-        Amount memory payoff = liquidity.getAccountedPayoff(_financeParameters.currentStrike);
 
-        residualPayoff = payoff.getTotal();
+        residualPayoff = liquidity.getAccountedPayoff(_financeParameters.currentStrike).getTotal();
     }
 
     /// @inheritdoc DVP
@@ -222,8 +214,7 @@ contract IG is DVP {
     /// @inheritdoc EpochControls
     function _afterRollEpoch() internal virtual override {
         Epoch memory epoch = getEpoch();
-        // ToDo: add test where we roll epochs without deposit in the vault
-        // ToDo: check if vault is dead
+        // TBD: check if vault is dead
 
         _financeParameters.maturity = epoch.current;
 
@@ -273,16 +264,28 @@ contract IG is DVP {
     }
 
     /// @dev must be defined in Wad
-    function setTradeVolatilityUtilizationRateFactor(uint256 utilizationRateFactor) external onlyOwner {
-        // ToDo: make the change effective from the next epoch
-        // ToDo: check range
-        _financeParameters.tradeVolatilityUtilizationRateFactor = utilizationRateFactor;
+    function setSigmaMultiplier(uint256 value) external onlyOwner {
+        // ToDo: make the change effective after a given amount of time
+        _financeParameters.sigmaMultiplier = value;
     }
 
     /// @dev must be defined in Wad
-    function setTradeVolatilityTimeDecay(uint256 timeDecay) external onlyOwner {
-        // ToDo: make the change effective from the next epoch
-        // ToDo: check range
-        _financeParameters.tradeVolatilityTimeDecay = timeDecay;
+    function setTradeVolatilityUtilizationRateFactor(uint256 value) external onlyOwner {
+        // ToDo: make the change effective after a given amount of time
+        if (value < 1e18 || value > 5e18) {
+            revert OutOfAllowedRange();
+        }
+
+        _financeParameters.tradeVolatilityUtilizationRateFactor = value;
+    }
+
+    /// @dev must be defined in Wad
+    function setTradeVolatilityTimeDecay(uint256 value) external onlyOwner {
+        // ToDo: make the change effective after a given amount of time
+        if (value > 0.5e18) {
+            revert OutOfAllowedRange();
+        }
+
+        _financeParameters.tradeVolatilityTimeDecay = value;
     }
 }

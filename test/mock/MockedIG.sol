@@ -129,11 +129,6 @@ contract MockedIG is IG {
         return _financeParameters;
     }
 
-    // ToDo: move back into contract
-    function setSigmaMultiplier(uint256 value) public {
-        _financeParameters.sigmaMultiplier = value;
-    }
-
     /**
         @notice Get number of past and current epochs
         @return number The number of past and current epochs

@@ -108,10 +108,4 @@ interface IVault is IVaultParams {
         @notice Pause/Unpause
      */
     function changePauseState() external;
-
-    /**
-        @notice Allow to check if the contract is paused.
-        @return paused The pause state.
-     */
-    function isPaused() external view returns (bool paused);
 }

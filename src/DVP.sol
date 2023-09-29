@@ -13,7 +13,7 @@ import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {Amount, AmountHelper} from "./lib/Amount.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
-import {Epoch, EpochController} from "./lib/EpochController.sol";
+import {Epoch} from "./lib/EpochController.sol";
 import {Finance} from "./lib/Finance.sol";
 import {Notional} from "./lib/Notional.sol";
 import {Position} from "./lib/Position.sol";
@@ -24,7 +24,6 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
     using AmountsMath for uint256;
     using Position for Position.Info;
     using Notional for Notional.Info;
-    using EpochController for Epoch;
     using SafeERC20 for IERC20Metadata;
 
     /// @inheritdoc IDVPImmutables
@@ -129,8 +128,6 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
         uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
 
-        IFeeManager feeManager = IFeeManager(_getFeeManager());
-
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         {
@@ -138,13 +135,12 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
             liquidity.updateNetPremia(premium_, intrinsicValue, true);
         }
 
+        IFeeManager feeManager = IFeeManager(_getFeeManager());
         uint256 fee = feeManager.calculateTradeFee(amount.up + amount.down, premium_, _baseTokenDecimals, false);
 
         // Revert if actual price exceeds the previewed premium
         // NOTE: cannot use the approved premium as a reference due to the PositionManager...
-        if (premium_ + fee > expectedPremium + expectedPremium.wmul(maxSlippage)) {
-            revert SlippedMarketValue();
-        }
+        _checkSlippage(premium_, fee, expectedPremium, maxSlippage, true);
         // ToDo: revert if the premium is zero due to an underflow
         // ----- it may be avoided by asking for a positive number of lots as notional...
 
@@ -174,7 +170,19 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
     function _getIntrinsicValue(Amount memory amount, uint256 strike) internal view returns (uint256 intrinsicValue) {
         (uint256 igPOUp, uint256 igPODown) = _residualPayoffPerc(strike);
+
         intrinsicValue = Finance.getIntrinsicValue(amount, igPOUp, igPODown, _baseTokenDecimals);
+    }
+
+    function _checkSlippage(uint256 marketValue, uint256 fee, uint256 expectedMarketValue, uint256 maxSlippage, bool tradeIsBuy) internal pure {
+        uint256 slippage = expectedMarketValue.wmul(maxSlippage);
+
+        if (tradeIsBuy && (marketValue + fee > expectedMarketValue + slippage)) {
+            revert SlippedMarketValue();
+        }
+        if (!tradeIsBuy && (marketValue + fee < expectedMarketValue - slippage)) {
+            revert SlippedMarketValue();
+        }
     }
 
     /**
@@ -249,13 +257,14 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
                 reachedMaturity
             );
 
-            if (paidPayoff + fee < expectedMarketValue - expectedMarketValue.wmul(maxSlippage)) {
-                revert SlippedMarketValue();
-            }
+            _checkSlippage(paidPayoff, fee, expectedMarketValue, maxSlippage, false);
         } else {
             // Compute the payoff to be paid:
             Amount memory payoff_ = liquidity.shareOfPayoff(strike, amount, _baseTokenDecimals);
             paidPayoff = payoff_.getTotal();
+
+            // Account transfer of setted aside payoff:
+            liquidity.decreasePayoff(strike, payoff_);
 
             // Compute fee:
             fee = feeManager.calculateTradeFee(
@@ -264,9 +273,6 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
                 _baseTokenDecimals,
                 reachedMaturity
             );
-
-            // Account transfer of setted aside payoff:
-            liquidity.decreasePayoff(strike, payoff_);
         }
 
         paidPayoff -= fee;
@@ -296,18 +302,16 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         _checkOwner();
         _requireNotPaused();
 
-
         // NOTE: avoids breaking computations when there is nothing to compute.
         //       This may break when the underlying vault has no liquidity (e.g. on the very first epoch).
         IVault vaultCt = IVault(vault);
         if (vaultCt.v0() > 0) {
             // Accounts the payoff for each strike and strategy of the positions in circulation that is still to be redeemed:
             _accountResidualPayoffs();
-            uint256 currentEpoch = getEpoch().current;
             // Reserve the payoff of those positions:
             uint256 payoffToReserve = _residualPayoff();
-            vaultCt.reserve(payoffToReserve, _liquidity[currentEpoch].netPremia);
-            _liquidity[currentEpoch].netPremia = 0;
+            Notional.Info storage liquidity = _liquidity[getEpoch().current];
+            vaultCt.reserve(payoffToReserve, liquidity.netPremia);
         }
 
         IEpochControls(vault).rollEpoch();
@@ -340,7 +344,6 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         // computes the payoff to be set aside at the end of the epoch for the provided strike.
-        // TBD: move into a single library function
         (uint256 residualAmountUp, uint256 residualAmountDown) = liquidity.getUsed(strike);
         (uint256 percentageUp, uint256 percentageDown) = _residualPayoffPerc(strike);
         (uint256 payoffUp_, uint256 payoffDown_) = Finance.computeResidualPayoffs(
@@ -413,7 +416,8 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
         fee_ = feeManager.calculateTradeFee(amount_.up + amount_.down, payoff_, _baseTokenDecimals, reachedMaturity);
-        payoff_ = payoff_ - fee_;
+
+        payoff_ -= fee_;
     }
 
     /**
@@ -466,11 +470,5 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         } else {
             _pause();
         }
-    }
-
-    // ToDo: try to remove as `paused` is already public
-    /// @inheritdoc IDVP
-    function isPaused() public view override returns (bool paused_) {
-        paused_ = paused();
     }
 }

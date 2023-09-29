@@ -377,14 +377,14 @@ contract VaultStateTest is Test {
         vm.prank(admin);
         vault.rollEpoch();
 
-        assertEq(vault.isPaused(), false);
+        assertEq(vault.paused(), false);
 
         vm.expectRevert(OwnerError);
         vault.changePauseState();
 
         vm.prank(admin);
         vault.changePauseState();
-        assertEq(vault.isPaused(), true);
+        assertEq(vault.paused(), true);
 
         vm.startPrank(alice);
         vm.expectRevert(VaultPaused);
@@ -406,7 +406,7 @@ contract VaultStateTest is Test {
         // From here on, all the vault functions should working properly
         vm.prank(admin);
         vault.changePauseState();
-        assertEq(vault.isPaused(), false);
+        assertEq(vault.paused(), false);
 
         vm.prank(admin);
         vault.rollEpoch();

@@ -17,7 +17,7 @@ library EpochController {
     error EpochNotFinished();
 
     function init(Epoch storage epoch, uint256 epochFrequency) public {
-        if (epoch.current > 0) {
+        if (_isInitialized(epoch)) {
             return;
         }
 
@@ -39,13 +39,13 @@ library EpochController {
 
         epoch.previous = epoch.current;
 
-        if (!isInitialized(epoch)) {
+        // TBD: move to init (beware of `previous`)
+        if (!_isInitialized(epoch)) {
             // TBD: accept an initial reference expiry in `init` ?
             // NOTE: beware of `nextExpiry` gas usage on first rolled epoch
             epoch.current = block.timestamp;
         }
 
-        // ToDo: review as the custom timestamps are not done properly...
         uint256 nextEpoch = EpochFrequency.nextExpiry(epoch.current, epoch.frequency);
 
         // If next epoch expiry is in the past (should not happen...) go to next of the next
@@ -63,7 +63,7 @@ library EpochController {
         @notice Check if has been rolled the first epoch
         @return True if the first epoch has been rolled, false otherwise
      */
-    function isInitialized(Epoch memory epoch) public pure returns (bool) {
+    function _isInitialized(Epoch memory epoch) private pure returns (bool) {
         return epoch.current > 0;
     }
 
@@ -78,7 +78,7 @@ library EpochController {
     }
 
     function timeToNextEpoch(Epoch memory epoch) public view returns (uint256) {
-        if (block.timestamp > epoch.current) {
+        if (isFinished(epoch)) {
             return 0;
         }
 

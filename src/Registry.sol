@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
@@ -76,7 +77,7 @@ contract Registry is AccessControl, IRegistry {
         for (uint256 i = 0; i < _dvps.length; i++) {
             IDVP dvp = IDVP(_dvps[i]);
             Epoch memory epoch = dvp.getEpoch();
-            if (epoch.timeToNextEpoch() != 0 || dvp.isPaused()) {
+            if (epoch.timeToNextEpoch() != 0 || Pausable(_dvps[i]).paused()) {
                 continue;
             }
             // TBD: filter out the DVPs whose vault is in a dead state.

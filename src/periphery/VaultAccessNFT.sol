@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {IVaultAccessNFT} from "../interfaces/IVaultAccessNFT.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
 import {IRegistry} from "../interfaces/IRegistry.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {IVaultAccessNFT} from "../interfaces/IVaultAccessNFT.sol";
 
 /**
     @title Simple implementation of IVaultAccessNFT
@@ -14,8 +14,8 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
  */
 contract VaultAccessNFT is IVaultAccessNFT, ERC721, Ownable {
     uint256 private _currentId = 0;
-    mapping(uint256 => uint256) private _priorityDeposit;
     IAddressProvider private immutable _ap;
+    mapping(uint256 => uint256) private _priorityDeposit;
 
     error CallerNotVault();
     error ExceedsAvailable();
@@ -33,12 +33,14 @@ contract VaultAccessNFT is IVaultAccessNFT, ERC721, Ownable {
     function createToken(address receiver, uint256 priorityDeposit) public onlyOwner returns (uint tokenId) {
         tokenId = ++_currentId;
         _priorityDeposit[tokenId] = priorityDeposit;
+
         _mint(receiver, tokenId);
     }
 
     /// @inheritdoc IVaultAccessNFT
     function priorityAmount(uint256 tokenId) external view returns (uint256 amount) {
         _requireMinted(tokenId);
+
         return _priorityDeposit[tokenId];
     }
 

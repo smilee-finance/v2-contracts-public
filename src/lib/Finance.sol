@@ -57,4 +57,11 @@ library Finance {
 
         swapPrice = exchangedTokens.wdiv(tokensToSwap_);
     }
+
+    function getUtilizationRate(uint256 used, uint256 total, uint8 tokenDecimals) public pure returns (uint256) {
+        used = AmountsMath.wrapDecimals(used, tokenDecimals);
+        total = AmountsMath.wrapDecimals(total, tokenDecimals);
+
+        return used.wdiv(total);
+    }
 }

@@ -121,7 +121,7 @@ contract RegistryTest is Test {
     }
 
     function testMultiSideTokenIndexing() public {
-        MockedVault vault2 = MockedVault(VaultUtils.createVaultSideTokenSym(dvp.baseToken(), "JOE", 0, ap, admin, vm));
+        MockedVault vault2 = MockedVault(VaultUtils.createVaultSideTokenSym(dvp.baseToken(), "JOE", EpochFrequency.DAILY, ap, admin, vm));
         MockedIG dvp2 = new MockedIG(address(vault2), address(ap));
 
         vm.prank(admin);

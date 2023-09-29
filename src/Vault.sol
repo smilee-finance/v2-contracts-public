@@ -255,12 +255,6 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         }
     }
 
-    // ToDo: try to remove as `paused` is already public
-    /// @inheritdoc IVault
-    function isPaused() public view override returns (bool paused_) {
-        paused_ = paused();
-    }
-
     // ------------------------------------------------------------------------
     // USER OPERATIONS
     // ------------------------------------------------------------------------
