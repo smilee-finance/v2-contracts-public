@@ -135,6 +135,11 @@ contract TestScenariosJson is Test {
 
         vm.startPrank(_admin);
         _dvp = new MockedIG(address(_vault), address(_ap));
+
+        _dvp.grantRole(_dvp.ROLE_ADMIN(), _admin);
+        _dvp.grantRole(_dvp.ROLE_EPOCH_ROLLER(), _admin);
+        _vault.grantRole(_vault.ROLE_ADMIN(), _admin);
+
         TestnetRegistry(_ap.registry()).registerDVP(address(_dvp));
         MockedVault(_vault).setAllowedDVP(address(_dvp));
 

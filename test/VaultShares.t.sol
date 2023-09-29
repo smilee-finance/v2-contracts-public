@@ -35,12 +35,19 @@ contract VaultSharesTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS + 1);
 
-        vm.prank(tokenAdmin);
+        vm.startPrank(tokenAdmin);
         AddressProvider ap = new AddressProvider();
+        ap.grantRole(ap.ROLE_ADMIN(), tokenAdmin);
+        vm.stopPrank();
 
         vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
+
+        vm.startPrank(tokenAdmin);
+        vault.grantRole(vault.ROLE_ADMIN(), tokenAdmin);
+        vault.grantRole(vault.ROLE_EPOCH_ROLLER(), tokenAdmin);
+        vm.stopPrank();
     }
 
     function testDeposit() public {

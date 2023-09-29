@@ -4,8 +4,8 @@ pragma solidity ^0.8.15;
 import {Script} from "forge-std/Script.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {FeeManager} from "../../src/FeeManager.sol";
+import {MarketOracle} from "../../src/MarketOracle.sol";
 import {PositionManager} from "../../src/PositionManager.sol";
-// import {Factory} from "../../src/Factory.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
@@ -28,10 +28,14 @@ import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
  */
 contract DeployCoreFoundations is Script {
     uint256 internal _deployerPrivateKey;
+    address internal _deployerAddress;
+    address internal _adminMultiSigAddress;
 
     constructor() {
         // Load the private key that will be used for signing the transactions:
         _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        _deployerAddress = vm.envAddress("DEPLOYER_ADDRESS");
+        _adminMultiSigAddress = vm.envAddress("ADMIN_MULTI_SIG_ADDRESS");
     }
 
     // NOTE: this is the script entrypoint
@@ -46,10 +50,15 @@ contract DeployCoreFoundations is Script {
     function _doSomething() internal {
         TestnetToken sUSD = new TestnetToken("Smilee USD", "sUSD");
         AddressProvider ap = new AddressProvider();
+        ap.grantRole(ap.ROLE_GOD(), _adminMultiSigAddress);
+        ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress);
+        ap.renounceRole(ap.ROLE_GOD(), _deployerAddress);
 
         TestnetPriceOracle priceOracle = new TestnetPriceOracle(address(sUSD));
         ap.setPriceOracle(address(priceOracle));
-        ap.setMarketOracle(address(priceOracle));
+
+        MarketOracle marketOracle = new MarketOracle();
+        ap.setMarketOracle(address(marketOracle));
 
         TestnetSwapAdapter swapper = new TestnetSwapAdapter(address(priceOracle));
         ap.setExchangeAdapter(address(swapper));
@@ -63,5 +72,7 @@ contract DeployCoreFoundations is Script {
         sUSD.setAddressProvider(address(ap));
         PositionManager pm = new PositionManager();
         ap.setDvpPositionManager(address(pm));
+
+        ap.renounceRole(ap.ROLE_ADMIN(), _deployerAddress);
     }
 }

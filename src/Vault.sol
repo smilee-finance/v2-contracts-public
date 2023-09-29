@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -19,7 +19,7 @@ import {TokensPair} from "./lib/TokensPair.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 import {EpochControls} from "./EpochControls.sol";
 
-contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
+contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     using AmountsMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
     using EpochController for Epoch;
@@ -61,8 +61,13 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     /// @notice A flag to tell if this vault is currently bound to priority access for deposits
     bool public priorityAccessFlag = false;
 
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+    bytes32 public constant ROLE_EPOCH_ROLLER = keccak256("ROLE_EPOCH_ROLLER");
+
     error AddressZero();
     error AmountZero();
+    error DVPAlreadySet();
     error DVPNotSet();
     error ExceedsAvailable();
     error ExceedsMaxDeposit();
@@ -88,15 +93,21 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         address sideToken_,
         uint256 epochFrequency_,
         address addressProvider_
-    ) ERC20("", "") EpochControls(epochFrequency_) Ownable() Pausable() {
+    ) ERC20("", "") EpochControls(epochFrequency_) AccessControl() Pausable() {
         TokensPair.validate(TokensPair.Pair({baseToken: baseToken_, sideToken: sideToken_}));
         baseToken = baseToken_;
         sideToken = sideToken_;
 
         _addressProvider = IAddressProvider(addressProvider_);
         // ToDo: move to constructor parameter (wrong decimals)
-        setMaxDeposit(10_000_000e18);
+        maxDeposit = 10_000_000e18;
         _secondaryMarketAllowed = false;
+
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+        _setRoleAdmin(ROLE_EPOCH_ROLLER, ROLE_ADMIN);
+
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     modifier isNotDead() {
@@ -127,20 +138,30 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         @notice Allows the contract's owner to set the DVP paired with this vault
         @dev The address is injected after-build, because the DVP needs an already built vault as constructor-injected dependency
      */
-    function setAllowedDVP(address dvp_) external onlyOwner {
-        // TBD: make this callable only one time
+    function setAllowedDVP(address dvp_) external {
+        _checkRole(ROLE_ADMIN);
+
+        if (dvp != address(0)) {
+            revert DVPAlreadySet();
+        }
+
         dvp = dvp_;
+        _grantRole(ROLE_EPOCH_ROLLER, dvp_);
     }
 
     /**
         @notice Set maximum deposit capacity for the Vault
         @param maxDeposit_ The number of base tokens
      */
-    function setMaxDeposit(uint256 maxDeposit_) public onlyOwner {
+    function setMaxDeposit(uint256 maxDeposit_) public {
+        _checkRole(ROLE_ADMIN);
+
         maxDeposit = maxDeposit_;
     }
 
-    function killVault() external onlyOwner {
+    function killVault() external {
+        _checkRole(ROLE_ADMIN);
+
         manuallyKilled = true;
     }
 
@@ -246,7 +267,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
 
     /// @inheritdoc IVault
     function changePauseState() external override {
-        _checkOwner();
+        _checkRole(ROLE_ADMIN);
 
         if (paused()) {
             _unpause();
@@ -534,14 +555,18 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     /**
         @notice Allows the contract's owner to enable or disable the secondary market for the vault's shares
      */
-    function setAllowedSecondaryMarket(bool allowed) external onlyOwner {
+    function setAllowedSecondaryMarket(bool allowed) external {
+        _checkRole(ROLE_ADMIN);
+
         _secondaryMarketAllowed = allowed;
     }
 
     /**
         @notice Allows the contract's owner to enable or disable the priority access to deposit operations
      */
-    function setPriorityAccessFlag(bool flag) external onlyOwner {
+    function setPriorityAccessFlag(bool flag) external {
+        _checkRole(ROLE_ADMIN);
+
         priorityAccessFlag = flag;
     }
 
@@ -552,14 +577,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     // TBD: split on _afterRollEpoch
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override isNotDead {
-        if (dvp == address(0)) {
-            _checkOwner();
-        }
-        // TBD: review (what if there are issues on the DVP ?)
-        if (dvp != address(0) && msg.sender != dvp) {
-            // NOTE: must be called only by the DVP after a DVP has been set.
-            revert OnlyDVPAllowed();
-        }
+        _checkRole(ROLE_EPOCH_ROLLER);
 
         // ToDo: review variable name
         uint256 lockedLiquidity = notional();

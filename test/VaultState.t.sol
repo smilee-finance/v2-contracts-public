@@ -19,9 +19,7 @@ import {AddressProvider} from "../src/AddressProvider.sol";
 contract VaultStateTest is Test {
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
     bytes4 constant ExceedsMaxDeposit = bytes4(keccak256("ExceedsMaxDeposit()"));
-    bytes4 constant OnlyDVPAllowed = bytes4(keccak256("OnlyDVPAllowed()"));
     bytes constant VaultPaused = bytes("Pausable: paused");
-    bytes constant OwnerError = bytes("Ownable: caller is not the owner");
 
     address admin = address(0x1);
     address alice = address(0x2);
@@ -33,12 +31,19 @@ contract VaultStateTest is Test {
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
 
-        vm.prank(admin);
+        vm.startPrank(admin);
         AddressProvider ap = new AddressProvider();
+        ap.grantRole(ap.ROLE_ADMIN(), admin);
+        vm.stopPrank();
 
         vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
+
+        vm.startPrank(admin);
+        vault.grantRole(vault.ROLE_ADMIN(), admin);
+        vault.grantRole(vault.ROLE_EPOCH_ROLLER(), admin);
+        vm.stopPrank();
     }
 
     function testEpochRollableOnlyByAdminWhenNotLinkedToDVP() public {
@@ -51,7 +56,7 @@ contract VaultStateTest is Test {
         Utils.skipDay(true, vm);
 
         vm.prank(alice);
-        vm.expectRevert(OwnerError);
+        vm.expectRevert();
         vault.rollEpoch();
 
         vm.prank(admin);
@@ -77,12 +82,14 @@ contract VaultStateTest is Test {
         MockedVault(vault).setAllowedDVP(dvp);
 
         vm.prank(alice);
-        vm.expectRevert(OnlyDVPAllowed);
+        vm.expectRevert();
         vault.rollEpoch();
 
-        vm.prank(admin);
-        vm.expectRevert(OnlyDVPAllowed);
+        vm.startPrank(admin);
+        vault.renounceRole(vault.ROLE_EPOCH_ROLLER(), admin);
+        vm.expectRevert();
         vault.rollEpoch();
+        vm.stopPrank();
 
         vm.prank(dvp);
         vault.rollEpoch();
@@ -379,7 +386,7 @@ contract VaultStateTest is Test {
 
         assertEq(vault.paused(), false);
 
-        vm.expectRevert(OwnerError);
+        vm.expectRevert();
         vault.changePauseState();
 
         vm.prank(admin);

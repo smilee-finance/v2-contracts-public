@@ -274,13 +274,15 @@ contract IG is DVP {
     }
 
     /// @dev must be defined in Wad
-    function setSigmaMultiplier(uint256 value) external onlyOwner {
+    function setSigmaMultiplier(uint256 value) external {
+        _checkRole(ROLE_ADMIN);
         // ToDo: make the change effective after a given amount of time
         _financeParameters.sigmaMultiplier = value;
     }
 
     /// @dev must be defined in Wad
-    function setTradeVolatilityUtilizationRateFactor(uint256 value) external onlyOwner {
+    function setTradeVolatilityUtilizationRateFactor(uint256 value) external {
+        _checkRole(ROLE_ADMIN);
         // ToDo: make the change effective after a given amount of time
         if (value < 1e18 || value > 5e18) {
             revert OutOfAllowedRange();
@@ -290,7 +292,8 @@ contract IG is DVP {
     }
 
     /// @dev must be defined in Wad
-    function setTradeVolatilityTimeDecay(uint256 value) external onlyOwner {
+    function setTradeVolatilityTimeDecay(uint256 value) external {
+        _checkRole(ROLE_ADMIN);
         // ToDo: make the change effective after a given amount of time
         if (value > 0.5e18) {
             revert OutOfAllowedRange();

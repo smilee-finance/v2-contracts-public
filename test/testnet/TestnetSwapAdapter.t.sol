@@ -35,6 +35,7 @@ contract TestnetSwapAdapterTest is Test {
         WBTC = new TestnetToken("Testnet WBTC", "WBTC");
 
         AddressProvider ap = new AddressProvider();
+        ap.grantRole(ap.ROLE_ADMIN(), adminWallet);
         registry = new TestnetRegistry();
         priceOracle = new TestnetPriceOracle(address(USD));
         dex = new TestnetSwapAdapter(address(priceOracle));

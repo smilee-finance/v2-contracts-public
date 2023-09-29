@@ -24,6 +24,7 @@ library TokenUtils {
         tokenAddr = address(token);
 
         AddressProvider ap = AddressProvider(addressProvider);
+        ap.grantRole(ap.ROLE_ADMIN(), admin);
 
         address registryAddress = ap.registry();
         if (registryAddress == address(0)) {

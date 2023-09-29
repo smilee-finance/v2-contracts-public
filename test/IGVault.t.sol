@@ -25,8 +25,6 @@ import {FeeManager} from "../src/FeeManager.sol";
  */
 contract IGVaultTest is Test {
     bytes4 constant NotEnoughLiquidity = bytes4(keccak256("NotEnoughLiquidity()"));
-    bytes4 constant VaultPaused = bytes4(keccak256("VaultPaused()"));
-    bytes constant OwnerError = bytes("Ownable: caller is not the owner");
 
     address admin = address(0x1);
 
@@ -53,6 +51,7 @@ contract IGVaultTest is Test {
         vm.startPrank(admin);
         AddressProvider ap = new AddressProvider();
         registry = new TestnetRegistry();
+        ap.grantRole(ap.ROLE_ADMIN(), admin);
         ap.setRegistry(address(registry));
         vm.stopPrank();
 
@@ -61,7 +60,12 @@ contract IGVaultTest is Test {
         baseToken = TestnetToken(vault.baseToken());
         sideToken = TestnetToken(vault.sideToken());
 
+        vm.startPrank(admin);
         ig = new MockedIG(address(vault), address(ap));
+        ig.grantRole(ig.ROLE_ADMIN(), admin);
+        ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
+        vault.grantRole(vault.ROLE_ADMIN(), admin);
+        vm.stopPrank();
         ig.setOptionPrice(1e3);
         ig.setPayoffPerc(1e17);
         ig.useFakeDeltaHedge();
@@ -85,9 +89,10 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
 
         vm.prank(alice);
-        vm.expectRevert(OwnerError);
+        vm.expectRevert();
         ig.rollEpoch();
 
+        vm.prank(admin);
         ig.rollEpoch();
 
         epoch = vault.getEpoch();
@@ -115,6 +120,7 @@ contract IGVaultTest is Test {
         VaultUtils.addVaultDeposit(alice, 0.5 ether, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
 
         _assurePremium(charlie, 0, inputAmount, 0);
@@ -135,6 +141,7 @@ contract IGVaultTest is Test {
         VaultUtils.addVaultDeposit(bob, bobAmount, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
 
         uint256 vaultNotionalBeforeMint = vault.notional();
@@ -187,6 +194,7 @@ contract IGVaultTest is Test {
         VaultUtils.addVaultDeposit(bob, params.bobAmount, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
 
         uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
@@ -303,6 +311,7 @@ contract IGVaultTest is Test {
         VaultUtils.addVaultDeposit(bob, params.bobAmount, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
         {
             uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
@@ -349,6 +358,7 @@ contract IGVaultTest is Test {
         uint256 positionStrike = ig.currentStrike();
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
 
         // {
@@ -420,6 +430,7 @@ contract IGVaultTest is Test {
         VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
         // VaultUtils.logState(vault);
 
@@ -428,6 +439,7 @@ contract IGVaultTest is Test {
         vault.initiateWithdraw(500e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
         // VaultUtils.logState(vault);
 
@@ -438,6 +450,7 @@ contract IGVaultTest is Test {
         ig.mint(charlie, 0, optionAmount, 0, 0, 0.1e18);
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
         // VaultUtils.logState(vault);
     }
@@ -445,6 +458,7 @@ contract IGVaultTest is Test {
     function testIGBehaviourWhenVaultIsPaused() public {
         VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         ig.rollEpoch();
 
         uint256 optionAmount = 250e18;
@@ -489,6 +503,7 @@ contract IGVaultTest is Test {
 
         Utils.skipDay(true, vm);
         vm.expectRevert("Pausable: paused");
+        vm.prank(admin);
         ig.rollEpoch();
     }
 

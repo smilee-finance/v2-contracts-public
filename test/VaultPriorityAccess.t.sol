@@ -32,6 +32,7 @@ contract VaultPriorityAccessTest is Test {
 
         vm.startPrank(_admin);
         AddressProvider ap = new AddressProvider();
+        ap.grantRole(ap.ROLE_ADMIN(), _admin);
         _nft = new VaultAccessNFT(address(ap));
         ap.setVaultAccessNFT(address(_nft));
         vm.stopPrank();
@@ -39,6 +40,11 @@ contract VaultPriorityAccessTest is Test {
         _vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, _admin, vm));
         TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _alice, address(_vault), 1000e18, vm);
         TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _bob, address(_vault), 1000e18, vm);
+
+        vm.startPrank(_admin);
+        _vault.grantRole(_vault.ROLE_ADMIN(), _admin);
+        _vault.grantRole(_vault.ROLE_EPOCH_ROLLER(), _admin);
+        vm.stopPrank();
 
         vm.prank(_admin);
         _vault.setPriorityAccessFlag(true);

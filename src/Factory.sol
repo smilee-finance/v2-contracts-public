@@ -78,7 +78,10 @@ contract Factory is Ownable {
         address vault = _createVault(baseToken, sideToken, epochFrequency); 
         address dvp = _createImpermanentGainDVP(vault);
 
-        Vault(vault).setAllowedDVP(dvp);
+        Vault vault_ = Vault(vault);
+        vault_.grantRole(vault_.ROLE_ADMIN(), address(this));
+        vault_.setAllowedDVP(dvp);
+        vault_.renounceRole(vault_.ROLE_ADMIN(), address(this));
 
         IRegistry registry = IRegistry(_addressProvider.registry());
         registry.register(dvp);

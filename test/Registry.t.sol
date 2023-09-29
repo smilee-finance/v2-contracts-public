@@ -26,12 +26,18 @@ contract RegistryTest is Test {
         vm.startPrank(admin);
         ap = new AddressProvider();
         registry = new TestnetRegistry();
+        ap.grantRole(ap.ROLE_ADMIN(), admin);
         ap.setRegistry(address(registry));
 
         vm.stopPrank();
 
         MockedVault vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
+        vm.startPrank(admin);
         dvp = new MockedIG(address(vault), address(ap));
+
+        dvp.grantRole(dvp.ROLE_ADMIN(), admin);
+        dvp.grantRole(dvp.ROLE_EPOCH_ROLLER(), admin);
+        vm.stopPrank();
     }
 
     function testNotRegisteredAddress() public {
@@ -160,13 +166,21 @@ contract RegistryTest is Test {
 
     function testDVPToRoll() public {
         vm.startPrank(admin);
-        MockedVault(dvp.vault()).setAllowedDVP(address(dvp));
+        MockedVault vault = MockedVault(dvp.vault());
+        vault.grantRole(vault.ROLE_ADMIN(), admin);
+        vault.setAllowedDVP(address(dvp));
         vm.stopPrank();
 
         vm.warp(EpochFrequency.REF_TS);
 
         MockedVault vault2 = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
+        vm.startPrank(admin);
+        vault2.grantRole(vault2.ROLE_ADMIN(), admin);
+
         MockedIG dvp2 = new MockedIG(address(vault2), address(ap));
+        dvp2.grantRole(dvp2.ROLE_ADMIN(), admin);
+        dvp2.grantRole(dvp2.ROLE_EPOCH_ROLLER(), admin);
+        vm.stopPrank();
 
         TestnetPriceOracle po = TestnetPriceOracle(ap.priceOracle());
 
@@ -178,6 +192,7 @@ contract RegistryTest is Test {
         vm.stopPrank();
 
         Utils.skipDay(true, vm);
+        vm.prank(admin);
         dvp2.rollEpoch();
 
         Epoch memory dvpEpoch = dvp.getEpoch();
@@ -193,6 +208,7 @@ contract RegistryTest is Test {
         assertEq(1, dvpsToRoll);
         assertEq(keccak256(abi.encodePacked(dvps)), keccak256(abi.encodePacked([address(dvp), address(0)])));
 
+        vm.prank(admin);
         dvp.rollEpoch();
 
         (dvps, dvpsToRoll) = registry.getUnrolledDVPs();

@@ -64,11 +64,11 @@ contract PositionManagerTest is Test {
     function initAndMint() private returns (uint256 tokenId, IG ig) {
         vm.startPrank(admin);
         ig = new IG(address(vault), address(ap));
+        ig.grantRole(ig.ROLE_ADMIN(), admin);
+        ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
+        vault.grantRole(vault.ROLE_ADMIN(), admin);
         vault.setAllowedDVP(address(ig));
 
-        Utils.skipDay(true, vm);
-        ig.rollEpoch();
-        // NOTE: needed because the DVP doesn't know that its vault has already done an epoch by itself
         Utils.skipDay(true, vm);
         ig.rollEpoch();
         vm.stopPrank();

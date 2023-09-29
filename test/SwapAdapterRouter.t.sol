@@ -35,6 +35,7 @@ contract SwapProviderRouterTest is Test {
         _swapRouter = new SwapAdapterRouter(address(_oracle));
 
         AddressProvider ap = new AddressProvider();
+        ap.grantRole(ap.ROLE_ADMIN(), _admin);
         TestnetRegistry r = new TestnetRegistry();
         ap.setExchangeAdapter(address(_swap));
         ap.setRegistry(address(r));

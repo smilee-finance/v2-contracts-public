@@ -18,13 +18,15 @@ contract AddressProviderTest is Test {
     AddressProvider addressProvider;
 
     function setUp() public {
-        vm.prank(tokenAdmin);
+        vm.startPrank(tokenAdmin);
         addressProvider = new AddressProvider();
+        addressProvider.grantRole(addressProvider.ROLE_ADMIN(), tokenAdmin);
+        vm.stopPrank();
     }
 
     function testAddressProviderUnauthorized() public {
         //vm.startPrank(address(0x100));
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert();
         addressProvider.setExchangeAdapter(address(0x100));
     }
 

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 
 // TBD: add TimeLock
 // TBD: return an immutable view to be used on each epoch ?
 // TBD: merge with Registry.sol
-contract AddressProvider is Ownable, IAddressProvider {
+contract AddressProvider is AccessControl, IAddressProvider {
     address public exchangeAdapter;
     address public priceOracle;
     address public marketOracle;
@@ -16,6 +16,9 @@ contract AddressProvider is Ownable, IAddressProvider {
     address public vaultProxy;
     address public feeManager;
     address public vaultAccessNFT;
+
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
     error AddressZero();
 
@@ -27,7 +30,12 @@ contract AddressProvider is Ownable, IAddressProvider {
     event ChangedVaultProxy(address newValue, address oldValue);
     event ChangedFeeManager(address newValue, address oldValue);
 
-    constructor() Ownable() {}
+    constructor() AccessControl() {
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+
+        _grantRole(ROLE_GOD, msg.sender);
+    }
 
     function _checkZeroAddress(address addr) internal pure {
         if (addr == address(0)) {
@@ -35,7 +43,8 @@ contract AddressProvider is Ownable, IAddressProvider {
         }
     }
 
-    function setExchangeAdapter(address exchangeAdapter_) external onlyOwner {
+    function setExchangeAdapter(address exchangeAdapter_) external {
+        _checkRole(ROLE_ADMIN);
         _checkZeroAddress(exchangeAdapter_);
 
         address previous = exchangeAdapter;
@@ -44,7 +53,8 @@ contract AddressProvider is Ownable, IAddressProvider {
         emit ChangedExchangeAdapter(exchangeAdapter_, previous);
     }
 
-    function setPriceOracle(address priceOracle_) external onlyOwner {
+    function setPriceOracle(address priceOracle_) external {
+        _checkRole(ROLE_ADMIN);
         _checkZeroAddress(priceOracle_);
 
         address previous = priceOracle;
@@ -53,7 +63,8 @@ contract AddressProvider is Ownable, IAddressProvider {
         emit ChangedPriceOracle(priceOracle_, previous);
     }
 
-    function setMarketOracle(address marketOracle_) external onlyOwner {
+    function setMarketOracle(address marketOracle_) external {
+        _checkRole(ROLE_ADMIN);
         _checkZeroAddress(marketOracle_);
 
         address previous = marketOracle;
@@ -62,7 +73,8 @@ contract AddressProvider is Ownable, IAddressProvider {
         emit ChangedMarketOracle(marketOracle_, previous);
     }
 
-    function setRegistry(address registry_) external onlyOwner {
+    function setRegistry(address registry_) external {
+        _checkRole(ROLE_ADMIN);
         _checkZeroAddress(registry_);
 
         address previous = registry;
@@ -71,7 +83,8 @@ contract AddressProvider is Ownable, IAddressProvider {
         emit ChangedRegistry(registry_, previous);
     }
 
-    function setDvpPositionManager(address posManager_) external onlyOwner {
+    function setDvpPositionManager(address posManager_) external {
+        _checkRole(ROLE_ADMIN);
         _checkZeroAddress(posManager_);
 
         address previous = dvpPositionManager;
@@ -80,7 +93,8 @@ contract AddressProvider is Ownable, IAddressProvider {
         emit ChangedPositionManager(posManager_, previous);
     }
 
-    function setVaultProxy(address vaultProxy_) external onlyOwner {
+    function setVaultProxy(address vaultProxy_) external {
+        _checkRole(ROLE_ADMIN);
         _checkZeroAddress(vaultProxy_);
 
         address previous = vaultProxy;
@@ -89,7 +103,8 @@ contract AddressProvider is Ownable, IAddressProvider {
         emit ChangedVaultProxy(vaultProxy_, previous);
     }
 
-    function setFeeManager(address feeManager_) external onlyOwner {
+    function setFeeManager(address feeManager_) external {
+        _checkRole(ROLE_ADMIN);
         _checkZeroAddress(feeManager_);
 
         address previous = feeManager;
@@ -98,7 +113,8 @@ contract AddressProvider is Ownable, IAddressProvider {
         emit ChangedFeeManager(feeManager_, previous);
     }
 
-    function setVaultAccessNFT(address vaultAccessNFT_) public onlyOwner {
+    function setVaultAccessNFT(address vaultAccessNFT_) public {
+        _checkRole(ROLE_ADMIN);
         _checkZeroAddress(vaultAccessNFT_);
 
         address previous = vaultAccessNFT;

@@ -27,12 +27,13 @@ import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
         #       --sig 'rollEpoch(address)' <DVP_ADDRESS>
  */
 contract RollEpoch is EnhancedScript {
-    uint256 internal _deployerPrivateKey;
+    uint256 internal _epochRollerPrivateKey;
+    address internal _epochRollerAddress;
     TestnetRegistry internal _registry;
 
     constructor() {
         // Load the private key that will be used for signing the transactions:
-        _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        _epochRollerPrivateKey = vm.envUint("EPOCH_ROLLER_PRIVATE_KEY");
 
         string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
         AddressProvider addressProvider = AddressProvider(_readAddress(txLogs, "AddressProvider"));
@@ -48,7 +49,7 @@ contract RollEpoch is EnhancedScript {
 
     function rollEpoch(address dvp) public
     {
-        vm.startBroadcast(_deployerPrivateKey);
+        vm.startBroadcast(_epochRollerPrivateKey);
         IDVP(dvp).rollEpoch();
         vm.stopBroadcast();
     }

@@ -37,7 +37,7 @@ contract DeployToken is EnhancedScript {
     function run() external {
         address sETH = _deployToken("ETH");
         console.log(string.concat("Token sETH deployed at"), sETH);
-        setTokenPrice(sETH, 10 ** 18);
+        setTokenPrice(sETH, 1600e18);
     }
 
     function deployToken(string memory symbol) public {

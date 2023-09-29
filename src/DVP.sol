@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
@@ -19,7 +19,7 @@ import {Notional} from "./lib/Notional.sol";
 import {Position} from "./lib/Position.sol";
 import {EpochControls} from "./EpochControls.sol";
 
-abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
+abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     using AmountHelper for Amount;
     using AmountsMath for uint256;
     using Position for Position.Info;
@@ -38,6 +38,10 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
     IAddressProvider internal immutable _addressProvider;
     uint8 internal immutable _baseTokenDecimals;
     uint8 internal immutable _sideTokenDecimals;
+
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+    bytes32 public constant ROLE_EPOCH_ROLLER = keccak256("ROLE_EPOCH_ROLLER");
 
     // TBD: define lot size
 
@@ -83,7 +87,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         address vault_,
         bool optionType_,
         address addressProvider_
-    ) EpochControls(IEpochControls(vault_).getEpoch().frequency) Ownable() Pausable() {
+    ) EpochControls(IEpochControls(vault_).getEpoch().frequency) AccessControl() Pausable() {
         // ToDo: validate parameters
         optionType = optionType_;
         vault = vault_;
@@ -93,6 +97,12 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         _baseTokenDecimals = IERC20Metadata(baseToken).decimals();
         _sideTokenDecimals = IERC20Metadata(sideToken).decimals();
         _addressProvider = IAddressProvider(addressProvider_);
+
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+        _setRoleAdmin(ROLE_EPOCH_ROLLER, ROLE_ADMIN);
+
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     /**
@@ -289,7 +299,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override {
-        _checkOwner();
+        _checkRole(ROLE_EPOCH_ROLLER);
         _requireNotPaused();
 
         // NOTE: avoids breaking computations when there is nothing to compute.
@@ -455,7 +465,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
 
     /// @inheritdoc IDVP
     function changePauseState() external override {
-        _checkOwner();
+        _checkRole(ROLE_ADMIN);
 
         if (paused()) {
             _unpause();

@@ -26,15 +26,16 @@ contract FactoryTest is Test {
     Factory factory;
 
     function setUp() public {
+        vm.startPrank(tokenAdmin);
         AddressProvider ap = new AddressProvider();
+        ap.grantRole(ap.ROLE_ADMIN(), tokenAdmin);
+        vm.stopPrank();
 
-        vm.prank(tokenAdmin);
+        vm.startPrank(tokenAdmin);
         registry = new Registry();
 
         ap.setRegistry(address(registry));
         ap.setExchangeAdapter(address(0x5));
-
-        vm.startPrank(tokenAdmin);
 
         TestnetToken token = new TestnetToken("Testnet USD", "stUSD");
         token.setAddressProvider(address(ap));

@@ -19,7 +19,6 @@ contract IGTest is Test {
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
     bytes constant IGPaused = bytes("Pausable: paused");
-    bytes constant OwnerError = bytes("Ownable: caller is not the owner");
     bytes4 constant SlippedMarketValue = bytes4(keccak256("SlippedMarketValue()"));
 
     address baseToken;
@@ -37,6 +36,7 @@ contract IGTest is Test {
     constructor() {
         vm.startPrank(admin);
         ap = new AddressProvider();
+        ap.grantRole(ap.ROLE_ADMIN(), admin);
         registry = new TestnetRegistry();
         ap.setRegistry(address(registry));
         vm.stopPrank();
@@ -51,6 +51,9 @@ contract IGTest is Test {
     function setUp() public {
         vm.startPrank(admin);
         ig = new MockedIG(address(vault), address(ap));
+        ig.grantRole(ig.ROLE_ADMIN(), admin);
+        ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
+        vault.grantRole(vault.ROLE_ADMIN(), admin);
         registry.register(address(ig));
         MockedVault(vault).setAllowedDVP(address(ig));
         vm.stopPrank();
@@ -236,7 +239,7 @@ contract IGTest is Test {
 
         assertEq(ig.paused(), false);
 
-        vm.expectRevert(OwnerError);
+        vm.expectRevert();
         ig.changePauseState();
 
         vm.prank(admin);
@@ -317,10 +320,10 @@ contract IGTest is Test {
     }
 
     function testSetTradeVolatilityParams() public {
-        vm.expectRevert(OwnerError);
+        vm.expectRevert();
         ig.setTradeVolatilityTimeDecay(25e16);
 
-        vm.expectRevert(OwnerError);
+        vm.expectRevert();
         ig.setTradeVolatilityUtilizationRateFactor(1.25e18);
 
         vm.startPrank(admin);
