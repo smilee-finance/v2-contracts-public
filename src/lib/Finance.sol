@@ -32,20 +32,6 @@ library Finance {
         }
     }
 
-    function getIntrinsicValue(
-        Amount memory amount,
-        uint256 payoffPercUp,
-        uint256 payoffPercDown,
-        uint8 tokenDecimals
-    ) internal pure returns (uint256 intrinsicValue) {
-        // intrinsicValue := payoffPercUp * v0 * amountUp / (v0/2) + payoffPercDown * v0 * amountDown / (v0/2) =
-        //                 = payoffPercUp * 2 * amountUp + payoffPercDown * 2 * amountDown
-        intrinsicValue = payoffPercUp.wrapDecimals(tokenDecimals).wmul(2 * amount.up).add(
-            payoffPercDown.wrapDecimals(tokenDecimals).wmul(2 * amount.down)
-        );
-        intrinsicValue = intrinsicValue.unwrapDecimals(tokenDecimals);
-    }
-
     function getSwapPrice(
         int256 tokensToSwap,
         uint256 exchangedTokens,
