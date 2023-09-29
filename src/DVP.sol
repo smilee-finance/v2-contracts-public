@@ -88,7 +88,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         bool optionType_,
         address addressProvider_
     ) EpochControls(IEpochControls(vault_).getEpoch().frequency) AccessControl() Pausable() {
-        // ToDo: validate parameters
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);
@@ -110,7 +109,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         @param recipient The wallet of the recipient for the opened position.
         @param strike The strike.
         @param amount The notional.
-        @param expectedPremium The expected premium; used to check the slippage.
+        @param expectedPremium The expected premium, assumed to not consider fees, used to check the slippage.
         @param maxSlippage The maximum slippage percentage.
         @return premium_ The paid premium.
         @dev The client must have approved the needed premium.
@@ -141,13 +140,11 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
-        uint256 fee = feeManager.calculateTradeFee(amount.up + amount.down, premium_, _baseTokenDecimals, false);
+        uint256 fee = feeManager.tradeFee(amount.up + amount.down, premium_, _baseTokenDecimals, false);
 
         // Revert if actual price exceeds the previewed premium
         // NOTE: cannot use the approved premium as a reference due to the PositionManager...
-        _checkSlippage(premium_, fee, expectedPremium, maxSlippage, true);
-        // ToDo: revert if the premium is zero due to an underflow
-        // ----- it may be avoided by asking for a positive number of lots as notional...
+        _checkSlippage(premium_, expectedPremium, maxSlippage, true);
 
         // Get base premium from sender:
         IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_);
@@ -174,18 +171,17 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     }
 
     function _checkSlippage(
-        uint256 marketValue,
-        uint256 fee,
-        uint256 expectedMarketValue,
+        uint256 premium,
+        uint256 expectedpremium,
         uint256 maxSlippage,
         bool tradeIsBuy
     ) internal pure {
-        uint256 slippage = expectedMarketValue.wmul(maxSlippage);
+        uint256 slippage = expectedpremium.wmul(maxSlippage);
 
-        if (tradeIsBuy && (marketValue + fee > expectedMarketValue + slippage)) {
+        if (tradeIsBuy && (premium > expectedpremium + slippage)) {
             revert SlippedMarketValue();
         }
-        if (!tradeIsBuy && (marketValue + fee < expectedMarketValue - slippage)) {
+        if (!tradeIsBuy && (premium < expectedpremium - slippage)) {
             revert SlippedMarketValue();
         }
     }
@@ -249,15 +245,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
-
-            fee = feeManager.calculateTradeFee(
-                amount.up + amount.down,
-                paidPayoff,
-                _baseTokenDecimals,
-                reachedMaturity
-            );
-
-            _checkSlippage(paidPayoff, fee, expectedMarketValue, maxSlippage, false);
+            _checkSlippage(paidPayoff, expectedMarketValue, maxSlippage, false);
         } else {
             // Compute the payoff to be paid:
             Amount memory payoff_ = liquidity.shareOfPayoff(strike, amount, _baseTokenDecimals);
@@ -265,16 +253,10 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
             // Account transfer of setted aside payoff:
             liquidity.decreasePayoff(strike, payoff_);
-
-            // Compute fee:
-            fee = feeManager.calculateTradeFee(
-                amount.up + amount.down,
-                paidPayoff,
-                _baseTokenDecimals,
-                reachedMaturity
-            );
         }
 
+        // Compute fee:
+        fee = feeManager.tradeFee(amount.up + amount.down, paidPayoff, _baseTokenDecimals, reachedMaturity);
         paidPayoff -= fee;
 
         // Account change of used liquidity between wallet and protocol:
@@ -403,8 +385,8 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
         if (!reachedMaturity) {
             // The user wants to know how much is her position worth before reaching maturity
-            uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-            payoff_ = _getMarketValue(strike, amount_, false, swapPrice);
+            uint256 price = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+            payoff_ = _getMarketValue(strike, amount_, false, price);
         } else {
             // The position expired, the user must close the entire position
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
@@ -417,7 +399,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
-        fee_ = feeManager.calculateTradeFee(amount_.up + amount_.down, payoff_, _baseTokenDecimals, reachedMaturity);
+        fee_ = feeManager.tradeFee(amount_.up + amount_.down, payoff_, _baseTokenDecimals, reachedMaturity);
 
         payoff_ -= fee_;
     }

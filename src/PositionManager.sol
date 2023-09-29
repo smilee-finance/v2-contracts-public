@@ -251,20 +251,6 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         emit SellDVP(tokenId, (notionalUp + notionalDown), payoff_);
     }
 
-    /// TODO AUDIT REMOVE
-    /// @inheritdoc ERC721Enumerable
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 firstTokenId,
-        uint256 batchSize
-    ) internal virtual override {
-        if (from != address(0) && to != address(0) && !_secondaryMarkedAllowed) {
-            revert SecondaryMarketNotAllowed();
-        }
-        super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
-    }
-
     /**
         @notice Allows the contract's owner to enable or disable the secondary market for the position's tokens.
      */

@@ -62,7 +62,7 @@ contract MockedIG is IG {
     ) public view override returns (uint256, uint256) {
         if (_fakePremium) {
             uint256 premium_ = ((amountUp + amountDown) * _optionPrice) / 10000;
-            uint256 fee = IFeeManager(_getFeeManager()).calculateTradeFee(
+            uint256 fee = IFeeManager(_getFeeManager()).tradeFee(
                 amountUp + amountDown,
                 premium_,
                 _baseTokenDecimals,

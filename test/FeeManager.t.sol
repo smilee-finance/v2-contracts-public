@@ -6,54 +6,60 @@ import {Vm} from "forge-std/Vm.sol";
 import {FeeManager} from "../src/FeeManager.sol";
 
 contract FeeManagerTest is Test {
-    FeeManager feeManager;
-
-    address admin = address(0x1);
+    FeeManager _feeManager;
+    address _admin = address(0x1);
 
     function setUp() public {
-        vm.startPrank(admin);
-        feeManager = new FeeManager(0.035e18, 0.125e18, 0.01e18, 0.1e18, 0);
-        feeManager.grantRole(feeManager.ROLE_ADMIN(), admin);
+        vm.startPrank(_admin);
+        _feeManager = new FeeManager(FeeManager.Params(0, 0.035e18, 0.125e18, 0.01e18, 0.1e18, 0));
+        _feeManager.grantRole(_feeManager.ROLE_ADMIN(), _admin);
         vm.stopPrank();
     }
 
     function testFeeManagerSetter(
+        uint256 minFee,
         uint256 feePercentage,
         uint256 capPercertage,
         uint256 mFeePercentage,
         uint256 mCapPercentage
     ) public {
-        vm.startPrank(admin);
-        feeManager.setFeePercentage(feePercentage);
-        assertEq(feePercentage, feeManager.feePercentage());
-        feeManager.setCapPercentage(capPercertage);
-        assertEq(capPercertage, feeManager.capPercentage());
-        feeManager.setFeeMaturityPercentage(mFeePercentage);
-        assertEq(mFeePercentage, feeManager.maturityFeePercentage());
-        feeManager.setCapMaturityPercentage(mCapPercentage);
-        assertEq(mCapPercentage, feeManager.maturityCapPercentage());
+        vm.startPrank(_admin);
+
+        _feeManager.setMinFee(minFee);
+        _feeManager.setFeePercentage(feePercentage);
+        _feeManager.setCapPercentage(capPercertage);
+        _feeManager.setFeeMaturityPercentage(mFeePercentage);
+        _feeManager.setCapMaturityPercentage(mCapPercentage);
+
+        FeeManager.Params memory params = _feeManager.getParams();
+        assertEq(minFee, params.minFee);
+        assertEq(feePercentage, params.feePercentage);
+        assertEq(capPercertage, params.capPercentage);
+        assertEq(mFeePercentage, params.maturityFeePercentage);
+        assertEq(mCapPercentage, params.maturityCapPercentage);
+
         vm.stopPrank();
     }
 
-    function testCalculateTradeFee() public {
+    function testTradeFee() public {
         uint256 premium = 0.2e18;
         uint256 amountUp = 30000e18;
         uint256 amountDown = 5e18;
 
-        uint256 expectedFee = 7e15; 
+        uint256 expectedFee = 7e15;
 
-        uint256 fee = feeManager.calculateTradeFee(premium, amountUp + amountDown, 18, false);
+        uint256 fee = _feeManager.tradeFee(premium, amountUp + amountDown, 18, false);
         assertEq(expectedFee, fee);
     }
 
-    function testCalculateTradeFeeAfterMaturity() public {
+    function testTradeFeeAfterMaturity() public {
         uint256 premium = 0.2e18;
         uint256 amountUp = 30000e18;
         uint256 amountDown = 5e18;
 
         uint256 expectedFee = 2e15;
 
-        uint256 fee = feeManager.calculateTradeFee(premium, amountUp + amountDown, 18, true);
+        uint256 fee = _feeManager.tradeFee(premium, amountUp + amountDown, 18, true);
         assertEq(expectedFee, fee);
     }
 }

@@ -6,7 +6,6 @@ import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 
 /// @dev everything is expressed in Wad (18 decimals)
 contract MarketOracle is IMarketOracle, AccessControl {
-
     struct OracleValue {
         uint256 value;
         uint256 lastUpdate;
@@ -31,7 +30,7 @@ contract MarketOracle is IMarketOracle, AccessControl {
         // TBD: review as we change the storage
         _grantRole(ROLE_ADMIN, msg.sender);
         setImpliedVolatility(0.5e18); // 50 %
-        setRiskFreeRate(0.03e18);     //  3 %
+        setRiskFreeRate(0.03e18); // 3 %
         _revokeRole(ROLE_ADMIN, msg.sender);
     }
 
@@ -50,8 +49,10 @@ contract MarketOracle is IMarketOracle, AccessControl {
         iv = _iv.value;
     }
 
+    // TODO rivedere per creare il mapping
     function setImpliedVolatility(uint256 percentage) public {
         _checkRole(ROLE_ADMIN);
+
         uint256 old = _iv.value;
 
         _iv.value = percentage;
@@ -60,13 +61,9 @@ contract MarketOracle is IMarketOracle, AccessControl {
         emit ChangedIV(percentage, old);
     }
 
-    // ToDo: change as the rate may be negative
     // TBD: only accept the stable coin token
     /// @inheritdoc IMarketOracle
-    function getRiskFreeRate(
-        address token0,
-        address token1
-    ) external view returns (uint256 rate) {
+    function getRiskFreeRate(address token0, address token1) external view returns (uint256 rate) {
         token0;
         token1;
 

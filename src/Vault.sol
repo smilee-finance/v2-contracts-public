@@ -584,15 +584,13 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // NOTE: the share price needs to account also the payoffs
         lockedLiquidity -= _state.liquidity.newPendingPayoffs;
 
-
         {
             if (lockedLiquidity > _state.liquidity.lockedInitially) {
                 uint256 netPerformance = lockedLiquidity - _state.liquidity.lockedInitially;
-                uint256 fee = IFeeManager(_addressProvider.feeManager()).calculateVaultFee(
+                uint256 fee = IFeeManager(_addressProvider.feeManager()).vaultFee(
                     netPerformance,
                     IERC20Metadata(baseToken).decimals()
                 );
-
 
                 if (lockedLiquidity - fee >= _state.liquidity.lockedInitially) {
                     IERC20(baseToken).safeApprove(_addressProvider.feeManager(), fee);
@@ -601,8 +599,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
                 }
             }
         }
-
-
 
         // TBD: move to _afterRollEpoch
         if (manuallyKilled) {
@@ -616,7 +612,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // TBD: rename to shareValue
         uint256 sharePrice = _computeSharePrice(lockedLiquidity);
         epochPricePerShare[getEpoch().current] = sharePrice;
-
 
         // TBD: move to _afterRollEpoch
         if (sharePrice == 0) {
@@ -833,24 +828,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         IERC20(baseToken).safeTransfer(recipient, amount);
-    }
-
-    /// @inheritdoc ERC20
-    /// @dev Block transfer of shares when not allowed (for testnet purposes)
-    /// TODO AUDIT REMOVE
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal view override whenNotPaused {
-        amount;
-        if (from == address(0) || to == address(0)) {
-            // it's a valid mint/burn
-            return;
-        }
-        if (from == address(this) || to == address(this)) {
-            // it's a vault operation
-            return;
-        }
-        if (!_secondaryMarketAllowed) {
-            revert SecondaryMarketNotAllowed();
-        }
     }
 
     /// @dev Checks if given deposit is allowed to be made and calls nft usage callback function if needed

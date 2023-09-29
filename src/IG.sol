@@ -72,25 +72,18 @@ contract IG is DVP {
     ) public view virtual override returns (uint256 premium_, uint256 fee) {
         strike;
 
-        uint256 swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+        uint256 price = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
-        premium_ = _getMarketValue(_financeParameters.currentStrike, amount_, true, swapPrice);
-        fee = IFeeManager(_getFeeManager()).calculateTradeFee(
-            amountUp + amountDown,
-            premium_,
-            _baseTokenDecimals,
-            false
-        );
+        premium_ = _getMarketValue(_financeParameters.currentStrike, amount_, true, price);
+        fee = IFeeManager(_getFeeManager()).tradeFee(amountUp + amountDown, premium_, _baseTokenDecimals, false);
         premium_ += fee;
     }
 
     /// @inheritdoc IDVP
     function getUtilizationRate() public view returns (uint256) {
         Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
-        (uint256 used, uint256 total) = liquidity.utilizationRateFactors(
-            _financeParameters.currentStrike
-        );
+        (uint256 used, uint256 total) = liquidity.utilizationRateFactors(_financeParameters.currentStrike);
 
         return Finance.getUtilizationRate(used, total, _baseTokenDecimals);
     }
@@ -113,7 +106,8 @@ contract IG is DVP {
     }
 
     function notional()
-        public view
+        public
+        view
         returns (uint256 bearNotional, uint256 bullNotional, uint256 bearAvailNotional, uint256 bullAvailNotional)
     {
         Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
