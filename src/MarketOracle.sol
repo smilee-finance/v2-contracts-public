@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 
 /// @dev everything is expressed in Wad (18 decimals)
-contract MarketOracle is IMarketOracle, Ownable {
+contract MarketOracle is IMarketOracle, AccessControl {
 
     struct OracleValue {
         uint256 value;
@@ -16,13 +16,23 @@ contract MarketOracle is IMarketOracle, Ownable {
     OracleValue internal _iv;
     OracleValue internal _rfRate;
 
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+
     event ChangedIV(uint256 value, uint256 oldValue);
     event ChangedRFR(uint256 value, uint256 oldValue);
 
-    constructor() Ownable() {
+    constructor() AccessControl() {
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+
+        _grantRole(ROLE_GOD, msg.sender);
+
         // TBD: review as we change the storage
+        _grantRole(ROLE_ADMIN, msg.sender);
         setImpliedVolatility(0.5e18); // 50 %
         setRiskFreeRate(0.03e18);     //  3 %
+        _revokeRole(ROLE_ADMIN, msg.sender);
     }
 
     /// @inheritdoc IMarketOracle
@@ -40,7 +50,8 @@ contract MarketOracle is IMarketOracle, Ownable {
         iv = _iv.value;
     }
 
-    function setImpliedVolatility(uint256 percentage) public onlyOwner {
+    function setImpliedVolatility(uint256 percentage) public {
+        _checkRole(ROLE_ADMIN);
         uint256 old = _iv.value;
 
         _iv.value = percentage;
@@ -62,7 +73,8 @@ contract MarketOracle is IMarketOracle, Ownable {
         rate = _rfRate.value;
     }
 
-    function setRiskFreeRate(uint256 percentage) public onlyOwner {
+    function setRiskFreeRate(uint256 percentage) public {
+        _checkRole(ROLE_ADMIN);
         uint256 old = _rfRate.value;
 
         _rfRate.value = percentage;

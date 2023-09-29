@@ -45,12 +45,16 @@ contract SwapIntegrationTest is Test {
 
         vm.startPrank(_admin);
         _priceOracle = new ChainlinkPriceOracle();
+        _priceOracle.grantRole(_priceOracle.ROLE_ADMIN(), _admin);
         _priceOracle.setPriceFeed(_USDC, _USDC_USD);
         _priceOracle.setPriceFeed(_WETH, _ETH_USD);
         _priceOracle.setPriceFeed(_WBTC, _WBTC_USD);
 
         _swapRouter = new SwapAdapterRouter(address(_priceOracle));
+        _swapRouter.grantRole(_swapRouter.ROLE_ADMIN(), _admin);
+        vm.stopPrank();
         ISwapAdapter uniswap = _uniSetup();
+        vm.startPrank(_admin);
         _swapRouter.setAdapter(_WETH, _USDC, address(uniswap));
         _swapRouter.setAdapter(_WBTC, _USDC, address(uniswap));
         _swapRouter.setSlippage(_WETH, _USDC, 0.01e18); // 1%
@@ -129,10 +133,14 @@ contract SwapIntegrationTest is Test {
     }
 
     function _uniSetup() private returns (ISwapAdapter) {
+        vm.startPrank(_admin);
         UniswapAdapter _uniswap = new UniswapAdapter(_UNIV3_ROUTER, _UNIV3_FACTORY);
+        _uniswap.grantRole(_uniswap.ROLE_ADMIN(), _admin);
+        vm.stopPrank();
 
         // Set single pool path for <WETH, USDC> to WETH -> USDC [0.3%]
         bytes memory wethUsdcPath = abi.encodePacked(address(_WETH), uint24(3000), address(_USDC));
+        vm.prank(_admin);
         _uniswap.setPath(wethUsdcPath, address(_WETH), address(_USDC));
 
         // Set multi-pool path for <WBTC, USDC> to WBTC -> WETH [0.05%]-> USDC [0.05%]
@@ -143,6 +151,7 @@ contract SwapIntegrationTest is Test {
             uint24(500),
             address(_USDC)
         );
+        vm.prank(_admin);
         _uniswap.setPath(wbtcUsdcPath, address(_WBTC), address(_USDC));
 
         return _uniswap;

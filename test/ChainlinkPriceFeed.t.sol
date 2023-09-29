@@ -26,8 +26,10 @@ contract ChainlinkPriceFeedTest is Test {
         uint256 forkId = vm.createFork(vm.rpcUrl("arbitrum_mainnet"), 100768497);
         vm.selectFork(forkId);
 
-        vm.prank(_admin);
+        vm.startPrank(_admin);
         _priceOracle = new ChainlinkPriceOracle();
+        _priceOracle.grantRole(_priceOracle.ROLE_ADMIN(), _admin);
+        vm.stopPrank();
     }
 
     function testWorking() public {

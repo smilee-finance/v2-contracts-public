@@ -20,9 +20,12 @@ contract TestnetTokenTest is Test {
 
     function setUp() public {
         vm.startPrank(_admin);
+        TestnetRegistry registry = new TestnetRegistry();
+        registry.grantRole(registry.ROLE_ADMIN(), _admin);
+
         _addressProvider = new AddressProvider();
         _addressProvider.grantRole(_addressProvider.ROLE_ADMIN(), _admin);
-        _addressProvider.setRegistry(address(new TestnetRegistry()));
+        _addressProvider.setRegistry(address(registry));
         _addressProvider.setExchangeAdapter(_swapper);
         vm.stopPrank();
     }

@@ -33,6 +33,7 @@ contract SwapProviderRouterTest is Test {
         _swapOracle = new TestnetPriceOracle(address(0x123));
         _swap = new TestnetSwapAdapter(address(_swapOracle));
         _swapRouter = new SwapAdapterRouter(address(_oracle));
+        _swapRouter.grantRole(_swapRouter.ROLE_ADMIN(), _admin);
 
         AddressProvider ap = new AddressProvider();
         ap.grantRole(ap.ROLE_ADMIN(), _admin);
@@ -48,15 +49,14 @@ contract SwapProviderRouterTest is Test {
 
     function testConstructor() public {
         assertEq(address(_oracle), _swapRouter.getPriceOracle());
-        assertEq(_admin, _swapRouter.owner());
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert();
         _swapRouter.setPriceOracle(address(0x100));
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert();
         _swapRouter.setAdapter(address(_token0), address(_token1), address(0x100));
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert();
         _swapRouter.setSlippage(address(_token0), address(_token1), 500);
     }
 

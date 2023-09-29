@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
 import {IRegistry} from "../interfaces/IRegistry.sol";
 import {IVaultAccessNFT} from "../interfaces/IVaultAccessNFT.sol";
@@ -12,16 +12,24 @@ import {IVaultAccessNFT} from "../interfaces/IVaultAccessNFT.sol";
 
     An example implementation of the priority access tokens for Smilee vaults.
  */
-contract VaultAccessNFT is IVaultAccessNFT, ERC721, Ownable {
+contract VaultAccessNFT is IVaultAccessNFT, ERC721, AccessControl {
     uint256 private _currentId = 0;
     IAddressProvider private immutable _ap;
     mapping(uint256 => uint256) private _priorityDeposit;
 
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+
     error CallerNotVault();
     error ExceedsAvailable();
 
-    constructor(address addressProvider) ERC721("Smilee Vault Priority Access Token", "SPT") Ownable() {
+    constructor(address addressProvider) ERC721("Smilee Vault Priority Access Token", "SPT") AccessControl() {
         _ap = IAddressProvider(addressProvider);
+
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     /**
@@ -30,7 +38,9 @@ contract VaultAccessNFT is IVaultAccessNFT, ERC721, Ownable {
         @param priorityDeposit The amount `receiver` will be allowed to deposit in Vaults with priority access
         @return tokenId The numerical ID of the minted token
      */
-    function createToken(address receiver, uint256 priorityDeposit) public onlyOwner returns (uint tokenId) {
+    function createToken(address receiver, uint256 priorityDeposit) public returns (uint tokenId) {
+        _checkRole(ROLE_ADMIN);
+
         tokenId = ++_currentId;
         _priorityDeposit[tokenId] = priorityDeposit;
 

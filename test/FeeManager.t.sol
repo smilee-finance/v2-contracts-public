@@ -11,8 +11,10 @@ contract FeeManagerTest is Test {
     address admin = address(0x1);
 
     function setUp() public {
-        vm.prank(admin);
+        vm.startPrank(admin);
         feeManager = new FeeManager(0.035e18, 0.125e18, 0.01e18, 0.1e18, 0);
+        feeManager.grantRole(feeManager.ROLE_ADMIN(), admin);
+        vm.stopPrank();
     }
 
     function testFeeManagerSetter(

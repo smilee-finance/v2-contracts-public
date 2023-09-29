@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IExchange} from "../interfaces/IExchange.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {ISwapAdapter} from "../interfaces/ISwapAdapter.sol";
@@ -14,7 +14,7 @@ import {ISwapAdapter} from "../interfaces/ISwapAdapter.sol";
     This contract is meant to reference a Chainlink oracle and check the swaps against
     the oracle prices, accepting a maximum slippage that can be set for every pair.
  */
-contract SwapAdapterRouter is IExchange, Ownable {
+contract SwapAdapterRouter is IExchange, AccessControl {
     using SafeERC20 for IERC20Metadata;
 
     // mapping from hash(tokenIn.address + tokenOut.address) to the exchange to use
@@ -24,13 +24,21 @@ contract SwapAdapterRouter is IExchange, Ownable {
     // address of the Chainlink dollar price oracle
     IPriceOracle private _priceOracle;
 
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+
     error AddressZero();
     error Slippage();
     error SwapZero();
 
-    constructor(address priceOracle_) Ownable() {
+    constructor(address priceOracle_) AccessControl() {
         _zeroAddressCheck(priceOracle_);
         _priceOracle = IPriceOracle(priceOracle_);
+
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     /**
@@ -65,7 +73,8 @@ contract SwapAdapterRouter is IExchange, Ownable {
         @notice Sets an address to use as dollar price oracle
         @param priceOracle_ The address of the price oracle
      */
-    function setPriceOracle(address priceOracle_) external onlyOwner {
+    function setPriceOracle(address priceOracle_) external {
+        _checkRole(ROLE_ADMIN);
         _zeroAddressCheck(priceOracle_);
         _priceOracle = IPriceOracle(priceOracle_);
     }
@@ -76,8 +85,10 @@ contract SwapAdapterRouter is IExchange, Ownable {
         @param tokenOut The address of the output token of the swap
         @param adapter The address of the adapter to use for the swap
      */
-    function setAdapter(address tokenIn, address tokenOut, address adapter) external onlyOwner {
+    function setAdapter(address tokenIn, address tokenOut, address adapter) external {
+        _checkRole(ROLE_ADMIN);
         _zeroAddressCheck(adapter);
+
         _adapters[_encodePath(tokenIn, tokenOut)] = adapter;
     }
 
@@ -87,7 +98,9 @@ contract SwapAdapterRouter is IExchange, Ownable {
         @param tokenOut The address of the output token of the swap
         @param slippage The maximum accepted slippage for the swap in wad (1e18 = 100%)
      */
-    function setSlippage(address tokenIn, address tokenOut, uint256 slippage) external onlyOwner {
+    function setSlippage(address tokenIn, address tokenOut, uint256 slippage) external {
+        _checkRole(ROLE_ADMIN);
+
         _slippage[_encodePath(tokenIn, tokenOut)] = slippage;
     }
 

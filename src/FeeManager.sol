@@ -2,13 +2,13 @@
 pragma solidity ^0.8.15;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
 
-contract FeeManager is IFeeManager, Ownable {
+contract FeeManager is IFeeManager, AccessControl {
     using AmountsMath for uint256;
     using SafeERC20 for IERC20Metadata;
 
@@ -30,6 +30,9 @@ contract FeeManager is IFeeManager, Ownable {
     /// @notice Fee account per sender
     mapping(address => uint256) public senders;
 
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+
     event UpdateFeePercentage(uint256 fee, uint256 previous);
     event UpdateCapPercentage(uint256 fee, uint256 previous);
     event UpdateMaturityFeePercentage(uint256 fee, uint256 previous);
@@ -46,12 +49,17 @@ contract FeeManager is IFeeManager, Ownable {
         uint256 maturityFeePercentage_,
         uint256 maturityCapPercentage_,
         uint256 vaultFeePercentage_
-    ) Ownable() {
+    ) AccessControl() {
         feePercentage = feePercentage_;
         capPercentage = capPercentage_;
         maturityFeePercentage = maturityFeePercentage_;
         maturityCapPercentage = maturityCapPercentage_;
         vaultFeePercentage = vaultFeePercentage_;
+
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     /// @inheritdoc IFeeManager
@@ -75,7 +83,6 @@ contract FeeManager is IFeeManager, Ownable {
         }
 
         fee_ = (feeFromNotional < feeFromPremiumCap) ? feeFromNotional : feeFromPremiumCap;
-
         fee_ = AmountsMath.unwrapDecimals(fee_, tokenDecimals);
     }
 
@@ -103,7 +110,8 @@ contract FeeManager is IFeeManager, Ownable {
     }
 
     /// @inheritdoc IFeeManager
-    function withdrawFee(address receiver, address sender, uint256 feeAmount) external onlyOwner {
+    function withdrawFee(address receiver, address sender, uint256 feeAmount) external {
+        _checkRole(ROLE_ADMIN);
         if (senders[sender] < feeAmount) {
             revert NoEnoughFundsFromSender();
         }
@@ -115,7 +123,8 @@ contract FeeManager is IFeeManager, Ownable {
     }
 
     /// @notice Update fee percentage value
-    function setFeePercentage(uint256 feePercentage_) public onlyOwner {
+    function setFeePercentage(uint256 feePercentage_) public {
+        _checkRole(ROLE_ADMIN);
         // ToDo: check range
         uint256 previousFeePercentage = feePercentage;
         feePercentage = feePercentage_;
@@ -124,7 +133,8 @@ contract FeeManager is IFeeManager, Ownable {
     }
 
     /// @notice Update cap percentage value
-    function setCapPercentage(uint256 capPercentage_) public onlyOwner {
+    function setCapPercentage(uint256 capPercentage_) public {
+        _checkRole(ROLE_ADMIN);
         // ToDo: check range
         uint256 previousCapPercentage = capPercentage;
         capPercentage = capPercentage_;
@@ -133,7 +143,8 @@ contract FeeManager is IFeeManager, Ownable {
     }
 
     /// @notice Update fee percentage value at maturity
-    function setFeeMaturityPercentage(uint256 maturityFeePercentage_) public onlyOwner {
+    function setFeeMaturityPercentage(uint256 maturityFeePercentage_) public {
+        _checkRole(ROLE_ADMIN);
         // ToDo: check range
         uint256 previousMaturityFeePercentage = maturityFeePercentage;
         maturityFeePercentage = maturityFeePercentage_;
@@ -142,7 +153,8 @@ contract FeeManager is IFeeManager, Ownable {
     }
 
     /// @notice Update cap percentage value at maturity
-    function setCapMaturityPercentage(uint256 maturityCapPercentage_) public onlyOwner {
+    function setCapMaturityPercentage(uint256 maturityCapPercentage_) public {
+        _checkRole(ROLE_ADMIN);
         // ToDo: check range
         uint256 previousMaturityCapPercentage = maturityCapPercentage;
         maturityCapPercentage = maturityCapPercentage_;
@@ -151,7 +163,9 @@ contract FeeManager is IFeeManager, Ownable {
     }
 
     /// @notice Update vault fee percentage value
-    function setVaultFeePercentage(uint256 vaultFeePercentage_) public onlyOwner {
+    function setVaultFeePercentage(uint256 vaultFeePercentage_) public {
+        _checkRole(ROLE_ADMIN);
+        // ToDo: check range
         uint256 previousVaultFeePercentage = vaultFeePercentage;
         vaultFeePercentage = vaultFeePercentage_;
 

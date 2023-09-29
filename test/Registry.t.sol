@@ -24,9 +24,12 @@ contract RegistryTest is Test {
 
     constructor() {
         vm.startPrank(admin);
+
         ap = new AddressProvider();
-        registry = new TestnetRegistry();
         ap.grantRole(ap.ROLE_ADMIN(), admin);
+
+        registry = new TestnetRegistry();
+        registry.grantRole(registry.ROLE_ADMIN(), admin);
         ap.setRegistry(address(registry));
 
         vm.stopPrank();

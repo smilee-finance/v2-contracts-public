@@ -38,6 +38,7 @@ contract IGTest is Test {
         ap = new AddressProvider();
         ap.grantRole(ap.ROLE_ADMIN(), admin);
         registry = new TestnetRegistry();
+        registry.grantRole(registry.ROLE_ADMIN(), admin);
         ap.setRegistry(address(registry));
         vm.stopPrank();
 
@@ -54,9 +55,11 @@ contract IGTest is Test {
         ig.grantRole(ig.ROLE_ADMIN(), admin);
         ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
         vault.grantRole(vault.ROLE_ADMIN(), admin);
+
         registry.register(address(ig));
         MockedVault(vault).setAllowedDVP(address(ig));
         vm.stopPrank();
+
         ig.useFakeDeltaHedge();
 
         // Suppose Vault has already liquidity

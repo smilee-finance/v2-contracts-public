@@ -5,10 +5,10 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
 import {ISwapAdapter} from "../../interfaces/ISwapAdapter.sol";
-import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Path} from "./lib/Path.sol";
 
 /**
@@ -19,7 +19,7 @@ import {Path} from "./lib/Path.sol";
     If a custom path is set for the the pair <tokenIn, tokenOut> uses that one.
     A custom path can be set only if it contains multiple pools.
  */
-contract UniswapAdapter is ISwapAdapter, Ownable {
+contract UniswapAdapter is ISwapAdapter, AccessControl {
     using Path for bytes;
 
     uint256 constant _MIN_PATH_LEN = 43;
@@ -35,6 +35,9 @@ contract UniswapAdapter is ISwapAdapter, Ownable {
     ISwapRouter internal immutable _swapRouter;
     // Ref. to the Uniswap factory to find pools
     IUniswapV3Factory internal immutable _factory;
+
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
     struct SwapPath {
         bool exists;
@@ -52,9 +55,14 @@ contract UniswapAdapter is ISwapAdapter, Ownable {
     error PoolDoesNotExist();
     error NotImplemented();
 
-    constructor(address swapRouter, address factory) Ownable() {
+    constructor(address swapRouter, address factory) AccessControl() {
         _swapRouter = ISwapRouter(swapRouter);
         _factory = IUniswapV3Factory(factory);
+
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     /**
@@ -63,14 +71,15 @@ contract UniswapAdapter is ISwapAdapter, Ownable {
         @param tokenIn The address of the input token
         @param tokenOut The address of the output token
      */
-    function setPath(bytes memory path, address tokenIn, address tokenOut) public onlyOwner {
-        if (_checkPath(path, tokenIn, tokenOut)) {
-            bytes memory reversePath = _reversePath(path);
-            SwapPath memory swapPath = SwapPath(true, path, reversePath);
-            _swapPaths[_encodePair(tokenIn, tokenOut)] = swapPath;
-        } else {
+    function setPath(bytes memory path, address tokenIn, address tokenOut) public {
+        _checkRole(ROLE_ADMIN);
+        if (!_checkPath(path, tokenIn, tokenOut)) {
             revert PathNotValid();
         }
+
+        bytes memory reversePath = _reversePath(path);
+        SwapPath memory swapPath = SwapPath(true, path, reversePath);
+        _swapPaths[_encodePair(tokenIn, tokenOut)] = swapPath;
     }
 
     /**

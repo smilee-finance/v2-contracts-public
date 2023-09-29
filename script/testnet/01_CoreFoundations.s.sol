@@ -58,15 +58,24 @@ contract DeployCoreFoundations is Script {
         ap.setPriceOracle(address(priceOracle));
 
         MarketOracle marketOracle = new MarketOracle();
+        marketOracle.grantRole(marketOracle.ROLE_GOD(), _adminMultiSigAddress);
+        marketOracle.grantRole(marketOracle.ROLE_ADMIN(), _deployerAddress);
+        marketOracle.renounceRole(marketOracle.ROLE_GOD(), _deployerAddress);
         ap.setMarketOracle(address(marketOracle));
 
         TestnetSwapAdapter swapper = new TestnetSwapAdapter(address(priceOracle));
         ap.setExchangeAdapter(address(swapper));
 
         FeeManager feeManager = new FeeManager(0.0035e18, 0.125e18, 0.0015e18, 0.125e18, 0);
+        feeManager.grantRole(feeManager.ROLE_GOD(), _adminMultiSigAddress);
+        feeManager.grantRole(feeManager.ROLE_ADMIN(), _deployerAddress);
+        feeManager.renounceRole(feeManager.ROLE_GOD(), _deployerAddress);
         ap.setFeeManager(address(feeManager));
 
         TestnetRegistry registry = new TestnetRegistry();
+        registry.grantRole(registry.ROLE_GOD(), _adminMultiSigAddress);
+        registry.grantRole(registry.ROLE_ADMIN(), _deployerAddress);
+        registry.renounceRole(registry.ROLE_GOD(), _deployerAddress);
         ap.setRegistry(address(registry));
 
         sUSD.setAddressProvider(address(ap));

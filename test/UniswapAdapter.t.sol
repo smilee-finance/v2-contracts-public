@@ -14,6 +14,7 @@ import {UniswapAdapter} from "../src/providers/uniswap/UniswapAdapter.sol";
  */
 contract UniswapAdapterTest is Test {
     UniswapAdapter _uniswap;
+    address _admin;
 
     address constant _UNIV3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address constant _UNIV3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
@@ -30,7 +31,10 @@ contract UniswapAdapterTest is Test {
         uint256 forkId = vm.createFork(vm.rpcUrl("arbitrum_mainnet"), 100768497);
         vm.selectFork(forkId);
 
+        _admin = address(0x1);
+        vm.startPrank(_admin);
         _uniswap = new UniswapAdapter(_UNIV3_ROUTER, _UNIV3_FACTORY);
+        _uniswap.grantRole(_uniswap.ROLE_ADMIN(), _admin);
 
         // Set single pool path for <WETH, USDC> to WETH -> USDC [0.3%]
         bytes memory wethUsdcPath = abi.encodePacked(address(_WETH), uint24(3000), address(_USDC));
@@ -45,6 +49,8 @@ contract UniswapAdapterTest is Test {
             address(_USDC)
         );
         _uniswap.setPath(wbtcUsdcPath, address(_WBTC), address(_USDC));
+
+        vm.stopPrank();
     }
 
     /// @dev Uses default pool (0.05%)

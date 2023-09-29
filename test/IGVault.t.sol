@@ -52,6 +52,7 @@ contract IGVaultTest is Test {
         AddressProvider ap = new AddressProvider();
         registry = new TestnetRegistry();
         ap.grantRole(ap.ROLE_ADMIN(), admin);
+        registry.grantRole(registry.ROLE_ADMIN(), admin);
         ap.setRegistry(address(registry));
         vm.stopPrank();
 

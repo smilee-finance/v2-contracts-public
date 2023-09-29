@@ -78,6 +78,8 @@ contract VaultProxyTest is Test {
 
         vm.startPrank(_tokenAdmin);
         TestnetRegistry registry = new TestnetRegistry();
+        registry.grantRole(registry.ROLE_ADMIN(), _tokenAdmin);
+
         AddressProvider ap = new AddressProvider();
         ap.grantRole(ap.ROLE_ADMIN(), _tokenAdmin);
         _proxy = new VaultProxy(address(ap));

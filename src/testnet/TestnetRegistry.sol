@@ -7,16 +7,16 @@ import {Registry} from "../Registry.sol";
 contract TestnetRegistry is Registry {
     mapping(address => bool) internal _registeredVaults;
 
-    function register(address dvpAddr) public virtual override onlyRole(ADMIN_ROLE) {
+    function register(address dvpAddr) public virtual override onlyRole(ROLE_ADMIN) {
         super.register(dvpAddr);
         _registeredVaults[IDVP(dvpAddr).vault()] = true;
     }
 
-    function registerDVP(address addr) external onlyRole(ADMIN_ROLE) {
+    function registerDVP(address addr) external onlyRole(ROLE_ADMIN) {
         _registeredDvps[addr] = true;
     }
 
-    function registerVault(address addr) external onlyRole(ADMIN_ROLE) {
+    function registerVault(address addr) external onlyRole(ROLE_ADMIN) {
         _registeredVaults[addr] = true;
     }
 
@@ -28,7 +28,7 @@ contract TestnetRegistry is Registry {
         return _registeredVaults[addr];
     }
 
-    function unregister(address addr) public virtual override onlyRole(ADMIN_ROLE) {
+    function unregister(address addr) public virtual override onlyRole(ROLE_ADMIN) {
         super.unregister(addr);
         delete _registeredVaults[IDVP(addr).vault()];
     }

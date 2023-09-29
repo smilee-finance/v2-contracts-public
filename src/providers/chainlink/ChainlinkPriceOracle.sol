@@ -2,12 +2,12 @@
 pragma solidity ^0.8.21;
 
 import {AggregatorV3Interface} from "@chainlink/interfaces/AggregatorV3Interface.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
 import {AmountsMath} from "../../lib/AmountsMath.sol";
 import {SignedMath} from "../../lib/SignedMath.sol";
 
-contract ChainlinkPriceOracle is IPriceOracle, Ownable {
+contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
     using AmountsMath for uint256;
 
     struct OracleValue {
@@ -17,14 +17,22 @@ contract ChainlinkPriceOracle is IPriceOracle, Ownable {
 
     mapping(address => AggregatorV3Interface) internal _feeds;
 
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+
     error AddressZero();
     error TokenNotSupported();
     error PriceZero();
 
     event ChangedTokenPriceFeed(address token, address feed);
 
-    constructor() Ownable() {
+    constructor() AccessControl() {
         // TBD: add L2 sequencer uptime feed
+
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     /**
@@ -34,7 +42,8 @@ contract ChainlinkPriceOracle is IPriceOracle, Ownable {
         @dev Assume only aggregators with the same reference currency (e.g. USD).
         @dev Keep in mind the specific aggregator's heartbit and deviation thresholds.
      */
-    function setPriceFeed(address token, address feed) external onlyOwner {
+    function setPriceFeed(address token, address feed) external {
+        _checkRole(ROLE_ADMIN);
         if (token == address(0) || feed == address(0)) {
             revert AddressZero();
         }

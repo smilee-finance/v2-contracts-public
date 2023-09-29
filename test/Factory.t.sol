@@ -46,7 +46,7 @@ contract FactoryTest is Test {
         sideToken = token;
 
         factory = new Factory(address(ap));
-        registry.grantRole(registry.ADMIN_ROLE(), address(factory));
+        registry.grantRole(registry.ROLE_ADMIN(), address(factory));
 
         vm.stopPrank();
 

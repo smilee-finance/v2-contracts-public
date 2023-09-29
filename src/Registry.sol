@@ -7,7 +7,6 @@ import {IDVP} from "./interfaces/IDVP.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
 
-// TODO - AccessControl only uses ADMIN_ROLE - we can unse Ownable instead
 contract Registry is AccessControl, IRegistry {
     using EpochController for Epoch;
 
@@ -16,17 +15,20 @@ contract Registry is AccessControl, IRegistry {
     mapping(address => bool) internal _registeredDvps;
     mapping(address => address[]) internal _dvpsBySideToken;
 
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
     error MissingAddress();
 
     constructor() {
-        _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
-        _grantRole(ADMIN_ROLE, msg.sender);
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     /// @inheritdoc IRegistry
-    function register(address dvp) public virtual onlyRole(ADMIN_ROLE) {
+    function register(address dvp) public virtual onlyRole(ROLE_ADMIN) {
         _dvps.push(dvp);
         _registeredDvps[dvp] = true;
 
@@ -51,7 +53,7 @@ contract Registry is AccessControl, IRegistry {
     }
 
     /// @inheritdoc IRegistry
-    function unregister(address addr) public virtual onlyRole(ADMIN_ROLE) {
+    function unregister(address addr) public virtual onlyRole(ROLE_ADMIN) {
         if (!_registeredDvps[addr]) {
             revert MissingAddress();
         }
