@@ -14,7 +14,6 @@ library AmountHelper {
         @param amount the increased amount.
      */
     function increase(Amount storage self, Amount memory amount) public {
-        // TBD: use unchecked math
         self.up += amount.up;
         self.down += amount.down;
     }
@@ -24,7 +23,6 @@ library AmountHelper {
         @param amount the decreased amount.
      */
     function decrease(Amount storage self, Amount memory amount) public {
-        // TBD: use unchecked math
         self.up -= amount.up;
         self.down -= amount.down;
     }

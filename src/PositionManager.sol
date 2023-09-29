@@ -18,8 +18,8 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         uint256 notionalUp;
         uint256 notionalDown;
         uint256 premium;
-        uint256 leverage; // TBD: should we keep it ?
-        uint256 cumulatedPayoff; // TBD: should we keep it ? (payoff already paid)
+        uint256 leverage;
+        uint256 cumulatedPayoff;
     }
 
     /// @notice [TESTNET] Whether the transfer of tokens between wallets is allowed or not
@@ -68,7 +68,6 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         Epoch memory epoch = dvp.getEpoch();
 
-        // TBD: add payoff
         return
             IPositionManager.PositionDetail({
                 dvpAddr: position.dvpAddr,
@@ -125,7 +124,6 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             revert ApproveFailed();
         }
 
-        // TBD: add fees?
         premium = dvp.mint(
             address(this),
             params.strike,
@@ -171,22 +169,6 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         emit BuyDVP(tokenId, _positions[tokenId].expiry, params.notionalUp + params.notionalDown);
     }
 
-    /// @inheritdoc IPositionManager
-    function burn(uint256 tokenId) external override isOwner(tokenId) returns (uint256 payoff_) {
-        ManagedPosition storage position = _positions[tokenId];
-        uint256 expectedMarketValue = 0;
-        Epoch memory epoch = IDVP(position.dvpAddr).getEpoch();
-        if (epoch.current == position.expiry) {
-            (expectedMarketValue, ) = IDVP(position.dvpAddr).payoff(
-                position.expiry,
-                position.strike,
-                position.notionalUp,
-                position.notionalDown
-            );
-        }
-        payoff_ = _sell(tokenId, position.notionalUp, position.notionalDown, expectedMarketValue, 0.1e18);
-    }
-
     function payoff(
         uint256 tokenId,
         uint256 notionalUp,
@@ -196,10 +178,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         return IDVP(position.dvpAddr).payoff(position.expiry, position.strike, notionalUp, notionalDown);
     }
 
-    // ToDo: review usage and signature
     function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff_) {
-        // TBD: burn if params.notional == 0 ?
-        // TBD: burn if position is expired ?
         payoff_ = _sell(
             params.tokenId,
             params.notionalUp,

@@ -34,7 +34,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     /// @notice The address of the DVP paired with this vault
     address public dvp; // NOTE: public for frontend purposes
 
-    // TBD: move to state or a "controls" struct, together with _secondaryMarketAllowed
     /// @notice Maximum threshold for users cumulative deposit (see VaultLib.VaultState.liquidity.totalDeposit)
     uint256 public maxDeposit;
 
@@ -42,17 +41,12 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
 
     /// @inheritdoc IVault
-    mapping(address => VaultLib.Withdrawal) public withdrawals; // TBD: append receipt to the name
+    mapping(address => VaultLib.Withdrawal) public withdrawals;
 
     mapping(uint256 => uint256) public epochPricePerShare; // NOTE: public for frontend and historical data purposes
 
-    /// @notice Whether the transfer of shares between wallets is allowed or not
-    bool internal _secondaryMarketAllowed;
-
     VaultLib.VaultState internal _state;
 
-    // TBD: rename ?
-    // TBD: move to state ?
     bool public manuallyKilled;
 
     /// @notice The provider for external services addresses
@@ -81,19 +75,19 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     error VaultNotDead();
     error WithdrawNotInitiated();
     error WithdrawTooEarly();
+    error NotManuallyKilled();
 
     event Deposit(uint256 amount);
     event Redeem(uint256 amount);
     event InitiateWithdraw(uint256 amount);
     event Withdraw(uint256 amount);
 
-    // TBD: create ERC20 name and symbol from the underlying tokens
     constructor(
         address baseToken_,
         address sideToken_,
         uint256 epochFrequency_,
         address addressProvider_
-    ) ERC20("", "") EpochControls(epochFrequency_) AccessControl() Pausable() {
+    ) ERC20("Smilee Share", ":)") EpochControls(epochFrequency_) AccessControl() Pausable() {
         TokensPair.validate(TokensPair.Pair({baseToken: baseToken_, sideToken: sideToken_}));
         baseToken = baseToken_;
         sideToken = sideToken_;
@@ -101,7 +95,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _addressProvider = IAddressProvider(addressProvider_);
         // ToDo: move to constructor parameter (wrong decimals)
         maxDeposit = 10_000_000e18;
-        _secondaryMarketAllowed = false;
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
@@ -248,9 +241,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         @return amount_ The amount of side tokens
      */
     function _notionalSideTokens() internal view returns (uint256 amount_) {
-        // TBD: use an internal account in order to avoid external manipulations
-        //      where a malicious actor sends tokens to the vault
-        //      in order to impact the share price or the DVP
         (, amount_) = _tokenBalances();
     }
 
@@ -259,7 +249,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         sideTokens = IERC20(sideToken).balanceOf(address(this));
     }
 
-    // TBD: rename to initial notional
     /// @inheritdoc IVault
     function v0() public view virtual returns (uint256) {
         return _state.liquidity.lockedInitially;
@@ -363,7 +352,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             revert AmountZero();
         }
         // NOTE: if the epoch has not been initialized, it reverts with ExceedsAvailable.
-        // ----- TBD: add the epochInitialized modifier
         _redeem(shares, false);
     }
 
@@ -412,8 +400,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         // We take advantage of this flow in order to also transfer all the unredeemed shares to the user.
         if (depositReceipt.amount > 0 || depositReceipt.unredeemedShares > 0) {
-            // TBD: just call it without the if statement
-
             _redeem(0, true);
         }
 
@@ -441,14 +427,12 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             sharesToWithdraw = withdrawal.shares.add(shares);
         }
 
-        // TBD: refactor and extract internal method
         // -----------------------------
         // Update vault capacity:
         //   - Estimate the increased capacity by computing the following proportion:
         //       withdrawed_shares : user_shares = x : user_deposits
         //   - Use it by decreasing the current number of deposits.
         //   - update the user's deposit receipt [cumulativeAmount]
-        //     TBD: the attribute name may need to be changed...
 
         uint256 userCumulativeDeposits = depositReceipt.cumulativeAmount;
         // NOTE: Don't consider the current epoch deposits in the "all-time deposits" computation
@@ -505,7 +489,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         // NOTE: the user transferred the required shares to the vault when she initiated the withdraw
         if (!_state.dead) {
-            // ToDo: review (why only when not dead ?)
             _state.withdrawals.heldShares -= withdrawal.shares;
             _state.liquidity.pendingWithdrawals -= amountToWithdraw;
         }
@@ -536,10 +519,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         IERC20(baseToken).safeTransfer(msg.sender, rescuedAmount);
     }
 
-    // ToDo: add doc
     function rescueShares() external isDead whenNotPaused {
-        // ToDo: Change reason
-        require(_state.deadReason == VaultLib.DeadManualKillReason, "Vault dead due to market conditions");
+        if (!manuallyKilled) {
+            revert NotManuallyKilled();
+        }
 
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
@@ -550,15 +533,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         _initiateWithdraw(0, true);
         _completeWithdraw();
-    }
-
-    /**
-        @notice Allows the contract's owner to enable or disable the secondary market for the vault's shares
-     */
-    function setAllowedSecondaryMarket(bool allowed) external {
-        _checkRole(ROLE_ADMIN);
-
-        _secondaryMarketAllowed = allowed;
     }
 
     /**
@@ -574,12 +548,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     // VAULT OPERATIONS
     // ------------------------------------------------------------------------
 
-    // TBD: split on _afterRollEpoch
     /// @inheritdoc EpochControls
     function _beforeRollEpoch() internal virtual override isNotDead {
         _checkRole(ROLE_EPOCH_ROLLER);
 
-        // ToDo: review variable name
         uint256 lockedLiquidity = notional();
         // NOTE: the share price needs to account also the payoffs
         lockedLiquidity -= _state.liquidity.newPendingPayoffs;
@@ -600,7 +572,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             }
         }
 
-        // TBD: move to _afterRollEpoch
         if (manuallyKilled) {
             _state.dead = true;
 
@@ -609,11 +580,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             _sellSideTokens(sideTokens);
         }
 
-        // TBD: rename to shareValue
         uint256 sharePrice = _computeSharePrice(lockedLiquidity);
         epochPricePerShare[getEpoch().current] = sharePrice;
 
-        // TBD: move to _afterRollEpoch
         if (sharePrice == 0) {
             // if vault underlying asset disappear, don't mint any shares.
             // Pending deposits will be enabled for withdrawal - see rescueDeposit()
@@ -621,7 +590,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             _state.deadReason = VaultLib.DeadMarketReason;
         }
 
-        // TBD: move to _afterRollEpoch
         if (manuallyKilled) {
             _state.deadReason = VaultLib.DeadManualKillReason;
         }
@@ -636,24 +604,19 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
         lockedLiquidity -= newPendingWithdrawals;
 
-        // TBD: move to _afterRollEpoch
         // Reset the counter for the next epoch:
         _state.withdrawals.newHeldShares = 0;
 
         // Set aside the payoff to be paid:
         _state.liquidity.pendingPayoffs += _state.liquidity.newPendingPayoffs;
-        // TBD: move to _afterRollEpoch
 
         // _state.liquidity.newPendingPayoffs are set to 0 by `adjustReservedPayoff()`;
 
-        // TBD: move to _afterRollEpoch
         if (_state.dead && !manuallyKilled) {
-            // ToDo: review
             _state.liquidity.lockedInitially = 0;
             return;
         }
 
-        // TBD: move to _afterRollEpoch
         // Mint shares related to new deposits performed during the closing epoch:
         uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice);
         _mint(address(this), sharesToMint);
@@ -673,7 +636,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         _adjustBalances();
-        // TBD: re-compute here the lockedInitially
     }
 
     // ToDo: review as notional and price may have different decimals!
@@ -765,7 +727,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         uint256 baseTokensAmount = exchange.getInputAmountMax(baseToken, sideToken, amount);
 
         // Should never happen: `_deltaHedge()` should call this function with a correct amount of side tokens
-        // But the DVP client of `deltaHedge()` may not... (ToDo: verify!)
+        // But the DVP client of `deltaHedge()` may not...
         if (baseTokensAmount > _notionalBaseTokens()) {
             revert ExceedsAvailable();
         }

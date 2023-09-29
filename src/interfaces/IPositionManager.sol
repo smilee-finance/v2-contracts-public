@@ -112,11 +112,4 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         @return payoff_ The amount of baseToken paid to the owner of the position
      */
     function sell(SellParams calldata params) external returns (uint256 payoff_);
-
-    /**
-        @notice Burns a token ID, which deletes it from the NFT contract. The option is completely sold before burn.
-        @param tokenId The ID of the token that is being burned
-        @return payoff_ The amount of baseToken paid to the owner of the position
-     */
-    function burn(uint256 tokenId) external returns (uint256 payoff_);
 }

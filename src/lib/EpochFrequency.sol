@@ -34,8 +34,8 @@ library EpochFrequency {
     }
 
     /**
-        @notice ... ToDo
-        @param ts ... ToDo
+        @notice Compute the next expiry
+        @param ts The current expiry
         @param timeSpan the number of seconds in the timespan.
         @return nextExpiry_ the timestamp for the next epoch expiry.
      */
@@ -48,7 +48,7 @@ library EpochFrequency {
     }
 
     /// @notice Rounds up n / d adding 1 in case n / d = 0
-    /// @notice This gives the next timestamp index even when remainder is 0
+    /// @dev This gives the next timestamp index even when remainder is 0
     function _upDiv(uint n, uint d) private pure returns (uint256) {
         return n / d + 1;
     }

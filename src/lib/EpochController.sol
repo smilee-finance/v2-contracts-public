@@ -3,7 +3,6 @@ pragma solidity ^0.8.21;
 
 import {EpochFrequency} from "./EpochFrequency.sol";
 
-// TBD: move to IEpochControls
 struct Epoch {
     uint256 current;
     uint256 previous;
@@ -11,7 +10,6 @@ struct Epoch {
     uint256 numberOfRolledEpochs;
 }
 
-// TBD: split into EpochController (storage) and EpochHelper (memory)
 library EpochController {
 
     error EpochNotFinished();
@@ -27,7 +25,6 @@ library EpochController {
         epoch.frequency = epochFrequency;
         epoch.numberOfRolledEpochs = 0;
 
-        // TBD: it may be done in the calling contract (in order to leverage hooks)
         roll(epoch);
     }
 
@@ -39,9 +36,7 @@ library EpochController {
 
         epoch.previous = epoch.current;
 
-        // TBD: move to init (beware of `previous`)
         if (!_isInitialized(epoch)) {
-            // TBD: accept an initial reference expiry in `init` ?
             // NOTE: beware of `nextExpiry` gas usage on first rolled epoch
             epoch.current = block.timestamp;
         }
@@ -50,8 +45,6 @@ library EpochController {
 
         // If next epoch expiry is in the past (should not happen...) go to next of the next
         while (block.timestamp > nextEpoch) {
-            // TBD: recursively call rollEpoch for each missed epoch that has not been rolled ?
-            // ---- should not be needed as every relevant operation should be freezed by using the epochNotFrozen modifier...
             nextEpoch = EpochFrequency.nextExpiry(nextEpoch, epoch.frequency);
         }
 

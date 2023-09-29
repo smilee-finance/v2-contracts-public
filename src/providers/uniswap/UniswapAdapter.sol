@@ -28,7 +28,6 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
 
     // Fees for LP Single
     uint24 constant _DEFAULT_FEE = 500; // 0.05% (hundredths of basis points)
-    // TBD: Is SQRTPRICELIMITX96 really 0?
     uint160 private constant _SQRTPRICELIMITX96 = 0;
 
     // Ref. to the Uniswap router to make swaps

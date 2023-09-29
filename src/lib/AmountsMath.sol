@@ -11,7 +11,6 @@ library AmountsMath {
 
     /// ERRORS ///
 
-    // TODO avoid overflow checks since done natively
     error AddOverflow();
     error MulOverflow();
     error SubUnderflow();

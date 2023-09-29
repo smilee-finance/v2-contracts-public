@@ -5,7 +5,6 @@ import {Amount, AmountHelper} from "./Amount.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {OptionStrategy} from "./OptionStrategy.sol";
 
-// TBD: rename
 /**
     @title Simple library to ease DVP liquidity access and modification
  */
@@ -14,15 +13,13 @@ library Notional {
     using AmountHelper for Amount;
 
     // NOTE: each one of the fields is a mapping strike -> [call_notional, put_notional]
-    // TBD: use a mapping strike -> StrikeInfo
-    // TBD: use a mapping of bools for the strategies, in order to avoid the need of "setup"
     struct Info {
         // initial capital
         mapping(uint256 => Amount) initial;
         // liquidity used by options
         mapping(uint256 => Amount) used;
         // payoff set aside
-        mapping(uint256 => Amount) payoff; // TBD: rename "residualPayoff"
+        mapping(uint256 => Amount) payoff;
     }
 
     /**
@@ -96,7 +93,6 @@ library Notional {
         @param payoffPut_ the payoff set aside for the put strategy.
      */
     function accountPayoffs(Info storage self, uint256 strike, uint256 payoffCall_, uint256 payoffPut_) public {
-        // TBD: revert if already done
         self.payoff[strike].setRaw(payoffCall_, payoffPut_);
     }
 

@@ -27,8 +27,6 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
     event ChangedTokenPriceFeed(address token, address feed);
 
     constructor() AccessControl() {
-        // TBD: add L2 sequencer uptime feed
-
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
@@ -47,9 +45,6 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
         if (token == address(0) || feed == address(0)) {
             revert AddressZero();
         }
-        // TBD: use feed.description() (returns "BTC / USD") to check that the feed is right for the ERC20 token requested
-        // ---- beware of wrapped tokens (e.g. WETH)
-        // TBD: check feed.decimals() size
 
         _feeds[token] = AggregatorV3Interface(feed);
 
@@ -72,7 +67,6 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
         }
 
         OracleValue memory price = _getFeedValue(priceFeed);
-        // TBD: revert if price is too old or also return the update time and let the called decide.
 
         return price.value;
     }
@@ -96,7 +90,6 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
         uint256 token1Price = getTokenPrice(token1);
 
         if (token1Price == 0) {
-            // TBD: improve error
             revert PriceZero();
         }
 

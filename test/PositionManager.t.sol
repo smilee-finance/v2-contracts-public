@@ -118,14 +118,6 @@ contract PositionManagerTest is Test {
         assertEq(0, pos.cumulatedPayoff);
     }
 
-    function testCantBurnNonOwner() public {
-        (uint256 tokenId, ) = initAndMint();
-
-        vm.prank(bob);
-        vm.expectRevert(NotOwner);
-        pm.burn(tokenId);
-    }
-
     function testCantBurnZero() public {
         (uint256 tokenId, ) = initAndMint();
 
@@ -162,9 +154,14 @@ contract PositionManagerTest is Test {
         (uint256 tokenId, ) = initAndMint();
 
         vm.prank(alice);
-        pm.burn(tokenId);
+        pm.sell(IPositionManager.SellParams({
+            tokenId: tokenId,
+            notionalUp: 10 ether,
+            notionalDown: 0,
+            expectedMarketValue: 0,
+            maxSlippage: 0.1e18
+        }));
 
-        // ToDo: improve checks
         vm.expectRevert(InvalidTokenID);
         pm.positionDetail(tokenId);
     }

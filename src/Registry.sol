@@ -82,7 +82,6 @@ contract Registry is AccessControl, IRegistry {
             if (epoch.timeToNextEpoch() != 0 || Pausable(_dvps[i]).paused()) {
                 continue;
             }
-            // TBD: filter out the DVPs whose vault is in a dead state.
             list[number] = _dvps[i];
             number++;
         }

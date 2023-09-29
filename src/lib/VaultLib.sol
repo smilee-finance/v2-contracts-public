@@ -18,7 +18,6 @@ library VaultLib {
         // The Vault is alive until a certain amount of underlying asset is available to give value to outstanding shares
         // Vault dies if ever the locked liquidity goes to zero (outstanding shares are worth 0, can't mint new shares ever)
         // The Vault is dead if underlying locked liquidity goes to zero because we can't mint new shares since then
-        // TBD: Evaluate if keeping use dead variable for manual kill status
         bool dead;
         bytes4 deadReason;
     }

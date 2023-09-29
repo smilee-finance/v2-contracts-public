@@ -43,7 +43,6 @@ library FinanceIG {
         uint8 baseTokenDecimals,
         uint8 sideTokenDecimals
     ) public view returns (int256 tokensToSwap) {
-        // ToDo: review FinanceIGDelta.DeltaHedgeParameters (add tradeIsBuy ?)
         FinanceIGDelta.DeltaHedgeParameters memory deltaHedgeParams;
 
         deltaHedgeParams.notionalUp = SignedMath.revabs(amount.up, tradeIsBuy);
@@ -102,7 +101,6 @@ library FinanceIG {
         uint256 riskFreeRate,
         uint8 baseTokenDecimals
     ) public view returns (uint256 marketValue) {
-        // TBD: move everything to the FinanceIGPrice library
         FinanceIGPrice.Parameters memory priceParams;
         {
             uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(block.timestamp, params.maturity));
@@ -128,7 +126,7 @@ library FinanceIG {
         return
             FinanceIGPayoff.igPayoffPerc(
                 oraclePrice,
-                params.currentStrike, // ToDo: Verify that is always the current one
+                params.currentStrike,
                 params.kA,
                 params.kB,
                 params.theta
@@ -145,8 +143,6 @@ library FinanceIG {
     ) public {
         // NOTE: both amounts are after equal weight rebalance, hence we can just compute their ratio.
         // Protect against division by zero
-        // TBD: review expected strike when baseTokenAmount == 0
-        // ---- maybe the finance formulas doen't like a zero strike ?
         if (baseTokenAmount == 0 || sideTokenAmount == 0) {
             params.currentStrike = oraclePrice;
         } else {
@@ -161,9 +157,8 @@ library FinanceIG {
         FinanceParameters storage params,
         uint256 impliedVolatility,
         uint256 v0,
-        uint256 previousMaturity // ToDo: check why it differs from block.timestamp
+        uint256 previousMaturity
     ) public {
-        // TBD: if there's no liquidity, we may avoid those computations
         params.sigmaZero = impliedVolatility;
 
         uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(previousMaturity, params.maturity));

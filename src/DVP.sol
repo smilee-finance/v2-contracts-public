@@ -31,7 +31,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     /// @inheritdoc IDVPImmutables
     address public immutable override sideToken;
     /// @inheritdoc IDVPImmutables
-    bool public immutable override optionType; // ToDo: review (it's a DVPType)
+    bool public immutable override optionType;
     /// @inheritdoc IDVP
     address public immutable override vault;
 
@@ -43,18 +43,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
     bytes32 public constant ROLE_EPOCH_ROLLER = keccak256("ROLE_EPOCH_ROLLER");
 
-    // TBD: define lot size
-
-    // TBD: extract payoff from Notional.Info
-    // TBD: move strike and strategy outside of struct as indexes
-    // TBD: merge with _epochPositions as both are indexed by epoch
     /**
         @notice liquidity for options indexed by epoch
         @dev mapping epoch -> Notional.Info
      */
     mapping(uint256 => Notional.Info) internal _liquidity;
 
-    // TBD: use a user-defined type for the position ID, as well as for the epoch
     /**
         @notice Users positions
         @dev mapping epoch -> Position.getID(...) -> Position.Info
@@ -296,7 +290,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         IEpochControls(vault).rollEpoch();
-        // TBD: check if vault is dead and set a specific internal state ?
     }
 
     /// @inheritdoc EpochControls
@@ -376,7 +369,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     ) public view virtual returns (uint256 payoff_, uint256 fee_) {
         Position.Info storage position = _getPosition(epoch_, msg.sender, strike);
         if (!position.exists()) {
-            // TBD: return 0
             revert PositionNotFound();
         }
 
@@ -417,7 +409,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         address owner,
         uint256 strike
     ) internal view returns (Position.Info storage position_) {
-        // TBD: compute the ID without a library call
         return _epochPositions[epoch][Position.getID(owner, strike)];
     }
 

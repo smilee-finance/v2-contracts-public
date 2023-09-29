@@ -33,7 +33,6 @@ contract TestnetPriceOracle is IPriceOracle, Ownable {
             revert AddressZero();
         }
 
-        // ToDo: review
         if (price > type(uint256).max / 1e18) {
             revert PriceTooHigh();
         }

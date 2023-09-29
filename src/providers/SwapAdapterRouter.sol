@@ -152,7 +152,6 @@ contract SwapAdapterRouter is IExchange, AccessControl {
 
         (uint256 amountOutMin, uint256 amountOutMax) = _slippedValueOut(tokenIn, tokenOut, amountIn);
 
-        // TBD - delegate call to adapter
         IERC20Metadata(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
         IERC20Metadata(tokenIn).safeApprove(adapter, amountIn);
         amountOut = ISwapAdapter(adapter).swapIn(tokenIn, tokenOut, amountIn);
@@ -182,7 +181,6 @@ contract SwapAdapterRouter is IExchange, AccessControl {
 
         (uint256 amountInMax, uint256 amountInMin) = _slippedValueIn(tokenIn, tokenOut, amountOut);
 
-        // TBD - delegate call to adapter
         IERC20Metadata(tokenIn).safeTransferFrom(msg.sender, address(this), preApprovedAmountIn);
         IERC20Metadata(tokenIn).safeApprove(adapter, preApprovedAmountIn);
         amountIn = ISwapAdapter(adapter).swapOut(tokenIn, tokenOut, amountOut, preApprovedAmountIn);

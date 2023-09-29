@@ -24,7 +24,7 @@ contract IG is DVP {
     error OutOfAllowedRange();
 
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
-        _financeParameters.sigmaMultiplier = 3e18; // ToDo: let the deployer provide it
+        _financeParameters.sigmaMultiplier = 3e18;
         _financeParameters.tradeVolatilityUtilizationRateFactor = 2e18;
         _financeParameters.tradeVolatilityTimeDecay = 0.25e18;
     }
@@ -147,8 +147,6 @@ contract IG is DVP {
         return FinanceIG.getPostTradeVolatility(_financeParameters, ur, t0);
     }
 
-    // TBD: wrap parameters in a "Trade" struct (there's an overlap with Position.Info)
-    // ---- amount, isBuy, decimals, strike
     /// @inheritdoc DVP
     function _deltaHedgePosition(
         uint256 strike,
@@ -235,12 +233,10 @@ contract IG is DVP {
     /// @inheritdoc EpochControls
     function _afterRollEpoch() internal virtual override {
         Epoch memory epoch = getEpoch();
-        // TBD: check if vault is dead
 
         _financeParameters.maturity = epoch.current;
 
         {
-            // TBD: if there's no liquidity, we may avoid those computations
             uint256 iv = IMarketOracle(_getMarketOracle()).getImpliedVolatility(
                 baseToken,
                 sideToken,
@@ -273,14 +269,13 @@ contract IG is DVP {
     /// @dev must be defined in Wad
     function setSigmaMultiplier(uint256 value) external {
         _checkRole(ROLE_ADMIN);
-        // ToDo: make the change effective after a given amount of time
+
         _financeParameters.sigmaMultiplier = value;
     }
 
     /// @dev must be defined in Wad
     function setTradeVolatilityUtilizationRateFactor(uint256 value) external {
         _checkRole(ROLE_ADMIN);
-        // ToDo: make the change effective after a given amount of time
         if (value < 1e18 || value > 5e18) {
             revert OutOfAllowedRange();
         }
@@ -291,7 +286,6 @@ contract IG is DVP {
     /// @dev must be defined in Wad
     function setTradeVolatilityTimeDecay(uint256 value) external {
         _checkRole(ROLE_ADMIN);
-        // ToDo: make the change effective after a given amount of time
         if (value > 0.5e18) {
             revert OutOfAllowedRange();
         }

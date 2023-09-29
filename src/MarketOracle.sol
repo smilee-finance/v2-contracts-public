@@ -27,7 +27,6 @@ contract MarketOracle is IMarketOracle, AccessControl {
 
         _grantRole(ROLE_GOD, msg.sender);
 
-        // TBD: review as we change the storage
         _grantRole(ROLE_ADMIN, msg.sender);
         setImpliedVolatility(0.5e18); // 50 %
         setRiskFreeRate(0.03e18); // 3 %
@@ -61,7 +60,6 @@ contract MarketOracle is IMarketOracle, AccessControl {
         emit ChangedIV(percentage, old);
     }
 
-    // TBD: only accept the stable coin token
     /// @inheritdoc IMarketOracle
     function getRiskFreeRate(address token0, address token1) external view returns (uint256 rate) {
         token0;

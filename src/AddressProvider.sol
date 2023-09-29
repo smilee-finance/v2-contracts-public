@@ -5,8 +5,6 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {TimeLock, TimeLockedAddress} from "./lib/TimeLock.sol";
 
-// TBD: return an immutable view to be used on each epoch ?
-// TBD: merge with Registry.sol
 contract AddressProvider is AccessControl, IAddressProvider {
     using TimeLock for TimeLockedAddress;
 
