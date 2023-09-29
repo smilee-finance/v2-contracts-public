@@ -18,16 +18,16 @@ library Finance {
     ) public pure returns (uint256 payoffUp_, uint256 payoffDown_) {
         payoffUp_ = 0;
         payoffDown_ = 0;
-
+        
         if (residualAmountUp > 0) {
             residualAmountUp = AmountsMath.wrapDecimals(residualAmountUp, baseTokenDecimals);
-            payoffUp_ = residualAmountUp.wmul(percentageUp);
+            payoffUp_ = residualAmountUp.wmul(percentageUp*2);
             payoffUp_ = AmountsMath.unwrapDecimals(payoffUp_, baseTokenDecimals);
         }
 
         if (residualAmountDown > 0) {
             residualAmountDown = AmountsMath.wrapDecimals(residualAmountDown, baseTokenDecimals);
-            payoffDown_ = residualAmountDown.wmul(percentageDown);
+            payoffDown_ = residualAmountDown.wmul(percentageDown*2);
             payoffDown_ = AmountsMath.unwrapDecimals(payoffDown_, baseTokenDecimals);
         }
     }

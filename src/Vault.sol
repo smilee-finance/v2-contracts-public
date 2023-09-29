@@ -581,9 +581,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         // ToDo: review variable name
         uint256 lockedLiquidity = notional();
-
         // NOTE: the share price needs to account also the payoffs
         lockedLiquidity -= _state.liquidity.newPendingPayoffs;
+
 
         {
             if (lockedLiquidity > _state.liquidity.lockedInitially) {
@@ -593,13 +593,16 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
                     IERC20Metadata(baseToken).decimals()
                 );
 
-                if (fee != 0 && lockedLiquidity - fee >= _state.liquidity.lockedInitially) {
+
+                if (lockedLiquidity - fee >= _state.liquidity.lockedInitially) {
                     IERC20(baseToken).safeApprove(_addressProvider.feeManager(), fee);
                     IFeeManager(_addressProvider.feeManager()).receiveFee(fee);
                     lockedLiquidity -= fee;
                 }
             }
         }
+
+
 
         // TBD: move to _afterRollEpoch
         if (manuallyKilled) {
@@ -613,6 +616,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // TBD: rename to shareValue
         uint256 sharePrice = _computeSharePrice(lockedLiquidity);
         epochPricePerShare[getEpoch().current] = sharePrice;
+
 
         // TBD: move to _afterRollEpoch
         if (sharePrice == 0) {

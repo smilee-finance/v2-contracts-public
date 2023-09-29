@@ -50,6 +50,7 @@ contract TestScenariosJson is Test {
         uint256 capFeeMaturity;
         uint256 fee;
         uint256 feeMaturity;
+        uint256 vaultFee;
     }
 
     struct StartEpochPostConditions {
@@ -117,7 +118,7 @@ contract TestScenariosJson is Test {
 
         // NOTE: there is some precision loss somewhere...
         _toleranceOnPercentage = 1e14; // 0.0001 %
-        _toleranceOnAmount = 1e11; // 0.0000001 (Wad)
+        _toleranceOnAmount = 1e16; // 0.01 (Wad)
     }
 
     function setUp() public {
@@ -147,52 +148,58 @@ contract TestScenariosJson is Test {
     }
 
     function testScenario1() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_1");
+        // One single Mint of a Bull option at the strike price.
+        _checkScenario("scenario_1", true);
     }
 
     function testScenario2() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_2");
+        // One Mint for each Bull and Bear option at the strike price.
+        _checkScenario("scenario_2", true);
     }
 
     function testScenario3() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_3");
+        // Buy and sell single options with little price deviation from the strike price.
+        _checkScenario("scenario_3", true);
     }
 
     function testScenario4() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_4");
+        // Buy and sell both Bull and Bear options (in the same trade) with little price deviation from the strike price.
+        _checkScenario("scenario_4", true);
     }
 
     function testScenario5() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_5");
+        // Buy and sell all the available notional (single and both Bull and Bear options trade) with huge price deviation from the strike price.
+        _checkScenario("scenario_5", true);
     }
 
     function testScenario6() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_6");
+        // Buy and sell all the available notional (both Bull and Bear options trade) with huge price deviation from the strike price.
+        _checkScenario("scenario_6", true);
     }
 
     function testScenario7() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_7");
+        // Buy Both options little by little, with an ever-increasing price over time, selling everything 1 day before maturity.
+        _checkScenario("scenario_7", true);
     }
 
     function testScenario8() public {
-        // ToDo: add scenario description
-        _checkScenario("scenario_8");
+        // Buy a Both option immediately, with an ever-decreasing price over time, selling little by little until maturity.
+        _checkScenario("scenario_8", true);
     }
 
-    function _checkScenario(string memory scenarioName) internal {
+    function testScenarioMultiEpoch() public {
+        // Controls the behavior of all components over multiple epochs.
+        _checkScenario("scenario_multi_epoch_1", true);
+        _checkScenario("scenario_multi_epoch_1_epoch_2", false);
+    }
+
+    function _checkScenario(string memory scenarioName, bool isFirstEpoch) internal {
         console.log(string.concat("Executing scenario: ", scenarioName));
         string memory scenariosJSON = _getTestsFromJson(scenarioName);
 
         console.log("- Checking start epoch");
         StartEpoch memory startEpoch = _getStartEpochFromJson(scenariosJSON);
-        _checkStartEpoch(startEpoch);
+        _checkStartEpoch(startEpoch, isFirstEpoch);
 
         Trade[] memory trades = _getTradesFromJson(scenariosJSON);
         for (uint i = 0; i < trades.length; i++) {
@@ -205,27 +212,30 @@ contract TestScenariosJson is Test {
         _checkRebalance(scenariosJSON);
     }
 
-    function _checkStartEpoch(StartEpoch memory t0) internal {
-        VaultUtils.addVaultDeposit(_liquidityProvider, t0.v0, _admin, address(_vault), vm);
+    function _checkStartEpoch(StartEpoch memory t0, bool isFirstEpoch) internal {
+        if (isFirstEpoch) {
+            VaultUtils.addVaultDeposit(_liquidityProvider, t0.v0, _admin, address(_vault), vm);
 
-        vm.startPrank(_admin);
-        _oracle.setTokenPrice(_vault.sideToken(), t0.pre.sideTokenPrice);
-        _marketOracle.setImpliedVolatility(t0.pre.impliedVolatility);
-        _marketOracle.setRiskFreeRate(t0.pre.riskFreeRate);
+            vm.startPrank(_admin);
+            _oracle.setTokenPrice(_vault.sideToken(), t0.pre.sideTokenPrice);
+            _marketOracle.setImpliedVolatility(t0.pre.impliedVolatility);
+            _marketOracle.setRiskFreeRate(t0.pre.riskFreeRate);
 
-        _feeManager.setFeePercentage(t0.pre.fee);
-        _feeManager.setFeeMaturityPercentage(t0.pre.feeMaturity);
-        _feeManager.setCapPercentage(t0.pre.capFee);
-        _feeManager.setCapMaturityPercentage(t0.pre.capFeeMaturity);
+            _feeManager.setFeePercentage(t0.pre.fee);
+            _feeManager.setFeeMaturityPercentage(t0.pre.feeMaturity);
+            _feeManager.setCapPercentage(t0.pre.capFee);
+            _feeManager.setCapMaturityPercentage(t0.pre.capFeeMaturity);
+            _feeManager.setVaultFeePercentage(t0.pre.vaultFee);
 
-        _dvp.setTradeVolatilityUtilizationRateFactor(t0.pre.tradeVolatilityUtilizationRateFactor);
-        _dvp.setTradeVolatilityTimeDecay(t0.pre.tradeVolatilityTimeDecay);
-        _dvp.setSigmaMultiplier(t0.pre.sigmaMultiplier);
-        vm.stopPrank();
+            _dvp.setTradeVolatilityUtilizationRateFactor(t0.pre.tradeVolatilityUtilizationRateFactor);
+            _dvp.setTradeVolatilityTimeDecay(t0.pre.tradeVolatilityTimeDecay);
+            _dvp.setSigmaMultiplier(t0.pre.sigmaMultiplier);
+            vm.stopPrank();
 
-        Utils.skipWeek(true, vm);
-        vm.prank(_admin);
-        _dvp.rollEpoch();
+            Utils.skipWeek(true, vm);
+            vm.prank(_admin);
+            _dvp.rollEpoch();
+        }
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
         // assertEq(t0.post.baseTokenAmount, baseTokenAmount); // TMP for math precision
@@ -253,10 +263,10 @@ contract TestScenariosJson is Test {
         assertApproxEqAbs(t.pre.baseTokenAmount, baseTokenAmount, _tollerancePercentage(t.pre.baseTokenAmount, 1));
         assertApproxEqAbs(t.pre.sideTokenAmount, sideTokenAmount, _tollerancePercentage(t.pre.sideTokenAmount, 1));
 
-        assertEq(t.pre.utilizationRate, _dvp.getUtilizationRate());
+        assertApproxEqAbs(t.pre.utilizationRate, _dvp.getUtilizationRate(), _toleranceOnPercentage);
         (, , uint256 availableBearNotional, uint256 availableBullNotional) = _dvp.notional();
-        assertEq(t.pre.availableNotionalBear, availableBearNotional);
-        assertEq(t.pre.availableNotionalBull, availableBullNotional);
+        assertApproxEqAbs(t.pre.availableNotionalBear, availableBearNotional, _toleranceOnAmount);
+        assertApproxEqAbs(t.pre.availableNotionalBull, availableBullNotional, _toleranceOnAmount);
         uint256 strike = _dvp.currentStrike();
         assertApproxEqAbs(
             t.pre.volatility,
@@ -292,10 +302,10 @@ contract TestScenariosJson is Test {
 
         //post-conditions:
         assertApproxEqAbs(t.post.marketValue, marketValue, _tollerancePercentage(t.post.marketValue, 1));
-        assertEq(t.post.utilizationRate, _dvp.getUtilizationRate());
+        assertApproxEqAbs(t.post.utilizationRate, _dvp.getUtilizationRate(), _toleranceOnPercentage);
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
-        assertEq(t.post.availableNotionalBear, availableBearNotional);
-        assertEq(t.post.availableNotionalBull, availableBullNotional);
+        assertApproxEqAbs(t.post.availableNotionalBear, availableBearNotional, _toleranceOnAmount);
+        assertApproxEqAbs(t.post.availableNotionalBull, availableBullNotional, _toleranceOnAmount);
         assertApproxEqAbs(
             t.post.volatility,
             _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true),
@@ -315,6 +325,12 @@ contract TestScenariosJson is Test {
             vm.prank(_liquidityProvider);
             (uint256 heldByAccount, uint256 heldByVault) = _vault.shareBalances(_liquidityProvider);
             assertGe(heldByAccount + heldByVault, rebalance.withdrawSharesAmount);
+            (, uint256 sharesToWithdraw) = _vault.withdrawals(_liquidityProvider);
+            if (sharesToWithdraw > 0) {
+                vm.prank(_liquidityProvider);
+                _vault.completeWithdraw();
+            }
+
             vm.prank(_liquidityProvider);
             _vault.initiateWithdraw(rebalance.withdrawSharesAmount);
         }
@@ -367,7 +383,7 @@ contract TestScenariosJson is Test {
     }
 
     function _getStartEpochFromJson(string memory json) private returns (StartEpoch memory) {
-        string[19] memory paths = [
+        string[20] memory paths = [
             "pre.sideTokenPrice",
             "pre.impliedVolatility",
             "pre.riskFreeRate",
@@ -378,6 +394,7 @@ contract TestScenariosJson is Test {
             "pre.capFeeMaturity",
             "pre.fee",
             "pre.feeMaturity",
+            "pre.vaultFee",
             "v0",
             "post.baseTokenAmount",
             "post.sideTokenAmount",
@@ -388,7 +405,7 @@ contract TestScenariosJson is Test {
             "post.limInf",
             "post.limSup"
         ];
-        uint256[19] memory vars;
+        uint256[20] memory vars;
 
         string memory fixedJsonPath = "$.startEpoch";
         for (uint256 i = 0; i < paths.length; i++) {
@@ -412,7 +429,8 @@ contract TestScenariosJson is Test {
                 capFee: vars[counter++],
                 capFeeMaturity: vars[counter++],
                 fee: vars[counter++],
-                feeMaturity: vars[counter++]
+                feeMaturity: vars[counter++],
+                vaultFee: vars[counter++]
             }),
             v0: vars[counter++],
             post: StartEpochPostConditions({

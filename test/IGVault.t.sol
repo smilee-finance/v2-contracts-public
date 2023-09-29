@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {Epoch} from "../src/lib/EpochController.sol";
@@ -314,6 +315,7 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         vm.prank(admin);
         ig.rollEpoch();
+
         {
             uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
             assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
@@ -328,7 +330,7 @@ contract IGVaultTest is Test {
         vm.prank(charlie);
         ig.mint(
             charlie,
-            0,
+            1900e18,
             (params.optionStrategy) ? params.charlieAmount : 0,
             (params.optionStrategy) ? 0 : params.charlieAmount,
             premium,
@@ -345,7 +347,7 @@ contract IGVaultTest is Test {
             vm.prank(david);
             uint256 davidPremium = ig.mint(
                 david,
-                0,
+                1900e18,
                 (params.optionStrategy) ? params.davidAmount : 0,
                 (params.optionStrategy) ? 0 : params.davidAmount,
                 davidInitialBalance,
@@ -376,7 +378,7 @@ contract IGVaultTest is Test {
             (params.optionStrategy) ? 0 : params.charlieAmount
         );
 
-        assertApproxEqAbs(params.charlieAmount / 10, charliePayoff + charlieFeePayoff, 1e2);
+        assertApproxEqAbs(params.charlieAmount / 5, charliePayoff + charlieFeePayoff, 1e2);
 
         vm.prank(david);
         (uint256 davidPayoff, uint256 davidFeePayoff) = ig.payoff(
@@ -386,7 +388,7 @@ contract IGVaultTest is Test {
             (params.optionStrategy) ? 0 : params.davidAmount
         );
 
-        assertApproxEqAbs(params.davidAmount / 10, davidPayoff + davidFeePayoff, 1e2);
+        assertApproxEqAbs(params.davidAmount / 5, davidPayoff + davidFeePayoff, 1e2);
 
         uint256 pendingPayoff = VaultUtils.vaultState(vault).liquidity.pendingPayoffs;
         assertApproxEqAbs((charliePayoff + charlieFeePayoff) + (davidPayoff + davidFeePayoff), pendingPayoff, 1e2);

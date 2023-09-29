@@ -10,7 +10,8 @@
             "fee": 350000000000000,
             "capFee": 125000000000000000,
             "feeMaturity": 150000000000000,
-            "capFeeMaturity": 50000000000000000000000
+            "capFeeMaturity": 50000000000000000000000,
+            "vaultFee": 0
         },
         "post": {
             "baseTokenAmount": 50000000000000000000000,
