@@ -38,6 +38,8 @@ contract SwapProviderRouterTest is Test {
         AddressProvider ap = new AddressProvider();
         ap.grantRole(ap.ROLE_ADMIN(), _admin);
         TestnetRegistry r = new TestnetRegistry();
+        r.grantRole(r.ROLE_ADMIN(), _admin);
+
         ap.setExchangeAdapter(address(_swap));
         ap.setRegistry(address(r));
         _token0 = new TestnetToken("USDC", "");

@@ -29,6 +29,7 @@ library TokenUtils {
         address registryAddress = ap.registry();
         if (registryAddress == address(0)) {
             TestnetRegistry registry = new TestnetRegistry();
+            registry.grantRole(registry.ROLE_ADMIN(), admin);
             registryAddress = address(registry);
             ap.setRegistry(registryAddress);
         }
@@ -44,7 +45,8 @@ library TokenUtils {
 
         address feeManagerAddress = ap.feeManager();
         if (feeManagerAddress == address(0)) {
-            FeeManager feeManager =  new FeeManager(0.0035e18, 0.125e18, 0.0015e18, 0.125e18, 0);
+            FeeManager feeManager = new FeeManager(0.0035e18, 0.125e18, 0.0015e18, 0.125e18, 0);
+            feeManager.grantRole(feeManager.ROLE_ADMIN(), admin);
             feeManagerAddress = address(feeManager);
             ap.setFeeManager(feeManagerAddress);
         }
@@ -52,6 +54,7 @@ library TokenUtils {
         address marketOracleAddress = ap.marketOracle();
         if (marketOracleAddress == address(0)) {
             MarketOracle marketOracle = new MarketOracle();
+            marketOracle.grantRole(marketOracle.ROLE_ADMIN(), admin);
             marketOracleAddress = address(marketOracle);
             ap.setMarketOracle(marketOracleAddress);
         }
