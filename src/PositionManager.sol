@@ -187,7 +187,11 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         payoff_ = _sell(tokenId, position.notionalUp, position.notionalDown, expectedMarketValue, 0.1e18);
     }
 
-    function payoff(uint256 tokenId, uint256 notionalUp, uint256 notionalDown) external view returns (uint256 payoff_, uint256 fee) {
+    function payoff(
+        uint256 tokenId,
+        uint256 notionalUp,
+        uint256 notionalDown
+    ) external view returns (uint256 payoff_, uint256 fee) {
         ManagedPosition storage position = _positions[tokenId];
         return IDVP(position.dvpAddr).payoff(position.expiry, position.strike, notionalUp, notionalDown);
     }

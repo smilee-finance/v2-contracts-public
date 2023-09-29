@@ -82,7 +82,7 @@ contract SwapIntegrationTest is Test {
         uint256 usdcBalBefore = IERC20Metadata(_USDC).balanceOf(_WETH_HOLDER);
 
         vm.startPrank(_WETH_HOLDER);
-        uint256 maxAmountIn = _swapRouter.getInputAmount(_WETH, _USDC, amountOut);
+        uint256 maxAmountIn = _swapRouter.getInputAmountMax(_WETH, _USDC, amountOut);
         IERC20Metadata(_WETH).approve(address(_swapRouter), maxAmountIn);
         uint256 amountIn = _swapRouter.swapOut(_WETH, _USDC, amountOut, maxAmountIn);
         vm.stopPrank();
@@ -117,7 +117,7 @@ contract SwapIntegrationTest is Test {
         uint256 usdcBalBefore = IERC20Metadata(_USDC).balanceOf(_WBTC_HOLDER);
 
         vm.startPrank(_WBTC_HOLDER);
-        uint256 maxAmountIn = _swapRouter.getInputAmount(_WBTC, _USDC, amountOut);
+        uint256 maxAmountIn = _swapRouter.getInputAmountMax(_WBTC, _USDC, amountOut);
         IERC20Metadata(_WBTC).approve(address(_swapRouter), maxAmountIn);
         uint256 amountIn = _swapRouter.swapOut(_WBTC, _USDC, amountOut, maxAmountIn);
         vm.stopPrank();

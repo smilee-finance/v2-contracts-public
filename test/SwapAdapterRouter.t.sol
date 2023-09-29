@@ -258,7 +258,7 @@ contract SwapProviderRouterTest is Test {
         if (isIn) {
             _token0.mint(_alice, swapAmount);
         } else {
-            uint256 amountInMax = _swapRouter.getInputAmount(address(_token0), address(_token1), swapAmount);
+            uint256 amountInMax = _swapRouter.getInputAmountMax(address(_token0), address(_token1), swapAmount);
             _token0.mint(_alice, amountInMax);
         }
         vm.stopPrank();

@@ -35,6 +35,11 @@ contract TestnetSwapAdapter is IExchange, Ownable {
         return _getAmountIn(tokenIn, tokenOut, amountOut);
     }
 
+    /// @inheritdoc IExchange
+    function getInputAmountMax(address tokenIn, address tokenOut, uint256 amountOut) external view returns (uint) {
+        return _getAmountIn(tokenIn, tokenOut, amountOut);
+    }
+
     /// @inheritdoc ISwapAdapter
     function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 amountOut) {
         if (!IERC20Metadata(tokenIn).transferFrom(msg.sender, address(this), amountIn)) {

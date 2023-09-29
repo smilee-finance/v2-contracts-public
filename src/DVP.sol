@@ -297,7 +297,7 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
         IVault vaultCt = IVault(vault);
         if (vaultCt.v0() > 0) {
             // Accounts the payoff for each strike and strategy of the positions in circulation that is still to be redeemed:
-            _accountResidualPayoffs();
+            _accountResidualPayoffs(IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken));
             // Reserve the payoff of those positions:
             uint256 payoffToReserve = _residualPayoff();
             vaultCt.reservePayoff(payoffToReserve);
@@ -314,27 +314,28 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
     }
 
     /**
-        @notice Setup initial notional for a new epoch.
-        @param initialCapital The initial notional.
-        @dev The concrete DVP must allocate the initial notional on the various strikes and strategies.
+        @notice Setup initial notional for a new epoch
+        @param initialCapital The initial notional
+        @dev The concrete DVP must allocate the initial notional on the various strikes and strategies
      */
     function _allocateLiquidity(uint256 initialCapital) internal virtual;
 
     /**
-        @notice computes and stores the residual payoffs of the positions in circulation that is still to be redeemed for the closing epoch.
-        @dev The concrete DVP must compute and account the payoff for the various strikes and strategies.
+        @notice Computes and stores the residual payoffs for each strike and strategy of the outstanding positions that have not been redeemed
+        @param price The side token price used to compute the payoff
+        @dev The concrete DVP must compute and account the payoff for the various strikes and strategies
      */
-    function _accountResidualPayoffs() internal virtual;
+    function _accountResidualPayoffs(uint256 price) internal virtual;
 
     /**
-        @notice Utility function made in order to simplify the work done in _accountResidualPayoffs().
+        @notice Utility function to simplify the work done in _accountResidualPayoffs()
      */
-    function _accountResidualPayoff(uint256 strike) internal {
+    function _accountResidualPayoff(uint256 strike, uint256 price) internal {
         Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         // computes the payoff to be set aside at the end of the epoch for the provided strike.
         (uint256 residualAmountUp, uint256 residualAmountDown) = liquidity.getUsed(strike);
-        (uint256 percentageUp, uint256 percentageDown) = _residualPayoffPerc(strike);
+        (uint256 percentageUp, uint256 percentageDown) = _residualPayoffPerc(strike, price);
         (uint256 payoffUp_, uint256 payoffDown_) = Finance.computeResidualPayoffs(
             residualAmountUp,
             percentageUp,
@@ -354,14 +355,16 @@ abstract contract DVP is IDVP, EpochControls, Ownable, Pausable {
     function _residualPayoff() internal view virtual returns (uint256 residualPayoff);
 
     /**
-        @notice computes the payoff percentage (a scale factor) for the given strike at epoch end.
-        @param strike the reference strike.
-        @return percentageCall the payoff percentage.
-        @return percentagePut the payoff percentage.
+        @notice Computes the payoff percentage (a scale factor) for the given strike at epoch end
+        @param strike The reference strike
+        @param price The underlying side token price to compute payoff
+        @return percentageCall The payoff percentage
+        @return percentagePut The payoff percentage
         @dev The percentage is expected to be defined in Wad (i.e. 100 % := 1e18)
      */
     function _residualPayoffPerc(
-        uint256 strike
+        uint256 strike,
+        uint256 price
     ) internal view virtual returns (uint256 percentageCall, uint256 percentagePut);
 
     /// @dev computes the premium/payoff with the given amount, swap price and post-trade volatility

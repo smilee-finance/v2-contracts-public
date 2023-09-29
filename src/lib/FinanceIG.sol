@@ -193,25 +193,25 @@ library FinanceIG {
     /**
         @notice Get the estimated implied volatility from a given trade.
         @param params The finance parameters.
-        @param U The post-trade utilization rate.
+        @param ur The post-trade utilization rate.
         @param t0 The previous epoch.
         @return sigma The estimated implied volatility.
         @dev The baseline volatility (params.sigmaZero) must be updated, computed just before the start of the epoch.
      */
     function getPostTradeVolatility(
         FinanceParameters memory params,
-        uint256 U,
+        uint256 ur,
         uint256 t0
     ) public view returns (uint256 sigma) {
-        uint256 T = params.maturity - t0;
+        uint256 t = params.maturity - t0;
 
         sigma = FinanceIGPrice.tradeVolatility(
             FinanceIGPrice.TradeVolatilityParams(
                 params.sigmaZero,
                 params.tradeVolatilityUtilizationRateFactor,
                 params.tradeVolatilityTimeDecay,
-                U,
-                T,
+                ur,
+                t,
                 t0
             )
         );

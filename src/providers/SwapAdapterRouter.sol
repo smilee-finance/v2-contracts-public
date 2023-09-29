@@ -93,7 +93,7 @@ contract SwapAdapterRouter is IExchange, Ownable {
 
     /**
         @inheritdoc IExchange
-        @dev implementation return amountOutMin because we also consider slippage to be consistent with getInputAmount impl.
+        @dev We are ignoring exchange fees
      */
     function getOutputAmount(
         address tokenIn,
@@ -102,14 +102,25 @@ contract SwapAdapterRouter is IExchange, Ownable {
     ) external view override returns (uint amountOut) {
         _zeroAddressCheck(tokenIn);
         _zeroAddressCheck(tokenOut);
-        (amountOut, ) = _slippedValueOut(tokenIn, tokenOut, amountIn);
+        return _valueOut(tokenIn, tokenOut, amountIn);
     }
 
     /**
         @inheritdoc IExchange
-        @dev implementation return amountInMax because this is the amount that need to be approved
+        @dev We are ignoring exchange fees
      */
     function getInputAmount(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut
+    ) external view override returns (uint amountIn) {
+        _zeroAddressCheck(tokenIn);
+        _zeroAddressCheck(tokenOut);
+        return _valueIn(tokenIn, tokenOut, amountOut);
+    }
+
+    /// @inheritdoc IExchange
+    function getInputAmountMax(
         address tokenIn,
         address tokenOut,
         uint256 amountOut
@@ -198,7 +209,35 @@ contract SwapAdapterRouter is IExchange, Ownable {
     }
 
     /**
-        @notice Gets the minimum output amount given an input amount and a price
+        @notice Gets the output amount given an input amount at current oracle price
+        @param tokenIn The input token address
+        @param tokenOut The output token address
+        @param amountIn The input amount, denominated in input token
+        @return amountOut The output amount, denominated in output token
+     */
+    function _valueOut(address tokenIn, address tokenOut, uint256 amountIn) private view returns (uint256 amountOut) {
+        uint256 price = _priceOracle.getPrice(tokenIn, tokenOut);
+        amountOut =
+            (price * amountIn * 10 ** IERC20Metadata(tokenOut).decimals()) /
+            10 ** (18 + (IERC20Metadata(tokenIn).decimals()));
+    }
+
+    /**
+        @notice Gets the input amount given an output amount at current oracle price
+        @param tokenIn The input token address
+        @param tokenOut The output token address
+        @param amountOut The output amount, denominated in output token
+        @return amountIn The input amount, denominated in input token
+     */
+    function _valueIn(address tokenIn, address tokenOut, uint256 amountOut) private view returns (uint256 amountIn) {
+        uint256 price = _priceOracle.getPrice(tokenOut, tokenIn);
+        amountIn =
+            (price * amountOut * 10 ** IERC20Metadata(tokenIn).decimals()) /
+            10 ** (18 + (IERC20Metadata(tokenOut).decimals()));
+    }
+
+    /**
+        @notice Gets the <min, max> range for output amount given an input amount
         @param tokenIn The input token address
         @param tokenOut The output token address
         @param amountIn The input amount, denominated in input token
@@ -218,7 +257,7 @@ contract SwapAdapterRouter is IExchange, Ownable {
     }
 
     /**
-        @notice Gets the maximum input amount given an output amount and a price
+        @notice Gets the <max, min> range input amount given an output amount
         @param tokenIn The input token address
         @param tokenOut The output token address
         @param amountOut The output amount, denominated in output token

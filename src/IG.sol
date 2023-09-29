@@ -142,7 +142,7 @@ contract IG is DVP {
         strike;
 
         Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
-        uint256 U = liquidity.postTradeUtilizationRate(
+        uint256 ur = liquidity.postTradeUtilizationRate(
             _financeParameters.currentStrike,
             amount,
             tradeIsBuy,
@@ -150,7 +150,7 @@ contract IG is DVP {
         );
         uint256 t0 = getEpoch().previous;
 
-        return FinanceIG.getPostTradeVolatility(_financeParameters, U, t0);
+        return FinanceIG.getPostTradeVolatility(_financeParameters, ur, t0);
     }
 
     // TBD: wrap parameters in a "Trade" struct (there's an overlap with Position.Info)
@@ -162,8 +162,8 @@ contract IG is DVP {
         bool tradeIsBuy
     ) internal virtual override returns (uint256 swapPrice) {
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-
         uint256 postTradeVol = getPostTradeVolatility(strike, amount, tradeIsBuy);
+
         Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
         Amount memory availableLiquidity = liquidity.available(strike);
         (, uint256 sideTokensAmount) = IVault(vault).balances();
@@ -192,11 +192,12 @@ contract IG is DVP {
     }
 
     /// @inheritdoc DVP
-    function _residualPayoffPerc(uint256 strike) internal view virtual override returns (uint256, uint256) {
+    function _residualPayoffPerc(
+        uint256 strike,
+        uint256 price
+    ) internal view virtual override returns (uint256, uint256) {
         strike;
-        uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-
-        return FinanceIG.getPayoffPercentages(_financeParameters, oraclePrice);
+        return FinanceIG.getPayoffPercentages(_financeParameters, price);
     }
 
     /// @inheritdoc DVP
@@ -207,17 +208,13 @@ contract IG is DVP {
     }
 
     /// @inheritdoc DVP
-    function _accountResidualPayoffs() internal virtual override {
-        _accountResidualPayoff(_financeParameters.currentStrike);
+    function _accountResidualPayoffs(uint256 price) internal virtual override {
+        _accountResidualPayoff(_financeParameters.currentStrike, price);
     }
 
-    /// @inheritdoc EpochControls
-    function _afterRollEpoch() internal virtual override {
-        Epoch memory epoch = getEpoch();
-        // TBD: check if vault is dead
-
-        _financeParameters.maturity = epoch.current;
-
+    function _beforeRollEpoch() internal virtual override {
+        super._beforeRollEpoch();
+        uint256 previousStrike = _financeParameters.currentStrike;
         {
             // Update strike price:
             (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
@@ -231,6 +228,19 @@ contract IG is DVP {
                 _sideTokenDecimals
             );
         }
+
+        {
+            _accountResidualPayoff(previousStrike, _financeParameters.currentStrike);
+            IVault(vault).adjustReservedPayoff(_residualPayoff());
+        }
+    }
+
+    /// @inheritdoc EpochControls
+    function _afterRollEpoch() internal virtual override {
+        Epoch memory epoch = getEpoch();
+        // TBD: check if vault is dead
+
+        _financeParameters.maturity = epoch.current;
 
         {
             // TBD: if there's no liquidity, we may avoid those computations

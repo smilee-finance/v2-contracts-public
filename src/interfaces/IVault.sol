@@ -77,7 +77,6 @@ interface IVault is IVaultParams {
      */
     function balances() external view returns (uint256 baseTokenAmount, uint256 sideTokenAmount);
 
-    // TBD: rename with something more suitable...
     /**
         @notice Gives the initial notional for the current epoch (base tokens)
         @return v0_ The number of base tokens available for issuing options
@@ -85,19 +84,24 @@ interface IVault is IVaultParams {
     function v0() external view returns (uint256 v0_);
 
     /**
-        @notice Adjust the portfolio by trading the given amount of side tokens.
-        @param sideTokensAmount The amount of side tokens to buy (positive value) / sell (negative value).
-        @return baseTokens The amount of exchanged base tokens.
+        @notice Adjusts the portfolio by trading the given amount of side tokens
+        @param sideTokensAmount The amount of side tokens to buy (positive value) / sell (negative value)
+        @return baseTokens The amount of exchanged base tokens
      */
     function deltaHedge(int256 sideTokensAmount) external returns (uint256 baseTokens);
 
     /**
-        @notice Update Vault State with the amount of reserved payoff
+        @notice Updates Vault State with the amount of reserved payoff
      */
     function reservePayoff(uint256 residualPayoff) external;
 
     /**
-        @notice Tranfer an amount of reserved payoff to the user
+        @notice Adjusts stored payoff with a new one computed with swap price instead of oracle price
+     */
+    function adjustReservedPayoff(uint256 residualPayoff) external;
+
+    /**
+        @notice Tranfers an amount of reserved payoff to the user
         @param recipient The address receiving the quantity
         @param amount The number of base tokens to move
         @param isPastEpoch TODO

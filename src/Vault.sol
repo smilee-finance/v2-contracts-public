@@ -626,7 +626,8 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         // Set aside the payoff to be paid:
         _state.liquidity.pendingPayoffs += _state.liquidity.newPendingPayoffs;
         // TBD: move to _afterRollEpoch
-        _state.liquidity.newPendingPayoffs = 0;
+
+        // _state.liquidity.newPendingPayoffs are set to 0 by `adjustReservedPayoff()`;
 
         // TBD: move to _afterRollEpoch
         if (_state.dead && !manuallyKilled) {
@@ -676,10 +677,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         }
     }
 
-    /**
-        @notice Adjust the balances in order to cover the liquidity locked for pending operations and obtain an equal weight portfolio.
-        @dev We are ignoring fees...
-     */
+    /// @notice Adjusts the balances in order to cover the liquidity locked for pending operations and obtain an equal weight portfolio.
     function _adjustBalances() internal {
         address exchangeAddress = _addressProvider.exchangeAdapter();
         if (exchangeAddress == address(0)) {
@@ -692,19 +690,19 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
 
         if (baseTokens < pendings) {
             // We must cover the missing base tokens by selling an amount of side tokens:
-            uint256 baseTokensToReserve = pendings - baseTokens;
-            uint256 sideTokensToSellForCoveringMissingBaseTokens = exchange.getInputAmount(
+            uint256 missingBaseTokens = pendings - baseTokens;
+            uint256 sideTokensToSellToCoverMissingBaseTokens = exchange.getInputAmount(
                 sideToken,
                 baseToken,
-                baseTokensToReserve
+                missingBaseTokens
             );
 
             // Once we covered the missing base tokens, we still have to reach
             // an equal weight portfolio of unlocked liquidity, so we also have
             // to sell half of the remaining side tokens.
-            uint256 halfOfRemainingSideTokens = (sideTokens - sideTokensToSellForCoveringMissingBaseTokens) / 2;
+            uint256 halfOfRemainingSideTokens = (sideTokens - sideTokensToSellToCoverMissingBaseTokens) / 2;
 
-            uint256 sideTokensToSell = sideTokensToSellForCoveringMissingBaseTokens + halfOfRemainingSideTokens;
+            uint256 sideTokensToSell = sideTokensToSellToCoverMissingBaseTokens + halfOfRemainingSideTokens;
             _sellSideTokens(sideTokensToSell);
         } else {
             uint256 halfNotional = notional() / 2;
@@ -747,7 +745,7 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
         }
         IExchange exchange = IExchange(exchangeAddress);
 
-        uint256 baseTokensAmount = exchange.getInputAmount(baseToken, sideToken, amount);
+        uint256 baseTokensAmount = exchange.getInputAmountMax(baseToken, sideToken, amount);
 
         // Should never happen: `_deltaHedge()` should call this function with a correct amount of side tokens
         // But the DVP client of `deltaHedge()` may not... (ToDo: verify!)
@@ -783,6 +781,15 @@ contract Vault is IVault, ERC20, EpochControls, Ownable, Pausable {
     /// @inheritdoc IVault
     function reservePayoff(uint256 residualPayoff) external onlyDVP {
         _state.liquidity.newPendingPayoffs = residualPayoff;
+    }
+
+    /// @inheritdoc IVault
+    function adjustReservedPayoff(uint256 adjustedPayoff) external onlyDVP {
+        _state.liquidity.pendingPayoffs =
+            _state.liquidity.pendingPayoffs -
+            _state.liquidity.newPendingPayoffs +
+            adjustedPayoff;
+        _state.liquidity.newPendingPayoffs = 0;
     }
 
     /// @inheritdoc IVault

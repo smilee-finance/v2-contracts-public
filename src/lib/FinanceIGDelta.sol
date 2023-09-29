@@ -162,21 +162,21 @@ library FinanceIGDelta {
         uint256 notionalDown = AmountsMath.wrapDecimals(SignedMath.abs(params.notionalDown), params.baseTokenDecimals);
         params.sideTokensAmount = AmountsMath.wrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
 
-        uint256 notionalBull = params.availableLiquidityBull;
+        uint256 protoNotionalUp = params.availableLiquidityBull;
         if (params.notionalUp >= 0) {
-            notionalBull = notionalBull.sub(notionalUp);
+            protoNotionalUp = protoNotionalUp.sub(notionalUp);
         } else {
-            notionalBull = notionalBull.add(notionalUp);
+            protoNotionalUp = protoNotionalUp.add(notionalUp);
         }
-        uint256 notionalBear = params.availableLiquidityBear;
+        uint256 protoNotionalDown = params.availableLiquidityBear;
         if (params.notionalDown >= 0) {
-            notionalBear = notionalBear.sub(notionalDown);
+            protoNotionalDown = protoNotionalDown.sub(notionalDown);
         } else {
-            notionalBear = notionalBear.add(notionalDown);
+            protoNotionalDown = protoNotionalDown.add(notionalDown);
         }
 
-        uint256 up = SignedMath.abs(params.igDBull).wmul(notionalBull).wdiv(params.initialLiquidityBull);
-        uint256 down = SignedMath.abs(params.igDBear).wmul(notionalBear).wdiv(params.initialLiquidityBear);
+        uint256 protoDeltaUp = SignedMath.abs(params.igDBull).wmul(protoNotionalUp).wdiv(params.initialLiquidityBull);
+        uint256 protoDeltaDown = SignedMath.abs(params.igDBear).wmul(protoNotionalDown).wdiv(params.initialLiquidityBear);
 
         uint256 deltaLimit;
         {
@@ -189,8 +189,8 @@ library FinanceIGDelta {
         }
 
         tokensToSwap =
-            SignedMath.revabs(up, params.igDBull >= 0) +
-            SignedMath.revabs(down, params.igDBear >= 0) +
+            SignedMath.revabs(protoDeltaUp, params.igDBull >= 0) +
+            SignedMath.revabs(protoDeltaDown, params.igDBear >= 0) +
             SignedMath.castInt(params.sideTokensAmount) -
             SignedMath.castInt(deltaLimit);
 

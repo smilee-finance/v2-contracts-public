@@ -94,12 +94,13 @@ contract MockedIG is IG {
     }
 
     function _residualPayoffPerc(
-        uint256 strike
+        uint256 strike,
+        uint256 price
     ) internal view virtual override returns (uint256 percentageCall, uint256 percentagePut) {
         if (_fakePayoff) {
             return (_payoffPercentage, _payoffPercentage);
         }
-        return super._residualPayoffPerc(strike);
+        return super._residualPayoffPerc(strike, price);
     }
 
     function _deltaHedgePosition(
