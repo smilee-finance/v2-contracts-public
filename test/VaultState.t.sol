@@ -401,12 +401,13 @@ contract VaultStateTest is Test {
         vault.initiateWithdraw(1e17);
 
         vm.expectRevert(VaultPaused);
+
         vault.completeWithdraw();
+
         vm.stopPrank();
 
         Utils.skipDay(true, vm);
 
-        vm.expectRevert(VaultPaused);
         vm.prank(admin);
         vault.rollEpoch();
 
@@ -414,9 +415,6 @@ contract VaultStateTest is Test {
         vm.prank(admin);
         vault.changePauseState();
         assertEq(vault.paused(), false);
-
-        vm.prank(admin);
-        vault.rollEpoch();
 
         vm.startPrank(alice);
         vault.deposit(1e17, alice, 0);

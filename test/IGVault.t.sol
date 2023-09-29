@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {Epoch} from "../src/lib/EpochController.sol";
@@ -478,6 +477,7 @@ contract IGVaultTest is Test {
         (uint256 expectedMarketValue, ) = ig.premium(0, optionAmount, 0);
         TokenUtils.provideApprovedTokens(admin, address(baseToken), charlie, address(ig), expectedMarketValue, vm);
         vm.startPrank(charlie);
+
         vm.expectRevert("Pausable: paused");
         ig.mint(charlie, 0, optionAmount, 0, expectedMarketValue, 0.1e18);
         vm.stopPrank();
@@ -486,6 +486,7 @@ contract IGVaultTest is Test {
         uint256 currentEpoch = ig.currentEpoch();
         uint256 strike = ig.currentStrike();
         vm.startPrank(charlie);
+
         (expectedMarketValue, ) = ig.payoff(currentEpoch, strike, optionAmount / 2, 0);
         vm.expectRevert("Pausable: paused");
         ig.burn(currentEpoch, charlie, strike, optionAmount / 2, 0, expectedMarketValue, 0.1e18);
@@ -504,8 +505,8 @@ contract IGVaultTest is Test {
         vm.prank(admin);
         vault.changePauseState();
 
+        // Vault is pause but we can still call rollepoch on ig
         Utils.skipDay(true, vm);
-        vm.expectRevert("Pausable: paused");
         vm.prank(admin);
         ig.rollEpoch();
     }
