@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
 import {IRegistry} from "../interfaces/IRegistry.sol";
@@ -30,6 +31,13 @@ contract VaultAccessNFT is IVaultAccessNFT, ERC721, AccessControl {
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
         _grantRole(ROLE_GOD, msg.sender);
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC721, IERC165) returns (bool) {
+        return ERC721.supportsInterface(interfaceId) && AccessControl.supportsInterface(interfaceId);
     }
 
     /**

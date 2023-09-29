@@ -34,6 +34,7 @@ contract VaultPriorityAccessTest is Test {
         AddressProvider ap = new AddressProvider();
         ap.grantRole(ap.ROLE_ADMIN(), _admin);
         _nft = new VaultAccessNFT(address(ap));
+        _nft.grantRole(_nft.ROLE_ADMIN(), _admin);
         ap.setVaultAccessNFT(address(_nft));
         vm.stopPrank();
 
