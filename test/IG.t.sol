@@ -35,7 +35,7 @@ contract IGTest is Test {
 
     constructor() {
         vm.startPrank(admin);
-        ap = new AddressProvider();
+        ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), admin);
         registry = new TestnetRegistry();
         registry.grantRole(registry.ROLE_ADMIN(), admin);

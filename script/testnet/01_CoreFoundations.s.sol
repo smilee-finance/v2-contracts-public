@@ -49,7 +49,7 @@ contract DeployCoreFoundations is Script {
 
     function _doSomething() internal {
         TestnetToken sUSD = new TestnetToken("Smilee USD", "sUSD");
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(1 days);
         ap.grantRole(ap.ROLE_GOD(), _adminMultiSigAddress);
         ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress);
         ap.renounceRole(ap.ROLE_GOD(), _deployerAddress);

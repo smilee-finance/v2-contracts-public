@@ -9,6 +9,7 @@ import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {TokenUtils} from "../utils/TokenUtils.sol";
+import {Utils} from "../utils/Utils.sol";
 
 contract TestnetSwapAdapterTest is Test {
     using AmountsMath for uint256;
@@ -34,7 +35,7 @@ contract TestnetSwapAdapterTest is Test {
         WETH = new TestnetToken("Testnet WETH", "WETH");
         WBTC = new TestnetToken("Testnet WBTC", "WBTC");
 
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), adminWallet);
         registry = new TestnetRegistry();
         priceOracle = new TestnetPriceOracle(address(USD));

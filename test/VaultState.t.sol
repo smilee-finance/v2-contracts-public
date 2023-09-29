@@ -32,7 +32,7 @@ contract VaultStateTest is Test {
         vm.warp(EpochFrequency.REF_TS);
 
         vm.startPrank(admin);
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), admin);
         vm.stopPrank();
 

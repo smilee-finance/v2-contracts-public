@@ -49,7 +49,7 @@ contract IGVaultTest is Test {
         vm.warp(EpochFrequency.REF_TS);
         //ToDo: Replace with Factory
         vm.startPrank(admin);
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(0);
         registry = new TestnetRegistry();
         ap.grantRole(ap.ROLE_ADMIN(), admin);
         registry.grantRole(registry.ROLE_ADMIN(), admin);

@@ -27,7 +27,7 @@ contract FactoryTest is Test {
 
     function setUp() public {
         vm.startPrank(tokenAdmin);
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), tokenAdmin);
         vm.stopPrank();
 

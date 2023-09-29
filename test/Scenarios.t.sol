@@ -125,7 +125,7 @@ contract TestScenariosJson is Test {
         vm.warp(EpochFrequency.REF_TS);
 
         vm.prank(_admin);
-        _ap = new AddressProvider();
+        _ap = new AddressProvider(0);
 
         _vault = MockedVault(VaultUtils.createVault(EpochFrequency.WEEKLY, _ap, _admin, vm));
 

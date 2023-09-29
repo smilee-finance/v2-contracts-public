@@ -3,19 +3,23 @@ pragma solidity ^0.8.21;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
+import {TimeLock, TimeLockedAddress} from "./lib/TimeLock.sol";
 
-// TBD: add TimeLock
 // TBD: return an immutable view to be used on each epoch ?
 // TBD: merge with Registry.sol
 contract AddressProvider is AccessControl, IAddressProvider {
-    address public exchangeAdapter;
-    address public priceOracle;
-    address public marketOracle;
-    address public registry;
-    address public dvpPositionManager;
-    address public vaultProxy;
-    address public feeManager;
-    address public vaultAccessNFT;
+    using TimeLock for TimeLockedAddress;
+
+    uint256 internal immutable _timeLockDelay;
+
+    TimeLockedAddress internal _exchangeAdapter;
+    TimeLockedAddress internal _priceOracle;
+    TimeLockedAddress internal _marketOracle;
+    TimeLockedAddress internal _registry;
+    TimeLockedAddress internal _dvpPositionManager;
+    TimeLockedAddress internal _vaultProxy;
+    TimeLockedAddress internal _feeManager;
+    TimeLockedAddress internal _vaultAccessNFT;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -30,7 +34,9 @@ contract AddressProvider is AccessControl, IAddressProvider {
     event ChangedVaultProxy(address newValue, address oldValue);
     event ChangedFeeManager(address newValue, address oldValue);
 
-    constructor() AccessControl() {
+    constructor(uint256 timeLockDelay_) AccessControl() {
+        _timeLockDelay = timeLockDelay_;
+
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
@@ -47,79 +53,111 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(exchangeAdapter_);
 
-        address previous = exchangeAdapter;
-        exchangeAdapter = exchangeAdapter_;
+        address previous = _exchangeAdapter.get();
+        _exchangeAdapter.set(exchangeAdapter_, _timeLockDelay);
 
         emit ChangedExchangeAdapter(exchangeAdapter_, previous);
+    }
+
+    function exchangeAdapter() public view returns (address) {
+        return _exchangeAdapter.get();
     }
 
     function setPriceOracle(address priceOracle_) external {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(priceOracle_);
 
-        address previous = priceOracle;
-        priceOracle = priceOracle_;
+        address previous = _priceOracle.get();
+        _priceOracle.set(priceOracle_, _timeLockDelay);
 
         emit ChangedPriceOracle(priceOracle_, previous);
+    }
+
+    function priceOracle() public view returns (address) {
+        return _priceOracle.get();
     }
 
     function setMarketOracle(address marketOracle_) external {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(marketOracle_);
 
-        address previous = marketOracle;
-        marketOracle = marketOracle_;
+        address previous = _marketOracle.get();
+        _marketOracle.set(marketOracle_, _timeLockDelay);
 
         emit ChangedMarketOracle(marketOracle_, previous);
+    }
+
+    function marketOracle() public view returns (address) {
+        return _marketOracle.get();
     }
 
     function setRegistry(address registry_) external {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(registry_);
 
-        address previous = registry;
-        registry = registry_;
+        address previous = _registry.get();
+        _registry.set(registry_, _timeLockDelay);
 
         emit ChangedRegistry(registry_, previous);
+    }
+
+    function registry() public view returns (address) {
+        return _registry.get();
     }
 
     function setDvpPositionManager(address posManager_) external {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(posManager_);
 
-        address previous = dvpPositionManager;
-        dvpPositionManager = posManager_;
+        address previous = _dvpPositionManager.get();
+        _dvpPositionManager.set(posManager_, _timeLockDelay);
 
         emit ChangedPositionManager(posManager_, previous);
+    }
+
+    function dvpPositionManager() public view returns (address) {
+        return _dvpPositionManager.get();
     }
 
     function setVaultProxy(address vaultProxy_) external {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(vaultProxy_);
 
-        address previous = vaultProxy;
-        vaultProxy = vaultProxy_;
+        address previous = _vaultProxy.get();
+        _vaultProxy.set(vaultProxy_, _timeLockDelay);
 
         emit ChangedVaultProxy(vaultProxy_, previous);
+    }
+
+    function vaultProxy() public view returns (address) {
+        return _vaultProxy.get();
     }
 
     function setFeeManager(address feeManager_) external {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(feeManager_);
 
-        address previous = feeManager;
-        feeManager = feeManager_;
+        address previous = _feeManager.get();
+        _feeManager.set(feeManager_, _timeLockDelay);
 
         emit ChangedFeeManager(feeManager_, previous);
+    }
+
+    function feeManager() public view returns (address) {
+        return _feeManager.get();
     }
 
     function setVaultAccessNFT(address vaultAccessNFT_) public {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(vaultAccessNFT_);
 
-        address previous = vaultAccessNFT;
-        vaultAccessNFT = vaultAccessNFT_;
+        address previous = _vaultAccessNFT.get();
+        _vaultAccessNFT.set(vaultAccessNFT_, _timeLockDelay);
 
         emit ChangedFeeManager(vaultAccessNFT_, previous);
+    }
+
+    function vaultAccessNFT() public view returns (address) {
+        return _vaultAccessNFT.get();
     }
 }

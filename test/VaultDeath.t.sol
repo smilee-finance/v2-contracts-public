@@ -34,7 +34,7 @@ contract VaultDeathTest is Test {
         vm.warp(EpochFrequency.REF_TS);
 
         vm.prank(tokenAdmin);
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(0);
 
         vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, tokenAdmin, vm));
         baseToken = TestnetToken(vault.baseToken());

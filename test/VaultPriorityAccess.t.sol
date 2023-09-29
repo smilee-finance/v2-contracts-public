@@ -31,7 +31,7 @@ contract VaultPriorityAccessTest is Test {
         vm.warp(EpochFrequency.REF_TS);
 
         vm.startPrank(_admin);
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), _admin);
         _nft = new VaultAccessNFT(address(ap));
         _nft.grantRole(_nft.ROLE_ADMIN(), _admin);

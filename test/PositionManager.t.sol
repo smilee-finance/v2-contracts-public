@@ -40,7 +40,7 @@ contract PositionManagerTest is Test {
         vm.warp(EpochFrequency.REF_TS + 1);
 
         vm.prank(admin);
-        ap = new AddressProvider();
+        ap = new AddressProvider(0);
 
         vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         baseToken = vault.baseToken();

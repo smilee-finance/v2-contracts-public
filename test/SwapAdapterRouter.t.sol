@@ -10,6 +10,7 @@ import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
+import {Utils} from "./utils/Utils.sol";
 
 contract SwapProviderRouterTest is Test {
     bytes4 constant _ADDRESS_ZERO = bytes4(keccak256("AddressZero()"));
@@ -35,7 +36,7 @@ contract SwapProviderRouterTest is Test {
         _swapRouter = new SwapAdapterRouter(address(_oracle));
         _swapRouter.grantRole(_swapRouter.ROLE_ADMIN(), _admin);
 
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), _admin);
         TestnetRegistry r = new TestnetRegistry();
         r.grantRole(r.ROLE_ADMIN(), _admin);

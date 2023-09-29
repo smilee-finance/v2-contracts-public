@@ -36,7 +36,7 @@ contract VaultSharesTest is Test {
         vm.warp(EpochFrequency.REF_TS + 1);
 
         vm.startPrank(tokenAdmin);
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), tokenAdmin);
         vm.stopPrank();
 

@@ -80,7 +80,7 @@ contract VaultProxyTest is Test {
         TestnetRegistry registry = new TestnetRegistry();
         registry.grantRole(registry.ROLE_ADMIN(), _tokenAdmin);
 
-        AddressProvider ap = new AddressProvider();
+        AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), _tokenAdmin);
         _proxy = new VaultProxy(address(ap));
         ap.setRegistry(address(registry));
