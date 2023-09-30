@@ -4,26 +4,10 @@ pragma solidity ^0.8.15;
 import {VaultLib} from "../lib/VaultLib.sol";
 import {IVaultParams} from "./IVaultParams.sol";
 
-// TBD: extend IEpochControls as the interface client (DVP) also needs rollEpoch and epochFrequency.
-// TBD: the DVP is the one receiving an already deployed vault, hence it doesn't really needs this interface...
 /**
     Seam point for Vault usage by a DVP.
  */
 interface IVault is IVaultParams {
-    // // ToDo: review in order to keep only the state needed by the DVP (e.g. dead).
-    // function vaultState()
-    //     external
-    //     view
-    //     returns (
-    //         uint256 lockedLiquidityInitially,
-    //         uint256 pendingDeposits,
-    //         uint256 totalWithdrawAmount,
-    //         uint256 pendingPayoffs,
-    //         uint256 queuedWithdrawShares,
-    //         uint256 currentQueuedWithdrawShares,
-    //         bool dead
-    //     );
-
     /**
         @notice Provides liquidity for the next epoch
         @param amount The amount of base token to deposit
@@ -69,7 +53,6 @@ interface IVault is IVaultParams {
      */
     function withdrawals(address account) external view returns (uint256 epoch, uint256 shares);
 
-    // TBD: rename with something more suitable...
     /**
         @notice Gives portfolio composition for currently active epoch
         @return baseTokenAmount The amount of baseToken currently locked in the vault
@@ -104,7 +87,7 @@ interface IVault is IVaultParams {
         @notice Tranfers an amount of reserved payoff to the user
         @param recipient The address receiving the quantity
         @param amount The number of base tokens to move
-        @param isPastEpoch TODO
+        @param isPastEpoch Flag to tell if the payoff is for an expired position
      */
     function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external;
 

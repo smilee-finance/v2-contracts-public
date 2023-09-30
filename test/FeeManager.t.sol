@@ -25,11 +25,17 @@ contract FeeManagerTest is Test {
     ) public {
         vm.startPrank(_admin);
 
+        vm.assume(minFee < 5e6);
+        vm.assume(feePercentage < 0.05e18);
+        vm.assume(capPercertage < 0.3e18);
+        vm.assume(mFeePercentage < 0.05e18);
+        vm.assume(mCapPercentage < 0.3e18);
+
         _feeManager.setMinFee(minFee);
         _feeManager.setFeePercentage(feePercentage);
         _feeManager.setCapPercentage(capPercertage);
-        _feeManager.setFeeMaturityPercentage(mFeePercentage);
-        _feeManager.setCapMaturityPercentage(mCapPercentage);
+        _feeManager.setMaturityFeePercentage(mFeePercentage);
+        _feeManager.setMaturityCapPercentage(mCapPercentage);
 
         FeeManager.Params memory params = _feeManager.getParams();
         assertEq(minFee, params.minFee);

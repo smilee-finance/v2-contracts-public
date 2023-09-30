@@ -11,7 +11,6 @@ contract MarketOracle is IMarketOracle, AccessControl {
         uint256 lastUpdate;
     }
 
-    // ToDo: review
     OracleValue internal _iv;
     OracleValue internal _rfRate;
 
@@ -48,7 +47,6 @@ contract MarketOracle is IMarketOracle, AccessControl {
         iv = _iv.value;
     }
 
-    // TODO rivedere per creare il mapping
     function setImpliedVolatility(uint256 percentage) public {
         _checkRole(ROLE_ADMIN);
 

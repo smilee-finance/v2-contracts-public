@@ -11,17 +11,6 @@ interface IDVP is IDVPImmutables, IEpochControls {
     error AmountZero();
     error InvalidStrategy();
 
-    // /**
-    //     @notice Returns the information about a position by the position's key
-    //     @param positionID The position's key [TODO]
-    //     @return amount The amount of liquidity in the position,
-    //     @return strategy The strategy of the position,
-    //     @return strike The strike price of the position
-    //  */
-    // function positions(
-    //     bytes32 positionID
-    // ) external view returns (uint256 amount, bool strategy, uint256 strike, uint256 epoch);
-
     /**
         @notice Returns the pool providing liquidity for these DVP options
         @return provider The address location of the provider contract

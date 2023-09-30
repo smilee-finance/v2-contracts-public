@@ -93,8 +93,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         sideToken = sideToken_;
 
         _addressProvider = IAddressProvider(addressProvider_);
-        // ToDo: move to constructor parameter (wrong decimals)
-        maxDeposit = 10_000_000e18;
+        maxDeposit = 10_000_000 * 10 ** decimals();
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
@@ -172,7 +171,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         return (_state.liquidity.totalDeposit, _state.dead, _state.deadReason);
     }
 
-    // ToDo: review as it's currently used only by tests
     function vaultState()
         external
         view
@@ -452,7 +450,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         uint256 withdrawDepositEquivalent = userCumulativeDeposits.wmul(shares).wdiv(userShares);
 
-        // ToDo: review to check if those can underflow under certain circumstances
         depositReceipt.cumulativeAmount -= withdrawDepositEquivalent;
         _state.liquidity.totalDeposit -= withdrawDepositEquivalent;
         // -----------------------------
@@ -660,7 +657,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _adjustBalances();
     }
 
-    // ToDo: review as notional and price may have different decimals!
     /**
         @notice Computes the share price for the ending epoch
         @param notional_ The DVP portfolio value at the end of the epoch

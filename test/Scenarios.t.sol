@@ -222,9 +222,9 @@ contract TestScenariosJson is Test {
             _marketOracle.setRiskFreeRate(t0.pre.riskFreeRate);
 
             _feeManager.setFeePercentage(t0.pre.fee);
-            _feeManager.setFeeMaturityPercentage(t0.pre.feeMaturity);
+            _feeManager.setMaturityFeePercentage(t0.pre.feeMaturity);
             _feeManager.setCapPercentage(t0.pre.capFee);
-            _feeManager.setCapMaturityPercentage(t0.pre.capFeeMaturity);
+            _feeManager.setMaturityCapPercentage(t0.pre.capFeeMaturity);
             _feeManager.setVaultFeePercentage(t0.pre.vaultFee);
 
             _dvp.setTradeVolatilityUtilizationRateFactor(t0.pre.tradeVolatilityUtilizationRateFactor);

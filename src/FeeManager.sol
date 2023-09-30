@@ -45,19 +45,22 @@ contract FeeManager is IFeeManager, AccessControl {
     event WithdrawFee(address receiver, address sender, uint256 amount);
 
     error NoEnoughFundsFromSender();
+    error OutOfAllowedRange();
 
     constructor(Params memory params_) AccessControl() {
-        _params.minFee = params_.minFee;
-        _params.feePercentage = params_.feePercentage;
-        _params.capPercentage = params_.capPercentage;
-        _params.maturityFeePercentage = params_.maturityFeePercentage;
-        _params.maturityCapPercentage = params_.maturityCapPercentage;
-        _params.vaultFeePercentage = params_.vaultFeePercentage;
-
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
-
         _grantRole(ROLE_GOD, msg.sender);
+        _grantRole(ROLE_ADMIN, msg.sender);
+
+        setMinFee(params_.minFee);
+        setFeePercentage(params_.feePercentage);
+        setCapPercentage(params_.capPercentage);
+        setMaturityFeePercentage(params_.maturityFeePercentage);
+        setMaturityCapPercentage(params_.maturityCapPercentage);
+        setVaultFeePercentage(params_.vaultFeePercentage);
+
+        renounceRole(ROLE_ADMIN, msg.sender);
     }
 
     function getParams() external view returns (Params memory) {
@@ -127,7 +130,12 @@ contract FeeManager is IFeeManager, AccessControl {
     /// @notice Update fee percentage value
     function setMinFee(uint256 minFee_) public {
         _checkRole(ROLE_ADMIN);
-        // ToDo: check range
+
+        if (minFee_ > 5e6) {
+            // calibrated on USDC
+            revert OutOfAllowedRange();
+        }
+
         uint256 previousMinFee = _params.minFee;
         _params.minFee = minFee_;
 
@@ -137,7 +145,11 @@ contract FeeManager is IFeeManager, AccessControl {
     /// @notice Update fee percentage value
     function setFeePercentage(uint256 feePercentage_) public {
         _checkRole(ROLE_ADMIN);
-        // ToDo: check range
+
+        if (feePercentage_ > 5e22) {
+            revert OutOfAllowedRange();
+        }
+
         uint256 previousFeePercentage = _params.feePercentage;
         _params.feePercentage = feePercentage_;
 
@@ -147,7 +159,11 @@ contract FeeManager is IFeeManager, AccessControl {
     /// @notice Update cap percentage value
     function setCapPercentage(uint256 capPercentage_) public {
         _checkRole(ROLE_ADMIN);
-        // ToDo: check range
+
+        if (capPercentage_ > 5e22) {
+            revert OutOfAllowedRange();
+        }
+
         uint256 previousCapPercentage = _params.capPercentage;
         _params.capPercentage = capPercentage_;
 
@@ -155,9 +171,13 @@ contract FeeManager is IFeeManager, AccessControl {
     }
 
     /// @notice Update fee percentage value at maturity
-    function setFeeMaturityPercentage(uint256 maturityFeePercentage_) public {
+    function setMaturityFeePercentage(uint256 maturityFeePercentage_) public {
         _checkRole(ROLE_ADMIN);
-        // ToDo: check range
+
+        if (maturityFeePercentage_ > 5e22) {
+            revert OutOfAllowedRange();
+        }
+
         uint256 previousMaturityFeePercentage = _params.maturityFeePercentage;
         _params.maturityFeePercentage = maturityFeePercentage_;
 
@@ -165,9 +185,13 @@ contract FeeManager is IFeeManager, AccessControl {
     }
 
     /// @notice Update cap percentage value at maturity
-    function setCapMaturityPercentage(uint256 maturityCapPercentage_) public {
+    function setMaturityCapPercentage(uint256 maturityCapPercentage_) public {
         _checkRole(ROLE_ADMIN);
-        // ToDo: check range
+
+        if (maturityCapPercentage_ > 5e22) {
+            revert OutOfAllowedRange();
+        }
+
         uint256 previousMaturityCapPercentage = _params.maturityCapPercentage;
         _params.maturityCapPercentage = maturityCapPercentage_;
 
@@ -177,7 +201,11 @@ contract FeeManager is IFeeManager, AccessControl {
     /// @notice Update vault fee percentage value
     function setVaultFeePercentage(uint256 vaultFeePercentage_) public {
         _checkRole(ROLE_ADMIN);
-        // ToDo: check range
+
+        if (vaultFeePercentage_ > 5e22) {
+            revert OutOfAllowedRange();
+        }
+
         uint256 previousVaultFeePercentage = _params.vaultFeePercentage;
         _params.vaultFeePercentage = vaultFeePercentage_;
 
