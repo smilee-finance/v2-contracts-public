@@ -6,6 +6,7 @@ import {AddressProvider} from "../../src/AddressProvider.sol";
 import {FeeManager} from "../../src/FeeManager.sol";
 import {MarketOracle} from "../../src/MarketOracle.sol";
 import {PositionManager} from "../../src/PositionManager.sol";
+import {VaultProxy} from "../../src/VaultProxy.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
@@ -49,18 +50,22 @@ contract DeployCoreFoundations is Script {
 
     function _doSomething() internal {
         TestnetToken sUSD = new TestnetToken("Smilee USD", "sUSD");
-        AddressProvider ap = new AddressProvider(1 days);
+        AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_GOD(), _adminMultiSigAddress);
         ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress);
-        ap.renounceRole(ap.ROLE_GOD(), _deployerAddress);
+        //ap.renounceRole(ap.ROLE_GOD(), _deployerAddress);
 
         TestnetPriceOracle priceOracle = new TestnetPriceOracle(address(sUSD));
         ap.setPriceOracle(address(priceOracle));
 
+        VaultProxy vaultProxy = new VaultProxy(address(ap));
+        ap.setVaultProxy(address(vaultProxy));
+
+
         MarketOracle marketOracle = new MarketOracle();
         marketOracle.grantRole(marketOracle.ROLE_GOD(), _adminMultiSigAddress);
         marketOracle.grantRole(marketOracle.ROLE_ADMIN(), _deployerAddress);
-        marketOracle.renounceRole(marketOracle.ROLE_GOD(), _deployerAddress);
+        //marketOracle.renounceRole(marketOracle.ROLE_GOD(), _deployerAddress);
         ap.setMarketOracle(address(marketOracle));
 
         TestnetSwapAdapter swapper = new TestnetSwapAdapter(address(priceOracle));
@@ -71,13 +76,13 @@ contract DeployCoreFoundations is Script {
         );
         feeManager.grantRole(feeManager.ROLE_GOD(), _adminMultiSigAddress);
         feeManager.grantRole(feeManager.ROLE_ADMIN(), _deployerAddress);
-        feeManager.renounceRole(feeManager.ROLE_GOD(), _deployerAddress);
+        //feeManager.renounceRole(feeManager.ROLE_GOD(), _deployerAddress);
         ap.setFeeManager(address(feeManager));
 
         TestnetRegistry registry = new TestnetRegistry();
         registry.grantRole(registry.ROLE_GOD(), _adminMultiSigAddress);
         registry.grantRole(registry.ROLE_ADMIN(), _deployerAddress);
-        registry.renounceRole(registry.ROLE_GOD(), _deployerAddress);
+        //registry.renounceRole(registry.ROLE_GOD(), _deployerAddress);
         ap.setRegistry(address(registry));
 
         sUSD.setAddressProvider(address(ap));

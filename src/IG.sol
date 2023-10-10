@@ -19,7 +19,7 @@ contract IG is DVP {
     using AmountHelper for Amount;
     using Notional for Notional.Info;
 
-    FinanceParameters internal _financeParameters;
+    FinanceParameters public _financeParameters;
 
     error OutOfAllowedRange();
 

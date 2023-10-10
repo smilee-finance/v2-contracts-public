@@ -46,6 +46,8 @@ contract DeployDVP is EnhancedScript {
         string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
         _sUSD = _readAddress(txLogs, "TestnetToken");
         _addressProvider = AddressProvider(_readAddress(txLogs, "AddressProvider"));
+        console.log("AddressProvider", address(_addressProvider));
+        console.log("Registry Address", _addressProvider.registry());
         _registry = IRegistry(_addressProvider.registry());
     }
 
@@ -56,19 +58,14 @@ contract DeployDVP is EnhancedScript {
         createIGMarket(_sUSD, sideToken, EpochFrequency.WEEKLY);
     }
 
-    function createIGMarket(
-        address baseToken,
-        address sideToken,
-        uint256 epochFrequency
-    )
-    public
-    {
+    function createIGMarket(address baseToken, address sideToken, uint256 epochFrequency) public {
         vm.startBroadcast(_deployerPrivateKey);
 
         address vault = _createVault(baseToken, sideToken, epochFrequency);
         address dvp = _createImpermanentGainDVP(vault);
 
         Vault(vault).setAllowedDVP(dvp);
+        console.log(address(_registry));
         _registry.register(dvp);
 
         vm.stopBroadcast();
@@ -77,13 +74,7 @@ contract DeployDVP is EnhancedScript {
         console.log("Vault deployed at", vault);
     }
 
-    function _createVault(
-        address baseToken,
-        address sideToken,
-        uint256 epochFrequency
-    )
-        internal returns (address)
-    {
+    function _createVault(address baseToken, address sideToken, uint256 epochFrequency) internal returns (address) {
         Vault vault = new Vault(baseToken, sideToken, epochFrequency, address(_addressProvider));
 
         vault.grantRole(vault.ROLE_GOD(), _adminMultiSigAddress);
