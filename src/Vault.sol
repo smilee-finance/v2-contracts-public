@@ -312,7 +312,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         // If the user has already deposited in the current epoch, add the amount to the total one of the next epoch:
         if (epoch.current == depositReceipt.epoch) {
-            amount = depositReceipt.amount.add(amount);
+            depositReceipt.amount = depositReceipt.amount.add(amount);
+        } else {
+            depositReceipt.amount = amount;
         }
 
         // Get the number of unredeemed shares from previous deposits, if any.
@@ -324,7 +326,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         );
 
         depositReceipt.epoch = epoch.current;
-        depositReceipt.amount = amount;
         depositReceipt.cumulativeAmount = depositReceipt.cumulativeAmount.add(amount);
         depositReceipt.unredeemedShares = unredeemedShares;
     }
