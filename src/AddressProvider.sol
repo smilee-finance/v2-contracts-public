@@ -8,7 +8,7 @@ import {TimeLock, TimeLockedAddress} from "./lib/TimeLock.sol";
 contract AddressProvider is AccessControl, IAddressProvider {
     using TimeLock for TimeLockedAddress;
 
-    uint256 internal immutable _timeLockDelay;
+    uint256 public immutable timeLockDelay;
 
     TimeLockedAddress internal _exchangeAdapter;
     TimeLockedAddress internal _priceOracle;
@@ -33,7 +33,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
     event ChangedFeeManager(address newValue, address oldValue);
 
     constructor(uint256 timeLockDelay_) AccessControl() {
-        _timeLockDelay = timeLockDelay_;
+        timeLockDelay = timeLockDelay_;
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
@@ -52,12 +52,12 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkZeroAddress(exchangeAdapter_);
 
         address previous = _exchangeAdapter.get();
-        _exchangeAdapter.set(exchangeAdapter_, _timeLockDelay);
+        _exchangeAdapter.set(exchangeAdapter_, timeLockDelay);
 
         emit ChangedExchangeAdapter(exchangeAdapter_, previous);
     }
 
-    function exchangeAdapter() public view returns (address) {
+    function exchangeAdapter() external view returns (address) {
         return _exchangeAdapter.get();
     }
 
@@ -66,12 +66,12 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkZeroAddress(priceOracle_);
 
         address previous = _priceOracle.get();
-        _priceOracle.set(priceOracle_, _timeLockDelay);
+        _priceOracle.set(priceOracle_, timeLockDelay);
 
         emit ChangedPriceOracle(priceOracle_, previous);
     }
 
-    function priceOracle() public view returns (address) {
+    function priceOracle() external view returns (address) {
         return _priceOracle.get();
     }
 
@@ -80,12 +80,12 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkZeroAddress(marketOracle_);
 
         address previous = _marketOracle.get();
-        _marketOracle.set(marketOracle_, _timeLockDelay);
+        _marketOracle.set(marketOracle_, timeLockDelay);
 
         emit ChangedMarketOracle(marketOracle_, previous);
     }
 
-    function marketOracle() public view returns (address) {
+    function marketOracle() external view returns (address) {
         return _marketOracle.get();
     }
 
@@ -94,12 +94,12 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkZeroAddress(registry_);
 
         address previous = _registry.get();
-        _registry.set(registry_, _timeLockDelay);
+        _registry.set(registry_, timeLockDelay);
 
         emit ChangedRegistry(registry_, previous);
     }
 
-    function registry() public view returns (address) {
+    function registry() external view returns (address) {
         return _registry.get();
     }
 
@@ -108,12 +108,12 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkZeroAddress(posManager_);
 
         address previous = _dvpPositionManager.get();
-        _dvpPositionManager.set(posManager_, _timeLockDelay);
+        _dvpPositionManager.set(posManager_, timeLockDelay);
 
         emit ChangedPositionManager(posManager_, previous);
     }
 
-    function dvpPositionManager() public view returns (address) {
+    function dvpPositionManager() external view returns (address) {
         return _dvpPositionManager.get();
     }
 
@@ -122,12 +122,12 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkZeroAddress(vaultProxy_);
 
         address previous = _vaultProxy.get();
-        _vaultProxy.set(vaultProxy_, _timeLockDelay);
+        _vaultProxy.set(vaultProxy_, timeLockDelay);
 
         emit ChangedVaultProxy(vaultProxy_, previous);
     }
 
-    function vaultProxy() public view returns (address) {
+    function vaultProxy() external view returns (address) {
         return _vaultProxy.get();
     }
 
@@ -136,26 +136,26 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkZeroAddress(feeManager_);
 
         address previous = _feeManager.get();
-        _feeManager.set(feeManager_, _timeLockDelay);
+        _feeManager.set(feeManager_, timeLockDelay);
 
         emit ChangedFeeManager(feeManager_, previous);
     }
 
-    function feeManager() public view returns (address) {
+    function feeManager() external view returns (address) {
         return _feeManager.get();
     }
 
-    function setVaultAccessNFT(address vaultAccessNFT_) public {
+    function setVaultAccessNFT(address vaultAccessNFT_) external {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(vaultAccessNFT_);
 
         address previous = _vaultAccessNFT.get();
-        _vaultAccessNFT.set(vaultAccessNFT_, _timeLockDelay);
+        _vaultAccessNFT.set(vaultAccessNFT_, timeLockDelay);
 
         emit ChangedFeeManager(vaultAccessNFT_, previous);
     }
 
-    function vaultAccessNFT() public view returns (address) {
+    function vaultAccessNFT() external view returns (address) {
         return _vaultAccessNFT.get();
     }
 }

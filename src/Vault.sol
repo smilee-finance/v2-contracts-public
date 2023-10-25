@@ -81,6 +81,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     event Redeem(uint256 amount);
     event InitiateWithdraw(uint256 amount);
     event Withdraw(uint256 amount);
+    // Used by TheGraph for frontend needs:
+    event VaultYield(uint256 epoch, uint256 netPerformance, uint256 fees);
+    event VaultTVL(uint256 epoch, uint256 value);
 
     constructor(
         address baseToken_,
@@ -573,9 +576,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         lockedLiquidity -= _state.liquidity.newPendingPayoffs;
 
         {
+            uint256 netPerformance = 0;
+            uint256 fee = 0;
             if (lockedLiquidity > _state.liquidity.lockedInitially) {
-                uint256 netPerformance = lockedLiquidity - _state.liquidity.lockedInitially;
-                uint256 fee = IFeeManager(_addressProvider.feeManager()).vaultFee(
+                netPerformance = lockedLiquidity - _state.liquidity.lockedInitially;
+                fee = IFeeManager(_addressProvider.feeManager()).vaultFee(
                     netPerformance,
                     IERC20Metadata(baseToken).decimals()
                 );
@@ -586,6 +591,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
                     lockedLiquidity -= fee;
                 }
             }
+            emit VaultYield(getEpoch().current, netPerformance, fee);
         }
 
         if (manuallyKilled) {
@@ -709,6 +715,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             // NOTE: here we are not interested in the number of exchanged base tokens
             _deltaHedge(int256(targetSideTokens) - int256(sideTokens));
         }
+    }
+
+    /// @inheritdoc EpochControls
+    function _afterRollEpoch() internal virtual override {
+        emit VaultTVL(getEpoch().current, v0());
     }
 
     /// @inheritdoc IVault

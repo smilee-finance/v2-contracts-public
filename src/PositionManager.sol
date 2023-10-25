@@ -31,6 +31,10 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     /// @dev The ID of the next token that will be minted. Skips 0
     uint256 private _nextId;
 
+    // Used by TheGraph for frontend needs:
+    event Buy(address dvp, uint256 epoch, uint256 premium, address creditor);
+    event Sell(address dvp, uint256 epoch, uint256 payoff);
+
     error ApproveFailed();
     error CantBurnMoreThanMinted();
     error InvalidTokenID();
@@ -167,6 +171,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         }
 
         emit BuyDVP(tokenId, _positions[tokenId].expiry, params.notionalUp + params.notionalDown);
+        emit Buy(params.dvpAddr, _positions[tokenId].expiry, premium, params.recipient);
     }
 
     function payoff(
@@ -228,6 +233,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         }
 
         emit SellDVP(tokenId, (notionalUp + notionalDown), payoff_);
+        emit Sell(position.dvpAddr, position.expiry, payoff_);
     }
 
     /**

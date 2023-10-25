@@ -18,6 +18,9 @@ contract Registry is AccessControl, IRegistry {
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
+    event Registered(address dvp);
+    event Unregistered(address dvp);
+
     error MissingAddress();
 
     constructor() {
@@ -33,6 +36,8 @@ contract Registry is AccessControl, IRegistry {
         _registeredDvps[dvp] = true;
 
         _indexBySideToken(dvp);
+
+        emit Registered(dvp);
     }
 
     /// @inheritdoc IRegistry
@@ -71,6 +76,8 @@ contract Registry is AccessControl, IRegistry {
         _dvps.pop();
 
         _removeIndexBySideToken(addr);
+
+        emit Unregistered(addr);
     }
 
     /// @inheritdoc IRegistry

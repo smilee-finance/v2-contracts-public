@@ -12,7 +12,7 @@ fs_permissions = [{ access = "read", path = "./test/"}]
 arbitrum_mainnet = "${RPC_MAINNET}"
 
 [profile.deployment]
-fs_permissions = [{ access = "read", path = "./broadcast/"}]
+fs_permissions = [{ access = "read", path = "./broadcast/"}, { access = "read", path = "./test/"}]
 via_ir = true
 # revert_strings = "strip"
 # optimizer-runs = 200 # Should be lifted up to the contract size limit

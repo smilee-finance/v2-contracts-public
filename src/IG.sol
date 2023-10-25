@@ -21,6 +21,9 @@ contract IG is DVP {
 
     FinanceParameters public _financeParameters;
 
+    // Used by TheGraph for frontend needs:
+    event EpochStrike(uint256 epoch, uint256 strike);
+
     error OutOfAllowedRange();
 
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
@@ -235,6 +238,8 @@ contract IG is DVP {
         Epoch memory epoch = getEpoch();
 
         _financeParameters.maturity = epoch.current;
+
+        emit EpochStrike(epoch.current, _financeParameters.currentStrike);
 
         {
             uint256 iv = IMarketOracle(_getMarketOracle()).getImpliedVolatility(
