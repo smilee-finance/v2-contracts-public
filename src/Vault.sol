@@ -37,6 +37,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     /// @notice Maximum threshold for users cumulative deposit (see VaultLib.VaultState.liquidity.totalDeposit)
     uint256 public maxDeposit;
 
+    uint8 internal immutable _shareDecimals;
+
     /// @inheritdoc IVault
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
 
@@ -95,8 +97,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         baseToken = baseToken_;
         sideToken = sideToken_;
 
+        // Shares have the same number of decimals as the base token
+        _shareDecimals = IERC20Metadata(baseToken).decimals();
+
         _addressProvider = IAddressProvider(addressProvider_);
-        maxDeposit = 10_000_000 * 10 ** decimals();
+        maxDeposit = 10_000_000 * (10 ** _shareDecimals);
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
@@ -106,7 +111,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     }
 
     function decimals() public view override returns (uint8) {
-        return IERC20Metadata(baseToken).decimals();
+        return _shareDecimals;
     }
 
     modifier isNotDead() {
@@ -313,20 +318,20 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[creditor];
         Epoch memory epoch = getEpoch();
 
+        // Get the number of unredeemed shares from previous deposits, if any.
+        // NOTE: the amount of unredeemed shares is the one of the previous epochs, as we still don't know the share price.
+        uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
+            epoch.current,
+            epochPricePerShare[depositReceipt.epoch],
+            _shareDecimals
+        );
+
         // If the user has already deposited in the current epoch, add the amount to the total one of the next epoch:
         if (epoch.current == depositReceipt.epoch) {
             depositReceipt.amount = depositReceipt.amount.add(amount);
         } else {
             depositReceipt.amount = amount;
         }
-
-        // Get the number of unredeemed shares from previous deposits, if any.
-        // NOTE: the amount of unredeemed shares is the one of the previous epochs, as we still don't know the share price.
-        uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
-            epoch.current,
-            epochPricePerShare[depositReceipt.epoch],
-            decimals()
-        );
 
         depositReceipt.epoch = epoch.current;
         depositReceipt.cumulativeAmount = depositReceipt.cumulativeAmount.add(amount);
@@ -350,7 +355,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         heldByVault = depositReceipt.getSharesFromReceipt(
             getEpoch().current,
             epochPricePerShare[depositReceipt.epoch],
-            decimals()
+            _shareDecimals
         );
     }
 
@@ -373,7 +378,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
             epoch.current,
             epochPricePerShare[depositReceipt.epoch],
-            decimals()
+            _shareDecimals
         );
 
         if (!isMax && shares > unredeemedShares) {
@@ -410,8 +415,14 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
 
+        Epoch memory epoch = getEpoch();
+        uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
+            epoch.current,
+            epochPricePerShare[depositReceipt.epoch],
+            _shareDecimals
+        );
         // We take advantage of this flow in order to also transfer all the unredeemed shares to the user.
-        if (depositReceipt.amount > 0 || depositReceipt.unredeemedShares > 0) {
+        if (depositReceipt.amount > 0 || unredeemedShares > 0) {
             _redeem(0, true);
         }
 
@@ -427,7 +438,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
-        Epoch memory epoch = getEpoch();
 
         if (withdrawal.epoch < epoch.current && withdrawal.shares > 0) {
             revert ExistingIncompleteWithdraw();
@@ -452,7 +462,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             userCumulativeDeposits -= depositReceipt.amount;
         }
 
-        uint256 withdrawDepositEquivalent = userCumulativeDeposits.wmul(shares).wdiv(userShares);
+        uint256 withdrawDepositEquivalent = (userCumulativeDeposits * shares) / userShares;
 
         depositReceipt.cumulativeAmount -= withdrawDepositEquivalent;
         _state.liquidity.totalDeposit -= withdrawDepositEquivalent;
@@ -496,13 +506,13 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             amountToWithdraw = VaultLib.sharesToAsset(
                 withdrawal.shares,
                 epochPricePerShare[epoch.previous],
-                decimals()
+                _shareDecimals
             );
         } else {
             amountToWithdraw = VaultLib.sharesToAsset(
                 withdrawal.shares,
                 epochPricePerShare[withdrawal.epoch],
-                decimals()
+                _shareDecimals
             );
         }
 
@@ -582,7 +592,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
                 netPerformance = lockedLiquidity - _state.liquidity.lockedInitially;
                 fee = IFeeManager(_addressProvider.feeManager()).vaultFee(
                     netPerformance,
-                    IERC20Metadata(baseToken).decimals()
+                    _shareDecimals
                 );
 
                 if (lockedLiquidity - fee >= _state.liquidity.lockedInitially) {
@@ -602,7 +612,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             _sellSideTokens(sideTokens);
         }
 
-        uint256 sharePrice = _computeSharePrice(lockedLiquidity);
+        // Computes the share price for the ending epoch:
+        // NOTE: heldShares are the ones given back to the Vault in exchange of withdrawed tokens.
+        // NOTE: lockedLiquidity is the DVP portfolio value at the end of the epoch.
+        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
+        uint256 sharePrice = VaultLib.pricePerShare(lockedLiquidity, outstandingShares, _shareDecimals);
         epochPricePerShare[getEpoch().current] = sharePrice;
 
         if (sharePrice == 0) {
@@ -625,13 +639,14 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         uint256 newPendingWithdrawals = VaultLib.sharesToAsset(
             _state.withdrawals.newHeldShares,
             sharePrice,
-            decimals()
+            _shareDecimals
         );
         _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
         lockedLiquidity -= newPendingWithdrawals;
 
         // Reset the counter for the next epoch:
         _state.withdrawals.newHeldShares = 0;
+        // NOTE: burned when withdrawals are completed
 
         // Set aside the payoff to be paid:
         _state.liquidity.pendingPayoffs += _state.liquidity.newPendingPayoffs;
@@ -644,7 +659,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         // Mint shares related to new deposits performed during the closing epoch:
-        uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice, decimals());
+        uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice, _shareDecimals);
         _mint(address(this), sharesToMint);
 
         lockedLiquidity += _state.liquidity.pendingDeposits;
@@ -662,23 +677,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         _adjustBalances();
-    }
-
-    /**
-        @notice Computes the share price for the ending epoch
-        @param notional_ The DVP portfolio value at the end of the epoch
-        @return sharePrice the price of one share
-     */
-    function _computeSharePrice(uint256 notional_) internal view returns (uint256 sharePrice) {
-        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
-        // NOTE: if the number of shares is 0, pricePerShare will revert due to a division by zero
-        if (outstandingShares == 0) {
-            // First time mint 1 share for each token
-            sharePrice = 10 ** decimals();
-        } else {
-            // NOTE: if the locked liquidity is 0, the price is set to 0
-            sharePrice = VaultLib.pricePerShare(notional_, outstandingShares, decimals());
-        }
     }
 
     /// @notice Adjusts the balances in order to cover the liquidity locked for pending operations and obtain an equal weight portfolio.

@@ -16,6 +16,7 @@ contract TestnetToken is ERC20, Ownable {
     // TBD: just use the TestnetRegistry contract...
 
     bool _transferRestricted;
+    uint8 private _decimals;
     IAddressProvider private _addressProvider;
 
     error NotInitialized();
@@ -23,6 +24,16 @@ contract TestnetToken is ERC20, Ownable {
 
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) Ownable() {
         _transferRestricted = true;
+        _decimals = 18;
+    }
+
+    /// @inheritdoc ERC20
+    function decimals() public view virtual override returns (uint8) {
+        return _decimals;
+    }
+
+    function setDecimals(uint8 decimals_) external onlyOwner() {
+        _decimals = decimals_;
     }
 
     /// MODIFIERS ///

@@ -80,7 +80,13 @@ library VaultLib {
     }
 
     function pricePerShare(uint256 assets, uint256 shares, uint8 tokenDecimals) public pure returns (uint256) {
-        return (assets * 10 ** tokenDecimals) / shares;
+        uint256 shareUnit = 10 ** tokenDecimals;
+        if (shares == 0) {
+            // 1:1 ratio
+            return shareUnit;
+        }
+        assets = assets * shareUnit; // Fix decimals in the following computation
+        return assets / shares;
     }
 
     /**

@@ -17,7 +17,9 @@ contract TestnetSwapAdapterTest is Test {
     bytes4 constant TokenNotSupported = bytes4(keccak256("TokenNotSupported()"));
     bytes4 constant PriceZero = bytes4(keccak256("PriceZero()"));
 
-    uint256 constant WAD = 10 ** 18;
+    uint8 constant BTC_DECIMALS = 8;
+    uint8 constant ETH_DECIMALS = 18;
+    uint8 constant USD_DECIMALS = 7;
 
     address adminWallet = address(0x1);
     address alice = address(0x2);
@@ -32,8 +34,11 @@ contract TestnetSwapAdapterTest is Test {
     constructor() {
         vm.startPrank(adminWallet);
         USD = new TestnetToken("Testnet USD", "USD");
+        USD.setDecimals(USD_DECIMALS);
         WETH = new TestnetToken("Testnet WETH", "WETH");
+        WETH.setDecimals(ETH_DECIMALS);
         WBTC = new TestnetToken("Testnet WBTC", "WBTC");
+        WBTC.setDecimals(BTC_DECIMALS);
 
         AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), adminWallet);
@@ -52,8 +57,8 @@ contract TestnetSwapAdapterTest is Test {
 
     function setUp() public {
         vm.startPrank(adminWallet);
-        priceOracle.setTokenPrice(address(WETH), 2000 * WAD);
-        priceOracle.setTokenPrice(address(WBTC), 20000 * WAD);
+        priceOracle.setTokenPrice(address(WETH), 2_000e18);
+        priceOracle.setTokenPrice(address(WBTC), 20_000e18);
         vm.stopPrank();
     }
 
@@ -86,11 +91,15 @@ contract TestnetSwapAdapterTest is Test {
 
     function testGetOutputAmount() public {
         // NOTE: WETH is priced 2000 USD, WBTC is priced 20000 USD.
-        uint256 amountToReceive = dex.getOutputAmount(address(WETH), address(WBTC), 1 ether);
-        assertEq(0.1 ether, amountToReceive);
+        uint256 input = AmountsMath.unwrapDecimals(1e18, ETH_DECIMALS);
+        uint256 expectedOutput = AmountsMath.unwrapDecimals(0.1e18, BTC_DECIMALS);
+        uint256 amountToReceive = dex.getOutputAmount(address(WETH), address(WBTC), input);
+        assertEq(expectedOutput, amountToReceive);
 
-        amountToReceive = dex.getOutputAmount(address(WBTC), address(WETH), 1 ether);
-        assertEq(10 ether, amountToReceive);
+        input = AmountsMath.unwrapDecimals(1e18, BTC_DECIMALS);
+        expectedOutput = AmountsMath.unwrapDecimals(10e18, ETH_DECIMALS);
+        amountToReceive = dex.getOutputAmount(address(WBTC), address(WETH), input);
+        assertEq(expectedOutput, amountToReceive);
     }
 
     /**
@@ -125,11 +134,15 @@ contract TestnetSwapAdapterTest is Test {
 
     function testGetInputAmount() public {
         // NOTE: WETH is priced 2000 USD, WBTC is priced 20000 USD.
-        uint256 amountToProvide = dex.getInputAmount(address(WETH), address(WBTC), 1 ether);
-        assertEq(10 ether, amountToProvide);
+        uint256 input = AmountsMath.unwrapDecimals(1e18, BTC_DECIMALS);
+        uint256 expectedOutput = AmountsMath.unwrapDecimals(10e18, ETH_DECIMALS);
+        uint256 amountToProvide = dex.getInputAmount(address(WETH), address(WBTC), input);
+        assertEq(expectedOutput, amountToProvide);
 
+        input = AmountsMath.unwrapDecimals(1e18, ETH_DECIMALS);
+        expectedOutput = AmountsMath.unwrapDecimals(0.1e18, BTC_DECIMALS);
         amountToProvide = dex.getInputAmount(address(WBTC), address(WETH), 1 ether);
-        assertEq(0.1 ether, amountToProvide);
+        assertEq(expectedOutput, amountToProvide);
     }
 
     /**
@@ -138,7 +151,7 @@ contract TestnetSwapAdapterTest is Test {
     function testSwapOut() public {
         TokenUtils.provideApprovedTokens(adminWallet, address(WETH), alice, address(dex), 100 ether, vm);
 
-        uint256 wanted = 1 ether; // WBTC
+        uint256 wanted = AmountsMath.unwrapDecimals(1e18, BTC_DECIMALS); // WBTC
         uint256 amountToGive = dex.getInputAmount(address(WETH), address(WBTC), wanted);
         assertEq(10 ether, amountToGive);
 
@@ -168,7 +181,7 @@ contract TestnetSwapAdapterTest is Test {
         }
 
         uint256 wbtcForWethAmount = dex.getOutputAmount(address(WETH), address(WBTC), input);
-        uint256 expextedWbtcForWethAmount = input.wmul(1e18).wdiv(price);
+        uint256 expextedWbtcForWethAmount = AmountsMath.unwrapDecimals(input.wdiv(price), BTC_DECIMALS);
         assertEq(expextedWbtcForWethAmount, wbtcForWethAmount);
 
         vm.prank(alice);
@@ -187,7 +200,7 @@ contract TestnetSwapAdapterTest is Test {
         }
 
         vm.assume(price < 1e18 * 1e18);
-        uint256 output = 1 ether; // WBTC
+        uint256 output = AmountsMath.unwrapDecimals(1e18, BTC_DECIMALS);
 
         if (price == 0) {
             vm.expectRevert(PriceZero);
@@ -197,7 +210,7 @@ contract TestnetSwapAdapterTest is Test {
 
         uint256 wethForWbtcAmount = dex.getInputAmount(address(WETH), address(WBTC), output);
 
-        uint256 expextedWethForWbtcAmount = output.wmul(price);
+        uint256 expextedWethForWbtcAmount = AmountsMath.wrapDecimals(output, BTC_DECIMALS).wmul(price);
         assertEq(expextedWethForWbtcAmount, wethForWbtcAmount);
 
         TokenUtils.provideApprovedTokens(adminWallet, address(WETH), alice, address(dex), wethForWbtcAmount, vm);

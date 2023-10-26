@@ -8,6 +8,7 @@ import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
+// import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
 import {TokenUtils} from "./TokenUtils.sol";
 
@@ -33,6 +34,8 @@ library VaultUtils {
             admin,
             vm
         );
+        // vm.prank(admin);
+        // TestnetToken(sideToken).setDecimals(8);
 
         return createVaultFromTokens(baseToken, sideToken, epochFrequency, ap, admin, vm);
     }
