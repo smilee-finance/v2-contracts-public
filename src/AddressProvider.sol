@@ -51,7 +51,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(exchangeAdapter_);
 
-        address previous = _exchangeAdapter.get();
+        address previous = _exchangeAdapter.proposed;
         _exchangeAdapter.set(exchangeAdapter_, timeLockDelay);
 
         emit ChangedExchangeAdapter(exchangeAdapter_, previous);
@@ -65,7 +65,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(priceOracle_);
 
-        address previous = _priceOracle.get();
+        address previous = _priceOracle.proposed;
         _priceOracle.set(priceOracle_, timeLockDelay);
 
         emit ChangedPriceOracle(priceOracle_, previous);
@@ -79,7 +79,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(marketOracle_);
 
-        address previous = _marketOracle.get();
+        address previous = _marketOracle.proposed;
         _marketOracle.set(marketOracle_, timeLockDelay);
 
         emit ChangedMarketOracle(marketOracle_, previous);
@@ -93,7 +93,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(registry_);
 
-        address previous = _registry.get();
+        address previous = _registry.proposed;
         _registry.set(registry_, timeLockDelay);
 
         emit ChangedRegistry(registry_, previous);
@@ -107,7 +107,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(posManager_);
 
-        address previous = _dvpPositionManager.get();
+        address previous = _dvpPositionManager.proposed;
         _dvpPositionManager.set(posManager_, timeLockDelay);
 
         emit ChangedPositionManager(posManager_, previous);
@@ -121,7 +121,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(vaultProxy_);
 
-        address previous = _vaultProxy.get();
+        address previous = _vaultProxy.proposed;
         _vaultProxy.set(vaultProxy_, timeLockDelay);
 
         emit ChangedVaultProxy(vaultProxy_, previous);
@@ -135,7 +135,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(feeManager_);
 
-        address previous = _feeManager.get();
+        address previous = _feeManager.proposed;
         _feeManager.set(feeManager_, timeLockDelay);
 
         emit ChangedFeeManager(feeManager_, previous);
@@ -149,7 +149,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
         _checkRole(ROLE_ADMIN);
         _checkZeroAddress(vaultAccessNFT_);
 
-        address previous = _vaultAccessNFT.get();
+        address previous = _vaultAccessNFT.proposed;
         _vaultAccessNFT.set(vaultAccessNFT_, timeLockDelay);
 
         emit ChangedFeeManager(vaultAccessNFT_, previous);

@@ -2,14 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {TestnetToken} from "../src/testnet/TestnetToken.sol";
-import {Factory} from "../src/Factory.sol";
-import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
-import {DVP} from "../src/DVP.sol";
-import {DVPType} from "../src/lib/DVPType.sol";
-import {Vault} from "../src/Vault.sol";
-import {IG} from "../src/IG.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
 import {Utils} from "./utils/Utils.sol";
 
@@ -20,7 +12,7 @@ contract AddressProviderTest is Test {
 
     function setUp() public {
         vm.startPrank(tokenAdmin);
-        addressProvider = new AddressProvider(0);
+        addressProvider = new AddressProvider(1 days);
         addressProvider.grantRole(addressProvider.ROLE_ADMIN(), tokenAdmin);
         vm.stopPrank();
     }
@@ -29,6 +21,20 @@ contract AddressProviderTest is Test {
         //vm.startPrank(address(0x100));
         vm.expectRevert();
         addressProvider.setExchangeAdapter(address(0x100));
+    }
+
+    function testAddressProviderTimeLocked() public {
+        vm.startPrank(tokenAdmin);
+
+        addressProvider.setExchangeAdapter(address(0x100));
+        assertEq(address(0x100), addressProvider.exchangeAdapter());
+
+        addressProvider.setExchangeAdapter(address(0x999));
+        vm.stopPrank();
+
+        assertEq(address(0x100), addressProvider.exchangeAdapter());
+        Utils.skipDay(true, vm);
+        assertEq(address(0x999), addressProvider.exchangeAdapter());
     }
 
     function testAddressProviderSetExchangeAdapter() public {

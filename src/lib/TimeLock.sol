@@ -8,13 +8,16 @@ struct TimeLockedAddress {
 }
 
 library TimeLock {
-    error TimeLocked();
 
     function set(TimeLockedAddress storage tl, address value, uint256 delay) public {
-        if (block.timestamp < tl.validAfter && tl.validAfter > 0) {
-            revert TimeLocked();
+        if (tl.validAfter == 0) {
+            // The very first call is expected to be safe for immediate usage
+            // NOTE: its security is linked to the deployment script
+            tl.safe = value;
         }
-        tl.safe = tl.proposed;
+        if (tl.validAfter > 0 && block.timestamp > tl.validAfter) {
+            tl.safe = tl.proposed;
+        }
         tl.proposed = value;
         tl.validAfter = block.timestamp + delay;
     }
