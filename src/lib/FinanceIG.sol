@@ -156,12 +156,11 @@ library FinanceIG {
     function updateParameters(
         FinanceParameters storage params,
         uint256 impliedVolatility,
-        uint256 v0,
-        uint256 previousMaturity
+        uint256 v0
     ) public {
         params.sigmaZero = impliedVolatility;
 
-        uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(previousMaturity, params.maturity));
+        uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
         (params.kA, params.kB) = FinanceIGPrice.liquidityRange(
             FinanceIGPrice.LiquidityRangeParams(
                 params.currentStrike,

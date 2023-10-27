@@ -249,7 +249,7 @@ contract IG is DVP {
                 epoch.frequency
             );
             uint256 v0 = IVault(vault).v0();
-            FinanceIG.updateParameters(_financeParameters, iv, v0, epoch.previous);
+            FinanceIG.updateParameters(_financeParameters, iv, v0);
         }
 
         super._afterRollEpoch();
