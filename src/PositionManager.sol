@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IPositionManager} from "./interfaces/IPositionManager.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -11,6 +12,8 @@ import {Position} from "./lib/Position.sol";
 import {Epoch} from "./lib/EpochController.sol";
 
 contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
+    using SafeERC20 for IERC20;
+
     struct ManagedPosition {
         address dvpAddr;
         uint256 strike;
@@ -22,9 +25,6 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         uint256 cumulatedPayoff;
     }
 
-    /// @notice [TESTNET] Whether the transfer of tokens between wallets is allowed or not
-    bool internal _secondaryMarkedAllowed;
-
     /// @dev Stored data by position ID
     mapping(uint256 => ManagedPosition) internal _positions;
 
@@ -35,13 +35,10 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     event Buy(address dvp, uint256 epoch, uint256 premium, address creditor);
     event Sell(address dvp, uint256 epoch, uint256 payoff);
 
-    error ApproveFailed();
     error CantBurnMoreThanMinted();
     error InvalidTokenID();
     error NotOwner();
     error PositionExpired();
-    error SecondaryMarketNotAllowed();
-    error TransferFailed();
 
     constructor() ERC721Enumerable() ERC721("Smilee V0 Trade Positions", "SMIL-V0-TRAD") Ownable() {
         _nextId = 1;
@@ -117,16 +114,10 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         // Transfer premium:
         // NOTE: The PositionManager is just a middleman between the user and the DVP
         IERC20 baseToken = IERC20(dvp.baseToken());
-        bool ok = baseToken.transferFrom(msg.sender, address(this), premium);
-        if (!ok) {
-            revert TransferFailed();
-        }
+        baseToken.safeTransferFrom(msg.sender, address(this), premium);
 
         // Premium already include fee
-        ok = baseToken.approve(params.dvpAddr, premium);
-        if (!ok) {
-            revert ApproveFailed();
-        }
+        baseToken.safeApprove(params.dvpAddr, premium);
 
         premium = dvp.mint(
             address(this),
@@ -236,10 +227,4 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         emit Sell(position.dvpAddr, position.expiry, payoff_);
     }
 
-    /**
-        @notice Allows the contract's owner to enable or disable the secondary market for the position's tokens.
-     */
-    function setAllowedSecondaryMarked(bool allowed) external onlyOwner {
-        _secondaryMarkedAllowed = allowed;
-    }
 }
