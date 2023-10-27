@@ -48,6 +48,10 @@ library Finance {
         used = AmountsMath.wrapDecimals(used, tokenDecimals);
         total = AmountsMath.wrapDecimals(total, tokenDecimals);
 
+        if (total == 0) {
+            return 0;
+        }
+
         return used.wdiv(total);
     }
 }
