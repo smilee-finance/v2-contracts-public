@@ -108,16 +108,17 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
                 revert PositionExpired();
             }
         }
+        uint256 obtainedPremium;
         uint256 fee;
-        (premium, fee) = dvp.premium(params.strike, params.notionalUp, params.notionalDown);
+        (obtainedPremium, fee) = dvp.premium(params.strike, params.notionalUp, params.notionalDown);
 
         // Transfer premium:
         // NOTE: The PositionManager is just a middleman between the user and the DVP
         IERC20 baseToken = IERC20(dvp.baseToken());
-        baseToken.safeTransferFrom(msg.sender, address(this), premium);
+        baseToken.safeTransferFrom(msg.sender, address(this), obtainedPremium);
 
         // Premium already include fee
-        baseToken.safeApprove(params.dvpAddr, premium);
+        baseToken.safeApprove(params.dvpAddr, obtainedPremium);
 
         premium = dvp.mint(
             address(this),
@@ -127,6 +128,10 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             params.expectedPremium,
             params.maxSlippage
         );
+
+        if (obtainedPremium > premium) {
+            baseToken.safeTransferFrom(address(this), msg.sender, obtainedPremium - premium);
+        }
 
         if (params.tokenId == 0) {
             // Mint token:
