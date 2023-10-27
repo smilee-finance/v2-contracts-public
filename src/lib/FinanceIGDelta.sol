@@ -239,8 +239,8 @@ library FinanceIGDelta {
         uint256 alfaAbs = SignedMath.abs(alfa2);
         uint256 alfaSqrd = SignedMath.pow2(alfa2);
 
-        m = SignedMath.revabs((alfaAbs * 22) / 100, false) + SignedMath.castInt(uint256(1.8e18).add((alfaSqrd / 100)));
-        q = SignedMath.castInt((alfaAbs * 95) / 100) - (SignedMath.castInt(alfaSqrd) / 10);
+        m = - SignedMath.revabs((alfaAbs * 22) / 100, alfa2 >= 0) + SignedMath.castInt(uint256(1.8e18).add(alfaSqrd / 100));
+        q = SignedMath.revabs((alfaAbs * 95) / 100, alfa2 >= 0) - (SignedMath.castInt(alfaSqrd) / 10);
     }
 
     /// @dev limSup := V0 * (√Kb - √K) / (θ K √Kb)
