@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.19;
 
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";

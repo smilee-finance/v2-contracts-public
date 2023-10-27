@@ -12,6 +12,7 @@ fs_permissions = [{ access = "read", path = "./test/"}]
 arbitrum_mainnet = "${RPC_MAINNET}"
 
 [profile.deployment]
+solc_version = "0.8.19" # Arbitrum limit
 fs_permissions = [{ access = "read", path = "./broadcast/"}, { access = "read", path = "./test/"}]
 via_ir = true
 # revert_strings = "strip"
