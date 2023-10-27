@@ -182,13 +182,15 @@ library Notional {
             return 0;
         }
 
-        uint256 totalAmount = amount.getTotal();
-        totalAmount = AmountsMath.wrapDecimals(totalAmount, tokenDecimals);
+        uint256 tradeAmount = amount.getTotal();
+        tradeAmount = AmountsMath.wrapDecimals(tradeAmount, tokenDecimals);
+        used = AmountsMath.wrapDecimals(used, tokenDecimals);
+        total = AmountsMath.wrapDecimals(total, tokenDecimals);
 
         if (tradeIsBuy) {
-            return (used.add(totalAmount)).wdiv(total);
+            return (used.add(tradeAmount)).wdiv(total);
         } else {
-            return (used.sub(totalAmount)).wdiv(total);
+            return (used.sub(tradeAmount)).wdiv(total);
         }
     }
 }

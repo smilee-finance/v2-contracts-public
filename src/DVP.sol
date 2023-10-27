@@ -115,7 +115,8 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 expectedPremium,
         uint256 maxSlippage
     ) internal returns (uint256 premium_) {
-        _mintBurnChecks();
+        _checkEpochNotFinished();
+        _requireNotPaused();
         if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
         }
@@ -211,7 +212,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 expectedMarketValue,
         uint256 maxSlippage
     ) internal returns (uint256 paidPayoff) {
-        _mintBurnChecks();
+        _requireNotPaused();
         Position.Info storage position = _getPosition(epoch_, msg.sender, strike);
         if (!position.exists()) {
             revert PositionNotFound();
@@ -236,7 +237,11 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         bool reachedMaturity = epoch_ != getEpoch().current;
         uint256 fee;
         if (!reachedMaturity) {
+            // NOTE: checked only here as expired positions needs to be burned even if the vault was killed.
+            _checkEpochNotFinished();
+
             uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
+
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
             _checkSlippage(paidPayoff, expectedMarketValue, maxSlippage, false);
@@ -266,11 +271,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         feeManager.receiveFee(fee);
 
         emit Burn(msg.sender);
-    }
-
-    function _mintBurnChecks() private view {
-        _checkEpochNotFinished();
-        _requireNotPaused();
     }
 
     /// @inheritdoc EpochControls
