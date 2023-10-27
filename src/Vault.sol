@@ -746,6 +746,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         @return baseTokens The amount of exchanged base tokens.
      */
     function _buySideTokens(uint256 amount) internal returns (uint256 baseTokens) {
+        if (amount == 0) {
+            return 0;
+        }
         address exchangeAddress = _addressProvider.exchangeAdapter();
         if (exchangeAddress == address(0)) {
             revert AddressZero();
@@ -770,6 +773,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         @return baseTokens The amount of exchanged base tokens.
      */
     function _sellSideTokens(uint256 amount) internal returns (uint256 baseTokens) {
+        if (amount == 0) {
+            return 0;
+        }
         (, uint256 sideTokens) = _tokenBalances();
         if (amount > sideTokens) {
             revert ExceedsAvailable();
