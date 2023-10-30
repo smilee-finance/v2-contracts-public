@@ -67,6 +67,11 @@ interface IVault is IVaultParams {
     function v0() external view returns (uint256 v0_);
 
     /**
+        @notice Gives the dead status of the vault
+     */
+    function dead() external view returns (bool);
+
+    /**
         @notice Adjusts the portfolio by trading the given amount of side tokens
         @param sideTokensAmount The amount of side tokens to buy (positive value) / sell (negative value)
         @return baseTokens The amount of exchanged base tokens

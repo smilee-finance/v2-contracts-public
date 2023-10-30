@@ -63,6 +63,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     error MissingPriceOracle();
     error MissingFeeManager();
     error SlippedMarketValue();
+    error VaultDead();
 
     /**
         @notice Emitted when option is minted for a given position
@@ -117,6 +118,9 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     ) internal returns (uint256 premium_) {
         _checkEpochNotFinished();
         _requireNotPaused();
+        if (IVault(vault).dead()) {
+            revert VaultDead();
+        }
         if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
         }

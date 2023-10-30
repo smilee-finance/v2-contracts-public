@@ -190,7 +190,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             uint256 totalDeposit,
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
-            bool dead,
+            bool dead_,
             bytes4 deadReason
         )
     {
@@ -262,6 +262,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     /// @inheritdoc IVault
     function v0() public view virtual returns (uint256) {
         return _state.liquidity.lockedInitially;
+    }
+
+    /// @inheritdoc IVault
+    function dead() external view returns (bool) {
+        return _state.dead;
     }
 
     /// @inheritdoc IVault
