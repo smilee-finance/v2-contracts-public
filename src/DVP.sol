@@ -323,12 +323,11 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         // computes the payoff to be set aside at the end of the epoch for the provided strike.
-        (uint256 residualAmountUp, uint256 residualAmountDown) = liquidity.getUsed(strike);
+        Amount memory residualAmount = liquidity.getUsed(strike);
         (uint256 percentageUp, uint256 percentageDown) = _residualPayoffPerc(strike, price);
         (uint256 payoffUp_, uint256 payoffDown_) = Finance.computeResidualPayoffs(
-            residualAmountUp,
+            residualAmount,
             percentageUp,
-            residualAmountDown,
             percentageDown,
             _baseTokenDecimals
         );

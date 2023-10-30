@@ -64,6 +64,8 @@ contract DeployDVP is EnhancedScript {
         address vault = _createVault(baseToken, sideToken, epochFrequency);
         address dvp = _createImpermanentGainDVP(vault);
 
+        // TBD: call IG.setParameters(...)
+
         Vault(vault).setAllowedDVP(dvp);
         console.log(address(_registry));
         _registry.register(dvp);

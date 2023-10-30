@@ -160,6 +160,11 @@ contract IG is DVP {
         uint256 postTradeVol = getPostTradeVolatility(strike, amount, tradeIsBuy);
 
         Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+
+        // Also update the epoch volatility with the postTradeVol:
+        (uint256 preTradeUsedLiquidity, ) = liquidity.utilizationRateFactors(_financeParameters.currentStrike);
+        FinanceIG.updateAverageVolatility(_financeParameters, preTradeUsedLiquidity, amount, postTradeVol, _baseTokenDecimals);
+
         Amount memory availableLiquidity = liquidity.available(strike);
         (, uint256 sideTokensAmount) = IVault(vault).balances();
 
@@ -271,30 +276,29 @@ contract IG is DVP {
         liquidity.setInitial(_financeParameters.currentStrike, allocation);
     }
 
-    /// @dev must be defined in Wad
-    function setSigmaMultiplier(uint256 value) external {
+    /// @dev parameters must be defined in Wad
+    /// @dev aggregated in order to limit contract size
+    function setParameters(
+        uint256 sigmaMultiplier,
+        uint256 tradeVolatilityUtilizationRateFactor,
+        uint256 tradeVolatilityTimeDecay,
+        uint256 initialImpliedVolatility
+    ) public {
         _checkRole(ROLE_ADMIN);
 
-        _financeParameters.sigmaMultiplier = value;
-    }
-
-    /// @dev must be defined in Wad
-    function setTradeVolatilityUtilizationRateFactor(uint256 value) external {
-        _checkRole(ROLE_ADMIN);
-        if (value < 1e18 || value > 5e18) {
+        if (tradeVolatilityUtilizationRateFactor < 1e18 || tradeVolatilityUtilizationRateFactor > 5e18) {
+            revert OutOfAllowedRange();
+        }
+        if (tradeVolatilityTimeDecay > 0.5e18) {
+            revert OutOfAllowedRange();
+        }
+        if (initialImpliedVolatility < 0.01e18 || initialImpliedVolatility > 10e18) {
             revert OutOfAllowedRange();
         }
 
-        _financeParameters.tradeVolatilityUtilizationRateFactor = value;
-    }
-
-    /// @dev must be defined in Wad
-    function setTradeVolatilityTimeDecay(uint256 value) external {
-        _checkRole(ROLE_ADMIN);
-        if (value > 0.5e18) {
-            revert OutOfAllowedRange();
-        }
-
-        _financeParameters.tradeVolatilityTimeDecay = value;
+        _financeParameters.sigmaMultiplier = sigmaMultiplier;
+        _financeParameters.tradeVolatilityUtilizationRateFactor = tradeVolatilityUtilizationRateFactor;
+        _financeParameters.tradeVolatilityTimeDecay = tradeVolatilityTimeDecay;
+        _financeParameters.sigmaZero = initialImpliedVolatility;
     }
 }

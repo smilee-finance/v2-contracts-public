@@ -1,33 +1,35 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import {Amount} from "./Amount.sol";
+import {Amount, AmountHelper} from "./Amount.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {SignedMath} from "./SignedMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library Finance {
     using AmountsMath for uint256;
+    using AmountHelper for Amount;
 
     function computeResidualPayoffs(
-        uint256 residualAmountUp,
+        Amount memory residualAmount,
         uint256 percentageUp,
-        uint256 residualAmountDown,
         uint256 percentageDown,
         uint8 baseTokenDecimals
     ) public pure returns (uint256 payoffUp_, uint256 payoffDown_) {
         payoffUp_ = 0;
         payoffDown_ = 0;
-        
+
+        (uint256 residualAmountUp, uint256 residualAmountDown) = residualAmount.getRaw();
+
         if (residualAmountUp > 0) {
             residualAmountUp = AmountsMath.wrapDecimals(residualAmountUp, baseTokenDecimals);
-            payoffUp_ = residualAmountUp.wmul(percentageUp*2);
+            payoffUp_ = residualAmountUp.wmul(percentageUp * 2);
             payoffUp_ = AmountsMath.unwrapDecimals(payoffUp_, baseTokenDecimals);
         }
 
         if (residualAmountDown > 0) {
             residualAmountDown = AmountsMath.wrapDecimals(residualAmountDown, baseTokenDecimals);
-            payoffDown_ = residualAmountDown.wmul(percentageDown*2);
+            payoffDown_ = residualAmountDown.wmul(percentageDown * 2);
             payoffDown_ = AmountsMath.unwrapDecimals(payoffDown_, baseTokenDecimals);
         }
     }

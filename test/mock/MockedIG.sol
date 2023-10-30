@@ -148,4 +148,41 @@ contract MockedIG is IG {
     function currentEpoch() external view returns (uint256) {
         return getEpoch().current;
     }
+
+    /// @dev must be defined in Wad
+    function setSigmaMultiplier(uint256 value) external {
+        _checkRole(ROLE_ADMIN);
+
+        _financeParameters.sigmaMultiplier = value;
+    }
+
+    /// @dev must be defined in Wad
+    function setTradeVolatilityUtilizationRateFactor(uint256 value) external {
+        _checkRole(ROLE_ADMIN);
+        if (value < 1e18 || value > 5e18) {
+            revert OutOfAllowedRange();
+        }
+
+        _financeParameters.tradeVolatilityUtilizationRateFactor = value;
+    }
+
+    /// @dev must be defined in Wad
+    function setTradeVolatilityTimeDecay(uint256 value) external {
+        _checkRole(ROLE_ADMIN);
+        if (value > 0.5e18) {
+            revert OutOfAllowedRange();
+        }
+
+        _financeParameters.tradeVolatilityTimeDecay = value;
+    }
+
+    /// @dev must be defined in Wad
+    function setInitialImpliedVolatility(uint256 value) external {
+        _checkRole(ROLE_ADMIN);
+        if (value < 0.01e18 || value > 10e18) {
+            revert OutOfAllowedRange();
+        }
+
+        _financeParameters.sigmaZero = value;
+    }
 }

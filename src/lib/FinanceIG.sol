@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import {Amount} from "./Amount.sol";
+import {Amount, AmountHelper} from "./Amount.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {FinanceIGDelta} from "./FinanceIGDelta.sol";
 import {FinanceIGPayoff} from "./FinanceIGPayoff.sol";
@@ -22,11 +22,13 @@ struct FinanceParameters {
     uint256 sigmaMultiplier;
     uint256 tradeVolatilityUtilizationRateFactor;
     uint256 tradeVolatilityTimeDecay;
+    uint256 averageSigma;
 }
 
 /// @title Implementation of core financial computations for Smilee protocol
 library FinanceIG {
     using AmountsMath for uint256;
+    using AmountHelper for Amount;
 
     function _yearsToMaturity(uint256 maturity) private view returns (uint256 yearsToMaturity) {
         yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(block.timestamp, maturity));
@@ -158,7 +160,16 @@ library FinanceIG {
         uint256 impliedVolatility,
         uint256 v0
     ) public {
-        params.sigmaZero = impliedVolatility;
+        // The oracle only provides data for certains tokens
+        if (impliedVolatility > 0) {
+            params.sigmaZero = impliedVolatility;
+        }
+        // for the others we use the average of the previous epoch trades (if any)
+        if (impliedVolatility == 0 && params.averageSigma > 0) {
+            params.sigmaZero = params.averageSigma;
+        }
+        // Reset for the next epoch:
+        params.averageSigma = 0;
 
         uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
         (params.kA, params.kB) = FinanceIGPrice.liquidityRange(
@@ -170,7 +181,7 @@ library FinanceIG {
             )
         );
 
-        // Multiply baselineVolatility for a safety margin of 0.9 after have calculated kA and Kb.
+        // Multiply baselineVolatility for a safety margin of 0.9 after the computation of kA and Kb:
         params.sigmaZero = (params.sigmaZero * 90) / 100;
 
         params.theta = FinanceIGPrice._teta(params.currentStrike, params.kA, params.kB);
@@ -209,5 +220,23 @@ library FinanceIG {
                 t0
             )
         );
+    }
+
+    // Average trade volatility within an epoch
+    function updateAverageVolatility(
+        FinanceParameters storage params,
+        uint256 preTradeTotalNotional,
+        Amount memory tradeNotional,
+        uint256 postTradeVolatility,
+        uint8 tokenDecimals
+    ) public {
+        preTradeTotalNotional = AmountsMath.wrapDecimals(preTradeTotalNotional, tokenDecimals);
+        uint256 tradeNotional_ = AmountsMath.wrapDecimals(tradeNotional.getTotal(), tokenDecimals);
+
+        uint256 numerator = params.averageSigma.wmul(preTradeTotalNotional).add(tradeNotional_.wmul(postTradeVolatility));
+        uint256 denominator = preTradeTotalNotional.add(tradeNotional_);
+
+        // NOTE: denominator cannot be zero as tradeNotional is checked earlier.
+        params.averageSigma = numerator.wdiv(denominator);
     }
 }

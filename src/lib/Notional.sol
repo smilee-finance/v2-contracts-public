@@ -76,14 +76,13 @@ library Notional {
     /**
         @notice Get the amount of liquidity used by options.
         @param strike the reference strike.
-        @return optionedCall_ The used liquidity.
-        @return optionedPut_ The used liquidity.
+        @return amount The used liquidity.
      */
     function getUsed(
         Info storage self,
         uint256 strike
-    ) public view returns (uint256 optionedCall_, uint256 optionedPut_) {
-        return self.used[strike].getRaw();
+    ) public view returns (Amount memory amount) {
+        return self.used[strike];
     }
 
     /**
@@ -128,7 +127,7 @@ library Notional {
         Amount memory amount_,
         uint8 decimals
     ) public view returns (Amount memory payoff_) {
-        (uint256 usedCall_, uint256 usedPut_) = getUsed(self, strike);
+        (uint256 usedCall_, uint256 usedPut_) = getUsed(self, strike).getRaw();
         Amount memory accountedPayoff_ = getAccountedPayoff(self, strike);
 
         if (amount_.up > 0) {
