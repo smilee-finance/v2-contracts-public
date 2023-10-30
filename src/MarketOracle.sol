@@ -17,6 +17,8 @@ contract MarketOracle is IMarketOracle, AccessControl {
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
+    error OutOfAllowedRange();
+
     event ChangedIV(uint256 value, uint256 oldValue);
     event ChangedRFR(uint256 value, uint256 oldValue);
 
@@ -49,6 +51,9 @@ contract MarketOracle is IMarketOracle, AccessControl {
 
     function setImpliedVolatility(uint256 percentage) public {
         _checkRole(ROLE_ADMIN);
+        if (percentage < 0.01e18 || percentage > 10e18) {
+            revert OutOfAllowedRange();
+        }
 
         uint256 old = _iv.value;
 
@@ -68,6 +73,9 @@ contract MarketOracle is IMarketOracle, AccessControl {
 
     function setRiskFreeRate(uint256 percentage) public {
         _checkRole(ROLE_ADMIN);
+        if (percentage > 0.25e18) {
+            revert OutOfAllowedRange();
+        }
         uint256 old = _rfRate.value;
 
         _rfRate.value = percentage;
