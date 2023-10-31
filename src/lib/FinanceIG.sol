@@ -23,6 +23,7 @@ struct FinanceParameters {
     uint256 tradeVolatilityUtilizationRateFactor;
     uint256 tradeVolatilityTimeDecay;
     uint256 averageSigma;
+    uint256 volatilityPriceDiscountFactor;
 }
 
 /// @title Implementation of core financial computations for Smilee protocol
@@ -164,11 +165,11 @@ library FinanceIG {
         if (impliedVolatility > 0) {
             params.sigmaZero = impliedVolatility;
         }
-        // for the others we use the average of the previous epoch trades (if any)
+        // for the other tokens we use the average of the previous epoch trades (if any)
         if (impliedVolatility == 0 && params.averageSigma > 0) {
             params.sigmaZero = params.averageSigma;
         }
-        // Reset for the next epoch:
+        // Reset the average for the next epoch:
         params.averageSigma = 0;
 
         uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
@@ -181,8 +182,8 @@ library FinanceIG {
             )
         );
 
-        // Multiply baselineVolatility for a safety margin of 0.9 after the computation of kA and Kb:
-        params.sigmaZero = (params.sigmaZero * 90) / 100;
+        // Multiply baselineVolatility for a safety margin after the computation of kA and Kb:
+        params.sigmaZero = params.sigmaZero.wmul(params.volatilityPriceDiscountFactor);
 
         params.theta = FinanceIGPrice._teta(params.currentStrike, params.kA, params.kB);
 
@@ -210,6 +211,7 @@ library FinanceIG {
     ) public view returns (uint256 sigma) {
         uint256 t = params.maturity - t0;
 
+        // NOTE: on the very first epoch, it doesn't matter if sigmaZero is zero, because the underlying vault is empty
         sigma = FinanceIGPrice.tradeVolatility(
             FinanceIGPrice.TradeVolatilityParams(
                 params.sigmaZero,

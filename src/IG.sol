@@ -19,7 +19,15 @@ contract IG is DVP {
     using AmountHelper for Amount;
     using Notional for Notional.Info;
 
-    FinanceParameters public _financeParameters;
+    struct FinanceAdminParameters {
+        uint256 initialImpliedVolatility;
+        uint256 sigmaMultiplier;
+        uint256 tradeVolatilityUtilizationRateFactor;
+        uint256 tradeVolatilityTimeDecay;
+        uint256 volatilityPriceDiscountFactor;
+    }
+
+    FinanceParameters public financeParameters;
 
     // Used by TheGraph for frontend needs:
     event EpochStrike(uint256 epoch, uint256 strike);
@@ -27,14 +35,18 @@ contract IG is DVP {
     error OutOfAllowedRange();
 
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
-        _financeParameters.sigmaMultiplier = 3e18;
-        _financeParameters.tradeVolatilityUtilizationRateFactor = 2e18;
-        _financeParameters.tradeVolatilityTimeDecay = 0.25e18;
+        _setParameters(FinanceAdminParameters({
+            initialImpliedVolatility: 0.5e18,
+            sigmaMultiplier: 3e18,
+            tradeVolatilityUtilizationRateFactor: 2e18,
+            tradeVolatilityTimeDecay: 0.25e18,
+            volatilityPriceDiscountFactor: 0.9e18
+        }));
     }
 
     /// @notice Common strike price for all impermanent gain positions in this DVP, set at epoch start
     function currentStrike() external view returns (uint256 strike_) {
-        strike_ = _financeParameters.currentStrike;
+        strike_ = financeParameters.currentStrike;
     }
 
     /// @inheritdoc IDVP
@@ -49,7 +61,7 @@ contract IG is DVP {
         strike;
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
-        premium_ = _mint(recipient, _financeParameters.currentStrike, amount_, expectedPremium, maxSlippage);
+        premium_ = _mint(recipient, financeParameters.currentStrike, amount_, expectedPremium, maxSlippage);
     }
 
     /// @inheritdoc IDVP
@@ -78,15 +90,15 @@ contract IG is DVP {
         uint256 price = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
-        premium_ = _getMarketValue(_financeParameters.currentStrike, amount_, true, price);
+        premium_ = _getMarketValue(financeParameters.currentStrike, amount_, true, price);
         fee = IFeeManager(_getFeeManager()).tradeFee(amountUp + amountDown, premium_, _baseTokenDecimals, false);
         premium_ += fee;
     }
 
     /// @inheritdoc IDVP
     function getUtilizationRate() public view returns (uint256) {
-        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
-        (uint256 used, uint256 total) = liquidity.utilizationRateFactors(_financeParameters.currentStrike);
+        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
+        (uint256 used, uint256 total) = liquidity.utilizationRateFactors(financeParameters.currentStrike);
 
         return Finance.getUtilizationRate(used, total, _baseTokenDecimals);
     }
@@ -99,7 +111,7 @@ contract IG is DVP {
         uint256 swapPrice
     ) internal view virtual override returns (uint256 marketValue) {
         marketValue = FinanceIG.getMarketValue(
-            _financeParameters,
+            financeParameters,
             amount,
             getPostTradeVolatility(strike, amount, tradeIsBuy),
             swapPrice,
@@ -113,10 +125,10 @@ contract IG is DVP {
         view
         returns (uint256 bearNotional, uint256 bullNotional, uint256 bearAvailNotional, uint256 bullAvailNotional)
     {
-        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
-        Amount memory initial = liquidity.getInitial(_financeParameters.currentStrike);
-        Amount memory available = liquidity.available(_financeParameters.currentStrike);
+        Amount memory initial = liquidity.getInitial(financeParameters.currentStrike);
+        Amount memory available = liquidity.available(financeParameters.currentStrike);
 
         return (initial.down, initial.up, available.down, available.up);
     }
@@ -138,16 +150,16 @@ contract IG is DVP {
     ) public view returns (uint256 sigma) {
         strike;
 
-        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
         uint256 ur = liquidity.postTradeUtilizationRate(
-            _financeParameters.currentStrike,
+            financeParameters.currentStrike,
             amount,
             tradeIsBuy,
             _baseTokenDecimals
         );
         uint256 t0 = getEpoch().previous;
 
-        return FinanceIG.getPostTradeVolatility(_financeParameters, ur, t0);
+        return FinanceIG.getPostTradeVolatility(financeParameters, ur, t0);
     }
 
     /// @inheritdoc DVP
@@ -159,17 +171,17 @@ contract IG is DVP {
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         uint256 postTradeVol = getPostTradeVolatility(strike, amount, tradeIsBuy);
 
-        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
         // Also update the epoch volatility with the postTradeVol:
-        (uint256 preTradeUsedLiquidity, ) = liquidity.utilizationRateFactors(_financeParameters.currentStrike);
-        FinanceIG.updateAverageVolatility(_financeParameters, preTradeUsedLiquidity, amount, postTradeVol, _baseTokenDecimals);
+        (uint256 preTradeUsedLiquidity, ) = liquidity.utilizationRateFactors(financeParameters.currentStrike);
+        FinanceIG.updateAverageVolatility(financeParameters, preTradeUsedLiquidity, amount, postTradeVol, _baseTokenDecimals);
 
         Amount memory availableLiquidity = liquidity.available(strike);
         (, uint256 sideTokensAmount) = IVault(vault).balances();
 
         int256 tokensToSwap = FinanceIG.getDeltaHedgeAmount(
-            _financeParameters,
+            financeParameters,
             amount,
             tradeIsBuy,
             postTradeVol,
@@ -197,30 +209,30 @@ contract IG is DVP {
         uint256 price
     ) internal view virtual override returns (uint256, uint256) {
         strike;
-        return FinanceIG.getPayoffPercentages(_financeParameters, price);
+        return FinanceIG.getPayoffPercentages(financeParameters, price);
     }
 
     /// @inheritdoc DVP
     function _residualPayoff() internal view virtual override returns (uint256 residualPayoff) {
-        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
-        residualPayoff = liquidity.getAccountedPayoff(_financeParameters.currentStrike).getTotal();
+        residualPayoff = liquidity.getAccountedPayoff(financeParameters.currentStrike).getTotal();
     }
 
     /// @inheritdoc DVP
     function _accountResidualPayoffs(uint256 price) internal virtual override {
-        _accountResidualPayoff(_financeParameters.currentStrike, price);
+        _accountResidualPayoff(financeParameters.currentStrike, price);
     }
 
     function _beforeRollEpoch() internal virtual override {
         super._beforeRollEpoch();
-        uint256 previousStrike = _financeParameters.currentStrike;
+        uint256 previousStrike = financeParameters.currentStrike;
         {
             // Update strike price:
             (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
             uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
             FinanceIG.updateStrike(
-                _financeParameters,
+                financeParameters,
                 oraclePrice,
                 baseTokenAmount,
                 sideTokenAmount,
@@ -231,9 +243,9 @@ contract IG is DVP {
 
         {
             // Need to get residual payoff of the previous strike (because strike has already been updated)
-            Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+            Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
             uint256 residualPayoff = liquidity.getAccountedPayoff(previousStrike).getTotal();
-            _accountResidualPayoff(previousStrike, _financeParameters.currentStrike);
+            _accountResidualPayoff(previousStrike, financeParameters.currentStrike);
             IVault(vault).adjustReservedPayoff(residualPayoff);
         }
     }
@@ -242,26 +254,26 @@ contract IG is DVP {
     function _afterRollEpoch() internal virtual override {
         Epoch memory epoch = getEpoch();
 
-        _financeParameters.maturity = epoch.current;
+        financeParameters.maturity = epoch.current;
 
-        emit EpochStrike(epoch.current, _financeParameters.currentStrike);
+        emit EpochStrike(epoch.current, financeParameters.currentStrike);
 
         {
             uint256 iv = IMarketOracle(_getMarketOracle()).getImpliedVolatility(
                 baseToken,
                 sideToken,
-                _financeParameters.currentStrike,
+                financeParameters.currentStrike,
                 epoch.frequency
             );
             uint256 v0 = IVault(vault).v0();
-            FinanceIG.updateParameters(_financeParameters, iv, v0);
+            FinanceIG.updateParameters(financeParameters, iv, v0);
         }
 
         super._afterRollEpoch();
 
         // NOTE: initial liquidity is allocated by the DVP call
-        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
-        _financeParameters.initialLiquidity = liquidity.getInitial(_financeParameters.currentStrike);
+        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
+        financeParameters.initialLiquidity = liquidity.getInitial(financeParameters.currentStrike);
     }
 
     /// @inheritdoc DVP
@@ -270,35 +282,44 @@ contract IG is DVP {
         uint256 halfInitialCapital = initialCapital / 2;
         Amount memory allocation = Amount({up: halfInitialCapital, down: initialCapital - halfInitialCapital});
 
-        Notional.Info storage liquidity = _liquidity[_financeParameters.maturity];
+        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
         // The impermanent gain (IG) DVP only has one strike:
-        liquidity.setInitial(_financeParameters.currentStrike, allocation);
+        liquidity.setInitial(financeParameters.currentStrike, allocation);
     }
 
     /// @dev parameters must be defined in Wad
     /// @dev aggregated in order to limit contract size
     function setParameters(
-        uint256 sigmaMultiplier,
-        uint256 tradeVolatilityUtilizationRateFactor,
-        uint256 tradeVolatilityTimeDecay,
-        uint256 initialImpliedVolatility
+        FinanceAdminParameters memory params
     ) public {
         _checkRole(ROLE_ADMIN);
+        _setParameters(params);
+    }
 
-        if (tradeVolatilityUtilizationRateFactor < 1e18 || tradeVolatilityUtilizationRateFactor > 5e18) {
+    /// @dev parameters must be defined in Wad
+    /// @dev aggregated in order to limit contract size
+    function _setParameters(FinanceAdminParameters memory params) internal {
+        if (params.tradeVolatilityUtilizationRateFactor < 1e18 || params.tradeVolatilityUtilizationRateFactor > 5e18) {
             revert OutOfAllowedRange();
         }
-        if (tradeVolatilityTimeDecay > 0.5e18) {
+        if (params.tradeVolatilityTimeDecay > 0.5e18) {
             revert OutOfAllowedRange();
         }
-        if (initialImpliedVolatility < 0.01e18 || initialImpliedVolatility > 10e18) {
+        if (params.initialImpliedVolatility < 0.01e18 || params.initialImpliedVolatility > 10e18) {
+            revert OutOfAllowedRange();
+        }
+        if (params.sigmaMultiplier < 0.01e18 || params.sigmaMultiplier > 6e18) {
+            revert OutOfAllowedRange();
+        }
+        if (params.volatilityPriceDiscountFactor < 0.7e18 || params.volatilityPriceDiscountFactor > 1.2e18) {
             revert OutOfAllowedRange();
         }
 
-        _financeParameters.sigmaMultiplier = sigmaMultiplier;
-        _financeParameters.tradeVolatilityUtilizationRateFactor = tradeVolatilityUtilizationRateFactor;
-        _financeParameters.tradeVolatilityTimeDecay = tradeVolatilityTimeDecay;
-        _financeParameters.sigmaZero = initialImpliedVolatility;
+        financeParameters.sigmaMultiplier = params.sigmaMultiplier;
+        financeParameters.tradeVolatilityUtilizationRateFactor = params.tradeVolatilityUtilizationRateFactor;
+        financeParameters.tradeVolatilityTimeDecay = params.tradeVolatilityTimeDecay;
+        financeParameters.sigmaZero = params.initialImpliedVolatility;
+        financeParameters.volatilityPriceDiscountFactor = params.volatilityPriceDiscountFactor;
     }
 }

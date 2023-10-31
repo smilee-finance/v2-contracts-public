@@ -127,7 +127,7 @@ contract MockedIG is IG {
     }
 
     function getCurrentFinanceParameters() public view returns (FinanceParameters memory) {
-        return _financeParameters;
+        return financeParameters;
     }
 
     /**
@@ -153,7 +153,7 @@ contract MockedIG is IG {
     function setSigmaMultiplier(uint256 value) external {
         _checkRole(ROLE_ADMIN);
 
-        _financeParameters.sigmaMultiplier = value;
+        financeParameters.sigmaMultiplier = value;
     }
 
     /// @dev must be defined in Wad
@@ -163,7 +163,7 @@ contract MockedIG is IG {
             revert OutOfAllowedRange();
         }
 
-        _financeParameters.tradeVolatilityUtilizationRateFactor = value;
+        financeParameters.tradeVolatilityUtilizationRateFactor = value;
     }
 
     /// @dev must be defined in Wad
@@ -173,7 +173,7 @@ contract MockedIG is IG {
             revert OutOfAllowedRange();
         }
 
-        _financeParameters.tradeVolatilityTimeDecay = value;
+        financeParameters.tradeVolatilityTimeDecay = value;
     }
 
     /// @dev must be defined in Wad
@@ -183,6 +183,6 @@ contract MockedIG is IG {
             revert OutOfAllowedRange();
         }
 
-        _financeParameters.sigmaZero = value;
+        financeParameters.sigmaZero = value;
     }
 }
