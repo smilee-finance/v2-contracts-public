@@ -51,7 +51,7 @@ contract Factory is Ownable {
     ) 
         internal returns (address)  
     {
-        Vault vault = new Vault(baseToken, sideToken, epochFrequency, address(_addressProvider));
+        Vault vault = new Vault(baseToken, sideToken, epochFrequency, epochFrequency, address(_addressProvider));
         return address(vault);
     }
 

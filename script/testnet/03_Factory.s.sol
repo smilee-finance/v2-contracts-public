@@ -77,7 +77,7 @@ contract DeployDVP is EnhancedScript {
     }
 
     function _createVault(address baseToken, address sideToken, uint256 epochFrequency) internal returns (address) {
-        Vault vault = new Vault(baseToken, sideToken, epochFrequency, address(_addressProvider));
+        Vault vault = new Vault(baseToken, sideToken, epochFrequency, epochFrequency, address(_addressProvider));
 
         vault.grantRole(vault.ROLE_GOD(), _adminMultiSigAddress);
         vault.grantRole(vault.ROLE_ADMIN(), _deployerAddress);

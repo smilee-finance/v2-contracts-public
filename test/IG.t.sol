@@ -307,7 +307,7 @@ contract IGTest is Test {
         Utils.skipDay(true, vm);
 
         uint256 epochNumbers = ig.getNumberOfEpochs();
-        assertEq(epochNumbers, 2);
+        assertEq(epochNumbers, 1);
 
         vm.prank(admin);
         ig.rollEpoch();
@@ -315,7 +315,7 @@ contract IGTest is Test {
         uint256 lastEpoch = ig.lastRolledEpoch();
         epochNumbers = ig.getNumberOfEpochs();
 
-        assertEq(epochNumbers, 3);
+        assertEq(epochNumbers, 2);
         assertEq(previousEpoch, lastEpoch);
         assertNotEq(nextEpoch, firstExpiry);
         assertNotEq(nextEpoch, secondExpiry);

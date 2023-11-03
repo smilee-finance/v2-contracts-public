@@ -82,7 +82,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         address vault_,
         bool optionType_,
         address addressProvider_
-    ) EpochControls(IEpochControls(vault_).getEpoch().frequency) AccessControl() Pausable() {
+    ) EpochControls(IEpochControls(vault_).getEpoch().frequency, IEpochControls(vault_).getEpoch().firstEpochTimespan) AccessControl() Pausable() {
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);

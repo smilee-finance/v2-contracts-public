@@ -91,8 +91,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         address baseToken_,
         address sideToken_,
         uint256 epochFrequency_,
+        uint256 firstEpochTimespan,
         address addressProvider_
-    ) ERC20("Smilee Share", ":)") EpochControls(epochFrequency_) AccessControl() Pausable() {
+    ) ERC20("Smilee Share", ":)") EpochControls(epochFrequency_, firstEpochTimespan) AccessControl() Pausable() {
         TokensPair.validate(TokensPair.Pair({baseToken: baseToken_, sideToken: sideToken_}));
         baseToken = baseToken_;
         sideToken = sideToken_;

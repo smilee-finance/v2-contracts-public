@@ -13,8 +13,8 @@ abstract contract EpochControls is IEpochControls {
 
     event EpochRolled(uint256 previousEpoch, uint256 currentEpoch);
 
-    constructor(uint256 epochFrequency_) {
-        _epoch.init(epochFrequency_);
+    constructor(uint256 epochFrequency, uint256 firstEpochTimespan) {
+        _epoch.init(epochFrequency, firstEpochTimespan);
     }
 
     /// @inheritdoc IEpochControls

@@ -38,6 +38,7 @@ library EpochFrequency {
         @param ts The current expiry
         @param timeSpan the number of seconds in the timespan.
         @return nextExpiry_ the timestamp for the next epoch expiry.
+        @dev it's the next nearest (to `ts` and in the future) `timeSpan` checkpoint using `REF_TS` as reference for counting them.
      */
     function _nextTimeSpanExpiry(uint256 ts, uint256 timeSpan) private pure returns (uint256 nextExpiry_) {
         if (ts < REF_TS) {

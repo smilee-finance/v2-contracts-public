@@ -8,24 +8,22 @@ struct Epoch {
     uint256 previous;
     uint256 frequency;
     uint256 numberOfRolledEpochs;
+    uint256 firstEpochTimespan;
 }
 
 library EpochController {
 
     error EpochNotFinished();
 
-    function init(Epoch storage epoch, uint256 epochFrequency) public {
-        if (_isInitialized(epoch)) {
-            return;
-        }
-
-        epoch.current = 0;
-        epoch.previous = 0;
+    function init(Epoch storage epoch, uint256 epochFrequency, uint256 firstEpochTimespan) public {
         EpochFrequency.validityCheck(epochFrequency);
+        EpochFrequency.validityCheck(firstEpochTimespan);
+
+        epoch.firstEpochTimespan = firstEpochTimespan;
+        epoch.current = _getNextExpiry(block.timestamp, epoch.firstEpochTimespan);
+        epoch.previous = 0;
         epoch.frequency = epochFrequency;
         epoch.numberOfRolledEpochs = 0;
-
-        roll(epoch);
     }
 
     function roll(Epoch storage epoch) public {
@@ -35,29 +33,23 @@ library EpochController {
         }
 
         epoch.previous = epoch.current;
-
-        if (!_isInitialized(epoch)) {
-            // NOTE: beware of `nextExpiry` gas usage on first rolled epoch
-            epoch.current = block.timestamp;
-        }
-
-        uint256 nextEpoch = EpochFrequency.nextExpiry(epoch.current, epoch.frequency);
-
-        // If next epoch expiry is in the past (should not happen...) go to next of the next
-        while (block.timestamp > nextEpoch) {
-            nextEpoch = EpochFrequency.nextExpiry(nextEpoch, epoch.frequency);
-        }
-
-        epoch.current = nextEpoch;
+        epoch.current = _getNextExpiry(epoch.current, epoch.frequency);
         epoch.numberOfRolledEpochs++;
     }
 
-    /**
-        @notice Check if has been rolled the first epoch
-        @return True if the first epoch has been rolled, false otherwise
-     */
-    function _isInitialized(Epoch memory epoch) private pure returns (bool) {
-        return epoch.current > 0;
+    function _getNextExpiry(uint256 from, uint256 timespan) private view returns (uint256 nextExpiry) {
+        // NOTE: the next expiry may be less than `timespan` seconds in the future
+        //       as it's computed from the reference timestamp.
+        //       Client contracts SHOULD NOT request it within the end of such time windows.
+        //       As this function is called within `init`, the developers MUST pay attention
+        //       when they deploy their contracts.
+        nextExpiry = EpochFrequency.nextExpiry(from, timespan);
+
+        // If next epoch expiry is in the past (should not happen...) go to next of the next
+        // IDEA: store and update the reference timestamp within the epoch struct in order to save gas
+        while (block.timestamp > nextExpiry) {
+            nextExpiry = EpochFrequency.nextExpiry(nextExpiry, timespan);
+        }
     }
 
     /**
