@@ -4,9 +4,7 @@ pragma solidity ^0.8.15;
 import {Test} from "forge-std/Test.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
-import {Factory} from "../../src/Factory.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
-import {Utils} from "../utils/Utils.sol";
 
 contract TestnetTokenTest is Test {
     bytes4 constant _NOT_INITIALIZED = bytes4(keccak256("NotInitialized()"));

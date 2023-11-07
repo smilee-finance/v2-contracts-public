@@ -2,11 +2,11 @@
 pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
-import {IRegistry} from "./interfaces/IRegistry.sol";
-// import {DVPType} from "./lib/DVPType.sol";
-import {IG} from "./IG.sol";
-import {Vault} from "./Vault.sol";
+import {IAddressProvider} from "../../src/interfaces/IAddressProvider.sol";
+import {IRegistry} from "../../src/interfaces/IRegistry.sol";
+// import {DVPType} from "../../src/lib/DVPType.sol";
+import {IG} from "../../src/IG.sol";
+import {Vault} from "../../src/Vault.sol";
 
 contract Factory is Ownable {
 

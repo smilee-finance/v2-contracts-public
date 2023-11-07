@@ -45,7 +45,7 @@ library EpochController {
         //       when they deploy their contracts.
         nextExpiry = EpochFrequency.nextExpiry(from, timespan);
 
-        // If next epoch expiry is in the past (should not happen...) go to next of the next
+        // If next epoch expiry is in the past go to next of the next
         // IDEA: store and update the reference timestamp within the epoch struct in order to save gas
         while (block.timestamp > nextExpiry) {
             nextExpiry = EpochFrequency.nextExpiry(nextExpiry, timespan);

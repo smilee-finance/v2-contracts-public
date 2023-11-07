@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
-import {Factory} from "../src/Factory.sol";
+import {Factory} from "./utils/Factory.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {DVP} from "../src/DVP.sol";
 import {DVPType} from "../src/lib/DVPType.sol";
