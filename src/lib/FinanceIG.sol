@@ -136,6 +136,24 @@ library FinanceIG {
             );
     }
 
+    function getStrike(
+        uint256 oraclePrice,
+        uint256 baseTokenAmount,
+        uint256 sideTokenAmount,
+        uint8 baseTokenDecimals,
+        uint8 sideTokenDecimals
+    ) public pure returns (uint256) {
+        // NOTE: both amounts are after equal weight rebalance, hence we can just compute their ratio.
+        // Protect against division by zero
+        if (baseTokenAmount == 0 || sideTokenAmount == 0) {
+            return oraclePrice;
+        }
+
+        baseTokenAmount = AmountsMath.wrapDecimals(baseTokenAmount, baseTokenDecimals);
+        sideTokenAmount = AmountsMath.wrapDecimals(sideTokenAmount, sideTokenDecimals);
+        return baseTokenAmount.wdiv(sideTokenAmount);
+    }
+
     function updateStrike(
         FinanceParameters storage params,
         uint256 oraclePrice,
@@ -144,16 +162,13 @@ library FinanceIG {
         uint8 baseTokenDecimals,
         uint8 sideTokenDecimals
     ) public {
-        // NOTE: both amounts are after equal weight rebalance, hence we can just compute their ratio.
-        // Protect against division by zero
-        if (baseTokenAmount == 0 || sideTokenAmount == 0) {
-            params.currentStrike = oraclePrice;
-        } else {
-            baseTokenAmount = AmountsMath.wrapDecimals(baseTokenAmount, baseTokenDecimals);
-            sideTokenAmount = AmountsMath.wrapDecimals(sideTokenAmount, sideTokenDecimals);
-
-            params.currentStrike = baseTokenAmount.wdiv(sideTokenAmount);
-        }
+        params.currentStrike = getStrike(
+            oraclePrice,
+            baseTokenAmount,
+            sideTokenAmount,
+            baseTokenDecimals,
+            sideTokenDecimals
+        );
     }
 
     function updateParameters(

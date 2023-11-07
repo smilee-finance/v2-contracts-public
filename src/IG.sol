@@ -35,13 +35,15 @@ contract IG is DVP {
     error OutOfAllowedRange();
 
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
-        _setParameters(FinanceAdminParameters({
-            initialImpliedVolatility: 0.5e18,
-            sigmaMultiplier: 3e18,
-            tradeVolatilityUtilizationRateFactor: 2e18,
-            tradeVolatilityTimeDecay: 0.25e18,
-            volatilityPriceDiscountFactor: 0.9e18
-        }));
+        _setParameters(
+            FinanceAdminParameters({
+                initialImpliedVolatility: 0.5e18,
+                sigmaMultiplier: 3e18,
+                tradeVolatilityUtilizationRateFactor: 2e18,
+                tradeVolatilityTimeDecay: 0.25e18,
+                volatilityPriceDiscountFactor: 0.9e18
+            })
+        );
     }
 
     /// @notice Common strike price for all impermanent gain positions in this DVP, set at epoch start
@@ -175,7 +177,13 @@ contract IG is DVP {
 
         // Also update the epoch volatility with the postTradeVol:
         (uint256 preTradeUsedLiquidity, ) = liquidity.utilizationRateFactors(financeParameters.currentStrike);
-        FinanceIG.updateAverageVolatility(financeParameters, preTradeUsedLiquidity, amount, postTradeVol, _baseTokenDecimals);
+        FinanceIG.updateAverageVolatility(
+            financeParameters,
+            preTradeUsedLiquidity,
+            amount,
+            postTradeVol,
+            _baseTokenDecimals
+        );
 
         Amount memory availableLiquidity = liquidity.available(strike);
         (, uint256 sideTokensAmount) = IVault(vault).balances();
@@ -225,8 +233,42 @@ contract IG is DVP {
     }
 
     function _beforeRollEpoch() internal virtual override {
+        bool noLockedLiquidity = IVault(vault).v0() == 0;
         super._beforeRollEpoch();
-        uint256 previousStrike = financeParameters.currentStrike;
+
+        // happens when rolling first time, no need to adjust payoff
+        if (noLockedLiquidity) {
+            return;
+        }
+
+        uint256 nextStrike;
+        {
+            (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
+            uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+            nextStrike = FinanceIG.getStrike(
+                oraclePrice,
+                baseTokenAmount,
+                sideTokenAmount,
+                _baseTokenDecimals,
+                _sideTokenDecimals
+            );
+        }
+
+        {
+            // Need to get residual payoff of the previous strike (because strike has already been updated)
+            Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
+            _accountResidualPayoff(financeParameters.currentStrike, nextStrike);
+            uint256 residualPayoff = liquidity.getAccountedPayoff(financeParameters.currentStrike).getTotal();
+            IVault(vault).adjustReservedPayoff(residualPayoff);
+        }
+    }
+
+    /// @inheritdoc EpochControls
+    function _afterRollEpoch() internal virtual override {
+        Epoch memory epoch = getEpoch();
+
+        financeParameters.maturity = epoch.current;
+
         {
             // Update strike price:
             (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
@@ -240,22 +282,6 @@ contract IG is DVP {
                 _sideTokenDecimals
             );
         }
-
-        {
-            // Need to get residual payoff of the previous strike (because strike has already been updated)
-            Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
-            uint256 residualPayoff = liquidity.getAccountedPayoff(previousStrike).getTotal();
-            _accountResidualPayoff(previousStrike, financeParameters.currentStrike);
-            IVault(vault).adjustReservedPayoff(residualPayoff);
-        }
-    }
-
-    /// @inheritdoc EpochControls
-    function _afterRollEpoch() internal virtual override {
-        Epoch memory epoch = getEpoch();
-
-        financeParameters.maturity = epoch.current;
-
         emit EpochStrike(epoch.current, financeParameters.currentStrike);
 
         {
@@ -290,9 +316,7 @@ contract IG is DVP {
 
     /// @dev parameters must be defined in Wad
     /// @dev aggregated in order to limit contract size
-    function setParameters(
-        FinanceAdminParameters memory params
-    ) public {
+    function setParameters(FinanceAdminParameters memory params) public {
         _checkRole(ROLE_ADMIN);
         _setParameters(params);
     }

@@ -5,7 +5,7 @@ import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {Amount} from "../src/lib/Amount.sol";
+import {Amount, AmountHelper} from "../src/lib/Amount.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {FinanceParameters} from "../src/lib/FinanceIG.sol";
 import {SignedMath} from "../src/lib/SignedMath.sol";
@@ -21,6 +21,8 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 
 contract TestScenariosJson is Test {
+    using AmountHelper for Amount;
+
     address internal _admin;
     address internal _liquidityProvider;
     address internal _trader;
@@ -31,7 +33,10 @@ contract TestScenariosJson is Test {
     TestnetPriceOracle internal _oracle;
     MarketOracle internal _marketOracle;
     uint256 internal _toleranceOnPercentage;
-    uint256 internal _toleranceOnAmount;
+    uint256 internal _tolerancePercentage;
+
+    // keep track of trader outstanding open position at maturity
+    Amount internal _traderResidualAmount;
 
     struct JsonPathType {
         string path;
@@ -101,10 +106,14 @@ contract TestScenariosJson is Test {
         TradePreConditions pre;
     }
 
-    struct Rebalance {
-        //int256 apy;
+    struct EndEpoch {
         uint256 baseTokenAmount;
         uint256 depositAmount;
+        uint256 impliedVolatility;
+        uint256 payoffBear;
+        uint256 payoffBull;
+        uint256 payoffNet;
+        uint256 payoffTotal;
         uint256 sideTokenAmount;
         uint256 sideTokenPrice;
         uint256 v0;
@@ -117,11 +126,12 @@ contract TestScenariosJson is Test {
         _trader = address(0x3);
 
         // NOTE: there is some precision loss somewhere...
-        _toleranceOnPercentage = 1e14; // 0.0001 %
-        _toleranceOnAmount = 1e16; // 0.01 (Wad)
+        _toleranceOnPercentage = 0.001e18; // 0.1 %
+        _tolerancePercentage = 0.0025e18; // 0.25%
     }
 
     function setUp() public {
+        _traderResidualAmount.setRaw(0, 0);
         vm.warp(EpochFrequency.REF_TS);
 
         vm.prank(_admin);
@@ -189,8 +199,8 @@ contract TestScenariosJson is Test {
 
     function testScenarioMultiEpoch() public {
         // Controls the behavior of all components over multiple epochs.
-        _checkScenario("scenario_multi_epoch_1", true);
-        _checkScenario("scenario_multi_epoch_1_epoch_2", false);
+        _checkScenario("scenario_multi_1_e1", true);
+        _checkScenario("scenario_multi_1_e2", false);
     }
 
     function _checkScenario(string memory scenarioName, bool isFirstEpoch) internal {
@@ -207,47 +217,46 @@ contract TestScenariosJson is Test {
             _checkTrade(trades[i]);
         }
 
-        // ToDo: replace with a "_checkMaturity".
-        console.log("- Checking rebalance");
-        _checkRebalance(scenariosJSON);
+        console.log("- Checking end epoch");
+        _checkEndEpoch(scenariosJSON);
     }
 
     function _checkStartEpoch(StartEpoch memory t0, bool isFirstEpoch) internal {
+        vm.startPrank(_admin);
+        _oracle.setTokenPrice(_vault.sideToken(), t0.pre.sideTokenPrice);
+        _marketOracle.setImpliedVolatility(t0.pre.impliedVolatility);
+        _marketOracle.setRiskFreeRate(t0.pre.riskFreeRate);
+
+        _feeManager.setFeePercentage(t0.pre.fee);
+        _feeManager.setMaturityFeePercentage(t0.pre.feeMaturity);
+        _feeManager.setCapPercentage(t0.pre.capFee);
+        _feeManager.setMaturityCapPercentage(t0.pre.capFeeMaturity);
+        _feeManager.setVaultFeePercentage(t0.pre.vaultFee);
+
+        _dvp.setTradeVolatilityUtilizationRateFactor(t0.pre.tradeVolatilityUtilizationRateFactor);
+        _dvp.setTradeVolatilityTimeDecay(t0.pre.tradeVolatilityTimeDecay);
+        _dvp.setSigmaMultiplier(t0.pre.sigmaMultiplier);
+        vm.stopPrank();
+
         if (isFirstEpoch) {
             VaultUtils.addVaultDeposit(_liquidityProvider, t0.v0, _admin, address(_vault), vm);
-
-            vm.startPrank(_admin);
-            _oracle.setTokenPrice(_vault.sideToken(), t0.pre.sideTokenPrice);
-            _marketOracle.setImpliedVolatility(t0.pre.impliedVolatility);
-            _marketOracle.setRiskFreeRate(t0.pre.riskFreeRate);
-
-            _feeManager.setFeePercentage(t0.pre.fee);
-            _feeManager.setMaturityFeePercentage(t0.pre.feeMaturity);
-            _feeManager.setCapPercentage(t0.pre.capFee);
-            _feeManager.setMaturityCapPercentage(t0.pre.capFeeMaturity);
-            _feeManager.setVaultFeePercentage(t0.pre.vaultFee);
-
-            _dvp.setTradeVolatilityUtilizationRateFactor(t0.pre.tradeVolatilityUtilizationRateFactor);
-            _dvp.setTradeVolatilityTimeDecay(t0.pre.tradeVolatilityTimeDecay);
-            _dvp.setSigmaMultiplier(t0.pre.sigmaMultiplier);
-            vm.stopPrank();
-
             Utils.skipWeek(true, vm);
             vm.prank(_admin);
             _dvp.rollEpoch();
         }
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
+
         // assertEq(t0.post.baseTokenAmount, baseTokenAmount); // TMP for math precision
-        assertApproxEqAbs(t0.post.baseTokenAmount, baseTokenAmount, _toleranceOnAmount);
-        assertApproxEqAbs(t0.post.sideTokenAmount, sideTokenAmount, _toleranceOnAmount);
-        assertApproxEqAbs(t0.post.strike, _dvp.currentStrike(), _toleranceOnAmount);
+        assertApproxEqAbs(t0.post.baseTokenAmount, baseTokenAmount, _tolerance(t0.post.baseTokenAmount));
+        assertApproxEqAbs(t0.post.sideTokenAmount, sideTokenAmount, _tolerance(t0.post.sideTokenAmount));
+        assertApproxEqAbs(t0.post.strike, _dvp.currentStrike(), _tolerance(t0.post.strike));
         FinanceParameters memory financeParams = _dvp.getCurrentFinanceParameters();
-        assertApproxEqAbs(t0.post.kA, financeParams.kA, _toleranceOnAmount);
-        assertApproxEqAbs(t0.post.kB, financeParams.kB, _toleranceOnAmount);
-        assertApproxEqAbs(t0.post.theta, financeParams.theta, _toleranceOnAmount);
-        assertApproxEqAbs(t0.post.limInf, financeParams.limInf, _toleranceOnAmount);
-        assertApproxEqAbs(t0.post.limSup, financeParams.limSup, _toleranceOnAmount);
+        assertApproxEqAbs(t0.post.kA, financeParams.kA, _tolerance(t0.post.kA));
+        assertApproxEqAbs(t0.post.kB, financeParams.kB, _tolerance(t0.post.kB));
+        assertApproxEqAbs(t0.post.theta, financeParams.theta, _tolerance(t0.post.theta));
+        assertApproxEqAbs(t0.post.limInf, financeParams.limInf, _tolerance(t0.post.limInf));
+        assertApproxEqAbs(t0.post.limSup, financeParams.limSup, _tolerance(t0.post.limSup));
         // ToDo: add alphas
     }
 
@@ -260,13 +269,13 @@ contract TestScenariosJson is Test {
         vm.stopPrank();
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
-        assertApproxEqAbs(t.pre.baseTokenAmount, baseTokenAmount, _tollerancePercentage(t.pre.baseTokenAmount, 1));
-        assertApproxEqAbs(t.pre.sideTokenAmount, sideTokenAmount, _tollerancePercentage(t.pre.sideTokenAmount, 1));
+        assertApproxEqAbs(t.pre.baseTokenAmount, baseTokenAmount, _tolerance(t.pre.baseTokenAmount));
+        assertApproxEqAbs(t.pre.sideTokenAmount, sideTokenAmount, _tolerance(t.pre.sideTokenAmount));
 
         assertApproxEqAbs(t.pre.utilizationRate, _dvp.getUtilizationRate(), _toleranceOnPercentage);
         (, , uint256 availableBearNotional, uint256 availableBullNotional) = _dvp.notional();
-        assertApproxEqAbs(t.pre.availableNotionalBear, availableBearNotional, _toleranceOnAmount);
-        assertApproxEqAbs(t.pre.availableNotionalBull, availableBullNotional, _toleranceOnAmount);
+        assertApproxEqAbs(t.pre.availableNotionalBear, availableBearNotional, _tolerance(t.pre.availableNotionalBear));
+        assertApproxEqAbs(t.pre.availableNotionalBull, availableBullNotional, _tolerance(t.pre.availableNotionalBull));
         uint256 strike = _dvp.currentStrike();
         assertApproxEqAbs(
             t.pre.volatility,
@@ -278,6 +287,7 @@ contract TestScenariosJson is Test {
         uint256 marketValue;
         uint256 fee;
         if (t.isMint) {
+            _traderResidualAmount.increase(Amount(t.amountUp, t.amountDown));
             (marketValue, fee) = _dvp.premium(strike, t.amountUp, t.amountDown);
             TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue, vm);
             vm.prank(_trader);
@@ -285,6 +295,7 @@ contract TestScenariosJson is Test {
 
             // TBD: check slippage on market value
         } else {
+            _traderResidualAmount.decrease(Amount(t.amountUp, t.amountDown));
             vm.startPrank(_trader);
             (marketValue, fee) = _dvp.payoff(_dvp.currentEpoch(), strike, t.amountUp, t.amountDown);
             marketValue = _dvp.burn(
@@ -301,11 +312,19 @@ contract TestScenariosJson is Test {
         //fee = _feeManager.calculateTradeFee(t.amountUp + t.amountDown, marketValue, IToken(_vault.baseToken()).decimals(), false);
 
         //post-conditions:
-        assertApproxEqAbs(t.post.marketValue, marketValue, _tollerancePercentage(t.post.marketValue, 1));
+        assertApproxEqAbs(t.post.marketValue, marketValue, _tolerance(t.post.marketValue));
         assertApproxEqAbs(t.post.utilizationRate, _dvp.getUtilizationRate(), _toleranceOnPercentage);
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
-        assertApproxEqAbs(t.post.availableNotionalBear, availableBearNotional, _toleranceOnAmount);
-        assertApproxEqAbs(t.post.availableNotionalBull, availableBullNotional, _toleranceOnAmount);
+        assertApproxEqAbs(
+            t.post.availableNotionalBear,
+            availableBearNotional,
+            _tolerance(t.post.availableNotionalBear)
+        );
+        assertApproxEqAbs(
+            t.post.availableNotionalBull,
+            availableBullNotional,
+            _tolerance(t.post.availableNotionalBull)
+        );
         assertApproxEqAbs(
             t.post.volatility,
             _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true),
@@ -314,17 +333,17 @@ contract TestScenariosJson is Test {
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
 
-        assertApproxEqAbs(t.post.baseTokenAmount, baseTokenAmount, _tollerancePercentage(t.post.baseTokenAmount, 1));
-        assertApproxEqAbs(t.post.sideTokenAmount, sideTokenAmount, _tollerancePercentage(t.post.sideTokenAmount, 1));
+        assertApproxEqAbs(t.post.baseTokenAmount, baseTokenAmount, _tolerance(t.post.baseTokenAmount));
+        assertApproxEqAbs(t.post.sideTokenAmount, sideTokenAmount, _tolerance(t.post.sideTokenAmount));
     }
 
-    function _checkRebalance(string memory json) private {
-        Rebalance memory rebalance = _getRebalanceFromJson(json);
+    function _checkEndEpoch(string memory json) private {
+        EndEpoch memory endEpoch = _getEndEpochFromJson(json);
 
-        if (rebalance.withdrawSharesAmount > 0) {
+        if (endEpoch.withdrawSharesAmount > 0) {
             vm.prank(_liquidityProvider);
             (uint256 heldByAccount, uint256 heldByVault) = _vault.shareBalances(_liquidityProvider);
-            assertGe(heldByAccount + heldByVault, rebalance.withdrawSharesAmount);
+            assertGe(heldByAccount + heldByVault, endEpoch.withdrawSharesAmount);
             (, uint256 sharesToWithdraw) = _vault.withdrawals(_liquidityProvider);
             if (sharesToWithdraw > 0) {
                 vm.prank(_liquidityProvider);
@@ -332,46 +351,71 @@ contract TestScenariosJson is Test {
             }
 
             vm.prank(_liquidityProvider);
-            _vault.initiateWithdraw(rebalance.withdrawSharesAmount);
+            _vault.initiateWithdraw(endEpoch.withdrawSharesAmount);
         }
 
         // TBD: add asserts for pre-conditions (e.g. vault balances)
 
-        if (rebalance.depositAmount > 0) {
-            VaultUtils.addVaultDeposit(_liquidityProvider, rebalance.depositAmount, _admin, address(_vault), vm);
+        if (endEpoch.depositAmount > 0) {
+            VaultUtils.addVaultDeposit(_liquidityProvider, endEpoch.depositAmount, _admin, address(_vault), vm);
         }
 
+        uint256 currentStrike = _dvp.currentStrike();
+
         vm.startPrank(_admin);
-        _oracle.setTokenPrice(_vault.sideToken(), rebalance.sideTokenPrice);
+        _marketOracle.setImpliedVolatility(endEpoch.impliedVolatility);
+        _oracle.setTokenPrice(_vault.sideToken(), endEpoch.sideTokenPrice);
+        vm.warp(_dvp.currentEpoch() + 1);
+        _dvp.rollEpoch();
         vm.stopPrank();
 
-        vm.warp(_dvp.currentEpoch() + 1);
-        vm.prank(_admin);
-        _dvp.rollEpoch();
-
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
-        assertApproxEqAbs(
-            rebalance.baseTokenAmount,
-            baseTokenAmount,
-            _tollerancePercentage(rebalance.baseTokenAmount, 3)
-        );
-        assertApproxEqAbs(
-            rebalance.sideTokenAmount,
-            sideTokenAmount,
-            _tollerancePercentage(rebalance.sideTokenAmount, 3)
+
+        assertApproxEqAbs(endEpoch.baseTokenAmount, baseTokenAmount, _tolerance(endEpoch.baseTokenAmount));
+        assertApproxEqAbs(endEpoch.sideTokenAmount, sideTokenAmount, _tolerance(endEpoch.sideTokenAmount));
+
+        assertApproxEqAbs(endEpoch.v0, _vault.v0(), _tolerance(endEpoch.v0));
+
+        // Checking user payoff for matured positions
+        (, , , uint256 vaultPendingPayoff, , , , , ) = _vault.vaultState();
+
+        vm.startPrank(_trader);
+        (uint256 traderPayoffNet, uint256 fees) = _dvp.payoff(
+            _dvp.getEpoch().previous,
+            currentStrike,
+            _traderResidualAmount.up,
+            _traderResidualAmount.down
         );
 
-        assertApproxEqAbs(rebalance.v0, _vault.v0(), _tollerancePercentage(rebalance.v0, 3));
+        assertApproxEqAbs(endEpoch.payoffTotal, vaultPendingPayoff, _tolerance(endEpoch.payoffTotal));
+        assertApproxEqAbs(endEpoch.payoffTotal, traderPayoffNet + fees, _tolerance(endEpoch.payoffTotal));
 
-        // TBD: add missing "complete withdraw"
+        if (_traderResidualAmount.getTotal() > 0) {
+            uint256 netPaid = _dvp.burn(
+                _dvp.getEpoch().previous,
+                _trader,
+                currentStrike,
+                _traderResidualAmount.up,
+                _traderResidualAmount.down,
+                0,
+                0
+            );
+
+            assertApproxEqAbs(endEpoch.payoffNet, netPaid, _tolerance(endEpoch.payoffNet));
+        }
+
+        _traderResidualAmount.setRaw(0, 0);
+        vm.stopPrank();
+
+        // TODO: add missing "complete withdraw"
     }
 
-    function _tollerancePercentage(uint256 value, uint256 percentage) private pure returns (uint256) {
-        return (value * (percentage * 1e2)) / 10000;
+    function _tolerance(uint256 value) private view returns (uint256) {
+        return (value * _tolerancePercentage) / 1e18;
     }
 
-    function _tollerancePercentage(int256 value, uint256 percentage) private pure returns (uint256) {
-        return uint256((value * (int256(percentage) * 1e2)) / 10000);
+    function _tolerance(int256 value) private view returns (uint256) {
+        return _tolerance(uint256(value >= 0 ? value : -value));
     }
 
     function _getTestsFromJson(string memory filename) internal view returns (string memory) {
@@ -458,10 +502,10 @@ contract TestScenariosJson is Test {
         }
     }
 
-    function _getRebalanceFromJson(string memory json) private pure returns (Rebalance memory rebalance) {
-        string memory path = "$.rebalance";
-        bytes memory rebalanceBytes = stdJson.parseRaw(json, path);
-        rebalance = abi.decode(rebalanceBytes, (Rebalance));
+    function _getEndEpochFromJson(string memory json) private pure returns (EndEpoch memory endEpoch) {
+        string memory path = "$.endEpoch";
+        bytes memory endEpochBytes = stdJson.parseRaw(json, path);
+        endEpoch = abi.decode(endEpochBytes, (EndEpoch));
     }
 
     function _getUintJsonFromPath(

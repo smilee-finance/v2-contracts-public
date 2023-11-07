@@ -78,15 +78,12 @@ library Notional {
         @param strike the reference strike.
         @return amount The used liquidity.
      */
-    function getUsed(
-        Info storage self,
-        uint256 strike
-    ) public view returns (Amount memory amount) {
+    function getUsed(Info storage self, uint256 strike) public view returns (Amount memory amount) {
         return self.used[strike];
     }
 
     /**
-        @notice Record the residual payoff setted aside for the expired options not yet redeemed.
+        @notice Record the residual payoff set aside for the expired options not yet redeemed.
         @param strike the reference strike.
         @param payoffCall_ the payoff set aside for the call strategy.
         @param payoffPut_ the payoff set aside for the put strategy.
@@ -96,7 +93,7 @@ library Notional {
     }
 
     /**
-        @notice Record the redeem of part of the residual payoff setted aside for the expired options not yet redeemed
+        @notice Record the redeem of part of the residual payoff set aside for the expired options not yet redeemed
         @param strike The reference strike
         @param amount The redeemed payoff
      */
@@ -105,7 +102,7 @@ library Notional {
     }
 
     /**
-        @notice Get the residual payoff setted aside for the expired options not yet redeemed
+        @notice Get the residual payoff set aside for the expired options not yet redeemed
         @param strike The reference strike
         @return amount The payoff set aside
      */
@@ -114,7 +111,7 @@ library Notional {
     }
 
     /**
-        @notice Get the share of residual payoff setted aside for the given expired position
+        @notice Get the share of residual payoff set aside for the given expired position
         @param strike The position strike
         @param amount_ The position notional
         @param decimals The notional's token number of decimals

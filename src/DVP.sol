@@ -82,7 +82,11 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         address vault_,
         bool optionType_,
         address addressProvider_
-    ) EpochControls(IEpochControls(vault_).getEpoch().frequency, IEpochControls(vault_).getEpoch().firstEpochTimespan) AccessControl() Pausable() {
+    )
+        EpochControls(IEpochControls(vault_).getEpoch().frequency, IEpochControls(vault_).getEpoch().firstEpochTimespan)
+        AccessControl()
+        Pausable()
+    {
         optionType = optionType_;
         vault = vault_;
         IVault vaultCt = IVault(vault);
@@ -384,7 +388,9 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             payoff_ = _getMarketValue(strike, amount_, false, price);
         } else {
             // The position expired, the user must close the entire position
+
             // The position is eligible for a share of the <epoch, strike, strategy> payoff set aside at epoch end:
+
             Amount memory payoffAmount_ = _liquidity[position.epoch].shareOfPayoff(
                 position.strike,
                 amount_,

@@ -68,7 +68,7 @@ contract IGVaultTest is Test {
         vault.grantRole(vault.ROLE_ADMIN(), admin);
         vm.stopPrank();
         ig.setOptionPrice(1e3);
-        ig.setPayoffPerc(1e17);
+        ig.setPayoffPerc(1e17); // 10 % -> position paying 1.1
         ig.useFakeDeltaHedge();
 
         vm.prank(admin);
@@ -320,21 +320,23 @@ contract IGVaultTest is Test {
             assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
         }
 
-        (uint256 premium, ) = _assurePremium(
+        (uint256  charlieInitialBalance, ) = _assurePremium(
             charlie,
             0,
             (params.optionStrategy) ? params.charlieAmount : 0,
             (params.optionStrategy) ? 0 : params.charlieAmount
         );
-        vm.prank(charlie);
-        ig.mint(
-            charlie,
-            1900e18,
-            (params.optionStrategy) ? params.charlieAmount : 0,
-            (params.optionStrategy) ? 0 : params.charlieAmount,
-            premium,
-            0.1e18
-        );
+        {
+            vm.prank(charlie);
+            ig.mint(
+                charlie,
+                1900e18,
+                (params.optionStrategy) ? params.charlieAmount : 0,
+                (params.optionStrategy) ? 0 : params.charlieAmount,
+                charlieInitialBalance,
+                0.1e18
+            );
+        }
 
         (uint256 davidInitialBalance, ) = _assurePremium(
             david,
