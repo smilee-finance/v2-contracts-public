@@ -7,6 +7,7 @@ import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {EpochFrequency} from "../../src/lib/EpochFrequency.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {IG} from "../../src/IG.sol";
+import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {Vault} from "../../src/Vault.sol";
 
 /*
@@ -95,5 +96,11 @@ contract DeployDVP is EnhancedScript {
         dvp.renounceRole(dvp.ROLE_GOD(), _deployerAddress);
 
         return address(dvp);
+    }
+
+    function dvpUnregister(address dvpAddr) public {
+        vm.startBroadcast(_deployerPrivateKey);
+        _registry.unregister(dvpAddr);
+        vm.stopBroadcast();
     }
 }

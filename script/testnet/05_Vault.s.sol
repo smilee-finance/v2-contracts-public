@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {DVP} from "../../src/DVP.sol";
 import {Vault} from "../../src/Vault.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
@@ -50,6 +52,14 @@ contract VaultOps is EnhancedScript {
         baseToken.approve(vaultAddr, amount);
         vault.deposit(amount, _deployerAddress, 0);
 
+        vm.stopBroadcast();
+    }
+
+    function grantRoller(address dvpAddr, address account) public {
+        DVP dvp = DVP(dvpAddr);
+
+        vm.startBroadcast(_deployerPrivateKey);
+        dvp.grantRole(dvp.ROLE_EPOCH_ROLLER(), account);
         vm.stopBroadcast();
     }
 }
