@@ -108,7 +108,7 @@ contract IG is DVP {
             amount,
             getPostTradeVolatility(strike, amount, tradeIsBuy),
             swapPrice,
-            IMarketOracle(_getMarketOracle()).getRiskFreeRate(sideToken, baseToken),
+            IMarketOracle(_getMarketOracle()).getRiskFreeRate(baseToken),
             _baseTokenDecimals
         );
     }

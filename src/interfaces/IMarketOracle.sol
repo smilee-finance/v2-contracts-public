@@ -10,5 +10,5 @@ interface IMarketOracle {
         uint256 frequency
     ) external view returns (uint256 iv);
 
-    function getRiskFreeRate(address token0, address token1) external view returns (uint256 rate);
+    function getRiskFreeRate(address token0) external view returns (uint256 rate);
 }

@@ -7,6 +7,7 @@ import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {EpochFrequency} from "../../src/lib/EpochFrequency.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {IG} from "../../src/IG.sol";
+import {MarketOracle} from "../../src/MarketOracle.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {Vault} from "../../src/Vault.sol";
 
@@ -70,6 +71,12 @@ contract DeployDVP is EnhancedScript {
         Vault(vault).setAllowedDVP(dvp);
         console.log(address(_registry));
         _registry.register(dvp);
+
+        MarketOracle marketOracle = MarketOracle(_addressProvider.marketOracle());
+        uint256 lastUpdate = marketOracle.getImpliedVolatilityLastUpdate(baseToken, sideToken, epochFrequency);
+        if (lastUpdate == 0) {
+            marketOracle.setImpliedVolatility(baseToken, sideToken, epochFrequency, 0.5e18);
+        }
 
         vm.stopBroadcast();
 

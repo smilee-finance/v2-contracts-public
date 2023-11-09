@@ -6,6 +6,7 @@ import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
+import {MarketOracle} from "../../src/MarketOracle.sol";
 import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 // import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
@@ -57,6 +58,12 @@ library VaultUtils {
         // TBD: registrer it outside...
         TestnetRegistry registry = TestnetRegistry(ap.registry());
         registry.registerVault(address(vault));
+
+        MarketOracle marketOracle = MarketOracle(ap.marketOracle());
+        uint256 lastUpdate = marketOracle.getImpliedVolatilityLastUpdate(baseToken, sideToken, epochFrequency);
+        if (lastUpdate == 0) {
+            marketOracle.setImpliedVolatility(baseToken, sideToken, epochFrequency, 0.5e18);
+        }
 
         vm.stopPrank();
         return address(vault);

@@ -228,8 +228,8 @@ contract TestScenariosJson is Test {
         vm.startPrank(_admin);
         _oracle.setTokenPrice(_vault.sideToken(), t0.pre.sideTokenPrice);
 
-        _marketOracle.setImpliedVolatility(t0.pre.impliedVolatility);
-        _marketOracle.setRiskFreeRate(t0.pre.riskFreeRate);
+        _marketOracle.setImpliedVolatility(_dvp.baseToken(), _dvp.sideToken(), EpochFrequency.WEEKLY, t0.pre.impliedVolatility);
+        _marketOracle.setRiskFreeRate(_dvp.baseToken(), t0.pre.riskFreeRate);
 
         _feeManager.setFeePercentage(t0.pre.fee);
         _feeManager.setMaturityFeePercentage(t0.pre.feeMaturity);
@@ -271,7 +271,7 @@ contract TestScenariosJson is Test {
         // pre-conditions:
         vm.warp(block.timestamp + t.elapsedTimeSeconds);
         vm.startPrank(_admin);
-        _marketOracle.setRiskFreeRate(t.pre.riskFreeRate);
+        _marketOracle.setRiskFreeRate(_vault.baseToken(), t.pre.riskFreeRate);
         _oracle.setTokenPrice(_vault.sideToken(), t.pre.sideTokenPrice);
         vm.stopPrank();
 
@@ -373,7 +373,7 @@ contract TestScenariosJson is Test {
         uint256 currentStrike = _dvp.currentStrike();
 
         vm.startPrank(_admin);
-        _marketOracle.setImpliedVolatility(endEpoch.impliedVolatility);
+        _marketOracle.setImpliedVolatility(_dvp.baseToken(), _dvp.sideToken(), EpochFrequency.WEEKLY, endEpoch.impliedVolatility);
         _oracle.setTokenPrice(_vault.sideToken(), endEpoch.sideTokenPrice);
         vm.warp(_dvp.currentEpoch() + 1);
         _dvp.rollEpoch();
