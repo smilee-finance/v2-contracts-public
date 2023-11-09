@@ -61,6 +61,7 @@ contract TestScenariosJson is Test {
     struct StartEpochPostConditions {
         uint256 baseTokenAmount;
         uint256 sideTokenAmount;
+        uint256 impliedVolatility;
         uint256 strike;
         uint256 kA;
         uint256 kB;
@@ -78,6 +79,7 @@ contract TestScenariosJson is Test {
     struct TradePreConditions {
         uint256 availableNotionalBear;
         uint256 availableNotionalBull;
+        uint256 averageSigma;
         uint256 baseTokenAmount;
         uint256 riskFreeRate;
         uint256 sideTokenAmount;
@@ -89,6 +91,7 @@ contract TestScenariosJson is Test {
     struct TradePostConditions {
         uint256 availableNotionalBear;
         uint256 availableNotionalBull;
+        uint256 averageSigma;
         uint256 baseTokenAmount;
         uint256 marketValue; // premium/payoff
         uint256 sideTokenAmount;
@@ -224,6 +227,7 @@ contract TestScenariosJson is Test {
     function _checkStartEpoch(StartEpoch memory t0, bool isFirstEpoch) internal {
         vm.startPrank(_admin);
         _oracle.setTokenPrice(_vault.sideToken(), t0.pre.sideTokenPrice);
+
         _marketOracle.setImpliedVolatility(t0.pre.impliedVolatility);
         _marketOracle.setRiskFreeRate(t0.pre.riskFreeRate);
 
@@ -244,6 +248,9 @@ contract TestScenariosJson is Test {
             vm.prank(_admin);
             _dvp.rollEpoch();
         }
+
+        (, , , , , , , , , , , uint256 sigmaZero) = _dvp.financeParameters();
+        assertApproxEqAbs(t0.post.impliedVolatility, sigmaZero, _tolerance(t0.post.impliedVolatility));
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
 
@@ -330,6 +337,9 @@ contract TestScenariosJson is Test {
             _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true),
             _toleranceOnPercentage
         );
+
+        (, , , , , , , , , uint256 averageSigma, , ) = _dvp.financeParameters();
+        assertApproxEqAbs(t.post.averageSigma, averageSigma, _tolerance(t.post.averageSigma));
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
 
@@ -427,7 +437,7 @@ contract TestScenariosJson is Test {
     }
 
     function _getStartEpochFromJson(string memory json) private returns (StartEpoch memory) {
-        string[20] memory paths = [
+        string[21] memory paths = [
             "pre.sideTokenPrice",
             "pre.impliedVolatility",
             "pre.riskFreeRate",
@@ -442,6 +452,7 @@ contract TestScenariosJson is Test {
             "v0",
             "post.baseTokenAmount",
             "post.sideTokenAmount",
+            "post.impliedVolatility",
             "post.strike",
             "post.kA",
             "post.kB",
@@ -449,7 +460,7 @@ contract TestScenariosJson is Test {
             "post.limInf",
             "post.limSup"
         ];
-        uint256[20] memory vars;
+        uint256[21] memory vars;
 
         string memory fixedJsonPath = "$.startEpoch";
         for (uint256 i = 0; i < paths.length; i++) {
@@ -480,6 +491,7 @@ contract TestScenariosJson is Test {
             post: StartEpochPostConditions({
                 baseTokenAmount: vars[counter++],
                 sideTokenAmount: vars[counter++],
+                impliedVolatility: vars[counter++],
                 strike: vars[counter++],
                 kA: vars[counter++],
                 kB: vars[counter++],

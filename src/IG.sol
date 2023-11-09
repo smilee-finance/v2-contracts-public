@@ -8,40 +8,31 @@ import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {Amount, AmountHelper} from "./lib/Amount.sol";
 import {DVPType} from "./lib/DVPType.sol";
-import {Epoch} from "./lib/EpochController.sol";
+import {Epoch, EpochController} from "./lib/EpochController.sol";
 import {Finance} from "./lib/Finance.sol";
-import {FinanceParameters, FinanceIG} from "./lib/FinanceIG.sol";
+import {FinanceParameters, FinanceIG, TimeLockedFinanceValues} from "./lib/FinanceIG.sol";
 import {Notional} from "./lib/Notional.sol";
 import {DVP} from "./DVP.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 contract IG is DVP {
     using AmountHelper for Amount;
+    using EpochController for Epoch;
     using Notional for Notional.Info;
-
-    struct FinanceAdminParameters {
-        uint256 initialImpliedVolatility;
-        uint256 sigmaMultiplier;
-        uint256 tradeVolatilityUtilizationRateFactor;
-        uint256 tradeVolatilityTimeDecay;
-        uint256 volatilityPriceDiscountFactor;
-    }
 
     FinanceParameters public financeParameters;
 
     // Used by TheGraph for frontend needs:
     event EpochStrike(uint256 epoch, uint256 strike);
 
-    error OutOfAllowedRange();
-
     constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
         _setParameters(
-            FinanceAdminParameters({
-                initialImpliedVolatility: 0.5e18,
+            TimeLockedFinanceValues({
                 sigmaMultiplier: 3e18,
                 tradeVolatilityUtilizationRateFactor: 2e18,
                 tradeVolatilityTimeDecay: 0.25e18,
-                volatilityPriceDiscountFactor: 0.9e18
+                volatilityPriceDiscountFactor: 0.9e18,
+                useOracleImpliedVolatility: true
             })
         );
     }
@@ -176,10 +167,8 @@ contract IG is DVP {
         Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
         // Also update the epoch volatility with the postTradeVol:
-        (uint256 preTradeUsedLiquidity, ) = liquidity.utilizationRateFactors(financeParameters.currentStrike);
         FinanceIG.updateAverageVolatility(
             financeParameters,
-            preTradeUsedLiquidity,
             amount,
             postTradeVol,
             _baseTokenDecimals
@@ -234,6 +223,7 @@ contract IG is DVP {
 
     function _beforeRollEpoch() internal virtual override {
         bool noLockedLiquidity = IVault(vault).v0() == 0;
+
         super._beforeRollEpoch();
 
         // happens when rolling first time, no need to adjust payoff
@@ -316,34 +306,15 @@ contract IG is DVP {
 
     /// @dev parameters must be defined in Wad
     /// @dev aggregated in order to limit contract size
-    function setParameters(FinanceAdminParameters memory params) public {
+    function setParameters(TimeLockedFinanceValues memory params) external {
         _checkRole(ROLE_ADMIN);
         _setParameters(params);
     }
 
     /// @dev parameters must be defined in Wad
     /// @dev aggregated in order to limit contract size
-    function _setParameters(FinanceAdminParameters memory params) internal {
-        if (params.tradeVolatilityUtilizationRateFactor < 1e18 || params.tradeVolatilityUtilizationRateFactor > 5e18) {
-            revert OutOfAllowedRange();
-        }
-        if (params.tradeVolatilityTimeDecay > 0.5e18) {
-            revert OutOfAllowedRange();
-        }
-        if (params.initialImpliedVolatility < 0.01e18 || params.initialImpliedVolatility > 10e18) {
-            revert OutOfAllowedRange();
-        }
-        if (params.sigmaMultiplier < 0.01e18 || params.sigmaMultiplier > 6e18) {
-            revert OutOfAllowedRange();
-        }
-        if (params.volatilityPriceDiscountFactor < 0.7e18 || params.volatilityPriceDiscountFactor > 1.2e18) {
-            revert OutOfAllowedRange();
-        }
-
-        financeParameters.sigmaMultiplier = params.sigmaMultiplier;
-        financeParameters.tradeVolatilityUtilizationRateFactor = params.tradeVolatilityUtilizationRateFactor;
-        financeParameters.tradeVolatilityTimeDecay = params.tradeVolatilityTimeDecay;
-        financeParameters.sigmaZero = params.initialImpliedVolatility;
-        financeParameters.volatilityPriceDiscountFactor = params.volatilityPriceDiscountFactor;
+    function _setParameters(TimeLockedFinanceValues memory params) internal {
+        uint256 timeToValidity = getEpoch().timeToNextEpoch();
+        FinanceIG.updateTimeLockedParameters(financeParameters.timeLocked, params, timeToValidity);
     }
 }

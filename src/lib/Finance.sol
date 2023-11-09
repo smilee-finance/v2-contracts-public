@@ -56,4 +56,22 @@ library Finance {
 
         return used.wdiv(total);
     }
+
+    function checkSlippage(
+        uint256 premium,
+        uint256 expectedpremium,
+        uint256 maxSlippage,
+        bool tradeIsBuy
+    ) public pure returns (bool ok) {
+        uint256 slippage = expectedpremium.wmul(maxSlippage);
+
+        if (tradeIsBuy && (premium > expectedpremium + slippage)) {
+            return false;
+        }
+        if (!tradeIsBuy && (premium < expectedpremium - slippage)) {
+            return false;
+        }
+
+        return true;
+    }
 }

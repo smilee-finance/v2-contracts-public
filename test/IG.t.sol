@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {IDVP} from "../src/interfaces/IDVP.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
+import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "../src/lib/FinanceIG.sol";
+import {TimeLock, TimeLockedBool, TimeLockedUInt} from "../src/lib/TimeLock.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
@@ -15,6 +17,9 @@ import {FeeManager} from "../src/FeeManager.sol";
 import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 
 contract IGTest is Test {
+    using TimeLock for TimeLockedBool;
+    using TimeLock for TimeLockedUInt;
+
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
@@ -369,5 +374,54 @@ contract IGTest is Test {
         vm.expectRevert(SlippedMarketValue);
         vm.prank(alice);
         ig.burn(currEpoch, alice, strike, inputAmount, 0, 20e18, 0.1e18);
+    }
+
+    function testSetTimeLockedParameters() public {
+        // Get default values:
+        TimeLockedFinanceValues memory currentValues = _getTimeLockedFinanceParameters();
+
+        // Check default values:
+        assertEq(3e18, currentValues.sigmaMultiplier);
+        assertEq(2e18, currentValues.tradeVolatilityUtilizationRateFactor);
+        assertEq(0.25e18, currentValues.tradeVolatilityTimeDecay);
+        assertEq(0.9e18, currentValues.volatilityPriceDiscountFactor);
+        assertEq(true, currentValues.useOracleImpliedVolatility);
+
+        // Change some of the default values:
+        currentValues.volatilityPriceDiscountFactor = 0.85e18;
+        currentValues.useOracleImpliedVolatility = false;
+
+        vm.prank(admin);
+        ig.setParameters(currentValues);
+
+        // They do not change until the next epoch:
+        currentValues = _getTimeLockedFinanceParameters();
+        assertEq(3e18, currentValues.sigmaMultiplier);
+        assertEq(2e18, currentValues.tradeVolatilityUtilizationRateFactor);
+        assertEq(0.25e18, currentValues.tradeVolatilityTimeDecay);
+        assertEq(0.9e18, currentValues.volatilityPriceDiscountFactor);
+        assertEq(true, currentValues.useOracleImpliedVolatility);
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        ig.rollEpoch();
+
+        currentValues = _getTimeLockedFinanceParameters();
+        assertEq(3e18, currentValues.sigmaMultiplier);
+        assertEq(2e18, currentValues.tradeVolatilityUtilizationRateFactor);
+        assertEq(0.25e18, currentValues.tradeVolatilityTimeDecay);
+        assertEq(0.85e18, currentValues.volatilityPriceDiscountFactor);
+        assertEq(false, currentValues.useOracleImpliedVolatility);
+    }
+
+    function _getTimeLockedFinanceParameters() private view returns (TimeLockedFinanceValues memory currentValues) {
+        (, , , , , , , , TimeLockedFinanceParameters memory igParams, , , ) = ig.financeParameters();
+        currentValues = TimeLockedFinanceValues({
+            sigmaMultiplier: igParams.sigmaMultiplier.get(),
+            tradeVolatilityUtilizationRateFactor: igParams.tradeVolatilityUtilizationRateFactor.get(),
+            tradeVolatilityTimeDecay: igParams.tradeVolatilityTimeDecay.get(),
+            volatilityPriceDiscountFactor: igParams.volatilityPriceDiscountFactor.get(),
+            useOracleImpliedVolatility: igParams.useOracleImpliedVolatility.get()
+        });
     }
 }

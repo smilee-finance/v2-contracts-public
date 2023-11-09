@@ -7,6 +7,7 @@ import {FinanceIGDelta} from "./FinanceIGDelta.sol";
 import {FinanceIGPayoff} from "./FinanceIGPayoff.sol";
 import {FinanceIGPrice} from "./FinanceIGPrice.sol";
 import {SignedMath} from "./SignedMath.sol";
+import {TimeLock, TimeLockedBool, TimeLockedUInt} from "./TimeLock.sol";
 import {WadTime} from "./WadTime.sol";
 
 struct FinanceParameters {
@@ -18,18 +19,36 @@ struct FinanceParameters {
     uint256 theta;
     int256 limSup;
     int256 limInf;
+    TimeLockedFinanceParameters timeLocked;
+    uint256 averageSigma;
+    uint256 totalTradedNotional;
     uint256 sigmaZero;
+}
+
+struct TimeLockedFinanceParameters {
+    TimeLockedUInt sigmaMultiplier;
+    TimeLockedUInt tradeVolatilityUtilizationRateFactor;
+    TimeLockedUInt tradeVolatilityTimeDecay;
+    TimeLockedUInt volatilityPriceDiscountFactor;
+    TimeLockedBool useOracleImpliedVolatility;
+}
+
+struct TimeLockedFinanceValues {
     uint256 sigmaMultiplier;
     uint256 tradeVolatilityUtilizationRateFactor;
     uint256 tradeVolatilityTimeDecay;
-    uint256 averageSigma;
     uint256 volatilityPriceDiscountFactor;
+    bool useOracleImpliedVolatility;
 }
 
 /// @title Implementation of core financial computations for Smilee protocol
 library FinanceIG {
     using AmountsMath for uint256;
     using AmountHelper for Amount;
+    using TimeLock for TimeLockedBool;
+    using TimeLock for TimeLockedUInt;
+
+    error OutOfAllowedRange();
 
     function _yearsToMaturity(uint256 maturity) private view returns (uint256 yearsToMaturity) {
         yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(block.timestamp, maturity));
@@ -176,29 +195,32 @@ library FinanceIG {
         uint256 impliedVolatility,
         uint256 v0
     ) public {
-        // The oracle only provides data for certains tokens
-        if (impliedVolatility > 0) {
-            params.sigmaZero = impliedVolatility;
-        }
-        // for the other tokens we use the average of the previous epoch trades (if any)
-        if (impliedVolatility == 0 && params.averageSigma > 0) {
-            params.sigmaZero = params.averageSigma;
-        }
+        _updateSigmaZero(params, impliedVolatility);
+
         // Reset the average for the next epoch:
         params.averageSigma = 0;
+        params.totalTradedNotional = 0;
 
-        uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
-        (params.kA, params.kB) = FinanceIGPrice.liquidityRange(
-            FinanceIGPrice.LiquidityRangeParams(
-                params.currentStrike,
-                params.sigmaZero,
-                params.sigmaMultiplier,
-                yearsToMaturity
-            )
-        );
+        {
+            uint256 sigmaMultiplier = params.timeLocked.sigmaMultiplier.get();
+            uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
 
-        // Multiply baselineVolatility for a safety margin after the computation of kA and Kb:
-        params.sigmaZero = params.sigmaZero.wmul(params.volatilityPriceDiscountFactor);
+            (params.kA, params.kB) = FinanceIGPrice.liquidityRange(
+                FinanceIGPrice.LiquidityRangeParams(
+                    params.currentStrike,
+                    params.sigmaZero,
+                    sigmaMultiplier,
+                    yearsToMaturity
+                )
+            );
+        }
+
+        {
+            // Multiply baselineVolatility for a safety margin after the computation of kA and kB:
+            uint256 volatilityPriceDiscountFactor = params.timeLocked.volatilityPriceDiscountFactor.get();
+
+            params.sigmaZero = params.sigmaZero.wmul(volatilityPriceDiscountFactor);
+        }
 
         params.theta = FinanceIGPrice._teta(params.currentStrike, params.kA, params.kB);
 
@@ -209,6 +231,54 @@ library FinanceIG {
             params.theta,
             v0
         );
+    }
+
+    function _updateSigmaZero(FinanceParameters storage params, uint256 impliedVolatility) private {
+        // Set baselineVolatility:
+        if (params.timeLocked.useOracleImpliedVolatility.get()) {
+            params.sigmaZero = impliedVolatility;
+        } else {
+            if (params.sigmaZero == 0) {
+                // if it was never set, take the one from the oracle:
+                params.sigmaZero = impliedVolatility;
+            } else {
+                if (params.averageSigma > 0) {
+                    // Update with the average of the trades:
+                    params.sigmaZero = params.averageSigma;
+                } else {
+                    uint256 rho = params.timeLocked.tradeVolatilityUtilizationRateFactor.get();
+                    uint256 theta = params.timeLocked.tradeVolatilityTimeDecay.get();
+                    uint256 newSigmaZero = rho.wmul(params.sigmaZero).wmul(1e18 - theta);
+
+                    params.sigmaZero = newSigmaZero;
+                }
+            }
+        }
+    }
+
+    function updateTimeLockedParameters(
+        TimeLockedFinanceParameters storage timeLockedParams,
+        TimeLockedFinanceValues memory proposed,
+        uint256 timeToValidity
+    ) public {
+        if (proposed.tradeVolatilityUtilizationRateFactor < 1e18 || proposed.tradeVolatilityUtilizationRateFactor > 5e18) {
+            revert OutOfAllowedRange();
+        }
+        if (proposed.tradeVolatilityTimeDecay > 0.5e18) {
+            revert OutOfAllowedRange();
+        }
+        if (proposed.sigmaMultiplier < 0.01e18 || proposed.sigmaMultiplier > 6e18) {
+            revert OutOfAllowedRange();
+        }
+        if (proposed.volatilityPriceDiscountFactor < 0.7e18 || proposed.volatilityPriceDiscountFactor > 1.2e18) {
+            revert OutOfAllowedRange();
+        }
+
+        timeLockedParams.sigmaMultiplier.set(proposed.sigmaMultiplier, timeToValidity);
+        timeLockedParams.tradeVolatilityUtilizationRateFactor.set(proposed.tradeVolatilityUtilizationRateFactor, timeToValidity);
+        timeLockedParams.tradeVolatilityTimeDecay.set(proposed.tradeVolatilityTimeDecay, timeToValidity);
+        timeLockedParams.volatilityPriceDiscountFactor.set(proposed.volatilityPriceDiscountFactor, timeToValidity);
+        timeLockedParams.useOracleImpliedVolatility.set(proposed.useOracleImpliedVolatility, timeToValidity);
     }
 
     /**
@@ -224,36 +294,41 @@ library FinanceIG {
         uint256 ur,
         uint256 t0
     ) public view returns (uint256 sigma) {
-        uint256 t = params.maturity - t0;
-
         // NOTE: on the very first epoch, it doesn't matter if sigmaZero is zero, because the underlying vault is empty
-        sigma = FinanceIGPrice.tradeVolatility(
-            FinanceIGPrice.TradeVolatilityParams(
+        FinanceIGPrice.TradeVolatilityParams memory igPriceParams;
+        {
+            uint256 tradeVolatilityUtilizationRateFactor = params.timeLocked.tradeVolatilityUtilizationRateFactor.get();
+            uint256 tradeVolatilityTimeDecay = params.timeLocked.tradeVolatilityTimeDecay.get();
+            uint256 t = params.maturity - t0;
+
+            igPriceParams = FinanceIGPrice.TradeVolatilityParams(
                 params.sigmaZero,
-                params.tradeVolatilityUtilizationRateFactor,
-                params.tradeVolatilityTimeDecay,
+                tradeVolatilityUtilizationRateFactor,
+                tradeVolatilityTimeDecay,
                 ur,
                 t,
                 t0
-            )
-        );
+            );
+        }
+
+        sigma = FinanceIGPrice.tradeVolatility(igPriceParams);
     }
 
     // Average trade volatility within an epoch
     function updateAverageVolatility(
         FinanceParameters storage params,
-        uint256 preTradeTotalNotional,
         Amount memory tradeNotional,
         uint256 postTradeVolatility,
         uint8 tokenDecimals
     ) public {
-        preTradeTotalNotional = AmountsMath.wrapDecimals(preTradeTotalNotional, tokenDecimals);
-        uint256 tradeNotional_ = AmountsMath.wrapDecimals(tradeNotional.getTotal(), tokenDecimals);
+        uint256 tradedNotional = AmountsMath.wrapDecimals(tradeNotional.getTotal(), tokenDecimals);
+        uint256 totalTradedNotional = AmountsMath.wrapDecimals(params.totalTradedNotional, tokenDecimals);
 
-        uint256 numerator = params.averageSigma.wmul(preTradeTotalNotional).add(tradeNotional_.wmul(postTradeVolatility));
-        uint256 denominator = preTradeTotalNotional.add(tradeNotional_);
+        uint256 numerator = params.averageSigma.wmul(totalTradedNotional).add(tradedNotional.wmul(postTradeVolatility));
+        uint256 denominator = totalTradedNotional.add(tradedNotional);
 
         // NOTE: denominator cannot be zero as tradeNotional is checked earlier.
         params.averageSigma = numerator.wdiv(denominator);
+        params.totalTradedNotional += tradeNotional.getTotal();
     }
 }

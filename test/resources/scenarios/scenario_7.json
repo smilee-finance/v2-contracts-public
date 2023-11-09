@@ -3,6 +3,7 @@
         "post": {
             "baseTokenAmount": 50000000000000000000000,
             "sideTokenAmount": 26315789473684000000,
+            "impliedVolatility": 1800000000000000000,
             "strike": 1900000000000000000000,
             "kA": 827740291431651000000,
             "kB": 4361271327938120000000,
@@ -32,6 +33,7 @@
             "pre": {
                 "sideTokenPrice": 1900000000000000000000,
                 "volatility": 1735714285714000000,
+                "averageVolatility": 0,
                 "riskFreeRate": 30000000000000000,
                 "baseTokenAmount": 50000000000000000000000,
                 "sideTokenAmount": 26315789473684000000,
@@ -42,6 +44,7 @@
             "post": {
                 "marketValue": 204577321575041000000,
                 "volatility": 1737450000000000000,
+                "averageVolatility": 1737450000000000000,
                 "baseTokenAmount": 50921031297520300000000,
                 "sideTokenAmount": 25926744847656000000,
                 "utilizationRate": 100000000000000000,
@@ -58,6 +61,7 @@
             "pre": {
                 "sideTokenPrice": 2300000000000000000000,
                 "volatility": 1673100000000000000,
+                "averageVolatility": 1737450000000000000,
                 "riskFreeRate": 30000000000000000,
                 "baseTokenAmount": 50921031297520300000000,
                 "sideTokenAmount": 25926744847656000000,
@@ -68,6 +72,7 @@
             "post": {
                 "marketValue": 340265851087098000000,
                 "volatility": 1684800000000000000,
+                "averageVolatility": 1711125000000000000,
                 "baseTokenAmount": 63259203580612200000000,
                 "sideTokenAmount": 20695046398958000000,
                 "utilizationRate": 200000000000000000,
@@ -84,6 +89,7 @@
             "pre": {
                 "sideTokenPrice": 2500000000000000000000,
                 "volatility": 1620000000000000000,
+                "averageVolatility": 1711125000000000000,
                 "riskFreeRate": 30000000000000000,
                 "baseTokenAmount": 63259203580612200000000,
                 "sideTokenAmount": 20695046398958000000,
@@ -94,6 +100,7 @@
             "post": {
                 "marketValue": 479521563520117000000,
                 "volatility": 1650535714286000000,
+                "averageVolatility": 1690928571429000000,
                 "baseTokenAmount": 67999387847655000000000,
                 "sideTokenAmount": 18976781317549000000,
                 "utilizationRate": 300000000000000000,
@@ -110,6 +117,7 @@
             "pre": {
                 "sideTokenPrice": 3000000000000000000000,
                 "volatility": 1584514285714000000,
+                "averageVolatility": 1690928571429000000,
                 "riskFreeRate": 30000000000000000,
                 "baseTokenAmount": 67999387847655000000000,
                 "sideTokenAmount": 18976781317549000000,
@@ -120,6 +128,7 @@
             "post": {
                 "marketValue": 1106107801449720000000,
                 "volatility": 1641600000000000000,
+                "averageVolatility": 1678596428571000000,
                 "baseTokenAmount": 80303836552150300000000,
                 "sideTokenAmount": 15232334349867000000,
                 "utilizationRate": 400000000000000000,
@@ -136,6 +145,7 @@
             "pre": {
                 "sideTokenPrice": 3500000000000000000000,
                 "volatility": 1573200000000000000,
+                "averageVolatility": 1678596428571000000,
                 "riskFreeRate": 30000000000000000,
                 "baseTokenAmount": 80303836552150300000000,
                 "sideTokenAmount": 15232334349867000000,
@@ -146,6 +156,7 @@
             "post": {
                 "marketValue": 12800962913216300000000,
                 "volatility": 2957142857143000000,
+                "averageVolatility": 2445724285714000000,
                 "baseTokenAmount": 54102706532007500000000,
                 "sideTokenAmount": 26315789473684000000,
                 "utilizationRate": 1000000000000000000,
@@ -162,6 +173,7 @@
             "pre": {
                 "sideTokenPrice": 4000000000000000000000,
                 "volatility": 2828571428571000000,
+                "averageVolatility": 2445724285714000000,
                 "riskFreeRate": 30000000000000000,
                 "baseTokenAmount": 54102706532007500000000,
                 "sideTokenAmount": 26315789473684000000,
@@ -172,6 +184,7 @@
             "post": {
                 "marketValue": 29841755406276800000000,
                 "volatility": 1414285714286000000,
+                "averageVolatility": 1930005000000000000,
                 "baseTokenAmount": 126328649513722000000000,
                 "sideTokenAmount": 711364876686000000,
                 "utilizationRate": 0,

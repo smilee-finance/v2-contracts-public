@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {IFeeManager} from "../../src/interfaces/IFeeManager.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
 import {Amount} from "../../src/lib/Amount.sol";
 import {AmountsMath} from "../../src/lib/AmountsMath.sol";
@@ -9,7 +10,7 @@ import {Notional} from "../../src/lib/Notional.sol";
 import {OptionStrategy} from "../../src/lib/OptionStrategy.sol";
 import {Position} from "../../src/lib/Position.sol";
 import {SignedMath} from "../../src/lib/SignedMath.sol";
-import {IFeeManager} from "../../src/interfaces/IFeeManager.sol";
+import {TimeLock, TimeLockedUInt} from "../../src/lib/TimeLock.sol";
 import {IG} from "../../src/IG.sol";
 import {Epoch, EpochController} from "../../src/lib/EpochController.sol";
 
@@ -18,6 +19,7 @@ contract MockedIG is IG {
     using AmountsMath for uint256;
     using Notional for Notional.Info;
     using EpochController for Epoch;
+    using TimeLock for TimeLockedUInt;
 
     bool internal _fakePremium;
     bool internal _fakePayoff;
@@ -26,6 +28,8 @@ contract MockedIG is IG {
 
     uint256 internal _optionPrice; // expressed in basis point (1% := 100)
     uint256 internal _payoffPercentage; // expressed in basis point (1% := 100)
+
+    error OutOfAllowedRange();
 
     constructor(address vault_, address addressProvider_) IG(vault_, addressProvider_) {}
 
@@ -153,7 +157,8 @@ contract MockedIG is IG {
     function setSigmaMultiplier(uint256 value) external {
         _checkRole(ROLE_ADMIN);
 
-        financeParameters.sigmaMultiplier = value;
+        // TBD: review
+        financeParameters.timeLocked.sigmaMultiplier.set(value, 0);
     }
 
     /// @dev must be defined in Wad
@@ -163,7 +168,8 @@ contract MockedIG is IG {
             revert OutOfAllowedRange();
         }
 
-        financeParameters.tradeVolatilityUtilizationRateFactor = value;
+        // TBD: review
+        financeParameters.timeLocked.tradeVolatilityUtilizationRateFactor.set(value, 0);
     }
 
     /// @dev must be defined in Wad
@@ -173,16 +179,7 @@ contract MockedIG is IG {
             revert OutOfAllowedRange();
         }
 
-        financeParameters.tradeVolatilityTimeDecay = value;
-    }
-
-    /// @dev must be defined in Wad
-    function setInitialImpliedVolatility(uint256 value) external {
-        _checkRole(ROLE_ADMIN);
-        if (value < 0.01e18 || value > 10e18) {
-            revert OutOfAllowedRange();
-        }
-
-        financeParameters.sigmaZero = value;
+        // TBD: review
+        financeParameters.timeLocked.tradeVolatilityTimeDecay.set(value, 0);
     }
 }

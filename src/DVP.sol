@@ -12,7 +12,6 @@ import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {Amount, AmountHelper} from "./lib/Amount.sol";
-import {AmountsMath} from "./lib/AmountsMath.sol";
 import {Epoch} from "./lib/EpochController.sol";
 import {Finance} from "./lib/Finance.sol";
 import {Notional} from "./lib/Notional.sol";
@@ -21,7 +20,6 @@ import {EpochControls} from "./EpochControls.sol";
 
 abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     using AmountHelper for Amount;
-    using AmountsMath for uint256;
     using Position for Position.Info;
     using Notional for Notional.Info;
     using SafeERC20 for IERC20Metadata;
@@ -179,12 +177,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 maxSlippage,
         bool tradeIsBuy
     ) internal pure {
-        uint256 slippage = expectedpremium.wmul(maxSlippage);
-
-        if (tradeIsBuy && (premium > expectedpremium + slippage)) {
-            revert SlippedMarketValue();
-        }
-        if (!tradeIsBuy && (premium < expectedpremium - slippage)) {
+        if (!Finance.checkSlippage(premium, expectedpremium, maxSlippage, tradeIsBuy)) {
             revert SlippedMarketValue();
         }
     }
