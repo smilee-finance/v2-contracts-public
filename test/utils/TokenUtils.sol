@@ -6,9 +6,9 @@ import {AddressProvider} from "../../src/AddressProvider.sol";
 import {FeeManager} from "../../src/FeeManager.sol";
 import {MarketOracle} from "../../src/MarketOracle.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
-import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+import {MockedRegistry} from "../mock/MockedRegistry.sol";
 
 library TokenUtils {
     function createToken(
@@ -28,7 +28,7 @@ library TokenUtils {
 
         address registryAddress = ap.registry();
         if (registryAddress == address(0)) {
-            TestnetRegistry registry = new TestnetRegistry();
+            MockedRegistry registry = new MockedRegistry();
             registry.grantRole(registry.ROLE_ADMIN(), admin);
             registryAddress = address(registry);
             ap.setRegistry(registryAddress);

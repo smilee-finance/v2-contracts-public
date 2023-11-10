@@ -6,7 +6,7 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
 import {IDVP} from "../../src/interfaces/IDVP.sol";
 import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
-import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
+import {Registry} from "../../src/Registry.sol";
 
 /*
     Reference: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -29,7 +29,7 @@ import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 contract RollEpoch is EnhancedScript {
     uint256 internal _epochRollerPrivateKey;
     address internal _epochRollerAddress;
-    TestnetRegistry internal _registry;
+    Registry internal _registry;
 
     constructor() {
         // Load the private key that will be used for signing the transactions:
@@ -37,7 +37,7 @@ contract RollEpoch is EnhancedScript {
 
         string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
         AddressProvider addressProvider = AddressProvider(_readAddress(txLogs, "AddressProvider"));
-        _registry = TestnetRegistry(addressProvider.registry());
+        _registry = Registry(addressProvider.registry());
     }
 
     function run() external {

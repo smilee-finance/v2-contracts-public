@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import {Test} from "forge-std/Test.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
-import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
+import {MockedRegistry} from "../mock/MockedRegistry.sol";
 
 contract TestnetTokenTest is Test {
     bytes4 constant _NOT_INITIALIZED = bytes4(keccak256("NotInitialized()"));
@@ -19,7 +19,7 @@ contract TestnetTokenTest is Test {
 
     function setUp() public {
         vm.startPrank(_admin);
-        TestnetRegistry registry = new TestnetRegistry();
+        MockedRegistry registry = new MockedRegistry();
         registry.grantRole(registry.ROLE_ADMIN(), _admin);
 
         _addressProvider = new AddressProvider(0);
@@ -135,7 +135,7 @@ contract TestnetTokenTest is Test {
         token.mint(_alice, 100);
 
         address vaultAddress = address(0x42);
-        TestnetRegistry registry = TestnetRegistry(_addressProvider.registry());
+        MockedRegistry registry = MockedRegistry(_addressProvider.registry());
         registry.registerVault(vaultAddress);
 
         vm.stopPrank();

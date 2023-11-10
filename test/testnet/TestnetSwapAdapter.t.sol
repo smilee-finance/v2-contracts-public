@@ -4,12 +4,12 @@ pragma solidity ^0.8.15;
 import {Test} from "forge-std/Test.sol";
 import {AmountsMath} from "../../src/lib/AmountsMath.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
-import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {TokenUtils} from "../utils/TokenUtils.sol";
 import {Utils} from "../utils/Utils.sol";
+import {MockedRegistry} from "../mock/MockedRegistry.sol";
 
 contract TestnetSwapAdapterTest is Test {
     using AmountsMath for uint256;
@@ -29,7 +29,7 @@ contract TestnetSwapAdapterTest is Test {
     TestnetToken WETH;
     TestnetToken WBTC;
     TestnetToken USD;
-    TestnetRegistry registry;
+    MockedRegistry registry;
 
     constructor() {
         vm.startPrank(adminWallet);
@@ -42,7 +42,7 @@ contract TestnetSwapAdapterTest is Test {
 
         AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), adminWallet);
-        registry = new TestnetRegistry();
+        registry = new MockedRegistry();
         priceOracle = new TestnetPriceOracle(address(USD));
         dex = new TestnetSwapAdapter(address(priceOracle));
 

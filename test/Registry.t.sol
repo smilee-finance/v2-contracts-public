@@ -5,10 +5,10 @@ import {Test} from "forge-std/Test.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
-import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
+import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
 import {Epoch, EpochController} from "../src/lib/EpochController.sol";
@@ -17,7 +17,7 @@ contract RegistryTest is Test {
     using EpochController for Epoch;
 
     bytes4 constant MissingAddress = bytes4(keccak256("MissingAddress()"));
-    TestnetRegistry registry;
+    MockedRegistry registry;
     MockedIG dvp;
     address admin = address(0x21);
     AddressProvider ap;
@@ -28,7 +28,7 @@ contract RegistryTest is Test {
         ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), admin);
 
-        registry = new TestnetRegistry();
+        registry = new MockedRegistry();
         registry.grantRole(registry.ROLE_ADMIN(), admin);
         ap.setRegistry(address(registry));
 

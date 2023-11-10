@@ -13,8 +13,8 @@ import {AddressProvider} from "../src/AddressProvider.sol";
 import {FeeManager} from "../src/FeeManager.sol";
 import {MarketOracle} from "../src/MarketOracle.sol";
 import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
-import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
+import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
@@ -154,7 +154,7 @@ contract TestScenariosJson is Test {
         _dvp.grantRole(_dvp.ROLE_EPOCH_ROLLER(), _admin);
         _vault.grantRole(_vault.ROLE_ADMIN(), _admin);
 
-        TestnetRegistry(_ap.registry()).registerDVP(address(_dvp));
+        MockedRegistry(_ap.registry()).registerDVP(address(_dvp));
         MockedVault(_vault).setAllowedDVP(address(_dvp));
 
         vm.stopPrank();

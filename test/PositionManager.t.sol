@@ -9,12 +9,12 @@ import {Epoch} from "../src/lib/EpochController.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
+import {FeeManager} from "../src/FeeManager.sol";
 import {IG} from "../src/IG.sol";
 import {PositionManager} from "../src/PositionManager.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
-import {FeeManager} from "../src/FeeManager.sol";
-import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
+import {MockedRegistry} from "./mock/MockedRegistry.sol";
 
 contract PositionManagerTest is Test {
     bytes4 constant NotOwner = bytes4(keccak256("NotOwner()"));
@@ -32,7 +32,7 @@ contract PositionManagerTest is Test {
     address bob = address(0x2);
 
     IPositionManager pm;
-    TestnetRegistry registry;
+    MockedRegistry registry;
     AddressProvider ap;
     FeeManager feeManager;
 
@@ -46,7 +46,7 @@ contract PositionManagerTest is Test {
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
 
-        registry = TestnetRegistry(ap.registry());
+        registry = MockedRegistry(ap.registry());
         feeManager = FeeManager(ap.feeManager());
     }
 

@@ -7,9 +7,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {MarketOracle} from "../../src/MarketOracle.sol";
-import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 // import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+import {MockedRegistry} from "../mock/MockedRegistry.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
 import {TokenUtils} from "./TokenUtils.sol";
 
@@ -56,7 +56,7 @@ library VaultUtils {
         MockedVault vault = new MockedVault(baseToken, sideToken, epochFrequency, address(ap));
 
         // TBD: registrer it outside...
-        TestnetRegistry registry = TestnetRegistry(ap.registry());
+        MockedRegistry registry = MockedRegistry(ap.registry());
         registry.registerVault(address(vault));
 
         MarketOracle marketOracle = MarketOracle(ap.marketOracle());

@@ -13,7 +13,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
          and burn tokens to simulate an exchange.
  */
 contract TestnetToken is ERC20, Ownable {
-    // TBD: just use the TestnetRegistry contract...
 
     bool _transferRestricted;
     uint8 private _decimals;

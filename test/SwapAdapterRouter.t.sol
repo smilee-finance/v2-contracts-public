@@ -4,14 +4,14 @@ pragma solidity ^0.8.19;
 import {Test} from "forge-std/Test.sol";
 import {IExchange} from "../src/interfaces/IExchange.sol";
 import {IPriceOracle} from "../src/interfaces/IPriceOracle.sol";
+import {AmountsMath} from "../src/lib/AmountsMath.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
 import {SwapAdapterRouter} from "../src/providers/SwapAdapterRouter.sol";
 import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../src/testnet/TestnetSwapAdapter.sol";
-import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
+import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {Utils} from "./utils/Utils.sol";
-import {AmountsMath} from "../src/lib/AmountsMath.sol";
 
 contract SwapProviderRouterTest is Test {
     bytes4 constant _ADDRESS_ZERO = bytes4(keccak256("AddressZero()"));
@@ -39,7 +39,7 @@ contract SwapProviderRouterTest is Test {
 
         AddressProvider ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), _admin);
-        TestnetRegistry r = new TestnetRegistry();
+        MockedRegistry r = new MockedRegistry();
         r.grantRole(r.ROLE_ADMIN(), _admin);
 
         ap.setExchangeAdapter(address(_swap));

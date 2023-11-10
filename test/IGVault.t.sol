@@ -7,16 +7,16 @@ import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
 import {Epoch} from "../src/lib/EpochController.sol";
 import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
 import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
-import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
+import {AddressProvider} from "../src/AddressProvider.sol";
+import {FeeManager} from "../src/FeeManager.sol";
 import {Vault} from "../src/Vault.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
+import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
-import {FeeManager} from "../src/FeeManager.sol";
 
 /**
     @title Test case for underlying asset going to zero
@@ -40,7 +40,7 @@ contract IGVaultTest is Test {
     TestnetToken sideToken;
     FeeManager feeManager;
 
-    TestnetRegistry registry;
+    MockedRegistry registry;
 
     MockedVault vault;
     MockedIG ig;
@@ -50,7 +50,7 @@ contract IGVaultTest is Test {
         //ToDo: Replace with Factory
         vm.startPrank(admin);
         AddressProvider ap = new AddressProvider(0);
-        registry = new TestnetRegistry();
+        registry = new MockedRegistry();
         ap.grantRole(ap.ROLE_ADMIN(), admin);
         registry.grantRole(registry.ROLE_ADMIN(), admin);
         ap.setRegistry(address(registry));

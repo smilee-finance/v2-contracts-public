@@ -8,7 +8,7 @@ import {EpochFrequency} from "../../src/lib/EpochFrequency.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {IG} from "../../src/IG.sol";
 import {MarketOracle} from "../../src/MarketOracle.sol";
-import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
+import {Registry} from "../../src/Registry.sol";
 import {Vault} from "../../src/Vault.sol";
 
 /*

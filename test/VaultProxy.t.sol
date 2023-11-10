@@ -10,8 +10,8 @@ import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
 import {TestnetToken} from "../src/testnet/TestnetToken.sol";
-import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
 import {VaultProxy} from "../src/VaultProxy.sol";
+import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 
 /**
@@ -77,7 +77,7 @@ contract VaultProxyTest is Test {
         vm.warp(EpochFrequency.REF_TS + 1);
 
         vm.startPrank(_tokenAdmin);
-        TestnetRegistry registry = new TestnetRegistry();
+        MockedRegistry registry = new MockedRegistry();
         registry.grantRole(registry.ROLE_ADMIN(), _tokenAdmin);
 
         AddressProvider ap = new AddressProvider(0);

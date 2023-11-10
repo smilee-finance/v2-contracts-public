@@ -14,7 +14,7 @@ import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {AddressProvider} from "../src/AddressProvider.sol";
 import {FeeManager} from "../src/FeeManager.sol";
-import {TestnetRegistry} from "../src/testnet/TestnetRegistry.sol";
+import {MockedRegistry} from "./mock/MockedRegistry.sol";
 
 contract IGTest is Test {
     using TimeLock for TimeLockedBool;
@@ -29,7 +29,7 @@ contract IGTest is Test {
     address baseToken;
     address sideToken;
     MockedVault vault;
-    TestnetRegistry registry;
+    MockedRegistry registry;
     MockedIG ig;
     AddressProvider ap;
     FeeManager feeManager;
@@ -42,7 +42,7 @@ contract IGTest is Test {
         vm.startPrank(admin);
         ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), admin);
-        registry = new TestnetRegistry();
+        registry = new MockedRegistry();
         registry.grantRole(registry.ROLE_ADMIN(), admin);
         ap.setRegistry(address(registry));
         vm.stopPrank();

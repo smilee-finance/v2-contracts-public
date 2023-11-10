@@ -6,9 +6,9 @@ import {AddressProvider} from "../../src/AddressProvider.sol";
 import {FeeManager} from "../../src/FeeManager.sol";
 import {MarketOracle} from "../../src/MarketOracle.sol";
 import {PositionManager} from "../../src/PositionManager.sol";
+import {Registry} from "../../src/Registry.sol";
 import {VaultProxy} from "../../src/VaultProxy.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
-import {TestnetRegistry} from "../../src/testnet/TestnetRegistry.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 
@@ -79,7 +79,7 @@ contract DeployCoreFoundations is Script {
         //feeManager.renounceRole(feeManager.ROLE_GOD(), _deployerAddress);
         ap.setFeeManager(address(feeManager));
 
-        TestnetRegistry registry = new TestnetRegistry();
+        Registry registry = new Registry();
         registry.grantRole(registry.ROLE_GOD(), _adminMultiSigAddress);
         registry.grantRole(registry.ROLE_ADMIN(), _deployerAddress);
         //registry.renounceRole(registry.ROLE_GOD(), _deployerAddress);
