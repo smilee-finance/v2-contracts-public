@@ -6,6 +6,7 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
 import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {EpochFrequency} from "../../src/lib/EpochFrequency.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
+import {FeeManager} from "../../src/FeeManager.sol";
 import {IG} from "../../src/IG.sol";
 import {MarketOracle} from "../../src/MarketOracle.sol";
 import {Registry} from "../../src/Registry.sol";
@@ -108,6 +109,16 @@ contract DeployDVP is EnhancedScript {
     function dvpUnregister(address dvpAddr) public {
         vm.startBroadcast(_deployerPrivateKey);
         _registry.unregister(dvpAddr);
+        vm.stopBroadcast();
+    }
+
+    function setTradCompFees() public {
+        vm.startBroadcast(_deployerPrivateKey);
+        FeeManager feeMan = FeeManager(_addressProvider.feeManager());
+        feeMan.setFeePercentage(0.0003e18);
+        feeMan.setCapPercentage(0.125e18);
+        feeMan.setMaturityFeePercentage(0.00015e18);
+        feeMan.setMaturityCapPercentage(0.125e18);
         vm.stopBroadcast();
     }
 }
