@@ -2,7 +2,10 @@
 pragma solidity ^0.8.15;
 
 import {console} from "forge-std/console.sol";
+import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "../../src/lib/FinanceIG.sol";
+import {TimeLock, TimeLockedBool, TimeLockedUInt} from "../../src/lib/TimeLock.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
+import {IG} from "../../src/IG.sol";
 import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
@@ -23,6 +26,9 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
         forge script script/testnet/02_Token.s.sol:DeployToken --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv --sig 'deployToken(string memory)' <SYMBOL>
  */
 contract DeployToken is EnhancedScript {
+    using TimeLock for TimeLockedBool;
+    using TimeLock for TimeLockedUInt;
+
     uint256 internal _deployerPrivateKey;
     AddressProvider internal _ap;
 
@@ -62,6 +68,16 @@ contract DeployToken is EnhancedScript {
         return address(sToken);
     }
 
+    function setTimeLockedParameters(address igAddress) public {
+        vm.startBroadcast(_deployerPrivateKey);
+        IG ig = IG(igAddress); 
+        TimeLockedFinanceValues memory currentValues = _getTimeLockedFinanceParameters(ig);
+        currentValues.useOracleImpliedVolatility = true;
+
+        ig.setParameters(currentValues);
+        vm.stopBroadcast();
+    }
+
     function setTokenPrice(address token, uint256 price) public {
         TestnetPriceOracle priceOracle = TestnetPriceOracle(_ap.priceOracle());
 
@@ -70,11 +86,23 @@ contract DeployToken is EnhancedScript {
         vm.stopBroadcast();
     }
 
+
     function mint(address tokenAddr, address recipient, uint256 amount) public {
         TestnetToken sToken = TestnetToken(tokenAddr);
 
         vm.startBroadcast(_deployerPrivateKey);
         sToken.mint(recipient, amount);
         vm.stopBroadcast();
+    }
+
+    function _getTimeLockedFinanceParameters(IG ig) private view returns (TimeLockedFinanceValues memory currentValues) {
+        (, , , , , , , , TimeLockedFinanceParameters memory igParams, , , ) = ig.financeParameters();
+        currentValues = TimeLockedFinanceValues({
+            sigmaMultiplier: igParams.sigmaMultiplier.get(),
+            tradeVolatilityUtilizationRateFactor: igParams.tradeVolatilityUtilizationRateFactor.get(),
+            tradeVolatilityTimeDecay: igParams.tradeVolatilityTimeDecay.get(),
+            volatilityPriceDiscountFactor: igParams.volatilityPriceDiscountFactor.get(),
+            useOracleImpliedVolatility: igParams.useOracleImpliedVolatility.get()
+        });
     }
 }
