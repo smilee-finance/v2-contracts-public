@@ -102,7 +102,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _shareDecimals = IERC20Metadata(baseToken).decimals();
 
         _addressProvider = IAddressProvider(addressProvider_);
-        maxDeposit = 10_000_000 * (10 ** _shareDecimals);
+        maxDeposit = 1_000_000_000 * (10 ** _shareDecimals);
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
