@@ -7,6 +7,7 @@ import {IDVP} from "../../src/interfaces/IDVP.sol";
 import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {Registry} from "../../src/Registry.sol";
+import {DVP} from "../../src/DVP.sol";
 
 /*
     Reference: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -27,11 +28,13 @@ import {Registry} from "../../src/Registry.sol";
         #       --sig 'rollEpoch(address)' <DVP_ADDRESS>
  */
 contract RollEpoch is EnhancedScript {
+    uint256 internal _deployerPrivateKey;
     uint256 internal _epochRollerPrivateKey;
     address internal _epochRollerAddress;
     Registry internal _registry;
 
     constructor() {
+        _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         // Load the private key that will be used for signing the transactions:
         _epochRollerPrivateKey = vm.envUint("EPOCH_ROLLER_PRIVATE_KEY");
 
@@ -51,6 +54,14 @@ contract RollEpoch is EnhancedScript {
     {
         vm.startBroadcast(_epochRollerPrivateKey);
         IDVP(dvp).rollEpoch();
+        vm.stopBroadcast();
+    }
+
+    function grantRoller(address dvpAddr, address account) public {
+        DVP dvp = DVP(dvpAddr);
+
+        vm.startBroadcast(_deployerPrivateKey);
+        dvp.grantRole(dvp.ROLE_EPOCH_ROLLER(), account);
         vm.stopBroadcast();
     }
 }

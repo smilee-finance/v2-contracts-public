@@ -6,11 +6,13 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
 import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {EpochFrequency} from "../../src/lib/EpochFrequency.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
-import {FeeManager} from "../../src/FeeManager.sol";
+// import {FeeManager} from "../../src/FeeManager.sol";
 import {IG} from "../../src/IG.sol";
-import {MarketOracle} from "../../src/MarketOracle.sol";
-import {Registry} from "../../src/Registry.sol";
 import {Vault} from "../../src/Vault.sol";
+import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "../../src/lib/FinanceIG.sol";
+import {TimeLock, TimeLockedBool, TimeLockedUInt} from "../../src/lib/TimeLock.sol";
+// import {Registry} from "../../src/Registry.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /*
     Reference: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -31,6 +33,9 @@ import {Vault} from "../../src/Vault.sol";
         #       --sig 'createIGMarket(address,address,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS>
  */
 contract DeployDVP is EnhancedScript {
+    using TimeLock for TimeLockedBool;
+    using TimeLock for TimeLockedUInt;
+
     uint256 internal _deployerPrivateKey;
     address internal _deployerAddress;
     address internal _adminMultiSigAddress;
@@ -67,22 +72,25 @@ contract DeployDVP is EnhancedScript {
         address vault = _createVault(baseToken, sideToken, epochFrequency);
         address dvp = _createImpermanentGainDVP(vault);
 
-        // TBD: call IG.setParameters(...)
-
         Vault(vault).setAllowedDVP(dvp);
         console.log(address(_registry));
-        _registry.register(dvp);
 
-        MarketOracle marketOracle = MarketOracle(_addressProvider.marketOracle());
-        uint256 lastUpdate = marketOracle.getImpliedVolatilityLastUpdate(baseToken, sideToken, epochFrequency);
-        if (lastUpdate == 0) {
-            marketOracle.setImpliedVolatility(baseToken, sideToken, epochFrequency, 0.5e18);
+        string memory sideTokenSymbol = IERC20Metadata(Vault(vault).sideToken()).symbol();
+        if (!_stringEquals(sideTokenSymbol, "sETH") && !_stringEquals(sideTokenSymbol, "sBTC")) {
+            _setTimeLockedParameters(dvp);
         }
+
+        _registry.register(dvp);
 
         vm.stopBroadcast();
 
         console.log("DVP deployed at", dvp);
         console.log("Vault deployed at", vault);
+    }
+
+    function _stringEquals(string memory s1, string memory s2) internal pure returns (bool) {
+        // TBD: use abi.encodePacked(s) instead of bytes(s)
+        return keccak256(bytes(s1)) == keccak256(bytes(s2));
     }
 
     function _createVault(address baseToken, address sideToken, uint256 epochFrequency) internal returns (address) {
@@ -112,13 +120,63 @@ contract DeployDVP is EnhancedScript {
         vm.stopBroadcast();
     }
 
-    function setTradCompFees() public {
+    // function setTradCompFees() public {
+    //     vm.startBroadcast(_deployerPrivateKey);
+    //     FeeManager feeMan = FeeManager(_addressProvider.feeManager());
+    //     feeMan.setFeePercentage(0.0003e18);
+    //     feeMan.setCapPercentage(0.125e18);
+    //     feeMan.setMaturityFeePercentage(0.00015e18);
+    //     feeMan.setMaturityCapPercentage(0.125e18);
+    //     vm.stopBroadcast();
+    // }
+
+    function setTimeLockedParameters(address igAddress) public {
         vm.startBroadcast(_deployerPrivateKey);
-        FeeManager feeMan = FeeManager(_addressProvider.feeManager());
-        feeMan.setFeePercentage(0.0003e18);
-        feeMan.setCapPercentage(0.125e18);
-        feeMan.setMaturityFeePercentage(0.00015e18);
-        feeMan.setMaturityCapPercentage(0.125e18);
+        _setTimeLockedParameters(igAddress);
         vm.stopBroadcast();
     }
+
+    function _setTimeLockedParameters(address igAddress) internal {
+        IG ig = IG(igAddress);
+        TimeLockedFinanceValues memory currentValues = _getTimeLockedFinanceParameters(ig);
+        currentValues.useOracleImpliedVolatility = false;
+
+        ig.setParameters(currentValues);
+    }
+
+    function _getTimeLockedFinanceParameters(IG ig) private view returns (TimeLockedFinanceValues memory currentValues) {
+        (, , , , , , , , TimeLockedFinanceParameters memory igParams, , , ) = ig.financeParameters();
+        currentValues = TimeLockedFinanceValues({
+            sigmaMultiplier: igParams.sigmaMultiplier.get(),
+            tradeVolatilityUtilizationRateFactor: igParams.tradeVolatilityUtilizationRateFactor.get(),
+            tradeVolatilityTimeDecay: igParams.tradeVolatilityTimeDecay.get(),
+            volatilityPriceDiscountFactor: igParams.volatilityPriceDiscountFactor.get(),
+            useOracleImpliedVolatility: igParams.useOracleImpliedVolatility.get()
+        });
+    }
+
+    // function fixTradingCompFinanceParams() public {
+    //     vm.startBroadcast(_deployerPrivateKey);
+    //     Registry registry = Registry(_addressProvider.registry());
+    //     address[] memory sideTokens = registry.getSideTokens();
+    //     uint256 numSideTokens = sideTokens.length;
+    //     console.log("Num of side tokens: ", numSideTokens);
+    //     for (uint256 i = 0; i < numSideTokens; i++) {
+    //         address sideTokenAddr = sideTokens[i];
+    //         string memory sideTokenSymbol = IERC20Metadata(sideTokenAddr).symbol();
+    //         console.log("Working on ", sideTokenSymbol);
+    //         if (_stringEquals(sideTokenSymbol, "sETH") || _stringEquals(sideTokenSymbol, "sBTC")) {
+    //             continue;
+    //         }
+    //         address[] memory dvps = registry.getDvpsBySideToken(sideTokenAddr);
+    //         uint256 numDVPs = dvps.length;
+    //         console.log("- Num of DVPs: ", numDVPs);
+    //         for (uint256 j = 0; j < numDVPs; j++) {
+    //             address dvpAddr = dvps[j];
+    //             console.log("-- Fixing DVP: ", dvpAddr);
+    //             _setTimeLockedParameters(dvpAddr);
+    //         }
+    //     }
+    //     vm.stopBroadcast();
+    // }
 }
