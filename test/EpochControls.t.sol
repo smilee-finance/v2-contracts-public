@@ -30,8 +30,9 @@ contract MockedEpochControls is EpochControls {
 }
 
 contract EpochControlsTest is Test {
-    // EpochFrequency reference timestamp: Friday 2023-04-21 08:00 UTC
-    uint256 public constant REF_TS = 1682064000;
+    //// EpochFrequency reference timestamp: Friday 2023-04-21 08:00 UTC
+    // EpochFrequency reference timestamp: Friday 2023-10-27 08:00 UTC
+    uint256 public constant REF_TS = 1698393600; // 1682064000;
 
     // EpochFrequency.UnsupportedFrequency error
     bytes4 public constant ERR_UNSUPPORTED_FREQUENCY = bytes4(keccak256("UnsupportedFrequency()"));
