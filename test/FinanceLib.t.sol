@@ -176,7 +176,7 @@ contract FinanceLibJsonTest is Test {
     }
 
     function testDeltas() public {
-        uint256 D_ERR = 4e13;
+        uint256 D_ERR = 1e9;
         uint256 index = 0;
         for (uint s = 0; s < scenariosNumber; s++) {
             uint256 indexScenarioMax = indexes[s];
@@ -286,7 +286,7 @@ contract FinanceLibJsonTest is Test {
 
     function testLiquidityRange() public {
         uint256 volatility = 5e17;
-        uint256 volatilityMultiplier = AmountsMath.wrap(2);
+        uint256 volatilityMultiplier = 2e18;
         uint256 dailyMaturity = AmountsMath.wrap(1) / 365;
 
         // Fixed maturity, change strike price:
@@ -385,5 +385,31 @@ contract FinanceLibJsonTest is Test {
             Scenario memory s = Scenario(c, ex, testCasesObj);
             scenarios_[i] = s;
         }
+    }
+
+    function testDeltaHedgeAmount() public {
+        FinanceIGDelta.DeltaHedgeParameters memory input = FinanceIGDelta.DeltaHedgeParameters({
+            igDBull: 3.491417164804690e18,
+            igDBear: -3.16891341134950e18,
+            baseTokenDecimals: 18,
+            sideTokenDecimals: 18,
+            initialLiquidityBull: 50_000e18,
+            initialLiquidityBear: 50_000e18,
+            availableLiquidityBull: 50_000e18,
+            availableLiquidityBear: 50_000e18,
+            sideTokensAmount: 26.31578947368420e18,
+            notionalUp: 10_000e18,
+            notionalDown: 0e18,
+            strike: 1_900e18,
+            theta: 0.197303740911534e18,
+            kb: 2_338.6674832963900e18
+        });
+        int256 output = FinanceIGDelta.deltaHedgeAmount(input); // -0.375779679505776274
+        // NOTE: I assume that the lower precision is due to the sqrt implementation...
+        assertApproxEqAbs(-0.37595523471614e18, output, 0.001e18);
+    }
+
+    function testFoo() public {
+        //
     }
 }

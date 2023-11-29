@@ -68,7 +68,7 @@ contract IGVaultTest is Test {
         vault.grantRole(vault.ROLE_ADMIN(), admin);
         vm.stopPrank();
         ig.setOptionPrice(1e3);
-        ig.setPayoffPerc(1e17); // 10 % -> position paying 1.1
+        ig.setPayoffPerc(0.1e18); // 10 % -> position paying 1.1
         ig.useFakeDeltaHedge();
 
         vm.prank(admin);
@@ -425,7 +425,7 @@ contract IGVaultTest is Test {
         Test what happen in the roll epoch of the vault when the payoff exceeds the notional
      */
     function testRollEpochWhenPayoffExceedsNotional() public {
-        ig.setPayoffPerc(15e17); // 150%
+        ig.setPayoffPerc(1.50e18); // 150%
         ig.setOptionPrice(0);
         ig.useRealDeltaHedge();
 

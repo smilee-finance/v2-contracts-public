@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import {SD59x18, sd} from "@prb/math/SD59x18.sol";
+import {sd} from "@prb/math/SD59x18.sol";
 import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
 import {Gaussian} from "@solstat/Gaussian.sol";
 import {AmountsMath} from "./AmountsMath.sol";
@@ -9,7 +9,6 @@ import {SignedMath} from "./SignedMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library FinanceIGPrice {
-    using AmountsMath for uint256;
 
     error PriceZero();
     error OutOfRange(string varname, uint256 value);
@@ -49,7 +48,7 @@ library FinanceIGPrice {
         NTerms memory nbs = nTerms(dbs);
 
         uint256 ert = _ert(params.r, params.tau);
-        uint256 sdivk = (params.s).wdiv(params.k);
+        uint256 sdivk = ud(params.s).div(ud(params.k)).unwrap();
 
         // Assume the price (up and down) is always >= 0
         {
@@ -96,9 +95,9 @@ library FinanceIGPrice {
             revert PriceZero();
         }
 
-        uint256 r = params.s.wdiv(params.k); // S / K
-        uint256 ra = params.s.wdiv(params.ka); // S / Ka
-        uint256 rb = params.s.wdiv(params.kb); // S / Kb
+        uint256 r = ud(params.s).div(ud(params.k)).unwrap(); // S / K
+        uint256 ra = ud(params.s).div(ud(params.ka)).unwrap(); // S / Ka
+        uint256 rb = ud(params.s).div(ud(params.kb)).unwrap(); // S / Kb
 
         (uint256 sigmaTaurtd, uint256 q1) = d1Parts(params.r, params.sigma, params.tau);
 
@@ -130,7 +129,7 @@ library FinanceIGPrice {
 
     /// @dev σ√τ AND ( r + σ^2 / 2 ) τ
     function d1Parts(uint256 r, uint256 sigma, uint256 tau) public pure returns (uint256 sigmaTaurtd, uint256 q1) {
-        q1 = (r + (sigma.wmul(sigma) / 2)).wmul(tau);
+        q1 = ud(r).add(ud(sigma).mul(ud(sigma)).div(convert(2))).mul(ud(tau)).unwrap();
         sigmaTaurtd = _sigmaTaurtd(sigma, tau);
     }
 
@@ -138,7 +137,7 @@ library FinanceIGPrice {
     function d1(uint256 priceStrikeRt, uint256 q1, uint256 sigmaTaurtd) public pure returns (int256 d1_) {
         int256 q0 = ud(priceStrikeRt).intoSD59x18().ln().unwrap();
         (uint256 sumQty, bool sumPos) = SignedMath.sum(q0, q1);
-        uint256 res = sumQty.wdiv(sigmaTaurtd);
+        uint256 res = ud(sumQty).div(ud(sigmaTaurtd)).unwrap();
 
         return SignedMath.revabs(res, sumPos);
     }
@@ -160,7 +159,7 @@ library FinanceIGPrice {
         NTerms memory ns,
         NTerms memory nbs
     ) public pure returns (PriceParts memory) {
-        uint256 ertdivteta = ert.wdiv(params.teta);
+        uint256 ertdivteta = ud(ert).div(ud(params.teta)).unwrap();
         return
             PriceParts(
                 pbull1(ertdivteta, ns.n2),
@@ -178,7 +177,7 @@ library FinanceIGPrice {
         NTerms memory ns,
         NTerms memory nas
     ) public pure returns (PriceParts memory) {
-        uint256 ertdivteta = ert.wdiv(params.teta);
+        uint256 ertdivteta = ud(ert).div(ud(params.teta)).unwrap();
         return
             PriceParts(
                 pbear1(ertdivteta, ns.n2),
@@ -191,12 +190,12 @@ library FinanceIGPrice {
 
     /// @dev [ e^-(r τ) / θ ] * (1 - N(d2))
     function pbear1(uint256 ertdivteta, uint256 n2) public pure returns (uint256) {
-        return ertdivteta.wmul(1e18 - n2);
+        return ud(ertdivteta).mul(convert(1).sub(ud(n2))).unwrap();
     }
 
     /// @dev S/θK * (1 - N(d1))
     function pbear2(uint256 sdivk, uint256 teta, uint256 n1) public pure returns (uint256) {
-        return sdivk.wdiv(teta).wmul(1e18 - n1);
+        return ud(sdivk).div(ud(teta)).mul(convert(1).sub(ud(n1))).unwrap();
     }
 
     /// @dev [ 2/θ * √(S / K) e^-(r / 2 + σ^2 / 8)τ ] * [ N(d3a) - N(d3) ]
@@ -209,29 +208,30 @@ library FinanceIGPrice {
         uint256 n3,
         uint256 n3a
     ) public pure returns (uint256) {
-        uint256 e1 = sd(SignedMath.neg(_boexp(r, sigma, tau))).exp().intoUD60x18().unwrap();
-        uint256 coeff = (ud(sdivk).sqrt().unwrap().wmul(e1) * 2).wdiv(teta);
-        return coeff.wmul(n3a - n3);
+        UD60x18 sdivk_radix = ud(sdivk).sqrt();
+        UD60x18 e1 = sd(SignedMath.neg(_boexp(r, sigma, tau))).exp().intoUD60x18();
+        UD60x18 coeff = sdivk_radix.mul(e1).mul(convert(2)).div(ud(teta));
+        return coeff.mul(ud(n3a).sub(ud(n3))).unwrap();
     }
 
     /// @dev [ s / θ√(K K_b) ] * (1 - N(d1a))
     function pbear4(uint256 s, uint256 tetakkartd, uint256 n1a) public pure returns (uint256) {
-        return s.wdiv(tetakkartd).wmul(1e18 - n1a);
+        return ud(s).div(ud(tetakkartd)).mul(convert(1).sub(ud(n1a))).unwrap();
     }
 
     /// @dev 1/θ * √(K_b / K) * N(1 - d2a)
     function pbear5(uint256 ert, uint256 kadivkrtddivteta, uint256 n2a) public pure returns (uint256) {
-        return ert.wmul(kadivkrtddivteta.wmul(1e18 - n2a));
+        return ud(ert).mul(ud(kadivkrtddivteta).mul(convert(1).sub(ud(n2a)))).unwrap();
     }
 
     /// @dev [ e^-(r τ) / θ ] * N(d2)
     function pbull1(uint256 ertdivteta, uint256 n2) public pure returns (uint256) {
-        return ertdivteta.wmul(n2);
+        return ud(ertdivteta).mul(ud(n2)).unwrap();
     }
 
     /// @dev S/θK * N(d1)
     function pbull2(uint256 sdivk, uint256 teta, uint256 n1) public pure returns (uint256) {
-        return sdivk.wdiv(teta).wmul(n1);
+        return ud(sdivk).div(ud(teta)).mul(ud(n1)).unwrap();
     }
 
     /// @dev [ 2/θ * √(S / K) e^-(r / 2 + σ^2 / 8)τ ] * [ N(d3) - N(d3b) ]
@@ -244,31 +244,32 @@ library FinanceIGPrice {
         uint256 n3,
         uint256 n3b
     ) public pure returns (uint256) {
-        uint256 e1 = sd(SignedMath.neg(_boexp(r, sigma, tau))).exp().intoUD60x18().unwrap();
-        uint256 coeff = (ud(sdivk).sqrt().unwrap().wmul(e1) * 2).wdiv(teta);
-        return coeff.wmul(n3 - n3b);
+        UD60x18 sdivk_radix = ud(sdivk).sqrt();
+        UD60x18 e1 = sd(SignedMath.neg(_boexp(r, sigma, tau))).exp().intoUD60x18();
+        UD60x18 coeff = sdivk_radix.mul(e1).mul(convert(2)).div(ud(teta));
+        return coeff.mul(ud(n3).sub(ud(n3b))).unwrap();
     }
 
     /// @dev [ s / θ√(K K_b) ] * N(d1b)
     function pbull4(uint256 s, uint256 tetakkbrtd, uint256 n1b) public pure returns (uint256) {
-        return s.wdiv(tetakkbrtd).wmul(n1b);
+        return ud(s).div(ud(tetakkbrtd)).mul(ud(n1b)).unwrap();
     }
 
     /// @dev 1/θ * √(K_b / K) * N(d2b)
     function pbull5(uint256 ert, uint256 kbdivkrtddivteta, uint256 n2b) public pure returns (uint256) {
-        return ert.wmul(kbdivkrtddivteta.wmul(n2b));
+        return ud(ert).mul(ud(kbdivkrtddivteta).mul(ud(n2b))).unwrap();
     }
 
     ////// HELPERS //////
 
     /// @dev (r / 2 + σ^2 / 8)τ
     function _boexp(uint256 r, uint256 sigma, uint256 tau) public pure returns (uint256) {
-        return tau.wmul(r / 2 + SignedMath.pow2(int256(sigma)) / 8);
+        return ud(tau).mul(ud(r / 2 + SignedMath.pow2(int256(sigma)) / 8)).unwrap();
     }
 
     /// @dev e^-(r τ)
     function _ert(uint256 r, uint256 tau) public pure returns (uint256) {
-        return sd(SignedMath.neg(r.wmul(tau))).exp().intoUD60x18().unwrap();
+        return sd(SignedMath.neg(ud(r).mul(ud(tau)).unwrap())).exp().intoUD60x18().unwrap();
     }
 
     /// @dev θ * √(K K_<a|b>)
@@ -303,7 +304,7 @@ library FinanceIGPrice {
 
     /// @dev σ√τ
     function _sigmaTaurtd(uint256 sigma, uint256 tau) public pure returns (uint256) {
-        return sigma.wmul(ud(tau).sqrt().unwrap());
+        return ud(sigma).mul(ud(tau).sqrt()).unwrap();
     }
 
     //////  OTHER //////
@@ -327,10 +328,15 @@ library FinanceIGPrice {
         @dev All the values are expressed in Wad.
      */
     function liquidityRange(LiquidityRangeParams calldata params) public pure returns (uint256 kA, uint256 kB) {
-        uint256 mSigmaT = params.sigma.wmul(params.sigmaMultiplier).wmul(ud(params.yearsOfMaturity).sqrt().unwrap());
+        uint256 mSigmaT = ud(params.sigma).mul(ud(params.sigmaMultiplier)).mul(ud(params.yearsOfMaturity).sqrt()).unwrap();
 
-        kA = params.k.wmul(sd(SignedMath.neg(mSigmaT)).exp().intoUD60x18().unwrap());
-        kB = params.k.wmul(ud(mSigmaT).exp().unwrap());
+        kA = ud(params.k).mul(sd(SignedMath.neg(mSigmaT)).exp().intoUD60x18()).unwrap();
+        kB = ud(params.k).mul(ud(mSigmaT).exp()).unwrap();
+
+        // NOTE: even if almost impossible, protect against crazy volatilities
+        if (kA < 0.0001e18) {
+            kA = 0.0001e18;
+        }
     }
 
     struct TradeVolatilityParams {
@@ -355,16 +361,12 @@ library FinanceIGPrice {
         @dev All the non-timestamp values are expressed in Wad.
      */
     function tradeVolatility(TradeVolatilityParams calldata params) public view returns (uint256 sigma_hat) {
-        uint256 baselineVolatilityFactor = AmountsMath.wrap(1) +
-            uint256(SignedMath.pow3(int256(params.utilizationRate))).wmul(
-                params.utilizationRateFactor.sub(AmountsMath.wrap(1))
-            );
-        uint256 timeFactor = (AmountsMath.wrap(params.duration) -
-            params.timeDecay.wmul(AmountsMath.wrap(block.timestamp - params.initialTime))).wdiv(
-                AmountsMath.wrap(params.duration)
-            );
+        uint256 ur_qubic = uint256(SignedMath.pow3(int256(params.utilizationRate)));
+        UD60x18 baselineVolatilityFactor = convert(1).add(ud(ur_qubic).mul(ud(params.utilizationRateFactor).sub(convert(1))));
+        UD60x18 timeDelta = convert(block.timestamp - params.initialTime);
+        UD60x18 timeFactor = convert(params.duration).sub(ud(params.timeDecay).mul(timeDelta)).div(convert(params.duration));
 
-        return params.sigma0.wmul(baselineVolatilityFactor).wmul(timeFactor);
+        return ud(params.sigma0).mul(baselineVolatilityFactor).mul(timeFactor).unwrap();
     }
 
     function getMarketValue(
@@ -379,7 +381,7 @@ library FinanceIGPrice {
 
         // igP multiplies a notional computed as follow:
         // V0 * user% = V0 * amount / initial(strategy) = V0 * amount / (V0/2) = amount * 2
-        marketValue_ = 2 * amountUp.wmul(priceUp).add(amountDown.wmul(priceDown));
+        marketValue_ = convert(2).mul(ud(amountUp).mul(ud(priceUp)).add(ud(amountDown).mul(ud(priceDown)))).unwrap();
         return AmountsMath.unwrapDecimals(marketValue_, decimals);
     }
 }

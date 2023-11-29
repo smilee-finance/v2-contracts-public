@@ -39,7 +39,7 @@ contract ChainlinkPriceFeedTest is Test {
         vm.stopPrank();
 
         uint256 price = _priceOracle.getPrice(_WETH, _USDC);
-        assertEq(price, 1737.907785826880504425e18);
+        assertEq(price, 1737.907785826880504424e18);
     }
 
     // ToDo: add more tests

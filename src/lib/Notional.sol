@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {ud} from "@prb/math/UD60x18.sol";
 import {Amount, AmountHelper} from "./Amount.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {OptionStrategy} from "./OptionStrategy.sol";
@@ -9,7 +10,6 @@ import {OptionStrategy} from "./OptionStrategy.sol";
     @title Simple library to ease DVP liquidity access and modification
  */
 library Notional {
-    using AmountsMath for uint256;
     using AmountHelper for Amount;
 
     // NOTE: each one of the fields is a mapping strike -> [call_notional, put_notional]
@@ -133,7 +133,7 @@ library Notional {
             accountedPayoff_.up = AmountsMath.wrapDecimals(accountedPayoff_.up, decimals);
 
             // amount : used = share : payoff
-            payoff_.up = amount_.up.wmul(accountedPayoff_.up).wdiv(usedCall_);
+            payoff_.up = ud(amount_.up).mul(ud(accountedPayoff_.up)).div(ud(usedCall_)).unwrap();
             payoff_.up = AmountsMath.unwrapDecimals(payoff_.up, decimals);
         }
 
@@ -142,7 +142,7 @@ library Notional {
             usedPut_ = AmountsMath.wrapDecimals(usedPut_, decimals);
             accountedPayoff_.down = AmountsMath.wrapDecimals(accountedPayoff_.down, decimals);
 
-            payoff_.down = amount_.down.wmul(accountedPayoff_.down).wdiv(usedPut_);
+            payoff_.down = ud(amount_.down).mul(ud(accountedPayoff_.down)).div(ud(usedPut_)).unwrap();
             payoff_.down = AmountsMath.unwrapDecimals(payoff_.down, decimals);
         }
     }
@@ -184,9 +184,9 @@ library Notional {
         total = AmountsMath.wrapDecimals(total, tokenDecimals);
 
         if (tradeIsBuy) {
-            return (used.add(tradeAmount)).wdiv(total);
+            utilizationRate = ud(used).add(ud(tradeAmount)).div(ud(total)).unwrap();
         } else {
-            return (used.sub(tradeAmount)).wdiv(total);
+            utilizationRate = ud(used).sub(ud(tradeAmount)).div(ud(total)).unwrap();
         }
     }
 }

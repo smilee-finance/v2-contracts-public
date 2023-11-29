@@ -221,17 +221,21 @@ contract TestnetSwapAdapterTest is Test {
         assertEq(output, WBTC.balanceOf(alice));
     }
 
-    function _setWbtcWethPrice(uint256 price) private returns (bool) {
-        vm.startPrank(adminWallet);
+    function _setWbtcWethPrice(uint256 price) private returns (bool success) {
+        success = false;
+
         uint256 wethPrice = priceOracle.getPrice(address(WETH), address(USD));
         if (price > type(uint256).max / wethPrice) {
-            vm.expectRevert();
-            priceOracle.setTokenPrice(address(WBTC), price.wmul(wethPrice));
-            vm.stopPrank();
             return false;
         }
-        priceOracle.setTokenPrice(address(WBTC), price.wmul(wethPrice));
+        uint256 priceToSet = price.wmul(wethPrice);
+        uint256 priceLimit = type(uint256).max / 1e18;
+        vm.startPrank(adminWallet);
+        if (priceToSet > priceLimit) {
+            vm.expectRevert();
+        }
+        priceOracle.setTokenPrice(address(WBTC), priceToSet);
         vm.stopPrank();
-        return true;
+        success = true;
     }
 }

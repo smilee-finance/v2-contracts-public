@@ -1,6 +1,7 @@
 # When running forge, you can specify the profile to use using the FOUNDRY_PROFILE environment variable.
 [profile.default]
-solc_version = "0.8.19" # Arbitrum limit
+solc_version = "0.8.21"
+evm_version = "paris" # Arbitrum limit
 src = "src"
 out = "out"
 libs = ["lib"]
@@ -14,7 +15,8 @@ fs_permissions = [{ access = "read", path = "./broadcast/"}, { access = "read", 
 arbitrum_mainnet = "${RPC_MAINNET}"
 
 [profile.deployment]
-solc_version = "0.8.19" # Arbitrum limit
+solc_version = "0.8.21"
+evm_version = "paris" # Arbitrum limit
 fs_permissions = [{ access = "read", path = "./broadcast/"}, { access = "read", path = "./test/"}]
 via_ir = true
 # revert_strings = "strip"

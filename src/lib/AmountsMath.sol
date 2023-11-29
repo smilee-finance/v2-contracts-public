@@ -1,69 +1,72 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
 
 library AmountsMath {
-    using Math for uint256;
 
-    uint8 private constant DECIMALS = 18;
-    uint private constant WAD = 10 ** 18;
+    uint8 private constant _DECIMALS = 18;
 
     /// ERRORS ///
 
-    error AddOverflow();
-    error MulOverflow();
-    error SubUnderflow();
     error TooManyDecimals();
 
     /// LOGICS ///
 
+    // @notice: takes a number and wrap it into a WAD
     function wrap(uint x) public pure returns (uint z) {
-        return mul(x, WAD);
+        UD60x18 wx = convert(x);
+        return wx.unwrap();
+        // return mul(x, WAD);
     }
 
+    // Sums two WAD numbers
     function add(uint x, uint y) public pure returns (uint z) {
-        if (!((z = x + y) >= x)) {
-            revert AddOverflow();
-        }
+        UD60x18 wx = ud(x);
+        UD60x18 wy = ud(y);
+        return wx.add(wy).unwrap();
     }
 
+    // Subtract two WAD numbers
     function sub(uint x, uint y) public pure returns (uint z) {
-        if (!((z = x - y) <= x)) {
-            revert SubUnderflow();
-        }
+        UD60x18 wx = ud(x);
+        UD60x18 wy = ud(y);
+        return wx.sub(wy).unwrap();
     }
 
+    // Multiplies two WAD numbers
     function mul(uint x, uint y) public pure returns (uint z) {
-        if (!(y == 0 || (z = x * y) / y == x)) {
-            revert MulOverflow();
-        }
+        UD60x18 wx = ud(x);
+        UD60x18 wy = ud(y);
+        return wx.mul(wy).unwrap();
     }
 
-    //rounds to zero if x*y < WAD / 2
     function wmul(uint x, uint y) public pure returns (uint z) {
-        z = add(mul(x, y), WAD / 2) / WAD;
+        UD60x18 wx = ud(x);
+        UD60x18 wy = ud(y);
+        return wx.mul(wy).unwrap();
     }
 
-    //rounds to zero if x*y < WAD / 2
     function wdiv(uint x, uint y) public pure returns (uint z) {
-        z = add(mul(x, WAD), y / 2) / y;
+        UD60x18 wx = ud(x);
+        UD60x18 wy = ud(y);
+        return wx.div(wy).unwrap();
     }
 
     function wrapDecimals(uint256 amount, uint8 decimals) public pure returns (uint256) {
-        if (decimals == DECIMALS) {
+        if (decimals == _DECIMALS) {
             return amount;
         }
-        if (decimals > DECIMALS) {
+        if (decimals > _DECIMALS) {
             revert TooManyDecimals();
         }
-        return mul(amount, 10 ** (DECIMALS - decimals));
+        return amount * (10 ** (_DECIMALS - decimals));
     }
 
     function unwrapDecimals(uint256 amount, uint8 decimals) public pure returns (uint256) {
-        if (decimals == DECIMALS) {
+        if (decimals == _DECIMALS) {
             return amount;
         }
-        return amount / 10 ** (DECIMALS - decimals);
+        return amount / (10 ** (_DECIMALS - decimals));
     }
 }

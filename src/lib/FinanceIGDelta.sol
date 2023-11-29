@@ -2,13 +2,12 @@
 pragma solidity ^0.8.19;
 
 import {SD59x18, sd} from "@prb/math/SD59x18.sol";
-import {UD60x18, ud} from "@prb/math/UD60x18.sol";
+import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {SignedMath} from "./SignedMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library FinanceIGDelta {
-    using AmountsMath for uint256;
 
     /// @notice A wrapper for the input parameters of delta functions
     struct Parameters {
@@ -90,24 +89,24 @@ library FinanceIGDelta {
         params.sideTokensAmount = AmountsMath.wrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
 
         uint256 protoNotionalBull = params.notionalUp >= 0
-            ? params.availableLiquidityBull.sub(notionalBull)
-            : params.availableLiquidityBull.add(notionalBull);
+            ? ud(params.availableLiquidityBull).sub(ud(notionalBull)).unwrap()
+            : ud(params.availableLiquidityBull).add(ud(notionalBull)).unwrap();
 
         uint256 protoNotionalBear = params.notionalDown >= 0
-            ? params.availableLiquidityBear.sub(notionalBear)
-            : params.availableLiquidityBear.add(notionalBear);
+            ? ud(params.availableLiquidityBear).sub(ud(notionalBear)).unwrap()
+            : ud(params.availableLiquidityBear).add(ud(notionalBear)).unwrap();
 
-        uint256 protoDBull = SignedMath.abs(params.igDBull).wmul(protoNotionalBull).wdiv(params.initialLiquidityBull);
-        uint256 protoDBear = SignedMath.abs(params.igDBear).wmul(protoNotionalBear).wdiv(params.initialLiquidityBear);
+        uint256 protoDBull = ud(SignedMath.abs(params.igDBull)).mul(ud(protoNotionalBull)).div(ud(params.initialLiquidityBull)).unwrap();
+        uint256 protoDBear = ud(SignedMath.abs(params.igDBear)).mul(ud(protoNotionalBear)).div(ud(params.initialLiquidityBear)).unwrap();
 
         uint256 deltaLimit;
         {
-            uint256 v0 = params.initialLiquidityBull + params.initialLiquidityBear;
-            uint256 strike = params.strike;
-            uint256 theta = params.theta;
-            uint256 kb = params.kb;
+            UD60x18 v0 = ud(params.initialLiquidityBull + params.initialLiquidityBear);
+            UD60x18 strike = ud(params.strike);
+            UD60x18 theta = ud(params.theta);
+            UD60x18 kb = ud(params.kb);
             // DeltaLimit := v0 / (θ * k) - v0 / (θ * √(K * Kb))
-            deltaLimit = v0.wdiv(theta.wmul(strike)).sub(v0.wdiv(theta.wmul(ud((strike.wmul(kb))).sqrt().unwrap())));
+            deltaLimit = v0.div(theta.mul(strike)).sub(v0.div(theta.mul(strike.mul(kb).sqrt()))).unwrap();
         }
 
         tokensToSwap =
@@ -141,7 +140,7 @@ library FinanceIGDelta {
         uint256 v0
     ) public pure returns (int256 limSup_, int256 limInf_) {
         uint256 krtd = ud(k).sqrt().unwrap();
-        uint256 tetaK = teta.wmul(k);
+        uint256 tetaK = ud(teta).mul(ud(k)).unwrap();
         limSup_ = limSup(krtd, kb, tetaK, v0);
         limInf_ = limInf(krtd, ka, tetaK, v0);
     }
@@ -163,14 +162,14 @@ library FinanceIGDelta {
         uint256 sigma,
         uint256 t
     ) public pure returns (int256 alfa1, int256 alfa2) {
-        uint256 sigmaTrtd_ = sigmaTaurtd(sigma, t);
+        UD60x18 sigmaTrtd_ = ud(sigmaTaurtd(sigma, t));
         {
-            int256 alfa1Num = ud(ka.wdiv(k)).intoSD59x18().ln().unwrap();
-            alfa1 = SignedMath.revabs((SignedMath.abs(alfa1Num).wdiv(sigmaTrtd_)), alfa1Num > 0);
+            int256 alfa1Num = ud(ka).div(ud(k)).intoSD59x18().ln().unwrap();
+            alfa1 = SignedMath.revabs(ud(SignedMath.abs(alfa1Num)).div(sigmaTrtd_).unwrap(), alfa1Num > 0);
         }
         {
-            int256 alfa2Num = ud(kb.wdiv(k)).intoSD59x18().ln().unwrap();
-            alfa2 = SignedMath.revabs((SignedMath.abs(alfa2Num).wdiv(sigmaTrtd_)), alfa2Num > 0);
+            int256 alfa2Num = ud(kb).div(ud(k)).intoSD59x18().ln().unwrap();
+            alfa2 = SignedMath.revabs(ud(SignedMath.abs(alfa2Num)).div(sigmaTrtd_).unwrap(), alfa2Num > 0);
         }
     }
 
@@ -182,25 +181,28 @@ library FinanceIGDelta {
         int256 m,
         int256 q
     ) internal pure returns (int256) {
-        uint256 sigmaTaurtdSquared = sigmaTrtd.wmul(sigmaTrtd);
+        uint256 sigmaTaurtdSquared = ud(sigmaTrtd).mul(ud(sigmaTrtd)).unwrap();
 
-        // a := 0.9 - σ√τ / 2 - 0.04 * (σ√τ)^2
-        int256 a = int256(0.9e18) -
-            (SignedMath.castInt(sigmaTrtd) / 2) -
-            SignedMath.castInt((sigmaTaurtdSquared * 4) / 100);
+        int256 expE = 0;
+        {
+            // a := 0.9 - σ√τ / 2 - 0.04 * (σ√τ)^2
+            int256 a = int256(0.9e18) -
+                (SignedMath.castInt(sigmaTrtd) / 2) -
+                SignedMath.castInt((sigmaTaurtdSquared * 4) / 100);
 
-        // expE := -m*z + a*q
-        int256 expE = SignedMath.revabs(
-            SignedMath.abs(m).wmul(SignedMath.abs(z_)),
-            (m > 0 && z_ < 0) || (m < 0 && z_ > 0)
-        ) + SignedMath.revabs(SignedMath.abs(a).wmul(SignedMath.abs(q)), (a > 0 && q > 0) || (a < 0 && q < 0));
+            // expE := -m*z + a*q
+            UD60x18 mz = ud(SignedMath.abs(m)).mul(ud(SignedMath.abs(z_)));
+            UD60x18 aq = ud(SignedMath.abs(a)).mul(ud(SignedMath.abs(q)));
+            int256 smz = SignedMath.revabs(mz.unwrap(), (m > 0 && z_ < 0) || (m < 0 && z_ > 0));
+            expE = smz + SignedMath.revabs(aq.unwrap(), (a > 0 && q > 0) || (a < 0 && q < 0));
+        }
         if (expE > _MAX_EXP) {
             return 0;
         }
 
         // d := 1 + e^(expE)
-        uint256 denom = 1e18 + sd(expE).exp().intoUint256();
-        return SignedMath.castInt(uint256(limSup_).wdiv(denom));
+        UD60x18 denom = ud(1e18 + sd(expE).exp().intoUint256());
+        return SignedMath.castInt(ud(uint256(limSup_)).div(denom).unwrap());
     }
 
     /// @dev Δ_bear := liminf / (1 + e^(m*z + b*q))
@@ -211,23 +213,25 @@ library FinanceIGDelta {
         int256 m,
         int256 q
     ) internal pure returns (int256) {
-        uint256 sigmaTaurtdSquared = sigmaTrtd.wmul(sigmaTrtd);
+        int256 expE = 0;
+        {
+            // b := 0.95 + σ√τ / 2 + 0.08 * (σ√τ)^2
+            UD60x18 sigmaTaurtdSquared = ud(sigmaTrtd).mul(ud(sigmaTrtd));
+            UD60x18 b = ud(0.95e18).add(ud(sigmaTrtd).div(convert(2))).add(sigmaTaurtdSquared.mul(convert(8)).div(convert(100)));
 
-        // b := 0.95 + σ√τ / 2 + 0.08 * (σ√τ)^2
-        uint256 b = uint256(0.95e18).add(sigmaTrtd / 2).add(((sigmaTaurtdSquared * 8) / 100));
-
-        // expE := m*z + b*q
-        int256 expE = SignedMath.revabs(
-            SignedMath.abs(m).wmul(SignedMath.abs(z_)),
-            (m > 0 && z_ > 0) || (m < 0 && z_ < 0)
-        ) + SignedMath.revabs(b.wmul(SignedMath.abs(q)), (q > 0));
+            // expE := m*z + b*q
+            expE = SignedMath.revabs(
+                ud(SignedMath.abs(m)).mul(ud(SignedMath.abs(z_))).unwrap(),
+                (m > 0 && z_ > 0) || (m < 0 && z_ < 0)
+            ) + SignedMath.revabs(b.mul(ud(SignedMath.abs(q))).unwrap(), (q > 0));
+        }
         if (expE > _MAX_EXP) {
             return 0;
         }
 
         // d := 1 + e^(expE)
-        uint256 denom = 1e18 + sd(expE).exp().intoUint256();
-        return SignedMath.revabs(SignedMath.abs(limInf_).wdiv(denom), limInf_ > 0);
+        UD60x18 denom = convert(1).add(ud(sd(expE).exp().intoUint256()));
+        return SignedMath.revabs(ud(SignedMath.abs(limInf_)).div(denom).unwrap(), limInf_ > 0);
     }
 
     /**
@@ -239,30 +243,30 @@ library FinanceIGDelta {
         uint256 alfaAbs = SignedMath.abs(alfa2);
         uint256 alfaSqrd = SignedMath.pow2(alfa2);
 
-        m = - SignedMath.revabs((alfaAbs * 22) / 100, alfa2 >= 0) + SignedMath.castInt(uint256(1.8e18).add(alfaSqrd / 100));
+        m = - SignedMath.revabs((alfaAbs * 22) / 100, alfa2 >= 0) + SignedMath.castInt(1.8e18 + (alfaSqrd / 100));
         q = SignedMath.revabs((alfaAbs * 95) / 100, alfa2 >= 0) - (SignedMath.castInt(alfaSqrd) / 10);
     }
 
     /// @dev limSup := V0 * (√Kb - √K) / (θ K √Kb)
     function limSup(uint256 krtd, uint256 kb, uint256 tetaK, uint256 v0) internal pure returns (int256) {
-        uint256 kbrtd = ud(kb).sqrt().unwrap();
-        return SignedMath.castInt((kbrtd - krtd).wdiv(tetaK.wmul(kbrtd)).wmul(v0));
+        UD60x18 kbrtd = ud(kb).sqrt();
+        return SignedMath.castInt(kbrtd.sub(ud(krtd)).div(ud(tetaK).mul(kbrtd)).mul(ud(v0)).unwrap());
     }
 
     /// @dev limInf := V0 * (√Ka - √K) / (θ K √Ka)
     function limInf(uint256 krtd, uint256 ka, uint256 tetaK, uint256 v0) internal pure returns (int256) {
-        uint256 kartd = ud(ka).sqrt().unwrap();
-        return SignedMath.revabs((krtd - kartd).wdiv(tetaK.wmul(kartd)).wmul(v0), false);
+        UD60x18 kartd = ud(ka).sqrt();
+        return SignedMath.revabs(ud(krtd).sub(kartd).div(ud(tetaK).mul(kartd)).mul(ud(v0)).unwrap(), false);
     }
 
     /// @dev σ√τ
     function sigmaTaurtd(uint256 sigma, uint256 tau) internal pure returns (uint256) {
-        return sigma.wmul(ud(tau).sqrt().unwrap());
+        return ud(sigma).mul(ud(tau).sqrt()).unwrap();
     }
 
     /// @dev z := ln(S / K) / σ√τ
     function z(uint256 s, uint256 k, uint256 sigmaTrtd) internal pure returns (int256) {
-        int256 n = sd(SignedMath.castInt(s.wdiv(k))).ln().unwrap();
-        return SignedMath.revabs(SignedMath.abs(n).wdiv(sigmaTrtd), n > 0);
+        int256 n = sd(SignedMath.castInt(ud(s).div(ud(k)).unwrap())).ln().unwrap();
+        return SignedMath.revabs(ud(SignedMath.abs(n)).div(ud(sigmaTrtd)).unwrap(), n > 0);
     }
 }

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
+import {ud, convert} from "@prb/math/UD60x18.sol";
 import {Amount, AmountHelper} from "./Amount.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {SignedMath} from "./SignedMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library Finance {
-    using AmountsMath for uint256;
     using AmountHelper for Amount;
 
     function computeResidualPayoffs(
@@ -23,13 +23,13 @@ library Finance {
 
         if (residualAmountUp > 0) {
             residualAmountUp = AmountsMath.wrapDecimals(residualAmountUp, baseTokenDecimals);
-            payoffUp_ = residualAmountUp.wmul(percentageUp * 2);
+            payoffUp_ = ud(residualAmountUp).mul(ud(percentageUp).mul(convert(2))).unwrap();
             payoffUp_ = AmountsMath.unwrapDecimals(payoffUp_, baseTokenDecimals);
         }
 
         if (residualAmountDown > 0) {
             residualAmountDown = AmountsMath.wrapDecimals(residualAmountDown, baseTokenDecimals);
-            payoffDown_ = residualAmountDown.wmul(percentageDown * 2);
+            payoffDown_ = ud(residualAmountDown).mul(ud(percentageDown).mul(convert(2))).unwrap();
             payoffDown_ = AmountsMath.unwrapDecimals(payoffDown_, baseTokenDecimals);
         }
     }
@@ -41,9 +41,9 @@ library Finance {
         uint8 exchangeTokenDecimals
     ) public pure returns (uint256 swapPrice) {
         exchangedTokens = AmountsMath.wrapDecimals(exchangedTokens, exchangeTokenDecimals);
-        uint256 tokensToSwap_ = SignedMath.abs(tokensToSwap).wrapDecimals(swappedTokenDecimals);
+        uint256 tokensToSwap_ = AmountsMath.wrapDecimals(SignedMath.abs(tokensToSwap), swappedTokenDecimals);
 
-        swapPrice = exchangedTokens.wdiv(tokensToSwap_);
+        swapPrice = ud(exchangedTokens).div(ud(tokensToSwap_)).unwrap();
     }
 
     function getUtilizationRate(uint256 used, uint256 total, uint8 tokenDecimals) public pure returns (uint256) {
@@ -54,7 +54,7 @@ library Finance {
             return 0;
         }
 
-        return used.wdiv(total);
+        return ud(used).div(ud(total)).unwrap();
     }
 
     function checkSlippage(
@@ -63,7 +63,7 @@ library Finance {
         uint256 maxSlippage,
         bool tradeIsBuy
     ) public pure returns (bool ok) {
-        uint256 slippage = expectedpremium.wmul(maxSlippage);
+        uint256 slippage = ud(expectedpremium).mul(ud(maxSlippage)).unwrap();
 
         if (tradeIsBuy && (premium > expectedpremium + slippage)) {
             return false;

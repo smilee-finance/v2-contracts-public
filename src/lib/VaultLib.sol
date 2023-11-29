@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
+// import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 library VaultLib {
-    using SafeMath for uint256;
+    // using SafeMath for uint256;
 
     bytes4 constant DeadMarketReason = bytes4(keccak256("MarketReason"));
     bytes4 constant DeadManualKillReason = bytes4(keccak256("ManualKill"));
@@ -107,6 +107,6 @@ library VaultLib {
         }
 
         uint256 sharesFromRound = assetToShares(depositReceipt.amount, sharePrice, tokenDecimals);
-        return depositReceipt.unredeemedShares.add(sharesFromRound);
+        return depositReceipt.unredeemedShares + sharesFromRound;
     }
 }

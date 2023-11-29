@@ -13,14 +13,12 @@ import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultAccessNFT} from "./interfaces/IVaultAccessNFT.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
-import {AmountsMath} from "./lib/AmountsMath.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
 import {TokensPair} from "./lib/TokensPair.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 import {EpochControls} from "./EpochControls.sol";
 
 contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
-    using AmountsMath for uint256;
     using VaultLib for VaultLib.DepositReceipt;
     using EpochController for Epoch;
     using SafeERC20 for IERC20;
@@ -334,13 +332,13 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         // If the user has already deposited in the current epoch, add the amount to the total one of the next epoch:
         if (epoch.current == depositReceipt.epoch) {
-            depositReceipt.amount = depositReceipt.amount.add(amount);
+            depositReceipt.amount = depositReceipt.amount + amount;
         } else {
             depositReceipt.amount = amount;
         }
 
         depositReceipt.epoch = epoch.current;
-        depositReceipt.cumulativeAmount = depositReceipt.cumulativeAmount.add(amount);
+        depositReceipt.cumulativeAmount = depositReceipt.cumulativeAmount + amount;
         depositReceipt.unredeemedShares = unredeemedShares;
     }
 
@@ -400,7 +398,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             depositReceipt.amount = 0;
         }
 
-        depositReceipt.unredeemedShares = unredeemedShares.sub(shares);
+        depositReceipt.unredeemedShares = unredeemedShares - shares;
 
         _transfer(address(this), msg.sender, shares);
 
@@ -452,7 +450,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         uint256 sharesToWithdraw = shares;
         if (withdrawal.epoch == epoch.current) {
             // if user has already pre-ordered a withdrawal in this epoch just increase the order
-            sharesToWithdraw = withdrawal.shares.add(shares);
+            sharesToWithdraw = withdrawal.shares + shares;
         }
 
         // -----------------------------

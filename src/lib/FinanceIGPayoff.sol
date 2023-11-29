@@ -2,11 +2,9 @@
 pragma solidity ^0.8.15;
 
 import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
-import {AmountsMath} from "./AmountsMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library FinanceIGPayoff {
-    using AmountsMath for uint256;
 
     /**
         @notice Computes concentrated liquidity impermanent gain percentage when current price falls in liquidity range
@@ -36,19 +34,19 @@ library FinanceIGPayoff {
         uint256 k,
         uint256 kbound
     ) public pure returns (uint256 outRangePayoffPerc) {
-        uint256 one = AmountsMath.wrap(1);
-        uint256 kDivKboundRtd = ud(k.wdiv(kbound)).sqrt().unwrap();
-        uint256 kboundDivKRtd = ud(kbound.wdiv(k)).sqrt().unwrap();
+        UD60x18 one = convert(1);
+        UD60x18 kDivKboundRtd = ud(k).div(ud(kbound)).sqrt();
+        UD60x18 kboundDivKRtd = ud(kbound).div(ud(k)).sqrt();
 
-        bool c2Pos = kDivKboundRtd >= one;
-        uint256 c2Abs = sdivk.wmul(c2Pos ? kDivKboundRtd - one : one - kDivKboundRtd);
-        uint256 num;
+        bool c2Pos = kDivKboundRtd.gte(one);
+        UD60x18 c2Abs = ud(sdivk).mul(c2Pos ? kDivKboundRtd.sub(one) : one.sub(kDivKboundRtd));
+        UD60x18 num;
         if (c2Pos) {
-            num = one - c2Abs - kboundDivKRtd;
+            num = one.sub(c2Abs).sub(kboundDivKRtd);
         } else {
-            num = one + c2Abs - kboundDivKRtd;
+            num = one.add(c2Abs).sub(kboundDivKRtd);
         }
-        return num.wdiv(teta);
+        return num.div(ud(teta)).unwrap();
     }
 
     /**
@@ -65,7 +63,8 @@ library FinanceIGPayoff {
         uint256 kb,
         uint256 teta
     ) external pure returns (uint256 igPOBull, uint256 igPOBear) {
-        igPOBull = s <= k ? 0 : s > kb ? igPayoffOutRange(s.wdiv(k), teta, k, kb) : igPayoffInRange(s.wdiv(k), teta);
-        igPOBear = s >= k ? 0 : s < ka ? igPayoffOutRange(s.wdiv(k), teta, k, ka) : igPayoffInRange(s.wdiv(k), teta);
+        uint256 sk = ud(s).div(ud(k)).unwrap();
+        igPOBull = s <= k ? 0 : s > kb ? igPayoffOutRange(sk, teta, k, kb) : igPayoffInRange(sk, teta);
+        igPOBear = s >= k ? 0 : s < ka ? igPayoffOutRange(sk, teta, k, ka) : igPayoffInRange(sk, teta);
     }
 }
