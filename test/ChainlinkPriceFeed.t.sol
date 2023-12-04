@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
-import {ChainlinkPriceOracle} from "../src/providers/chainlink/ChainlinkPriceOracle.sol";
+import {ChainlinkPriceOracle} from "@project/providers/chainlink/ChainlinkPriceOracle.sol";
 
 /**
  * @title ChainlinkPriceFeedTest

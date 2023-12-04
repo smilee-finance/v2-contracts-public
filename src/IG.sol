@@ -114,7 +114,7 @@ contract IG is DVP {
     }
 
     function notional()
-        public
+        external
         view
         returns (uint256 bearNotional, uint256 bullNotional, uint256 bearAvailNotional, uint256 bullAvailNotional)
     {
@@ -306,7 +306,7 @@ contract IG is DVP {
 
     /// @dev parameters must be defined in Wad
     /// @dev aggregated in order to limit contract size
-    function setParameters(TimeLockedFinanceValues memory params) external {
+    function setParameters(TimeLockedFinanceValues calldata params) external {
         _checkRole(ROLE_ADMIN);
         _setParameters(params);
     }

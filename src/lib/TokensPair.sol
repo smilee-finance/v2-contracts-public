@@ -13,17 +13,17 @@ library TokensPair {
     error SameToken();
     error InvalidToken(address token);
 
-    function getBalances(Pair memory pair, address wallet) public view returns (uint baseTokenBalance, uint sideTokenBalance) {
+    function getBalances(Pair calldata pair, address wallet) external view returns (uint baseTokenBalance, uint sideTokenBalance) {
         baseTokenBalance = IERC20Metadata(pair.baseToken).balanceOf(wallet);
         sideTokenBalance = IERC20Metadata(pair.sideToken).balanceOf(wallet);
     }
 
-    function getDecimals(Pair memory pair) public view returns (uint baseTokenDecimals, uint sideTokenDecimals) {
+    function getDecimals(Pair calldata pair) external view returns (uint baseTokenDecimals, uint sideTokenDecimals) {
         baseTokenDecimals = IERC20Metadata(pair.baseToken).decimals();
         sideTokenDecimals = IERC20Metadata(pair.sideToken).decimals();
     }
 
-    function validate(Pair memory pair) public view {
+    function validate(Pair calldata pair) external view {
         if (pair.baseToken == address(0) || pair.sideToken == address(0)) {
             revert AddressZero();
         }

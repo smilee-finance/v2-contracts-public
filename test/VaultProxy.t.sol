@@ -3,14 +3,14 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IVaultProxy} from "../src/interfaces/IVaultProxy.sol";
-import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
+import {IVaultProxy} from "@project/interfaces/IVaultProxy.sol";
+import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
-import {TestnetToken} from "../src/testnet/TestnetToken.sol";
-import {VaultProxy} from "../src/VaultProxy.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {TestnetToken} from "@project/testnet/TestnetToken.sol";
+import {VaultProxy} from "@project/VaultProxy.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 

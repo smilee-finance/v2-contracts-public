@@ -123,10 +123,10 @@ contract DeployDVP is EnhancedScript {
     // function setTradCompFees() public {
     //     vm.startBroadcast(_deployerPrivateKey);
     //     FeeManager feeMan = FeeManager(_addressProvider.feeManager());
-    //     feeMan.setFeePercentage(0.0003e18);
-    //     feeMan.setCapPercentage(0.125e18);
-    //     feeMan.setMaturityFeePercentage(0.00015e18);
-    //     feeMan.setMaturityCapPercentage(0.125e18);
+    //     feeMan.setFeePercentage(0.00015e18);
+    //     feeMan.setCapPercentage(0.05e18);
+    //     feeMan.setMaturityFeePercentage(0.000075e18);
+    //     feeMan.setMaturityCapPercentage(0.05e18);
     //     vm.stopBroadcast();
     // }
 

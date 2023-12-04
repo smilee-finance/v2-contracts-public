@@ -20,6 +20,7 @@ library EpochFrequency {
 
     /// Logic ///
 
+    /// @dev A zero frequency is most likely a client error
     function validityCheck(uint256 epochFrequency) public pure {
         if (epochFrequency == 0) {
             revert UnsupportedFrequency();

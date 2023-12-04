@@ -7,6 +7,7 @@ out = "out"
 libs = ["lib"]
 revert_strings = "debug"
 fs_permissions = [{ access = "read", path = "./broadcast/"}, { access = "read", path = "./test/"}]
+cache_path = "cache"
 
 
 # By default, each standalone section belongs to the default profile. i.e. [fmt] is equivalent to [profile.default.fmt].
@@ -15,10 +16,9 @@ fs_permissions = [{ access = "read", path = "./broadcast/"}, { access = "read", 
 arbitrum_mainnet = "${RPC_MAINNET}"
 
 [profile.deployment]
-solc_version = "0.8.21"
-evm_version = "paris" # Arbitrum limit
-fs_permissions = [{ access = "read", path = "./broadcast/"}, { access = "read", path = "./test/"}]
+cache_path = "cache/deployment"
 via_ir = true
+# verbosity = 1 # To be tested: should avoid issues with trace calls on the RPC endpoints
 # revert_strings = "strip"
 # optimizer-runs = 200 # Should be lifted up to the contract size limit
 

@@ -17,24 +17,24 @@ library SignedMath {
     }
 
     /// @dev Utility to square a signed value
-    function pow2(int256 n) public pure returns (uint256 res) {
+    function pow2(int256 n) external pure returns (uint256 res) {
         res = abs(n);
         res = res.wmul(res);
     }
 
     /// @dev Utility to compute x^3
-    function pow3(int256 n) public pure returns (int256) {
+    function pow3(int256 n) external pure returns (int256) {
         uint256 res = abs(n);
         return revabs(res.wmul(res).wmul(res), n >= 0);
     }
 
     /// @dev Utility to negate an unsigned value
-    function neg(uint256 n) public pure returns (int256 z) {
+    function neg(uint256 n) external pure returns (int256 z) {
         return -castInt(n);
     }
 
     /// @dev Utility to sum an int and a uint into a uint, returning the abs value of the sum and the sign
-    function sum(int256 a, uint256 b) public pure returns (uint256 q, bool p) {
+    function sum(int256 a, uint256 b) external pure returns (uint256 q, bool p) {
         int256 s = a + castInt(b);
         q = abs(s);
         p = s >= 0;

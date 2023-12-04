@@ -15,7 +15,7 @@ library EpochController {
 
     error EpochNotFinished();
 
-    function init(Epoch storage epoch, uint256 epochFrequency, uint256 firstEpochTimespan) public {
+    function init(Epoch storage epoch, uint256 epochFrequency, uint256 firstEpochTimespan) external {
         EpochFrequency.validityCheck(epochFrequency);
         EpochFrequency.validityCheck(firstEpochTimespan);
 
@@ -26,7 +26,7 @@ library EpochController {
         epoch.numberOfRolledEpochs = 0;
     }
 
-    function roll(Epoch storage epoch) public {
+    function roll(Epoch storage epoch) external {
         // Ensures that the current epoch is concluded
         if (!isFinished(epoch)) {
             revert EpochNotFinished();
@@ -62,7 +62,7 @@ library EpochController {
         return block.timestamp > epoch.current;
     }
 
-    function timeToNextEpoch(Epoch memory epoch) public view returns (uint256) {
+    function timeToNextEpoch(Epoch calldata epoch) external view returns (uint256) {
         if (isFinished(epoch)) {
             return 0;
         }

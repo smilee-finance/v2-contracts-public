@@ -2,14 +2,14 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
-import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
-import {TestnetToken} from "../src/testnet/TestnetToken.sol";
-import {Vault} from "../src/Vault.sol";
+import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
+import {TestnetToken} from "@project/testnet/TestnetToken.sol";
+import {Vault} from "@project/Vault.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
 
 /**
     @title Test case for underlying asset going to zero

@@ -3,11 +3,11 @@ pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {IExchange} from "../src/interfaces/IExchange.sol";
-import {ISwapAdapter} from "../src/interfaces/ISwapAdapter.sol";
-import {ChainlinkPriceOracle} from "../src/providers/chainlink/ChainlinkPriceOracle.sol";
-import {SwapAdapterRouter} from "../src/providers/SwapAdapterRouter.sol";
-import {UniswapAdapter} from "../src/providers/uniswap/UniswapAdapter.sol";
+import {IExchange} from "@project/interfaces/IExchange.sol";
+import {ISwapAdapter} from "@project/interfaces/ISwapAdapter.sol";
+import {ChainlinkPriceOracle} from "@project/providers/chainlink/ChainlinkPriceOracle.sol";
+import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
+import {UniswapAdapter} from "@project/providers/uniswap/UniswapAdapter.sol";
 
 /**
     @title SwapIntegrationTest

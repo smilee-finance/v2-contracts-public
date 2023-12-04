@@ -75,11 +75,11 @@ library VaultLib {
         @param shares The number of shares to be converted to asset
         @param sharePrice The price (in asset) for 1 share
      */
-    function sharesToAsset(uint256 shares, uint256 sharePrice, uint8 tokenDecimals) public pure returns (uint256) {
+    function sharesToAsset(uint256 shares, uint256 sharePrice, uint8 tokenDecimals) external pure returns (uint256) {
         return (shares * sharePrice) / 10 ** tokenDecimals;
     }
 
-    function pricePerShare(uint256 assets, uint256 shares, uint8 tokenDecimals) public pure returns (uint256) {
+    function pricePerShare(uint256 assets, uint256 shares, uint8 tokenDecimals) external pure returns (uint256) {
         uint256 shareUnit = 10 ** tokenDecimals;
         if (shares == 0) {
             // 1:1 ratio
@@ -97,11 +97,11 @@ library VaultLib {
         @return unredeemedShares is the user's virtual balance of shares that are owed
      */
     function getSharesFromReceipt(
-        DepositReceipt memory depositReceipt,
+        DepositReceipt calldata depositReceipt,
         uint256 currentEpoch,
         uint256 sharePrice,
         uint8 tokenDecimals
-    ) public pure returns (uint256 unredeemedShares) {
+    ) external pure returns (uint256 unredeemedShares) {
         if (depositReceipt.epoch == 0 || depositReceipt.epoch == currentEpoch) {
             return depositReceipt.unredeemedShares;
         }

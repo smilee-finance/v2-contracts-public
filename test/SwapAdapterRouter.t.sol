@@ -2,14 +2,14 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
-import {IExchange} from "../src/interfaces/IExchange.sol";
-import {IPriceOracle} from "../src/interfaces/IPriceOracle.sol";
-import {AmountsMath} from "../src/lib/AmountsMath.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
-import {SwapAdapterRouter} from "../src/providers/SwapAdapterRouter.sol";
-import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
-import {TestnetSwapAdapter} from "../src/testnet/TestnetSwapAdapter.sol";
-import {TestnetToken} from "../src/testnet/TestnetToken.sol";
+import {IExchange} from "@project/interfaces/IExchange.sol";
+import {IPriceOracle} from "@project/interfaces/IPriceOracle.sol";
+import {AmountsMath} from "@project/lib/AmountsMath.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
+import {TestnetSwapAdapter} from "@project/testnet/TestnetSwapAdapter.sol";
+import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {Utils} from "./utils/Utils.sol";
 

@@ -27,7 +27,7 @@ library WadTime {
         @param end The end timestamp of the reference period
         @return ndays The number of days between start and end in wads
      */
-    function daysFromTs(uint256 start, uint256 end) public pure returns (uint256 ndays) {
+    function daysFromTs(uint256 start, uint256 end) external pure returns (uint256 ndays) {
         if (start > end) {
             revert InvalidInput();
         }
@@ -39,7 +39,7 @@ library WadTime {
         @param d The number of days in wads
         @return nYears_ number of years in wads
      */
-    function nYears(uint256 d) public pure returns (uint256 nYears_) {
+    function nYears(uint256 d) external pure returns (uint256 nYears_) {
         return ud(d).div(convert(365)).unwrap();
     }
 }

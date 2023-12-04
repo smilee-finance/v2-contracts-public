@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
-import {Epoch} from "../src/lib/EpochController.sol";
-import {EpochControls} from "../src/EpochControls.sol";
+import {Epoch} from "@project/lib/EpochController.sol";
+import {EpochControls} from "@project/EpochControls.sol";
 
 contract MockedEpochControls is EpochControls {
     uint256 public beforeRollCount;

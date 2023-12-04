@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {WadTime} from "../src/lib/WadTime.sol";
+import {WadTime} from "@project/lib/WadTime.sol";
 
 contract WadTimeLibTest is Test {
     /// @dev Accepted delta on comparisons (up to 1e-16)

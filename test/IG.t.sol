@@ -2,18 +2,18 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {IDVP} from "../src/interfaces/IDVP.sol";
-import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
-import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
-import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "../src/lib/FinanceIG.sol";
-import {TimeLock, TimeLockedBool, TimeLockedUInt} from "../src/lib/TimeLock.sol";
+import {IDVP} from "@project/interfaces/IDVP.sol";
+import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
+import {OptionStrategy} from "@project/lib/OptionStrategy.sol";
+import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "@project/lib/FinanceIG.sol";
+import {TimeLock, TimeLockedBool, TimeLockedUInt} from "@project/lib/TimeLock.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
-import {FeeManager} from "../src/FeeManager.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {FeeManager} from "@project/FeeManager.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 
 contract IGTest is Test {

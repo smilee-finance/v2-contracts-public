@@ -2,8 +2,8 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
-import {Utils} from "./utils/Utils.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {Utils} from "../utils/Utils.sol";
 
 contract AddressProviderTest is Test {
     address tokenAdmin = address(0x1);

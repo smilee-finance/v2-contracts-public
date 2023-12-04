@@ -2,17 +2,17 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import {IPositionManager} from "../src/interfaces/IPositionManager.sol";
-import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
-import {OptionStrategy} from "../src/lib/OptionStrategy.sol";
-import {Epoch} from "../src/lib/EpochController.sol";
+import {IPositionManager} from "@project/interfaces/IPositionManager.sol";
+import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
+import {OptionStrategy} from "@project/lib/OptionStrategy.sol";
+import {Epoch} from "@project/lib/EpochController.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
-import {FeeManager} from "../src/FeeManager.sol";
-import {IG} from "../src/IG.sol";
-import {PositionManager} from "../src/PositionManager.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {FeeManager} from "@project/FeeManager.sol";
+import {IG} from "@project/IG.sol";
+import {PositionManager} from "@project/PositionManager.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 

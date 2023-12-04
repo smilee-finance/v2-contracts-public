@@ -27,7 +27,7 @@ library Notional {
         @param strike the reference strike.
         @param notional the initial capital.
      */
-    function setInitial(Info storage self, uint256 strike, Amount memory notional) public {
+    function setInitial(Info storage self, uint256 strike, Amount memory notional) external {
         self.initial[strike] = notional;
     }
 
@@ -36,7 +36,7 @@ library Notional {
         @param strike the reference strike.
         @return amount The used liquidity.
      */
-    function getInitial(Info storage self, uint256 strike) public view returns (Amount memory amount) {
+    function getInitial(Info storage self, uint256 strike) external view returns (Amount memory amount) {
         amount = self.initial[strike];
     }
 
@@ -45,7 +45,7 @@ library Notional {
         @param strike the reference strike.
         @return available_ The available liquidity.
      */
-    function available(Info storage self, uint256 strike) public view returns (Amount memory available_) {
+    function available(Info storage self, uint256 strike) external view returns (Amount memory available_) {
         Amount memory initial = self.initial[strike];
         Amount memory used = self.used[strike];
 
@@ -59,7 +59,7 @@ library Notional {
         @param amount the new used amount.
         @dev Overflow checks must be done externally.
      */
-    function increaseUsage(Info storage self, uint256 strike, Amount memory amount) public {
+    function increaseUsage(Info storage self, uint256 strike, Amount memory amount) external {
         self.used[strike].increase(amount);
     }
 
@@ -69,7 +69,7 @@ library Notional {
         @param amount the notional of the option.
         @dev Underflow checks must be done externally.
      */
-    function decreaseUsage(Info storage self, uint256 strike, Amount memory amount) public {
+    function decreaseUsage(Info storage self, uint256 strike, Amount memory amount) external {
         self.used[strike].decrease(amount);
     }
 
@@ -88,7 +88,7 @@ library Notional {
         @param payoffCall_ the payoff set aside for the call strategy.
         @param payoffPut_ the payoff set aside for the put strategy.
      */
-    function accountPayoffs(Info storage self, uint256 strike, uint256 payoffCall_, uint256 payoffPut_) public {
+    function accountPayoffs(Info storage self, uint256 strike, uint256 payoffCall_, uint256 payoffPut_) external {
         self.payoff[strike].setRaw(payoffCall_, payoffPut_);
     }
 
@@ -97,7 +97,7 @@ library Notional {
         @param strike The reference strike
         @param amount The redeemed payoff
      */
-    function decreasePayoff(Info storage self, uint256 strike, Amount memory amount) public {
+    function decreasePayoff(Info storage self, uint256 strike, Amount memory amount) external {
         self.payoff[strike].decrease(amount);
     }
 
@@ -123,7 +123,7 @@ library Notional {
         uint256 strike,
         Amount memory amount_,
         uint8 decimals
-    ) public view returns (Amount memory payoff_) {
+    ) external view returns (Amount memory payoff_) {
         (uint256 usedCall_, uint256 usedPut_) = getUsed(self, strike).getRaw();
         Amount memory accountedPayoff_ = getAccountedPayoff(self, strike);
 
@@ -172,7 +172,7 @@ library Notional {
         Amount memory amount,
         bool tradeIsBuy,
         uint8 tokenDecimals
-    ) public view returns (uint256 utilizationRate) {
+    ) external view returns (uint256 utilizationRate) {
         (uint256 used, uint256 total) = utilizationRateFactors(self, strike);
         if (total == 0) {
             return 0;

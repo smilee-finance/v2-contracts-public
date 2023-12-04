@@ -4,19 +4,19 @@ pragma solidity ^0.8.19;
 struct TimeLockedAddress {
     address safe;
     address proposed;
-    uint256 validAfter;
+    uint256 validFrom;
 }
 
 struct TimeLockedUInt {
     uint256 safe;
     uint256 proposed;
-    uint256 validAfter;
+    uint256 validFrom;
 }
 
 struct TimeLockedBool {
     bool safe;
     bool proposed;
-    uint256 validAfter;
+    uint256 validFrom;
 }
 
 library TimeLock {
@@ -25,21 +25,21 @@ library TimeLock {
     // Address
     //-------------------------------------------------------------------------
 
-    function set(TimeLockedAddress storage tl, address value, uint256 delay) public {
-        if (tl.validAfter == 0) {
+    function set(TimeLockedAddress storage tl, address value, uint256 delay) external {
+        if (tl.validFrom == 0) {
             // The very first call is expected to be safe for immediate usage
             // NOTE: its security is linked to the deployment script
             tl.safe = value;
         }
-        if (tl.validAfter > 0 && block.timestamp > tl.validAfter) {
+        if (tl.validFrom > 0 && block.timestamp >= tl.validFrom) {
             tl.safe = tl.proposed;
         }
         tl.proposed = value;
-        tl.validAfter = block.timestamp + delay;
+        tl.validFrom = block.timestamp + delay;
     }
 
-    function get(TimeLockedAddress memory tl) public view returns (address) {
-        if (block.timestamp < tl.validAfter) {
+    function get(TimeLockedAddress calldata tl) external view returns (address) {
+        if (block.timestamp < tl.validFrom) {
             return tl.safe;
         } else {
             return tl.proposed;
@@ -50,21 +50,21 @@ library TimeLock {
     // UInt256
     //-------------------------------------------------------------------------
 
-    function set(TimeLockedUInt storage tl, uint256 value, uint256 delay) public {
-        if (tl.validAfter == 0) {
+    function set(TimeLockedUInt storage tl, uint256 value, uint256 delay) external {
+        if (tl.validFrom == 0) {
             // The very first call is expected to be safe for immediate usage
             // NOTE: its security is linked to the deployment script
             tl.safe = value;
         }
-        if (tl.validAfter > 0 && block.timestamp > tl.validAfter) {
+        if (tl.validFrom > 0 && block.timestamp >= tl.validFrom) {
             tl.safe = tl.proposed;
         }
         tl.proposed = value;
-        tl.validAfter = block.timestamp + delay;
+        tl.validFrom = block.timestamp + delay;
     }
 
-    function get(TimeLockedUInt memory tl) public view returns (uint256) {
-        if (block.timestamp < tl.validAfter) {
+    function get(TimeLockedUInt calldata tl) external view returns (uint256) {
+        if (block.timestamp < tl.validFrom) {
             return tl.safe;
         } else {
             return tl.proposed;
@@ -75,21 +75,21 @@ library TimeLock {
     // Bool
     //-------------------------------------------------------------------------
 
-    function set(TimeLockedBool storage tl, bool value, uint256 delay) public {
-        if (tl.validAfter == 0) {
+    function set(TimeLockedBool storage tl, bool value, uint256 delay) external {
+        if (tl.validFrom == 0) {
             // The very first call is expected to be safe for immediate usage
             // NOTE: its security is linked to the deployment script
             tl.safe = value;
         }
-        if (tl.validAfter > 0 && block.timestamp > tl.validAfter) {
+        if (tl.validFrom > 0 && block.timestamp >= tl.validFrom) {
             tl.safe = tl.proposed;
         }
         tl.proposed = value;
-        tl.validAfter = block.timestamp + delay;
+        tl.validFrom = block.timestamp + delay;
     }
 
-    function get(TimeLockedBool memory tl) public view returns (bool) {
-        if (block.timestamp < tl.validAfter) {
+    function get(TimeLockedBool calldata tl) external view returns (bool) {
+        if (block.timestamp < tl.validFrom) {
             return tl.safe;
         } else {
             return tl.proposed;

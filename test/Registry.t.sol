@@ -2,16 +2,16 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
-import {TestnetToken} from "../src/testnet/TestnetToken.sol";
-import {TestnetPriceOracle} from "../src/testnet/TestnetPriceOracle.sol";
+import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
+import {TestnetToken} from "@project/testnet/TestnetToken.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
-import {Epoch, EpochController} from "../src/lib/EpochController.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {Epoch, EpochController} from "@project/lib/EpochController.sol";
 
 contract RegistryTest is Test {
     using EpochController for Epoch;

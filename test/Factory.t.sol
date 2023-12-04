@@ -3,16 +3,16 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {TestnetToken} from "../src/testnet/TestnetToken.sol";
+import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {Factory} from "./utils/Factory.sol";
-import {EpochFrequency} from "../src/lib/EpochFrequency.sol";
-import {DVP} from "../src/DVP.sol";
-import {DVPType} from "../src/lib/DVPType.sol";
-import {Registry} from "../src/Registry.sol";
-import {Vault} from "../src/Vault.sol";
-import {IG} from "../src/IG.sol";
-import {AddressProvider} from "../src/AddressProvider.sol";
-import {Epoch} from "../src/lib/EpochController.sol";
+import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
+import {DVP} from "@project/DVP.sol";
+import {DVPType} from "@project/lib/DVPType.sol";
+import {Registry} from "@project/Registry.sol";
+import {Vault} from "@project/Vault.sol";
+import {IG} from "@project/IG.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {Epoch} from "@project/lib/EpochController.sol";
 
 contract FactoryTest is Test {
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));

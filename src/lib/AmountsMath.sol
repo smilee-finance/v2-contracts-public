@@ -14,46 +14,46 @@ library AmountsMath {
     /// LOGICS ///
 
     // @notice: takes a number and wrap it into a WAD
-    function wrap(uint x) public pure returns (uint z) {
+    function wrap(uint x) external pure returns (uint z) {
         UD60x18 wx = convert(x);
         return wx.unwrap();
         // return mul(x, WAD);
     }
 
     // Sums two WAD numbers
-    function add(uint x, uint y) public pure returns (uint z) {
+    function add(uint x, uint y) external pure returns (uint z) {
         UD60x18 wx = ud(x);
         UD60x18 wy = ud(y);
         return wx.add(wy).unwrap();
     }
 
     // Subtract two WAD numbers
-    function sub(uint x, uint y) public pure returns (uint z) {
+    function sub(uint x, uint y) external pure returns (uint z) {
         UD60x18 wx = ud(x);
         UD60x18 wy = ud(y);
         return wx.sub(wy).unwrap();
     }
 
     // Multiplies two WAD numbers
-    function mul(uint x, uint y) public pure returns (uint z) {
+    function mul(uint x, uint y) external pure returns (uint z) {
         UD60x18 wx = ud(x);
         UD60x18 wy = ud(y);
         return wx.mul(wy).unwrap();
     }
 
-    function wmul(uint x, uint y) public pure returns (uint z) {
+    function wmul(uint x, uint y) external pure returns (uint z) {
         UD60x18 wx = ud(x);
         UD60x18 wy = ud(y);
         return wx.mul(wy).unwrap();
     }
 
-    function wdiv(uint x, uint y) public pure returns (uint z) {
+    function wdiv(uint x, uint y) external pure returns (uint z) {
         UD60x18 wx = ud(x);
         UD60x18 wy = ud(y);
         return wx.div(wy).unwrap();
     }
 
-    function wrapDecimals(uint256 amount, uint8 decimals) public pure returns (uint256) {
+    function wrapDecimals(uint256 amount, uint8 decimals) external pure returns (uint256) {
         if (decimals == _DECIMALS) {
             return amount;
         }
@@ -63,7 +63,7 @@ library AmountsMath {
         return amount * (10 ** (_DECIMALS - decimals));
     }
 
-    function unwrapDecimals(uint256 amount, uint8 decimals) public pure returns (uint256) {
+    function unwrapDecimals(uint256 amount, uint8 decimals) external pure returns (uint256) {
         if (decimals == _DECIMALS) {
             return amount;
         }

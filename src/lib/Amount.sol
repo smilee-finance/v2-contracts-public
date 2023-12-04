@@ -13,7 +13,7 @@ library AmountHelper {
         @notice Increase amount.
         @param amount the increased amount.
      */
-    function increase(Amount storage self, Amount memory amount) public {
+    function increase(Amount storage self, Amount memory amount) external {
         self.up += amount.up;
         self.down += amount.down;
     }
@@ -22,7 +22,7 @@ library AmountHelper {
         @notice Decrease amount.
         @param amount the decreased amount.
      */
-    function decrease(Amount storage self, Amount memory amount) public {
+    function decrease(Amount storage self, Amount memory amount) external {
         self.up -= amount.up;
         self.down -= amount.down;
     }
@@ -32,7 +32,7 @@ library AmountHelper {
         @param up_ The up amount.
         @param down_ The down amount.
      */
-    function setRaw(Amount storage self, uint256 up_, uint256 down_) public {
+    function setRaw(Amount storage self, uint256 up_, uint256 down_) external {
         self.up = up_;
         self.down = down_;
     }
@@ -42,7 +42,7 @@ library AmountHelper {
         @return up_ The up amount.
         @return down_ The down amount.
      */
-    function getRaw(Amount memory self) public pure returns (uint256 up_, uint256 down_) {
+    function getRaw(Amount memory self) external pure returns (uint256 up_, uint256 down_) {
         up_ = self.up;
         down_ = self.down;
     }
@@ -51,7 +51,7 @@ library AmountHelper {
         @notice Get the sum of the underlying values.
         @return total_ The total amount.
      */
-    function getTotal(Amount memory self) public pure returns (uint256 total_) {
+    function getTotal(Amount memory self) external pure returns (uint256 total_) {
         total_ = self.up + self.down;
     }
 }

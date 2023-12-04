@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {FeeManager} from "../src/FeeManager.sol";
+import {FeeManager} from "@project/FeeManager.sol";
 
 contract FeeManagerTest is Test {
     FeeManager _feeManager;

@@ -6,11 +6,11 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import {console} from "forge-std/console.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {Gaussian} from "@solstat/Gaussian.sol";
-import {AmountsMath} from "../src/lib/AmountsMath.sol";
-import {FinanceIGDelta} from "../src/lib/FinanceIGDelta.sol";
-import {FinanceIGPayoff} from "../src/lib/FinanceIGPayoff.sol";
-import {FinanceIGPrice} from "../src/lib/FinanceIGPrice.sol";
-import {WadTime} from "../src/lib/WadTime.sol";
+import {AmountsMath} from "@project/lib/AmountsMath.sol";
+import {FinanceIGDelta} from "@project/lib/FinanceIGDelta.sol";
+import {FinanceIGPayoff} from "@project/lib/FinanceIGPayoff.sol";
+import {FinanceIGPrice} from "@project/lib/FinanceIGPrice.sol";
+import {WadTime} from "@project/lib/WadTime.sol";
 
 contract FinanceLibJsonTest is Test {
     using AmountsMath for uint256;

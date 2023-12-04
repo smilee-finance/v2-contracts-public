@@ -22,7 +22,7 @@ library Position {
         @param strike The strike price of the position
         @return id The position id
      */
-    function getID(address owner, uint256 strike) public pure returns (bytes32) {
+    function getID(address owner, uint256 strike) external pure returns (bytes32) {
         return keccak256(abi.encodePacked(owner, strike));
     }
 
@@ -31,7 +31,7 @@ library Position {
         @param self The position to update.
         @dev a position exists if its epoch is set.
      */
-    function exists(Info memory self) public pure returns (bool) {
+    function exists(Info calldata self) external pure returns (bool) {
         return self.epoch != 0;
     }
 }
