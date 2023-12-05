@@ -4,7 +4,6 @@ pragma solidity ^0.8.15;
 import {ud} from "@prb/math/UD60x18.sol";
 import {Amount, AmountHelper} from "./Amount.sol";
 import {AmountsMath} from "./AmountsMath.sol";
-import {OptionStrategy} from "./OptionStrategy.sol";
 
 /**
     @title Simple library to ease DVP liquidity access and modification
@@ -27,7 +26,7 @@ library Notional {
         @param strike the reference strike.
         @param notional the initial capital.
      */
-    function setInitial(Info storage self, uint256 strike, Amount memory notional) external {
+    function setInitial(Info storage self, uint256 strike, Amount calldata notional) external {
         self.initial[strike] = notional;
     }
 
@@ -59,7 +58,7 @@ library Notional {
         @param amount the new used amount.
         @dev Overflow checks must be done externally.
      */
-    function increaseUsage(Info storage self, uint256 strike, Amount memory amount) external {
+    function increaseUsage(Info storage self, uint256 strike, Amount calldata amount) external {
         self.used[strike].increase(amount);
     }
 
@@ -69,7 +68,7 @@ library Notional {
         @param amount the notional of the option.
         @dev Underflow checks must be done externally.
      */
-    function decreaseUsage(Info storage self, uint256 strike, Amount memory amount) external {
+    function decreaseUsage(Info storage self, uint256 strike, Amount calldata amount) external {
         self.used[strike].decrease(amount);
     }
 
@@ -78,7 +77,7 @@ library Notional {
         @param strike the reference strike.
         @return amount The used liquidity.
      */
-    function getUsed(Info storage self, uint256 strike) public view returns (Amount memory amount) {
+    function getUsed(Info storage self, uint256 strike) external view returns (Amount memory amount) {
         return self.used[strike];
     }
 
@@ -97,7 +96,7 @@ library Notional {
         @param strike The reference strike
         @param amount The redeemed payoff
      */
-    function decreasePayoff(Info storage self, uint256 strike, Amount memory amount) external {
+    function decreasePayoff(Info storage self, uint256 strike, Amount calldata amount) external {
         self.payoff[strike].decrease(amount);
     }
 
@@ -106,7 +105,7 @@ library Notional {
         @param strike The reference strike
         @return amount The payoff set aside
      */
-    function getAccountedPayoff(Info storage self, uint256 strike) public view returns (Amount memory amount) {
+    function getAccountedPayoff(Info storage self, uint256 strike) external view returns (Amount memory amount) {
         amount = self.payoff[strike];
     }
 
@@ -124,25 +123,25 @@ library Notional {
         Amount memory amount_,
         uint8 decimals
     ) external view returns (Amount memory payoff_) {
-        (uint256 usedCall_, uint256 usedPut_) = getUsed(self, strike).getRaw();
-        Amount memory accountedPayoff_ = getAccountedPayoff(self, strike);
+        Amount memory used_ = self.used[strike];
+        Amount memory accountedPayoff_ = self.payoff[strike];
 
         if (amount_.up > 0) {
             amount_.up = AmountsMath.wrapDecimals(amount_.up, decimals);
-            usedCall_ = AmountsMath.wrapDecimals(usedCall_, decimals);
+            used_.up = AmountsMath.wrapDecimals(used_.up, decimals);
             accountedPayoff_.up = AmountsMath.wrapDecimals(accountedPayoff_.up, decimals);
 
             // amount : used = share : payoff
-            payoff_.up = ud(amount_.up).mul(ud(accountedPayoff_.up)).div(ud(usedCall_)).unwrap();
+            payoff_.up = ud(amount_.up).mul(ud(accountedPayoff_.up)).div(ud(used_.up)).unwrap();
             payoff_.up = AmountsMath.unwrapDecimals(payoff_.up, decimals);
         }
 
         if (amount_.down > 0) {
             amount_.down = AmountsMath.wrapDecimals(amount_.down, decimals);
-            usedPut_ = AmountsMath.wrapDecimals(usedPut_, decimals);
+            used_.down = AmountsMath.wrapDecimals(used_.down, decimals);
             accountedPayoff_.down = AmountsMath.wrapDecimals(accountedPayoff_.down, decimals);
 
-            payoff_.down = ud(amount_.down).mul(ud(accountedPayoff_.down)).div(ud(usedPut_)).unwrap();
+            payoff_.down = ud(amount_.down).mul(ud(accountedPayoff_.down)).div(ud(used_.down)).unwrap();
             payoff_.down = AmountsMath.unwrapDecimals(payoff_.down, decimals);
         }
     }
@@ -169,7 +168,7 @@ library Notional {
     function postTradeUtilizationRate(
         Info storage self,
         uint256 strike,
-        Amount memory amount,
+        Amount calldata amount,
         bool tradeIsBuy,
         uint8 tokenDecimals
     ) external view returns (uint256 utilizationRate) {

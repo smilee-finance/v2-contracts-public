@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-// import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
-
 library VaultLib {
-    // using SafeMath for uint256;
 
     bytes4 constant DeadMarketReason = bytes4(keccak256("MarketReason"));
     bytes4 constant DeadManualKillReason = bytes4(keccak256("ManualKill"));

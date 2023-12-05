@@ -47,11 +47,15 @@ contract TimeLockTest is Test {
         assertEq(anotherValue, lockedAddr.safe);
         assertEq(zero, lockedAddr.proposed);
 
-        // Another set reset the previous proposal and the validity time:
+        // Another set resets the previous proposal and the validity time:
         assertEq(block.timestamp + delay, lockedAddr.validFrom);
-        vm.warp(lockedAddr.validFrom + 3600);
+        uint256 nearFuture = block.timestamp + 3600;
+        vm.warp(nearFuture);
         lockedAddr.set(value, delay);
         assertEq(value, lockedAddr.proposed);
         assertEq(block.timestamp + delay, lockedAddr.validFrom);
+
+        // Despire the multiple calls to set, the safe value is still the right one:
+        assertEq(anotherValue, lockedAddr.get());
     }
 }

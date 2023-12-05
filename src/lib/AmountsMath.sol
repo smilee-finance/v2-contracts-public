@@ -17,7 +17,6 @@ library AmountsMath {
     function wrap(uint x) external pure returns (uint z) {
         UD60x18 wx = convert(x);
         return wx.unwrap();
-        // return mul(x, WAD);
     }
 
     // Sums two WAD numbers

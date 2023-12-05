@@ -50,8 +50,9 @@ library FinanceIG {
 
     error OutOfAllowedRange();
 
+    // Allows to save on the contract size thanks to fewer delegate calls
     function _yearsToMaturity(uint256 maturity) private view returns (uint256 yearsToMaturity) {
-        yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(block.timestamp, maturity));
+        yearsToMaturity = WadTime.yearsToTimestamp(maturity);
     }
 
     function getDeltaHedgeAmount(
@@ -97,18 +98,20 @@ library FinanceIG {
     ) private view returns (int256 igDBull, int256 igDBear) {
         FinanceIGDelta.Parameters memory deltaParams;
 
+        uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
+
         (deltaParams.alfa1, deltaParams.alfa2) = FinanceIGDelta.alfas(
             params.currentStrike,
             params.kA,
             params.kB,
             postTradeVolatility,
-            _yearsToMaturity(params.maturity)
+            yearsToMaturity
         );
 
         deltaParams.sigma = postTradeVolatility;
         deltaParams.k = params.currentStrike;
         deltaParams.s = oraclePrice;
-        deltaParams.tau = WadTime.nYears(WadTime.daysFromTs(block.timestamp, params.maturity));
+        deltaParams.tau = yearsToMaturity;
         deltaParams.limSup = params.limSup;
         deltaParams.limInf = params.limInf;
 
@@ -125,7 +128,7 @@ library FinanceIG {
     ) public view returns (uint256 marketValue) {
         FinanceIGPrice.Parameters memory priceParams;
         {
-            uint256 yearsToMaturity = WadTime.nYears(WadTime.daysFromTs(block.timestamp, params.maturity));
+            uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
 
             priceParams.r = riskFreeRate;
             priceParams.sigma = postTradeVolatility;
