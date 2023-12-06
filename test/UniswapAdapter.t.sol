@@ -13,6 +13,8 @@ import {UniswapAdapter} from "@project/providers/uniswap/UniswapAdapter.sol";
     set the RPC env variable
  */
 contract UniswapAdapterTest is Test {
+    bytes4 constant _INVALID_PATH = bytes4(keccak256("InvalidPath()"));
+
     UniswapAdapter _uniswap;
     address _admin;
 
@@ -20,9 +22,10 @@ contract UniswapAdapterTest is Test {
     address constant _UNIV3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
     IQuoterV2 _quoter = IQuoterV2(0x61fFE014bA17989E743c5F6cB21bF9697530B21e);
 
-    IERC20 constant _WBTC = IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
-    IERC20 constant _WETH = IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
-    IERC20 constant _USDC = IERC20(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
+    address constant _WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+    address constant _WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    address constant _USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
+    address constant _USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
 
     address constant _WETH_HOLDER = 0x940a7ed683A60220dE573AB702Ec8F789ef0A402;
     address constant _WBTC_HOLDER = 0x3B7424D5CC87dc2B670F4c99540f7380de3D5880;
@@ -41,16 +44,39 @@ contract UniswapAdapterTest is Test {
         _uniswap.setPath(wethUsdcPath, address(_WETH), address(_USDC));
 
         // Set multi-pool path for <WBTC, USDC> to WBTC -> WETH [0.05%]-> USDC [0.05%]
-        bytes memory wbtcUsdcPath = abi.encodePacked(
-            address(_WBTC),
-            uint24(500),
-            address(_WETH),
-            uint24(500),
-            address(_USDC)
-        );
-        _uniswap.setPath(wbtcUsdcPath, address(_WBTC), address(_USDC));
+        bytes memory wbtcUsdcPath = abi.encodePacked(_WBTC, uint24(500), _WETH, uint24(500), _USDC);
+        _uniswap.setPath(wbtcUsdcPath, _WBTC, _USDC);
 
         vm.stopPrank();
+    }
+
+    function testSetPath() public {
+        bytes memory wethUsdcPath = abi.encodePacked(_WETH, uint24(3000), _USDC);
+        bytes memory wbtcUsdcPath = abi.encodePacked(_WBTC, uint24(500), _WETH, uint24(500), _USDC);
+        bytes memory wbtcUsdcPathLong = abi.encodePacked(_WBTC, uint24(500), _USDT, uint24(500), _WETH, uint24(500), _USDC);
+        bytes memory wbtcUsdcPathErr = abi.encodePacked(_WBTC, uint24(500), _USDC, uint24(500), _USDC, uint24(500));
+
+        vm.prank(_admin);
+        vm.expectRevert(_INVALID_PATH); // wrong out token
+        _uniswap.setPath(wethUsdcPath, _WETH, _WBTC);
+
+        vm.prank(_admin);
+        vm.expectRevert(_INVALID_PATH); // wrong in token
+        _uniswap.setPath(wbtcUsdcPath, _WETH, _USDC);
+
+        vm.prank(_admin);
+        vm.expectRevert(_INVALID_PATH); // path too long
+        _uniswap.setPath(wbtcUsdcPathLong, _WBTC, _USDC);
+
+        vm.prank(_admin);
+        vm.expectRevert(_INVALID_PATH); // mid pool does not exists
+        _uniswap.setPath(wbtcUsdcPathErr, _WBTC, _USDC);
+
+        vm.prank(_admin);
+        _uniswap.setPath(wethUsdcPath, _WETH, _USDC);
+
+        vm.prank(_admin);
+        _uniswap.setPath(wbtcUsdcPath, _WBTC, _USDC);
     }
 
     /// @dev Uses default pool (0.05%)
@@ -93,16 +119,19 @@ contract UniswapAdapterTest is Test {
         _swapOutTest(_WBTC, _USDC, _WBTC_HOLDER, 1_000e6); // 1000 USDC
     }
 
-    function _swapInTest(IERC20 tokenIn, IERC20 tokenOut, address holder, uint256 amountIn) private {
+    function _swapInTest(address tokenInAddr, address tokenOutAddr, address holder, uint256 amountIn) private {
+        IERC20 tokenIn = IERC20(tokenInAddr);
+        IERC20 tokenOut = IERC20(tokenOutAddr);
+
         uint256 tokenInBalanceBefore = tokenIn.balanceOf(holder);
         uint256 tokenOutBalanceBefore = tokenOut.balanceOf(holder);
 
-        uint256 expectedAmountOut = _quoteInput(address(tokenIn), address(tokenOut), amountIn);
-        // uint256 expectedAmountOut2 = _uniswap.getOutputAmount(address(tokenIn), address(tokenOut), amountIn);
+        uint256 expectedAmountOut = _quoteInput(tokenInAddr, tokenOutAddr, amountIn);
+        // uint256 expectedAmountOut2 = _uniswap.getOutputAmount(tokenInAddr, tokenOutAddr, amountIn);
 
         vm.startPrank(holder);
         tokenIn.approve(address(_uniswap), tokenIn.balanceOf(holder));
-        _uniswap.swapIn(address(tokenIn), address(tokenOut), amountIn);
+        _uniswap.swapIn(tokenInAddr, tokenOutAddr, amountIn);
         vm.stopPrank();
 
         uint256 tokenInBalanceAfter = tokenIn.balanceOf(holder);
@@ -112,16 +141,19 @@ contract UniswapAdapterTest is Test {
         assertEq(tokenOutBalanceAfter, tokenOutBalanceBefore + expectedAmountOut);
     }
 
-    function _swapOutTest(IERC20 tokenIn, IERC20 tokenOut, address holder, uint256 amountOut) private {
+    function _swapOutTest(address tokenInAddr, address tokenOutAddr, address holder, uint256 amountOut) private {
+        IERC20 tokenIn = IERC20(tokenInAddr);
+        IERC20 tokenOut = IERC20(tokenOutAddr);
+
         uint256 tokenInBalanceBefore = tokenIn.balanceOf(holder);
         uint256 tokenOutBalanceBefore = tokenOut.balanceOf(holder);
 
-        uint256 expectedAmountIn = _quoteOutput(address(tokenIn), address(tokenOut), amountOut);
-        // uint256 expectedAmountIn2 = _uniswap.getInputAmount(address(tokenIn), address(tokenOut), amountOut);
+        uint256 expectedAmountIn = _quoteOutput(tokenInAddr, tokenOutAddr, amountOut);
+        // uint256 expectedAmountIn2 = _uniswap.getInputAmount(tokenInAddr, tokenOutAddr, amountOut);
 
         vm.startPrank(holder);
         tokenIn.approve(address(_uniswap), tokenIn.balanceOf(holder));
-        _uniswap.swapOut(address(tokenIn), address(tokenOut), amountOut, expectedAmountIn);
+        _uniswap.swapOut(tokenInAddr, tokenOutAddr, amountOut, expectedAmountIn);
         vm.stopPrank();
 
         uint256 tokenInBalanceAfter = tokenIn.balanceOf(holder);

@@ -5,7 +5,8 @@
     "overrides": [
         {
             "files": [
-                "test/FinanceLib.t.sol"
+                "test/FinanceLib.t.sol",
+                "test/UniswapAdapter.t.sol"
             ],
             "options": {
                 "printWidth": 160

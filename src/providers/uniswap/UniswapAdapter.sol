@@ -22,8 +22,8 @@ import {Path} from "./lib/Path.sol";
 contract UniswapAdapter is ISwapAdapter, AccessControl {
     using Path for bytes;
 
-    uint256 constant _MIN_PATH_LEN = 43;
-    uint256 constant _MAX_PATH_LEN = 66;
+    uint256 constant _MIN_PATH_LEN = 43; // direct
+    uint256 constant _MAX_PATH_LEN = 66; // 1 hop
     uint256 constant _TIME_DELAY = 30;
 
     // Fees for LP Single
@@ -48,9 +48,8 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
     mapping(bytes32 => SwapPath) private _swapPaths;
 
     error AddressZero();
-    error PathNotValid();
+    error InvalidPath();
     error PathNotSet();
-    error PathLengthNotValid();
     error PoolDoesNotExist();
     error NotImplemented();
 
@@ -72,9 +71,7 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
      */
     function setPath(bytes memory path, address tokenIn, address tokenOut) public {
         _checkRole(ROLE_ADMIN);
-        if (!_checkPath(path, tokenIn, tokenOut)) {
-            revert PathNotValid();
-        }
+        _checkPath(path, tokenIn, tokenOut);
 
         bytes memory reversePath = _reversePath(path);
         SwapPath memory swapPath = SwapPath(true, path, reversePath);
@@ -97,12 +94,8 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
             return _swapPaths[_encodePair(tokenIn, tokenOut)].data;
         } else {
             // return default path
-            path = reversed ? abi.encodePacked(tokenOut, _DEFAULT_FEE, tokenIn) : path = abi.encodePacked(
-                tokenIn,
-                _DEFAULT_FEE,
-                tokenOut
-            );
-            _checkPath(path, tokenOut, tokenIn);
+            path = abi.encodePacked(reversed ? tokenOut : tokenIn, _DEFAULT_FEE, reversed ? tokenIn : tokenOut);
+            _checkPath(path, reversed ? tokenOut : tokenIn, reversed ? tokenIn : tokenOut);
             return path;
         }
     }
@@ -217,43 +210,48 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
     }
 
     /// @dev Returns the IUniswapV3Pool with given parameters, reverts if it does not exist
-    function _getPool(address token0, address token1, uint24 fee) private view returns (IUniswapV3Pool pool) {
+    function _poolExists(address token0, address token1, uint24 fee) private view returns (bool exists) {
         address poolAddr = _factory.getPool(token0, token1, fee);
-        if (poolAddr == address(0)) {
-            revert PoolDoesNotExist();
-        }
-        pool = IUniswapV3Pool(poolAddr);
+        return poolAddr != address(0);
     }
 
     /// @dev Checks if the tokenIn and tokenOut in the swapPath matches the validTokenIn and validTokenOut specified
-    function _checkPath(
-        bytes memory path,
-        address validTokenIn,
-        address validTokenOut
-    ) private view returns (bool isValidPath) {
-        address tokenIn;
+    function _checkPath(bytes memory path, address validTokenIn, address validTokenOut) private view {
+        address tokenInFst;
+        address tokenInMid;
         address tokenOut;
         uint24 fee;
 
         if (path.length < _MIN_PATH_LEN || path.length > _MAX_PATH_LEN) {
-            revert PathLengthNotValid();
+            revert InvalidPath();
         }
 
         // Decode the first pool in path
-        (tokenIn, tokenOut, fee) = path.decodeFirstPool();
+        (tokenInFst, tokenOut, fee) = path.decodeFirstPool();
 
-        _getPool(tokenIn, tokenOut, fee);
+        if (!_poolExists(tokenInFst, tokenOut, fee)) {
+            revert InvalidPath();
+        }
 
         while (path.hasMultiplePools()) {
             // Remove the first pool from path
             path = path.skipToken();
             // Check the next pool and update tokenOut
-            (, tokenOut, fee) = path.decodeFirstPool();
+            address tokenOutPrev = tokenOut;
+            (tokenInMid, tokenOut, fee) = path.decodeFirstPool();
 
-            _getPool(tokenIn, tokenOut, fee);
+            if (tokenOutPrev != tokenInMid) {
+                revert InvalidPath();
+            }
+
+            if (!_poolExists(tokenInMid, tokenOut, fee)) {
+                revert InvalidPath();
+            }
         }
 
-        return tokenIn == validTokenIn && tokenOut == validTokenOut;
+        if (tokenInFst != validTokenIn || tokenOut != validTokenOut) {
+            revert InvalidPath();
+        }
     }
 
     /// @dev Encodes the pair of token addresses into a unique bytes32 key
