@@ -88,7 +88,7 @@ contract ErrorMap is Script {
     // TokensPair.sol
     // bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
     bytes4 constant SameToken = bytes4(keccak256("SameToken()"));
-    bytes4 constant InvalidToken = bytes4(keccak256("InvalidToken()"));
+    bytes4 constant InvalidToken = bytes4(keccak256("InvalidToken(address)"));
 
     // WadTime.sol
     bytes4 constant InvalidInput = bytes4(keccak256("InvalidInput()"));
