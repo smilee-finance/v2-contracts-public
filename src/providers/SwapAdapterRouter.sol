@@ -228,9 +228,11 @@ contract SwapAdapterRouter is IExchange, AccessControl {
      */
     function _valueOut(address tokenIn, address tokenOut, uint256 amountIn) private view returns (uint256 amountOut) {
         uint256 price = _priceOracle.getPrice(tokenIn, tokenOut);
-        amountOut =
-            (price * amountIn * 10 ** IERC20Metadata(tokenOut).decimals()) /
-            10 ** (18 + (IERC20Metadata(tokenIn).decimals()));
+        uint8 dIn = IERC20Metadata(tokenIn).decimals();
+        uint8 dOut = IERC20Metadata(tokenOut).decimals();
+        amountOut = price * amountIn;
+        amountOut = dOut > dIn ? amountOut * 10 ** (dOut - dIn) : amountOut / 10 ** (dIn - dOut);
+        amountOut = amountOut / 10 ** 18;
     }
 
     /**
@@ -242,9 +244,11 @@ contract SwapAdapterRouter is IExchange, AccessControl {
      */
     function _valueIn(address tokenIn, address tokenOut, uint256 amountOut) private view returns (uint256 amountIn) {
         uint256 price = _priceOracle.getPrice(tokenOut, tokenIn);
-        amountIn =
-            (price * amountOut * 10 ** IERC20Metadata(tokenIn).decimals()) /
-            10 ** (18 + (IERC20Metadata(tokenOut).decimals()));
+        uint8 dIn = IERC20Metadata(tokenIn).decimals();
+        uint8 dOut = IERC20Metadata(tokenOut).decimals();
+        amountIn = price * amountOut;
+        amountIn = dIn > dOut ? amountIn * 10 ** (dIn - dOut) : amountIn / 10 ** (dOut - dIn);
+        amountIn = amountIn / 10 ** 18;
     }
 
     /**
@@ -260,9 +264,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         address tokenOut,
         uint256 amountIn
     ) private view returns (uint256 amountOutMin, uint256 amountOutMax) {
-        uint256 price = _priceOracle.getPrice(tokenIn, tokenOut);
-        uint256 amountOut = (price * amountIn * 10 ** IERC20Metadata(tokenOut).decimals()) /
-            10 ** (18 + (IERC20Metadata(tokenIn).decimals()));
+        uint256 amountOut = _valueOut(tokenIn, tokenOut, amountIn);
         amountOutMin = (amountOut * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
         amountOutMax = (amountOut * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
     }
@@ -280,9 +282,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         address tokenOut,
         uint256 amountOut
     ) private view returns (uint256 amountInMax, uint256 amountInMin) {
-        uint256 price = _priceOracle.getPrice(tokenOut, tokenIn);
-        uint256 amountIn = (price * amountOut * 10 ** IERC20Metadata(tokenIn).decimals()) /
-            10 ** (18 + (IERC20Metadata(tokenOut).decimals()));
+        uint256 amountIn = _valueIn(tokenIn, tokenOut, amountOut);
         amountInMax = (amountIn * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
         amountInMin = (amountIn * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
     }

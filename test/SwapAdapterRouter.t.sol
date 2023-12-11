@@ -45,7 +45,9 @@ contract SwapProviderRouterTest is Test {
         ap.setExchangeAdapter(address(_swap));
         ap.setRegistry(address(r));
         _token0 = new TestnetToken("USDC", "");
+        // _token0.setDecimals(12);
         _token1 = new TestnetToken("ETH", "");
+        // _token1.setDecimals(6);
         _token0.setAddressProvider(address(ap));
         _token1.setAddressProvider(address(ap));
         vm.stopPrank();
@@ -184,39 +186,41 @@ contract SwapProviderRouterTest is Test {
         vm.stopPrank();
     }
 
-    // function testSwapInFuzzy(uint256 amount, uint256 realPriceRef, uint256 swapPriceRef, uint256 maxSlippage) public {
-    //     amount = bound(amount, 1e9, type(uint128).max); // avoid price to be too big
-    //     realPriceRef = bound(realPriceRef, 1e9, type(uint128).max); // avoid price to be too big
-    //     swapPriceRef = bound(swapPriceRef, 1e9, type(uint128).max); // avoid price to be too big
-    //     vm.assume(realPriceRef < swapPriceRef);
-    //     maxSlippage = bound(maxSlippage, 0.001e18, 0.5e18); // 0.1 - 50% - significant values
+    function testSwapInFuzzy(uint256 amountIn, uint256 realPriceRef, uint256 swapPriceRef, uint256 maxSlippage) public {
+        amountIn = bound(amountIn, 1e9, type(uint128).max); // avoid price to be too big
+        realPriceRef = bound(realPriceRef, 1e9, type(uint128).max); // avoid price to be too big
+        swapPriceRef = bound(swapPriceRef, 1e9, type(uint128).max); // avoid price to be too big
+        vm.assume(realPriceRef < swapPriceRef);
+        maxSlippage = bound(maxSlippage, 0.001e18, 0.5e18); // 0.1% - 50% - significant values
 
-    //     _adminSetup(amount, realPriceRef, swapPriceRef, maxSlippage, true);
-    //     uint256 realPrice = _oracle.getPrice(address(_token0), address(_token1));
-    //     uint256 swapPrice = _swapOracle.getPrice(address(_token0), address(_token1));
+        _adminSetup(amountIn, realPriceRef, swapPriceRef, maxSlippage, true);
+        uint256 realPrice = _oracle.getPrice(address(_token0), address(_token1));
+        uint256 swapPrice = _swapOracle.getPrice(address(_token0), address(_token1));
 
-    //     vm.startPrank(_alice);
-    //     _token0.approve(address(_swapRouter), amount);
+        vm.startPrank(_alice);
+        _token0.approve(address(_swapRouter), amountIn);
 
-    //     // check if expected output is 0
-    //     uint256 expectedOutput = (amount * _swapOracle.getPrice(address(_token0), address(_token1))) / 1e18;
-    //     if (expectedOutput == 0) {
-    //         vm.expectRevert(_SWAP_ZERO);
-    //         _swapRouter.swapIn(address(_token0), address(_token1), amount);
-    //     } else if (_priceRangeOk(realPrice, swapPrice, maxSlippage)) {
-    //         _swapRouter.swapIn(address(_token0), address(_token1), amount);
-    //         assertEq(0, _token0.balanceOf(_alice));
-    //         assertApproxEqAbs(
-    //             (amount * 10 ** _token0.decimals()) / swapPriceRef,
-    //             _token1.balanceOf(_alice),
-    //             amount / 1e18
-    //         );
-    //     } else {
-    //         vm.expectRevert(_SLIPPAGE);
-    //         _swapRouter.swapIn(address(_token0), address(_token1), amount);
-    //     }
-    //     vm.stopPrank();
-    // }
+        // check if expected output is 0
+        uint256 expectedOutput = (((amountIn * _swapOracle.getPrice(address(_token0), address(_token1))) / 1e18) *
+            10 ** _token1.decimals()) / 10 ** _token0.decimals();
+
+        if (expectedOutput == 0) {
+            vm.expectRevert(_SWAP_ZERO);
+            _swapRouter.swapIn(address(_token0), address(_token1), amountIn);
+        } else if (_priceRangeOk(realPrice, swapPrice, maxSlippage)) {
+            _swapRouter.swapIn(address(_token0), address(_token1), amountIn);
+            assertEq(0, _token0.balanceOf(_alice));
+            assertApproxEqAbs(
+                (((amountIn * 1e18) / swapPriceRef) * 10 ** _token1.decimals()) / 10 ** _token0.decimals(),
+                _token1.balanceOf(_alice),
+                amountIn / 1e18
+            );
+        } else {
+            vm.expectRevert(_SLIPPAGE);
+            _swapRouter.swapIn(address(_token0), address(_token1), amountIn);
+        }
+        vm.stopPrank();
+    }
 
     // function testSwapOutFuzzy(uint256 amount, uint256 realPriceRef, uint256 swapPriceRef, uint256 maxSlippage) public {
     //     amount = bound(amount, 1e9, type(uint128).max); // avoid price to be too big
