@@ -4,10 +4,11 @@ pragma solidity ^0.8.19;
 import {IDVPImmutables} from "./IDVPImmutables.sol";
 import {IEpochControls} from "./IEpochControls.sol";
 
-/// @title The interface for Smilee DVP
-/// @notice A DVP (Decentralized Volatility Product) is basically a generator for options on volatility
+/**
+    @title The interface for Smilee DVP
+    @notice A DVP (Decentralized Volatility Product) is basically a generator for options on volatility
+ */
 interface IDVP is IDVPImmutables, IEpochControls {
-    ////// ERRORS
     error AmountZero();
     error InvalidStrategy();
 
@@ -62,7 +63,7 @@ interface IDVP is IDVPImmutables, IEpochControls {
         @param amountUp The integer quantity of options recipient wants to mint for the "Up" strategy
         @param amountDown The integer quantity of options recipient wants to mint for the "Down" strategy
         @param expectedPremium The expected market value
-        @param maxSlippage The maximum slippage percentage.
+        @param maxSlippage The maximum accepted slippage percentage from the expected premium (denominated with 18 decimals, 1e18 = 100%)
         @return leverage The multiplier to obtain position notional from paid premium
         @dev strike param is ignored for IG vaults, can pass 0
      */
@@ -83,8 +84,8 @@ interface IDVP is IDVPImmutables, IEpochControls {
         @param amountUp The amount of notional to be burned for the "Up" strategy.
         @param amountDown The amount of notional to be burned for the "Down" strategy.
         @param expectedMarketValue The expected market value of the burned notional; ignored when epoch is not the current one.
-        @param maxSlippage The maximum slippage percentage.
-        @return paidPayoff The amount of paid payoff.
+        @param maxSlippage The maximum accepted slippage percentage from the expected value (denominated with 18 decimals, 1e18 = 100%); ignored when epoch is not the current one.
+        @return paidPayoff The amount of paid payoff
         @dev After maturity, the amount parameter is ignored and all the option is burned.
      */
     function burn(

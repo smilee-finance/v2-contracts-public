@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 library VaultLib {
-
     bytes4 constant DeadMarketReason = bytes4(keccak256("MarketReason"));
     bytes4 constant DeadManualKillReason = bytes4(keccak256("ManualKill"));
 
@@ -54,6 +53,7 @@ library VaultLib {
         @notice Returns the number of shares corresponding to given amount of asset
         @param assetAmount The amount of assets to be converted to shares
         @param sharePrice The price (in asset) for 1 share
+        @param tokenDecimals The decimals in the ERC20 asset
      */
     function assetToShares(uint256 assetAmount, uint256 sharePrice, uint8 tokenDecimals) public pure returns (uint256) {
         // If sharePrice goes to zero, the asset cannot minted, this means the assetAmount is to rescue
@@ -69,29 +69,46 @@ library VaultLib {
 
     /**
         @notice Returns the amount of asset corresponding to given number of shares
-        @param shares The number of shares to be converted to asset
+        @param shareAmount The number of shares to be converted to asset
         @param sharePrice The price (in asset) for 1 share
+        @param tokenDecimals The decimals in the ERC20 asset
      */
-    function sharesToAsset(uint256 shares, uint256 sharePrice, uint8 tokenDecimals) external pure returns (uint256) {
-        return (shares * sharePrice) / 10 ** tokenDecimals;
+    function sharesToAsset(
+        uint256 shareAmount,
+        uint256 sharePrice,
+        uint8 tokenDecimals
+    ) external pure returns (uint256) {
+        return (shareAmount * sharePrice) / 10 ** tokenDecimals;
     }
 
-    function pricePerShare(uint256 assets, uint256 shares, uint8 tokenDecimals) external pure returns (uint256) {
+    /**
+        @notice Returns the asset value of a share for the given inputs
+        @param assetAmount The number of assets
+        @param shareAmount The number of shares
+        @param tokenDecimals The decimals in the ERC20 asset
+        @return price The price (in asset) for 1 share
+     */
+    function pricePerShare(
+        uint256 assetAmount,
+        uint256 shareAmount,
+        uint8 tokenDecimals
+    ) external pure returns (uint256 price) {
         uint256 shareUnit = 10 ** tokenDecimals;
-        if (shares == 0) {
+        if (shareAmount == 0) {
             // 1:1 ratio
             return shareUnit;
         }
-        assets = assets * shareUnit; // Fix decimals in the following computation
-        return assets / shares;
+        assetAmount = assetAmount * shareUnit; // Fix decimals in the following computation
+        return assetAmount / shareAmount;
     }
 
     /**
         @notice Returns the shares unredeemed by the user given their DepositReceipt
-        @param depositReceipt is the user's deposit receipt
-        @param currentEpoch is the `epoch` stored on the vault
-        @param sharePrice is the price in asset per share with `DECIMALS` decimals
-        @return unredeemedShares is the user's virtual balance of shares that are owed
+        @param depositReceipt The user's deposit receipt
+        @param currentEpoch The `epoch` stored on the vault
+        @param sharePrice The price (in asset) for 1 share
+        @param tokenDecimals The decimals in the ERC20 asset (and therefore in the share)
+        @return unredeemedShares The user's virtual balance of shares that are owed
      */
     function getSharesFromReceipt(
         DepositReceipt calldata depositReceipt,

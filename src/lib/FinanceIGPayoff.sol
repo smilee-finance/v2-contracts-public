@@ -3,34 +3,35 @@ pragma solidity ^0.8.15;
 
 import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
 
-/// @title Implementation of core financial computations for Smilee protocol
+/**
+    @title Implementation of core financial computations for Smilee protocol
+ */
 library FinanceIGPayoff {
-
     /**
         @notice Computes concentrated liquidity impermanent gain percentage when current price falls in liquidity range
         @param sdivk Current side token price over strike price
-        @param teta Theta coefficient
+        @param theta Theta coefficient
         @return inRangePayoffPerc The impermanent gain
      */
-    function igPayoffInRange(uint256 sdivk, uint256 teta) public pure returns (uint256 inRangePayoffPerc) {
+    function igPayoffInRange(uint256 sdivk, uint256 theta) public pure returns (uint256 inRangePayoffPerc) {
         UD60x18 sdivkx18 = ud(sdivk);
-        UD60x18 tetax18 = ud(teta);
+        UD60x18 thetax18 = ud(theta);
 
-        UD60x18 res = (convert(1).add(sdivkx18).sub((convert(2).mul(sdivkx18.sqrt())))).div(tetax18);
+        UD60x18 res = (convert(1).add(sdivkx18).sub((convert(2).mul(sdivkx18.sqrt())))).div(thetax18);
         inRangePayoffPerc = res.unwrap();
     }
 
     /**
         @notice Computes concentrated liquidity impermanent gain percentage when current price falls out of liquidity range
         @param sdivk Current side token price over strike price
-        @param teta Theta coefficient
+        @param theta Theta coefficient
         @param k Ref. strike
         @param kbound Upper or lower bound of the range
         @return outRangePayoffPerc The impermanent gain
      */
     function igPayoffOutRange(
         uint256 sdivk,
-        uint256 teta,
+        uint256 theta,
         uint256 k,
         uint256 kbound
     ) public pure returns (uint256 outRangePayoffPerc) {
@@ -46,13 +47,16 @@ library FinanceIGPayoff {
         } else {
             num = one.add(c2Abs).sub(kboundDivKRtd);
         }
-        return num.div(ud(teta)).unwrap();
+        return num.div(ud(theta)).unwrap();
     }
 
     /**
         @notice Computes payoff percentage for impermanent gain up / down strategies
         @param s Current side token price
         @param k Ref. strike
+        @param ka Lower range strike bound
+        @param kb Upper range strike bound
+        @param theta Theta coefficient
         @return igPOBull The percentage payoff for bull strategy
         @return igPOBear The percentage payoff for bear strategy
      */
@@ -61,10 +65,10 @@ library FinanceIGPayoff {
         uint256 k,
         uint256 ka,
         uint256 kb,
-        uint256 teta
+        uint256 theta
     ) external pure returns (uint256 igPOBull, uint256 igPOBear) {
         uint256 sk = ud(s).div(ud(k)).unwrap();
-        igPOBull = s <= k ? 0 : s > kb ? igPayoffOutRange(sk, teta, k, kb) : igPayoffInRange(sk, teta);
-        igPOBear = s >= k ? 0 : s < ka ? igPayoffOutRange(sk, teta, k, ka) : igPayoffInRange(sk, teta);
+        igPOBull = s <= k ? 0 : s > kb ? igPayoffOutRange(sk, theta, k, kb) : igPayoffInRange(sk, theta);
+        igPOBear = s >= k ? 0 : s < ka ? igPayoffOutRange(sk, theta, k, ka) : igPayoffInRange(sk, theta);
     }
 }
