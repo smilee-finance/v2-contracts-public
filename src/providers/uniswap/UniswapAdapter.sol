@@ -24,7 +24,6 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
 
     uint256 constant _MIN_PATH_LEN = 43; // direct
     uint256 constant _MAX_PATH_LEN = 66; // 1 hop
-    uint256 constant _TIME_DELAY = 30;
 
     // Fees for LP Single
     uint24 constant _DEFAULT_FEE = 500; // 0.05% (hundredths of basis points)
@@ -160,7 +159,7 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
             tokenOut,
             _DEFAULT_FEE,
             msg.sender,
-            block.timestamp + _TIME_DELAY,
+            block.timestamp,
             amountIn,
             0,
             _SQRTPRICELIMITX96
@@ -174,7 +173,7 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
         ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams(
             path,
             msg.sender,
-            block.timestamp + _TIME_DELAY,
+            block.timestamp,
             amountIn,
             0
         );
@@ -194,7 +193,7 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
             tokenOut,
             _DEFAULT_FEE,
             msg.sender,
-            block.timestamp + _TIME_DELAY,
+            block.timestamp,
             amountOut,
             amountMaximumIn,
             _SQRTPRICELIMITX96
@@ -212,7 +211,7 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
         ISwapRouter.ExactOutputParams memory params = ISwapRouter.ExactOutputParams(
             path,
             msg.sender,
-            block.timestamp + _TIME_DELAY,
+            block.timestamp,
             amountOut,
             amountMaximumIn
         );
