@@ -56,6 +56,10 @@ contract UniswapAdapterTest is Test {
         bytes memory wbtcUsdcPathLong = abi.encodePacked(_WBTC, uint24(500), _USDT, uint24(500), _WETH, uint24(500), _USDC);
         bytes memory wbtcUsdcPathErr = abi.encodePacked(_WBTC, uint24(500), _USDC, uint24(500), _USDC, uint24(500));
 
+        uint24 defaultFee = 500;
+        bytes memory wethUsdcPathDefault = abi.encodePacked(_WETH, defaultFee, _USDC);
+        bytes memory wbtcUsdcPathDefault = abi.encodePacked(_WBTC, defaultFee, _USDC);
+
         vm.prank(_admin);
         vm.expectRevert(_INVALID_PATH); // wrong out token
         _uniswap.setPath(wethUsdcPath, _WETH, _WBTC);
@@ -74,9 +78,19 @@ contract UniswapAdapterTest is Test {
 
         vm.prank(_admin);
         _uniswap.setPath(wethUsdcPath, _WETH, _USDC);
+        assertEq(_uniswap.getPath(_WETH, _USDC, false), wethUsdcPath);
 
         vm.prank(_admin);
         _uniswap.setPath(wbtcUsdcPath, _WBTC, _USDC);
+        assertEq(_uniswap.getPath(_WBTC, _USDC, false), wbtcUsdcPath);
+
+        vm.prank(_admin);
+        _uniswap.unsetPath(_WETH, _USDC);
+        assertEq(_uniswap.getPath(_WETH, _USDC, false), wethUsdcPathDefault);
+
+        vm.prank(_admin);
+        _uniswap.unsetPath(_WBTC, _USDC);
+        assertEq(_uniswap.getPath(_WBTC, _USDC, false), wbtcUsdcPathDefault);
     }
 
     /// @dev Uses default pool (0.05%)

@@ -79,6 +79,17 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
     }
 
     /**
+        @notice Unsets the path for the given token pair
+        @param tokenIn The address of the input token
+        @param tokenOut The address of the output token
+     */
+    function unsetPath(address tokenIn, address tokenOut) public {
+        _checkRole(ROLE_ADMIN);
+
+        delete _swapPaths[_encodePair(tokenIn, tokenOut)];
+    }
+
+    /**
         @notice Returns the path used by the contract to swap the given pair
         @dev May revert if no path is set and default pool does not exist
         @param tokenIn The address of the input token
