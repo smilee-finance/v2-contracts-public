@@ -53,4 +53,12 @@ contract VaultOps is EnhancedScript {
         vm.stopBroadcast();
     }
 
+    function pauseVault(address vaultAddr) public {
+         Vault vault = Vault(vaultAddr);
+
+        vm.startBroadcast(_deployerPrivateKey);
+        vault.changePauseState();
+        vm.stopBroadcast();
+    }
+
 }
