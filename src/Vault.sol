@@ -76,6 +76,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     error WithdrawNotInitiated();
     error WithdrawTooEarly();
     error NotManuallyKilled();
+    error ManuallyKilled();
 
     event Deposit(uint256 amount);
     event Redeem(uint256 amount);
@@ -277,6 +278,15 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         } else {
             _pause();
         }
+    }
+
+    /**
+        @notice Allows the contract's owner to enable or disable the priority access to deposit operations
+     */
+    function setPriorityAccessFlag(bool flag) external {
+        _checkRole(ROLE_ADMIN);
+
+        priorityAccessFlag = flag;
     }
 
     // ------------------------------------------------------------------------
@@ -538,6 +548,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         @notice Enables user withdrawal of a deposits executed during an epoch causing Vault death
      */
     function rescueDeposit() external isDead whenNotPaused {
+        if (manuallyKilled) {
+            revert ManuallyKilled();
+        }
+
         VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
 
         // User enabled to rescue only if the user has deposited in the last epoch before the Vault died.
@@ -566,15 +580,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         _initiateWithdraw(0, true);
         _completeWithdraw();
-    }
-
-    /**
-        @notice Allows the contract's owner to enable or disable the priority access to deposit operations
-     */
-    function setPriorityAccessFlag(bool flag) external {
-        _checkRole(ROLE_ADMIN);
-
-        priorityAccessFlag = flag;
     }
 
     // ------------------------------------------------------------------------
@@ -620,6 +625,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         uint256 sharePrice = VaultLib.pricePerShare(lockedLiquidity, outstandingShares, _shareDecimals);
         epochPricePerShare[getEpoch().current] = sharePrice;
 
+        // NOTE: the share price can go to zero only when all the locked liquidity is set aside for (pending) withdrawals and payoffs.
         if (sharePrice == 0) {
             // if vault underlying asset disappear, don't mint any shares.
             // Pending deposits will be enabled for withdrawal - see rescueDeposit()
@@ -647,13 +653,14 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         // Reset the counter for the next epoch:
         _state.withdrawals.newHeldShares = 0;
-        // NOTE: burned when withdrawals are completed
+        // NOTE: the held shares are burned when withdrawals are completed
 
         // Set aside the payoff to be paid:
         _state.liquidity.pendingPayoffs += _state.liquidity.newPendingPayoffs;
+        // NOTE: _state.liquidity.newPendingPayoffs is set to 0 by `adjustReservedPayoff()`
 
-        // _state.liquidity.newPendingPayoffs are set to 0 by `adjustReservedPayoff()`;
-
+        // if manually killed, we are able to mint the shares and the user who deposited in the last epoch
+        // will have to call rescueShares.
         if (_state.dead && !manuallyKilled) {
             _state.liquidity.lockedInitially = 0;
             return;
@@ -802,6 +809,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
     /// @inheritdoc IVault
     function reservePayoff(uint256 residualPayoff) external onlyDVP {
+        if (residualPayoff > notional()) {
+            revert ExceedsAvailable();
+        }
         _state.liquidity.newPendingPayoffs = residualPayoff;
     }
 

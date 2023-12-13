@@ -2,15 +2,34 @@
 pragma solidity ^0.8.15;
 
 import {Vm} from "forge-std/Vm.sol";
-import {AddressProvider} from "../../src/AddressProvider.sol";
-import {FeeManager} from "../../src/FeeManager.sol";
-import {MarketOracle} from "../../src/MarketOracle.sol";
-import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
-import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
-import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {FeeManager} from "@project/FeeManager.sol";
+import {MarketOracle} from "@project/MarketOracle.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
+import {TestnetSwapAdapter} from "@project/testnet/TestnetSwapAdapter.sol";
+import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {MockedRegistry} from "../mock/MockedRegistry.sol";
 
 library TokenUtils {
+    function create(
+        string memory symbol,
+        uint8 decimals,
+        AddressProvider addressProvider,
+        address admin,
+        Vm vm
+    ) public returns (address tokenAddr) {
+        string memory tokenName = string.concat("Smilee ", symbol);
+        string memory tokenSymbol = string.concat("s", symbol);
+
+        vm.startPrank(admin);
+        TestnetToken token = new TestnetToken(tokenName, tokenSymbol);
+        token.setAddressProvider(address(addressProvider));
+        token.setDecimals(decimals);
+        vm.stopPrank();
+
+        tokenAddr = address(token);
+    }
+
     function createToken(
         string memory name,
         string memory symbol,
