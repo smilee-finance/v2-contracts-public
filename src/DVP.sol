@@ -257,6 +257,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
         // Compute fee:
         fee = feeManager.tradeFee(amount.up + amount.down, paidPayoff, _baseTokenDecimals, reachedMaturity);
+        fee = fee > paidPayoff ? paidPayoff : fee; // avoid undeflow for small payoffs
         paidPayoff -= fee;
 
         // Account change of used liquidity between wallet and protocol:
