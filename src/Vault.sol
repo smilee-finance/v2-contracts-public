@@ -594,10 +594,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             uint256 fee = 0;
             if (lockedLiquidity > _state.liquidity.lockedInitially) {
                 netPerformance = lockedLiquidity - _state.liquidity.lockedInitially;
-                fee = IFeeManager(_addressProvider.feeManager()).vaultFee(
-                    netPerformance,
-                    _shareDecimals
-                );
+                fee = IFeeManager(_addressProvider.feeManager()).vaultFee(netPerformance, _shareDecimals);
 
                 if (lockedLiquidity - fee >= _state.liquidity.lockedInitially) {
                     IERC20(baseToken).safeApprove(_addressProvider.feeManager(), fee);
@@ -761,14 +758,22 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         uint256 baseTokensAmount = exchange.getInputAmountMax(baseToken, sideToken, amount);
 
-        // Should never happen: `_deltaHedge()` should call this function with a correct amount of side tokens
-        // But the DVP client of `deltaHedge()` may not...
-        if (baseTokensAmount > _notionalBaseTokens()) {
-            revert ExceedsAvailable();
+        uint256 amountToApprove = baseTokensAmount;
+        uint256 currentNotional = _notionalBaseTokens();
+
+        // If we don't have enough tokens to cover getInputAmountMax, try to approve all available tokens and do the swap.
+        // If this is not enough the swap will revert. Otherwise  currentNotional will be sufficient because baseTokensAmount was an over-estimate
+        if (baseTokensAmount > currentNotional) {
+            amountToApprove = currentNotional;
         }
 
-        IERC20(baseToken).safeApprove(exchangeAddress, baseTokensAmount);
-        baseTokens = exchange.swapOut(baseToken, sideToken, amount, baseTokensAmount);
+        IERC20(baseToken).safeApprove(exchangeAddress, amountToApprove);
+        baseTokens = exchange.swapOut(baseToken, sideToken, amount, amountToApprove);
+
+        // The swap itself should revert
+        if (baseTokens > currentNotional) {
+            revert ExceedsAvailable();
+        }
     }
 
     /**

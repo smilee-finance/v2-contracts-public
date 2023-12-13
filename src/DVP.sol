@@ -102,14 +102,14 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     }
 
     /**
-        @notice Mint or increase a position.
-        @param recipient The wallet of the recipient for the opened position.
-        @param strike The strike.
-        @param amount The notional.
-        @param expectedPremium The expected premium, assumed to not consider fees, used to check the slippage.
-        @param maxSlippage The maximum slippage percentage.
-        @return premium_ The paid premium.
-        @dev The client must have approved the needed premium.
+        @notice Creates a new, or increases an existing, position
+        @param recipient The wallet of the recipient for the position
+        @param strike The strike of the position to mint
+        @param amount The notional of the position to mint
+        @param expectedPremium The expected premium, assumed to not consider fees, used to check against the actual premium, only known at the end of the trade
+        @param maxSlippage The maximum slippage percentage accepted between the given expected premium and the actual one
+        @return premium_ The actual paid premium
+        @dev The client must approve the expected premium + slippage percentage, if actual premium will result in more than this quantity it will revert
      */
     function _mint(
         address recipient,

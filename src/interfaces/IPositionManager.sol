@@ -72,7 +72,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
     /**
         @notice Creates a new position wrapped in a NFT
         @dev Call this when the pool does exist and is initialized. Note that if the pool is created but not initialized
-        a method does not exist, i.e. the pool is assumed to be initialized.
+             a method does not exist, i.e. the pool is assumed to be initialized.
         @param params The params necessary to mint a position, encoded as `MintParams` in calldata
         @return tokenId The ID of the token that represents the minted position
         @return notional The amount of liquidity held by this position
