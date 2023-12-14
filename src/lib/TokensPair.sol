@@ -13,7 +13,10 @@ library TokensPair {
     error SameToken();
     error InvalidToken(address token);
 
-    function getBalances(Pair calldata pair, address wallet) external view returns (uint baseTokenBalance, uint sideTokenBalance) {
+    function getBalances(
+        Pair calldata pair,
+        address wallet
+    ) external view returns (uint baseTokenBalance, uint sideTokenBalance) {
         baseTokenBalance = IERC20Metadata(pair.baseToken).balanceOf(wallet);
         sideTokenBalance = IERC20Metadata(pair.sideToken).balanceOf(wallet);
     }
@@ -30,11 +33,25 @@ library TokensPair {
         if (pair.baseToken == pair.sideToken) {
             revert SameToken();
         }
+
+        try IERC20Metadata(pair.baseToken).decimals() returns (uint8) {
+            // no-op
+        } catch {
+            revert InvalidToken(pair.baseToken);
+        }
+
+        try IERC20Metadata(pair.sideToken).decimals() returns (uint8) {
+            // no-op
+        } catch {
+            revert InvalidToken(pair.sideToken);
+        }
+
         try IERC20Metadata(pair.baseToken).balanceOf(address(this)) returns (uint) {
             // no-op
         } catch {
             revert InvalidToken(pair.baseToken);
         }
+
         try IERC20Metadata(pair.sideToken).balanceOf(address(this)) returns (uint) {
             // no-op
         } catch {
