@@ -33,13 +33,15 @@ interface IDVP is IDVPImmutables, IEpochControls {
     ) external view returns (uint256 premium, uint256 fee);
 
     /**
-        @notice Returns the payoff of the given position
-        @param epoch The epoch
-        @param strike The strike price of the option
+        @notice Returns the payoff of the given position against the underlying asset oracle price.
+                Note that this will not always be equal to the actual payoff since this is determined
+                by the actual swap price obtained when hedging the position
+        @param epoch The position epoch
+        @param strike The position strike price
         @param amountUp The position amount used to compute payoff for the "Up" strategy
         @param amountDown The position amount used to compute payoff for the "Down" strategy
-        @return payoff The current value of the position
-        @return fee The amount of base tokens that will be paid as fee.
+        @return payoff An estimate of the current value of the position
+        @return fee The amount of base tokens that will be paid as a fee
      */
     function payoff(
         uint256 epoch,
