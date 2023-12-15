@@ -9,7 +9,6 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
-import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultAccessNFT} from "./interfaces/IVaultAccessNFT.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
@@ -83,7 +82,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     event InitiateWithdraw(uint256 amount);
     event Withdraw(uint256 amount);
     // Used by TheGraph for frontend needs:
-    event VaultYield(uint256 epoch, uint256 netPerformance, uint256 fees);
     event VaultTVL(uint256 epoch, uint256 value);
 
     constructor(
@@ -593,23 +591,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         uint256 lockedLiquidity = notional();
         // NOTE: the share price needs to account also the payoffs
         lockedLiquidity -= _state.liquidity.newPendingPayoffs;
-
-        {
-            uint256 netPerformance = 0;
-            uint256 fee = 0;
-            if (lockedLiquidity > _state.liquidity.lockedInitially) {
-                netPerformance = lockedLiquidity - _state.liquidity.lockedInitially;
-                fee = IFeeManager(_addressProvider.feeManager()).vaultFee(netPerformance, _shareDecimals);
-
-                if (lockedLiquidity - fee >= _state.liquidity.lockedInitially) {
-                    IERC20(baseToken).safeApprove(_addressProvider.feeManager(), fee);
-                    IFeeManager(_addressProvider.feeManager()).receiveFee(fee);
-                    lockedLiquidity -= fee;
-                }
-            }
-            emit VaultYield(getEpoch().current, netPerformance, fee);
-        }
-
         if (manuallyKilled) {
             _state.dead = true;
 

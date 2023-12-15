@@ -64,7 +64,7 @@ library TokenUtils {
 
         address feeManagerAddress = ap.feeManager();
         if (feeManagerAddress == address(0)) {
-            FeeManager feeManager = new FeeManager(FeeManager.Params(0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18, 0));
+            FeeManager feeManager = new FeeManager();
             feeManager.grantRole(feeManager.ROLE_ADMIN(), admin);
             feeManagerAddress = address(feeManager);
             ap.setFeeManager(feeManagerAddress);

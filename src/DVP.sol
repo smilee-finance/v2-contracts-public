@@ -141,7 +141,13 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
-        uint256 fee = feeManager.tradeFee(amount.up + amount.down, premium_, _baseTokenDecimals, false);
+        uint256 fee = feeManager.tradeBuyFee(
+            address(this),
+            epoch.current,
+            amount.up + amount.down,
+            premium_,
+            _baseTokenDecimals
+        );
 
         // Revert if actual price exceeds the previewed premium
         // NOTE: cannot use the approved premium as a reference due to the PositionManager...
@@ -163,6 +169,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
         // Create or update position:
         Position.Info storage position = _getPosition(epoch.current, recipient, strike);
+        position.premium += premium_;
         position.epoch = epoch.current;
         position.strike = strike;
         position.amountUp += amount.up;
@@ -256,8 +263,14 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         // Compute fee:
-        fee = feeManager.tradeFee(amount.up + amount.down, paidPayoff, _baseTokenDecimals, reachedMaturity);
-        fee = fee > paidPayoff ? paidPayoff : fee; // avoid undeflow for small payoffs
+        fee = feeManager.tradeSellFee(
+            address(this),
+            amount.up + amount.down,
+            paidPayoff,
+            position.premium,
+            _baseTokenDecimals,
+            reachedMaturity
+        );
         paidPayoff -= fee;
 
         // Account change of used liquidity between wallet and protocol:
@@ -394,7 +407,14 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
-        fee_ = feeManager.tradeFee(amount_.up + amount_.down, payoff_, _baseTokenDecimals, reachedMaturity);
+        fee_ = feeManager.tradeSellFee(
+            address(this),
+            amount_.up + amount_.down,
+            payoff_,
+            position.premium,
+            _baseTokenDecimals,
+            reachedMaturity
+        );
 
         payoff_ -= fee_;
     }

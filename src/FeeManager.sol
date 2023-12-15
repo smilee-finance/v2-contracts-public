@@ -12,23 +12,27 @@ contract FeeManager is IFeeManager, AccessControl {
     using AmountsMath for uint256;
     using SafeERC20 for IERC20Metadata;
 
-    struct Params {
-        // Minimum amount of fee paid for any trade (denominated in token decimals of the token used to pay the fee)
-        uint256 minFee;
-        // Fee percentage applied for each DVPs in WAD, it's used to calculate fees on notional
+    struct FeeParams {
+        // Seconds remaining until the next epoch to determine which minFee to use.
+        uint256 timeToExpiryThreshold;
+        // Minimum amount of fee paid for any buy trade made before the threshold time (denominated in token decimals of the token used to pay the fee).
+        uint256 minFeeBeforeTimeThreshold;
+        // Minimum amount of fee paid for any buy trade made after the threshold time  (denominated in token decimals of the token used to pay the fee).
+        uint256 minFeeAfterTimeThreshold;
+        // Percentage to be appied to the PNL of the sell.
+        uint256 successFeeTier;
+        // Fee percentage applied for each DVPs in WAD, it's used to calculate fees on notional.
         uint256 feePercentage;
         // CAP percentage, works like feePercentage in WAD, but it's used to calculate fees on premium.
         uint256 capPercentage;
-        // Fee percentage applied for each DVPs in WAD after maturity, it's used to calculate fees on notional
+        // Fee percentage applied for each DVPs in WAD after maturity, it's used to calculate fees on notional.
         uint256 maturityFeePercentage;
         // CAP percentage, works like feePercentage in WAD after maturity, but it's used to calculate fees on premium.
         uint256 maturityCapPercentage;
-        // Fee Percentage applied for each Vault based on the netPerfomarce value
-        uint256 vaultFeePercentage;
     }
 
-    /// @notice Fee computation parameters
-    Params private _params;
+    /// @notice Fee for each dvp
+    mapping(address => FeeParams) public dvpsFeeParams;
 
     /// @notice Fee account per sender
     mapping(address => uint256) public senders;
@@ -36,73 +40,104 @@ contract FeeManager is IFeeManager, AccessControl {
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
-    event UpdateFeePercentage(uint256 fee, uint256 previous);
-    event UpdateCapPercentage(uint256 fee, uint256 previous);
-    event UpdateMaturityFeePercentage(uint256 fee, uint256 previous);
-    event UpdateMaturityCapPercentage(uint256 fee, uint256 previous);
-    event UpdateVaultFeePercentage(uint256 fee, uint256 previous);
+    event UpdateTimeToExpiryThreshold(address dvp, uint256 timeToExpiryThreshold, uint256 previous);
+    event UpdateMinFeeBeforeTimeThreshold(address dvp, uint256 minFeeBeforeTimeThreshold, uint256 previous);
+    event UpdateMinFeeAfterTimeThreshold(address dvp, uint256 minFeeAfterTimeThreshold, uint256 previous);
+    event UpdateSuccessFeeTier(address dvp, uint256 minFeeAfterTimeThreshold, uint256 previous);
+    event UpdateFeePercentage(address dvp, uint256 fee, uint256 previous);
+    event UpdateCapPercentage(address dvp, uint256 fee, uint256 previous);
+    event UpdateMaturityFeePercentage(address dvp, uint256 fee, uint256 previous);
+    event UpdateMaturityCapPercentage(address dvp, uint256 fee, uint256 previous);
     event ReceiveFee(address sender, uint256 amount);
     event WithdrawFee(address receiver, address sender, uint256 amount);
 
     error NoEnoughFundsFromSender();
     error OutOfAllowedRange();
 
-    constructor(Params memory params_) AccessControl() {
+    constructor() AccessControl() {
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
         _grantRole(ROLE_GOD, msg.sender);
         _grantRole(ROLE_ADMIN, msg.sender);
 
-        setMinFee(params_.minFee);
-        setFeePercentage(params_.feePercentage);
-        setCapPercentage(params_.capPercentage);
-        setMaturityFeePercentage(params_.maturityFeePercentage);
-        setMaturityCapPercentage(params_.maturityCapPercentage);
-        setVaultFeePercentage(params_.vaultFeePercentage);
-
-        renounceRole(ROLE_ADMIN, msg.sender);
+        // renounceRole(ROLE_ADMIN, msg.sender);
     }
 
-    function getParams() external view returns (Params memory) {
-        return _params;
+    /**
+        Set fee params for the given dvp.
+        @param dvp The address of the DVP
+        @param params The Fee Params to be set
+     */
+    function setDVPFee(address dvp, FeeParams calldata params) external {
+        _checkRole(ROLE_ADMIN);
+
+        _setTimeToExpiryThreshold(dvp, params.timeToExpiryThreshold);
+        _setMinFeeBeforeTimeThreshold(dvp, params.minFeeBeforeTimeThreshold);
+        _setMinFeeAfterTimeThreshold(dvp, params.minFeeAfterTimeThreshold);
+        _setSuccessFeeTier(dvp, params.successFeeTier);
+        _setFeePercentage(dvp, params.feePercentage);
+        _setCapPercentage(dvp, params.capPercentage);
+        _setMaturityFeePercentage(dvp, params.maturityFeePercentage);
+        _setMaturityCapPercentage(dvp, params.maturityCapPercentage);
+
     }
 
     /// @inheritdoc IFeeManager
-    function tradeFee(
+    function tradeBuyFee(
+        address dvp,
+        uint256 epoch,
+        uint256 notional,
+        uint256 premium,
+        uint8 tokenDecimals
+    ) external view returns (uint256 fee) {
+        fee = _getFeeFromNotionalAndPremium(dvp, notional, premium, tokenDecimals, false);
+
+        uint256 minFee = epoch - block.timestamp > dvpsFeeParams[dvp].timeToExpiryThreshold
+            ? dvpsFeeParams[dvp].minFeeBeforeTimeThreshold
+            : dvpsFeeParams[dvp].minFeeAfterTimeThreshold;
+
+        if (fee < minFee) {
+            fee = minFee;
+        }
+    }
+
+    function tradeSellFee(
+        address dvp,
+        uint256 notional,
+        uint256 premium,
+        uint256 initialPaidPremium,
+        uint8 tokenDecimals,
+        bool reachedMaturity
+    ) external view returns (uint256 fee) {
+        fee = _getFeeFromNotionalAndPremium(dvp, notional, premium, tokenDecimals, reachedMaturity);
+
+        if (premium > initialPaidPremium) {
+            uint256 pnl = premium - initialPaidPremium;
+            fee += pnl.wmul(dvpsFeeParams[dvp].successFeeTier);
+        }
+    }
+
+    function _getFeeFromNotionalAndPremium(
+        address dvp,
         uint256 notional,
         uint256 premium,
         uint8 tokenDecimals,
         bool reachedMaturity
-    ) external view returns (uint256 fee) {
+    ) internal view returns (uint256 fee) {
         uint256 feeFromNotional;
         uint256 feeFromPremiumCap;
         notional = AmountsMath.wrapDecimals(notional, tokenDecimals);
         premium = AmountsMath.wrapDecimals(premium, tokenDecimals);
 
         if (reachedMaturity) {
-            feeFromNotional = notional.wmul(_params.maturityFeePercentage);
-            feeFromPremiumCap = premium.wmul(_params.maturityCapPercentage);
+            feeFromNotional = notional.wmul(dvpsFeeParams[dvp].maturityFeePercentage);
+            feeFromPremiumCap = premium.wmul(dvpsFeeParams[dvp].maturityCapPercentage);
         } else {
-            feeFromNotional = notional.wmul(_params.feePercentage);
-            feeFromPremiumCap = premium.wmul(_params.capPercentage);
+            feeFromNotional = notional.wmul(dvpsFeeParams[dvp].feePercentage);
+            feeFromPremiumCap = premium.wmul(dvpsFeeParams[dvp].capPercentage);
         }
 
         fee = (feeFromNotional < feeFromPremiumCap) ? feeFromNotional : feeFromPremiumCap;
-        fee = AmountsMath.unwrapDecimals(fee, tokenDecimals);
-        if (fee < _params.minFee) {
-            fee = _params.minFee;
-        }
-    }
-
-    /// @inheritdoc IFeeManager
-    function vaultFee(uint256 netPerformance, uint8 tokenDecimals) external view override returns (uint256 fee) {
-        if (netPerformance <= 0) {
-            return 0;
-        }
-
-        uint256 netPerformanceAbs = AmountsMath.wrapDecimals(uint256(netPerformance), tokenDecimals);
-
-        fee = netPerformanceAbs.wmul(_params.vaultFeePercentage);
         fee = AmountsMath.unwrapDecimals(fee, tokenDecimals);
     }
 
@@ -127,89 +162,110 @@ contract FeeManager is IFeeManager, AccessControl {
         emit WithdrawFee(receiver, sender, feeAmount);
     }
 
-    /// @notice Update fee percentage value
-    function setMinFee(uint256 minFee_) public {
-        _checkRole(ROLE_ADMIN);
+    /// @notice Update time to expiry threshold value
+    function _setTimeToExpiryThreshold(address dvp, uint256 timeToExpiryThreshold) internal {
 
-        if (minFee_ > 5e6) {
+        if (timeToExpiryThreshold == 0) {
+            revert OutOfAllowedRange();
+        }
+
+        uint256 previousTimeToExpiryThreshold = dvpsFeeParams[dvp].timeToExpiryThreshold;
+        dvpsFeeParams[dvp].timeToExpiryThreshold = timeToExpiryThreshold;
+
+        emit UpdateTimeToExpiryThreshold(dvp, timeToExpiryThreshold, previousTimeToExpiryThreshold);
+    }
+
+    /// @notice Update fee percentage value
+    function _setMinFeeBeforeTimeThreshold(address dvp, uint256 minFee) internal {
+        if (minFee > 5e6) {
             // calibrated on USDC
             revert OutOfAllowedRange();
         }
 
-        uint256 previousMinFee = _params.minFee;
-        _params.minFee = minFee_;
+        uint256 previousMinFee =  dvpsFeeParams[dvp].minFeeBeforeTimeThreshold;
+        dvpsFeeParams[dvp].minFeeBeforeTimeThreshold = minFee;
 
-        emit UpdateFeePercentage(minFee_, previousMinFee);
+        emit UpdateMinFeeBeforeTimeThreshold(dvp, minFee, previousMinFee);
     }
 
     /// @notice Update fee percentage value
-    function setFeePercentage(uint256 feePercentage_) public {
-        _checkRole(ROLE_ADMIN);
+    function _setMinFeeAfterTimeThreshold(address dvp, uint256 minFee) internal {
+
+        if (minFee > 5e6) {
+            // calibrated on USDC
+            revert OutOfAllowedRange();
+        }
+
+        uint256 previousMinFee = dvpsFeeParams[dvp].minFeeAfterTimeThreshold;
+        dvpsFeeParams[dvp].minFeeAfterTimeThreshold = minFee;
+
+        emit UpdateMinFeeAfterTimeThreshold(dvp, minFee, previousMinFee);
+    }
+
+    /// @notice Update fee percentage value
+    function _setSuccessFeeTier(address dvp, uint256 successFeeTier) internal {
+
+        if (successFeeTier > 10e17) {
+            // calibrated on USDC
+            revert OutOfAllowedRange();
+        }
+
+        uint256 previousSuccessFeeTier = dvpsFeeParams[dvp].successFeeTier;
+        dvpsFeeParams[dvp].successFeeTier = successFeeTier;
+
+        emit UpdateSuccessFeeTier(dvp, successFeeTier, previousSuccessFeeTier);
+    }
+
+    /// @notice Update fee percentage value
+    function _setFeePercentage(address dvp, uint256 feePercentage_) internal {
 
         if (feePercentage_ > 5e22) {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousFeePercentage = _params.feePercentage;
-        _params.feePercentage = feePercentage_;
+        uint256 previousFeePercentage = dvpsFeeParams[dvp].feePercentage;
+        dvpsFeeParams[dvp].feePercentage = feePercentage_;
 
-        emit UpdateFeePercentage(feePercentage_, previousFeePercentage);
+        emit UpdateFeePercentage(dvp, feePercentage_, previousFeePercentage);
     }
 
     /// @notice Update cap percentage value
-    function setCapPercentage(uint256 capPercentage_) public {
-        _checkRole(ROLE_ADMIN);
+    function _setCapPercentage(address dvp, uint256 capPercentage_) internal {
 
         if (capPercentage_ > 5e22) {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousCapPercentage = _params.capPercentage;
-        _params.capPercentage = capPercentage_;
+        uint256 previousCapPercentage = dvpsFeeParams[dvp].capPercentage;
+        dvpsFeeParams[dvp].capPercentage = capPercentage_;
 
-        emit UpdateCapPercentage(capPercentage_, previousCapPercentage);
+        emit UpdateCapPercentage(dvp, capPercentage_, previousCapPercentage);
     }
 
     /// @notice Update fee percentage value at maturity
-    function setMaturityFeePercentage(uint256 maturityFeePercentage_) public {
-        _checkRole(ROLE_ADMIN);
+    function _setMaturityFeePercentage(address dvp, uint256 maturityFeePercentage_) internal {
 
         if (maturityFeePercentage_ > 5e22) {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousMaturityFeePercentage = _params.maturityFeePercentage;
-        _params.maturityFeePercentage = maturityFeePercentage_;
+        uint256 previousMaturityFeePercentage = dvpsFeeParams[dvp].maturityFeePercentage;
+        dvpsFeeParams[dvp].maturityFeePercentage = maturityFeePercentage_;
 
-        emit UpdateMaturityFeePercentage(maturityFeePercentage_, previousMaturityFeePercentage);
+        emit UpdateMaturityFeePercentage(dvp, maturityFeePercentage_, previousMaturityFeePercentage);
     }
 
     /// @notice Update cap percentage value at maturity
-    function setMaturityCapPercentage(uint256 maturityCapPercentage_) public {
-        _checkRole(ROLE_ADMIN);
+    function _setMaturityCapPercentage(address dvp, uint256 maturityCapPercentage_) internal {
 
         if (maturityCapPercentage_ > 5e22) {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousMaturityCapPercentage = _params.maturityCapPercentage;
-        _params.maturityCapPercentage = maturityCapPercentage_;
+        uint256 previousMaturityCapPercentage = dvpsFeeParams[dvp].maturityCapPercentage;
+        dvpsFeeParams[dvp].maturityCapPercentage = maturityCapPercentage_;
 
-        emit UpdateMaturityCapPercentage(maturityCapPercentage_, previousMaturityCapPercentage);
-    }
-
-    /// @notice Update vault fee percentage value
-    function setVaultFeePercentage(uint256 vaultFeePercentage_) public {
-        _checkRole(ROLE_ADMIN);
-
-        if (vaultFeePercentage_ > 5e22) {
-            revert OutOfAllowedRange();
-        }
-
-        uint256 previousVaultFeePercentage = _params.vaultFeePercentage;
-        _params.vaultFeePercentage = vaultFeePercentage_;
-
-        emit UpdateVaultFeePercentage(vaultFeePercentage_, previousVaultFeePercentage);
+        emit UpdateMaturityCapPercentage(dvp, maturityCapPercentage_, previousMaturityCapPercentage);
     }
 
     /// @dev Get IERC20Metadata of baseToken of given sender

@@ -61,6 +61,11 @@ contract IGTest is Test {
         ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
         vault.grantRole(vault.ROLE_ADMIN(), admin);
 
+        FeeManager(ap.feeManager()).setDVPFee(
+            address(this),
+            FeeManager.FeeParams(3600, 0, 0, 0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18)
+        );
+
         registry.register(address(ig));
         MockedVault(vault).setAllowedDVP(address(ig));
         vm.stopPrank();

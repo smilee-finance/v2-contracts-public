@@ -231,11 +231,18 @@ contract TestScenariosJson is Test {
         _marketOracle.setImpliedVolatility(_dvp.baseToken(), _dvp.sideToken(), EpochFrequency.WEEKLY, t0.pre.impliedVolatility);
         _marketOracle.setRiskFreeRate(_dvp.baseToken(), t0.pre.riskFreeRate);
 
-        _feeManager.setFeePercentage(t0.pre.fee);
-        _feeManager.setMaturityFeePercentage(t0.pre.feeMaturity);
-        _feeManager.setCapPercentage(t0.pre.capFee);
-        _feeManager.setMaturityCapPercentage(t0.pre.capFeeMaturity);
-        _feeManager.setVaultFeePercentage(t0.pre.vaultFee);
+        FeeManager.FeeParams memory params = FeeManager.FeeParams(
+            3600,
+            5e6,
+            5e6,
+            0,
+            t0.pre.fee,
+            t0.pre.capFee,
+            t0.pre.feeMaturity,
+            t0.pre.capFeeMaturity
+        );
+
+        _feeManager.setDVPFee(address(_dvp), params);
 
         _dvp.setTradeVolatilityUtilizationRateFactor(t0.pre.tradeVolatilityUtilizationRateFactor);
         _dvp.setTradeVolatilityTimeDecay(t0.pre.tradeVolatilityTimeDecay);

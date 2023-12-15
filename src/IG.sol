@@ -84,7 +84,7 @@ contract IG is DVP {
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
         premium_ = _getMarketValue(financeParameters.currentStrike, amount_, true, price);
-        fee = IFeeManager(_getFeeManager()).tradeFee(amountUp + amountDown, premium_, _baseTokenDecimals, false);
+        fee = IFeeManager(_getFeeManager()).tradeBuyFee(address(this), getEpoch().current, amountUp + amountDown, premium_, _baseTokenDecimals);
         premium_ += fee;
     }
 
