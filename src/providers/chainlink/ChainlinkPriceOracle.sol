@@ -5,7 +5,6 @@ import {AggregatorV3Interface} from "@chainlink/interfaces/AggregatorV3Interface
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
 import {AmountsMath} from "../../lib/AmountsMath.sol";
-import {SignedMath} from "../../lib/SignedMath.sol";
 
 contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
     using AmountsMath for uint256;
@@ -15,7 +14,12 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
         uint256 lastUpdate;
     }
 
-    mapping(address => AggregatorV3Interface) internal _feeds;
+    /// @dev index is token address
+    mapping(address => AggregatorV3Interface) public feeds;
+    /// @dev index is token address
+    mapping(address => uint256) internal _maxDelay;
+
+    uint256 internal _defaultMaxDelay;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -23,10 +27,15 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
     error AddressZero();
     error TokenNotSupported();
     error PriceZero();
+    error PriceNegative();
+    error PriceTooOld();
 
     event ChangedTokenPriceFeed(address token, address feed);
+    event ChangedTokenPriceFeedMaxDelay(address token, uint256 delay);
 
     constructor() AccessControl() {
+        _defaultMaxDelay = 1 days;
+
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
@@ -46,9 +55,27 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
             revert AddressZero();
         }
 
-        _feeds[token] = AggregatorV3Interface(feed);
+        feeds[token] = AggregatorV3Interface(feed);
 
         emit ChangedTokenPriceFeed(token, feed);
+    }
+
+    function setPriceFeedMaxDelay(address token, uint256 delay) external {
+        _checkRole(ROLE_ADMIN);
+        if (token == address(0) || address(feeds[token]) == address(0)) {
+            revert AddressZero();
+        }
+
+        _maxDelay[token] = delay;
+
+        emit ChangedTokenPriceFeedMaxDelay(token, delay);
+    }
+
+    function getPriceFeedMaxDelay(address token) public view returns (uint256 maxDelay) {
+        maxDelay = _maxDelay[token];
+        if (maxDelay == 0) {
+            maxDelay = _defaultMaxDelay;
+        }
     }
 
     /**
@@ -61,12 +88,17 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
             revert AddressZero();
         }
 
-        AggregatorV3Interface priceFeed = _feeds[token];
+        AggregatorV3Interface priceFeed = feeds[token];
         if (address(priceFeed) == address(0)) {
             revert TokenNotSupported();
         }
 
         OracleValue memory price = _getFeedValue(priceFeed);
+
+        // Protect against stale feeds:
+        if (block.timestamp - price.lastUpdate > getPriceFeedMaxDelay(token)) {
+            revert PriceTooOld();
+        }
 
         return price.value;
     }
@@ -79,7 +111,11 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
         */
         (, int256 answer, , uint256 updatedAt, ) = priceFeed.latestRoundData();
 
-        datum.value = AmountsMath.wrapDecimals(SignedMath.abs(answer), priceFeed.decimals());
+        if (answer < 0) {
+            revert PriceNegative();
+        }
+
+        datum.value = AmountsMath.wrapDecimals(uint256(answer), priceFeed.decimals());
         datum.lastUpdate = updatedAt;
     }
 
