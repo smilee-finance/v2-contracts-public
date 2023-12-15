@@ -401,6 +401,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             shares = unredeemedShares;
         }
 
+        if (shares == 0) {
+            return;
+        }
+
         if (depositReceipt.epoch < epoch.current) {
             // NOTE: all the amount - if any - has already been converted in unredeemedShares.
             depositReceipt.amount = 0;
@@ -421,23 +425,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     }
 
     function _initiateWithdraw(uint256 shares, bool isMax) internal {
-        if (!isMax && shares == 0) {
-            revert AmountZero();
-        }
-
-        VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
-
-        Epoch memory epoch = getEpoch();
-        uint256 unredeemedShares = depositReceipt.getSharesFromReceipt(
-            epoch.current,
-            epochPricePerShare[depositReceipt.epoch],
-            _shareDecimals
-        );
-        // We take advantage of this flow in order to also transfer all the unredeemed shares to the user.
-        if (depositReceipt.amount > 0 || unredeemedShares > 0) {
-            _redeem(0, true);
-        }
-
+        // We take advantage of this flow in order to also transfer any unredeemed share to the user.
+        _redeem(0, true);
         // NOTE: since we made a 'redeem all', from now on all the user's shares are owned by him.
         uint256 userShares = balanceOf(msg.sender);
 
@@ -445,44 +434,53 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             shares = userShares;
         }
 
+        if (shares == 0) {
+            revert AmountZero();
+        }
+
         if (shares > userShares) {
             revert ExceedsAvailable();
         }
 
+        Epoch memory epoch = getEpoch();
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
+        // If there is a pre-ordered withdrawal in the past, the user must first complete it.
         if (withdrawal.epoch < epoch.current && withdrawal.shares > 0) {
             revert ExistingIncompleteWithdraw();
         }
 
-        uint256 sharesToWithdraw = shares;
-        if (withdrawal.epoch == epoch.current) {
-            // if user has already pre-ordered a withdrawal in this epoch just increase the order
-            sharesToWithdraw = withdrawal.shares + shares;
-        }
-
-        // -----------------------------
-        // Update vault capacity:
-        //   - Estimate the increased capacity by computing the following proportion:
-        //       withdrawed_shares : user_shares = x : user_deposits
-        //   - Use it by decreasing the current number of deposits.
-        //   - update the user's deposit receipt [cumulativeAmount]
-
-        uint256 userCumulativeDeposits = depositReceipt.cumulativeAmount;
-        // NOTE: Don't consider the current epoch deposits in the "all-time deposits" computation
-        if (depositReceipt.epoch == epoch.current) {
-            userCumulativeDeposits -= depositReceipt.amount;
-        }
-
-        uint256 withdrawDepositEquivalent = (userCumulativeDeposits * shares) / userShares;
-
-        depositReceipt.cumulativeAmount -= withdrawDepositEquivalent;
-        _state.liquidity.totalDeposit -= withdrawDepositEquivalent;
-        // -----------------------------
-
-        // update receipt:
-        withdrawal.shares = sharesToWithdraw;
+        // Update user withdrawal receipt:
+        // NOTE: the withdrawal.shares value is zeroed when the user complete a withdraw.
+        // NOTE: if there is a pre-ordered withdrawal in the current epoch, it is increased; otherwise it starts from zero.
+        withdrawal.shares = withdrawal.shares + shares;
         withdrawal.epoch = epoch.current;
+
+        // -----------------------------
+        // A withdrawal pre-order free space for further deposits, hence we must
+        // update the vault capacity.
+        //
+        // The deposit receipt must also be updated in order to correctly update
+        // the vault total deposits, shall the user initiate other withdrawal
+        // pre-orders in the same epoch (as it is used for such computation).
+        //
+        // Steps:
+        //   - estimate the increased capacity by computing the following proportion:
+        //       withdrawed_shares : user_shares = x : user_deposits
+        //   - use the found number for decreasing the current number of deposits.
+        //   - update the user's deposit receipt [cumulativeAmount] value.
+        VaultLib.DepositReceipt storage depositReceipt = depositReceipts[msg.sender];
+        // NOTE: the user deposits to consider are only the ones for which a share has been minted.
+        uint256 userDeposits = depositReceipt.cumulativeAmount;
+        if (depositReceipt.epoch == epoch.current) {
+            userDeposits -= depositReceipt.amount;
+        }
+
+        uint256 withdrawDepositEquivalent = (userDeposits * shares) / userShares;
+
+        _state.liquidity.totalDeposit -= withdrawDepositEquivalent;
+        depositReceipt.cumulativeAmount -= withdrawDepositEquivalent;
+        // -----------------------------
 
         _state.withdrawals.newHeldShares += shares;
 
@@ -570,7 +568,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
-
         // If an uncompleted withdraw exists, complete this one before to start with new one.
         if (withdrawal.shares > 0) {
             _completeWithdraw();
