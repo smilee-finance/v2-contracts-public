@@ -79,7 +79,6 @@ contract FeeManager is IFeeManager, AccessControl {
         _setCapPercentage(dvp, params.capPercentage);
         _setMaturityFeePercentage(dvp, params.maturityFeePercentage);
         _setMaturityCapPercentage(dvp, params.maturityCapPercentage);
-
     }
 
     /// @inheritdoc IFeeManager
@@ -101,18 +100,19 @@ contract FeeManager is IFeeManager, AccessControl {
         }
     }
 
+    /// @inheritdoc IFeeManager
     function tradeSellFee(
         address dvp,
         uint256 notional,
-        uint256 premium,
-        uint256 initialPaidPremium,
+        uint256 currPremium,
+        uint256 entryPremium,
         uint8 tokenDecimals,
-        bool reachedMaturity
+        bool expired
     ) external view returns (uint256 fee) {
-        fee = _getFeeFromNotionalAndPremium(dvp, notional, premium, tokenDecimals, reachedMaturity);
+        fee = _getFeeFromNotionalAndPremium(dvp, notional, currPremium, tokenDecimals, expired);
 
-        if (premium > initialPaidPremium) {
-            uint256 pnl = premium - initialPaidPremium;
+        if (currPremium > entryPremium) {
+            uint256 pnl = currPremium - entryPremium;
             fee += pnl.wmul(dvpsFeeParams[dvp].successFeeTier);
         }
     }
@@ -122,14 +122,14 @@ contract FeeManager is IFeeManager, AccessControl {
         uint256 notional,
         uint256 premium,
         uint8 tokenDecimals,
-        bool reachedMaturity
+        bool expired
     ) internal view returns (uint256 fee) {
         uint256 feeFromNotional;
         uint256 feeFromPremiumCap;
         notional = AmountsMath.wrapDecimals(notional, tokenDecimals);
         premium = AmountsMath.wrapDecimals(premium, tokenDecimals);
 
-        if (reachedMaturity) {
+        if (expired) {
             feeFromNotional = notional.wmul(dvpsFeeParams[dvp].maturityFeePercentage);
             feeFromPremiumCap = premium.wmul(dvpsFeeParams[dvp].maturityCapPercentage);
         } else {
@@ -164,7 +164,6 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update time to expiry threshold value
     function _setTimeToExpiryThreshold(address dvp, uint256 timeToExpiryThreshold) internal {
-
         if (timeToExpiryThreshold == 0) {
             revert OutOfAllowedRange();
         }
@@ -182,7 +181,7 @@ contract FeeManager is IFeeManager, AccessControl {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousMinFee =  dvpsFeeParams[dvp].minFeeBeforeTimeThreshold;
+        uint256 previousMinFee = dvpsFeeParams[dvp].minFeeBeforeTimeThreshold;
         dvpsFeeParams[dvp].minFeeBeforeTimeThreshold = minFee;
 
         emit UpdateMinFeeBeforeTimeThreshold(dvp, minFee, previousMinFee);
@@ -190,7 +189,6 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setMinFeeAfterTimeThreshold(address dvp, uint256 minFee) internal {
-
         if (minFee > 5e6) {
             // calibrated on USDC
             revert OutOfAllowedRange();
@@ -204,7 +202,6 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setSuccessFeeTier(address dvp, uint256 successFeeTier) internal {
-
         if (successFeeTier > 10e17) {
             // calibrated on USDC
             revert OutOfAllowedRange();
@@ -218,7 +215,6 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setFeePercentage(address dvp, uint256 feePercentage_) internal {
-
         if (feePercentage_ > 5e22) {
             revert OutOfAllowedRange();
         }
@@ -231,7 +227,6 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update cap percentage value
     function _setCapPercentage(address dvp, uint256 capPercentage_) internal {
-
         if (capPercentage_ > 5e22) {
             revert OutOfAllowedRange();
         }
@@ -244,7 +239,6 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value at maturity
     function _setMaturityFeePercentage(address dvp, uint256 maturityFeePercentage_) internal {
-
         if (maturityFeePercentage_ > 5e22) {
             revert OutOfAllowedRange();
         }
@@ -257,7 +251,6 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update cap percentage value at maturity
     function _setMaturityCapPercentage(address dvp, uint256 maturityCapPercentage_) internal {
-
         if (maturityCapPercentage_ > 5e22) {
             revert OutOfAllowedRange();
         }

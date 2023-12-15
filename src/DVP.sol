@@ -271,7 +271,13 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             _baseTokenDecimals,
             reachedMaturity
         );
-        paidPayoff -= fee;
+
+        if (paidPayoff >= fee) {
+            paidPayoff -= fee;
+        } else {
+            fee = paidPayoff;
+            paidPayoff = 0;
+        }
 
         // Account change of used liquidity between wallet and protocol:
         position.amountUp -= amount.up;
@@ -416,7 +422,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             reachedMaturity
         );
 
-        payoff_ -= fee_;
+        if (payoff_ >= fee_) {
+            payoff_ -= fee_;
+        } else {
+            fee_ = payoff_;
+            payoff_ = 0;
+        }
     }
 
     /**

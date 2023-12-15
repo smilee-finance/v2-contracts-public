@@ -3,13 +3,13 @@ pragma solidity ^0.8.15;
 
 interface IFeeManager {
     /**
-        Computes trade fee given notional and premium
-        @param dvp The DVP which is performing the trade.
-        @param epoch The current epoch of the DVP
-        @param notional The notional to apply fee
-        @param premium The premium to apply fee
+        Computes trade fee for buying options
+        @param dvp The address of the DVP on which the trade is being performed
+        @param epoch The current epoch of the DVP (expiry ts)
+        @param notional The notional of the traded option
+        @param premium The premium of the traded option (cost)
         @param tokenDecimals Decimals of token
-        @return fee_ The fee to pay
+        @return fee_ The required fee
      */
     function tradeBuyFee(
         address dvp,
@@ -20,22 +20,22 @@ interface IFeeManager {
     ) external view returns (uint256 fee_);
 
     /**
-        Computes trade fee given notional and premium
-        @param dvp The DVP which is performing the trade.
-        @param notional The notional to apply fee
-        @param premium The premium to apply fee
-        @param initialPaidPremium The premium paid by the user.
-        @param tokenDecimals Decimals of token
-        @param reachedMaturity Is used to apply different fees based on the maturity of the position itself.
-        @return fee_ The fee to pay
+        Computes trade fee for selling options
+        @param dvp The address of the DVP on which the trade is being performed
+        @param notional The notional of the traded option
+        @param currPremium The current premium of the traded option (user payoff)
+        @param entryPremium The premium paid for the option
+        @param tokenDecimals # of decimals in the notation of the option base token
+        @param expired Flag to tell if option is expired, used to apply different fees
+        @return fee_ The required fee
      */
     function tradeSellFee(
         address dvp,
         uint256 notional,
-        uint256 premium,
-        uint256 initialPaidPremium,
+        uint256 currPremium,
+        uint256 entryPremium,
         uint8 tokenDecimals,
-        bool reachedMaturity
+        bool expired
     ) external view returns (uint256 fee_);
 
     /**
