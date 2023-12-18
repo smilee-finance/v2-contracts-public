@@ -189,6 +189,22 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         );
     }
 
+    function sellAll(SellParams[] calldata params) external returns (uint256 totalPayoff_) {
+        uint256 paramsLength = params.length;
+        for (uint256 i = 0; i < paramsLength; i++) {
+            if (ownerOf(params[i].tokenId) != msg.sender) {
+                revert NotOwner();
+            }
+            totalPayoff_ += _sell(
+                params[i].tokenId,
+                params[i].notionalUp,
+                params[i].notionalDown,
+                params[i].expectedMarketValue,
+                params[i].maxSlippage
+            );
+        }
+    }
+
     function _sell(
         uint256 tokenId,
         uint256 notionalUp,
@@ -231,5 +247,4 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
         emit SellDVP(tokenId, (notionalUp + notionalDown), payoff_);
         emit Sell(position.dvpAddr, position.expiry, payoff_);
     }
-
 }

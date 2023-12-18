@@ -112,4 +112,13 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         @return payoff_ The amount of baseToken paid to the owner of the position
      */
     function sell(SellParams calldata params) external returns (uint256 payoff_);
+
+    /**
+        @notice Sell all position
+        @dev If the held notional goes to zero, also deletes the NFT
+        @param params Array of tokenId The ID of the token representing the position
+                      notional The quantity to sell from the position
+        @return payoff_ The amount of baseToken paid to the owner of the position
+     */
+    function sellAll(SellParams[] calldata params) external returns (uint256 payoff_);
 }

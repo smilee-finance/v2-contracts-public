@@ -166,6 +166,24 @@ contract PositionManagerTest is Test {
         pm.positionDetail(tokenId);
     }
 
+    function testMintAndBurnAll() public {
+        (uint256 tokenId, ) = initAndMint();
+
+        vm.prank(alice);
+        IPositionManager.SellParams[] memory sellParams = new IPositionManager.SellParams[](1);
+        sellParams[0] = IPositionManager.SellParams({
+            tokenId: tokenId,
+            notionalUp: 10 ether,
+            notionalDown: 0,
+            expectedMarketValue: 0,
+            maxSlippage: 0.1e18
+        });
+        pm.sellAll(sellParams);
+
+        vm.expectRevert(InvalidTokenID);
+        pm.positionDetail(tokenId);
+    }
+
     function testMintTwiceSamePosition() public {
         (uint256 tokenId, IG ig) = initAndMint();
 
