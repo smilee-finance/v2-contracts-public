@@ -58,16 +58,7 @@ contract VaultUserTest is Test {
         addressProvider.setExchangeAdapter(address(exchange));
 
         // No fees by default:
-        FeeManager feeManager = new FeeManager(
-            FeeManager.Params({
-                minFee: 0,
-                feePercentage: 0,
-                capPercentage: 0,
-                maturityFeePercentage: 0,
-                maturityCapPercentage: 0,
-                vaultFeePercentage: 0
-            })
-        );
+        FeeManager feeManager = new FeeManager();
         feeManager.grantRole(feeManager.ROLE_ADMIN(), admin);
         addressProvider.setFeeManager(address(feeManager));
 
@@ -1295,6 +1286,40 @@ contract VaultUserTest is Test {
         (epoch, withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().current, epoch);
         assertEq(shares, withdrawalShares);
+    }
+
+    function testInitiateWithdrawWhenPaused(uint256 shares) public {
+        vm.prank(admin);
+        vault.changePauseState();
+
+        vm.prank(user);
+        vm.expectRevert(ERR_PAUSED);
+        vault.initiateWithdraw(shares);
+    }
+
+    function testInitiateWithdrawWhenEpochFinished(uint256 shares) public {
+        vm.assume(shares > 0);
+        vm.assume(shares <= vault.maxDeposit());
+
+        vm.prank(admin);
+        baseToken.mint(user, shares);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), shares);
+        vault.deposit(shares, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.prank(user);
+        vault.redeem(shares);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(user);
+        vm.expectRevert(ERR_EPOCH_FINISHED);
+        vault.initiateWithdraw(shares);
     }
 
 }

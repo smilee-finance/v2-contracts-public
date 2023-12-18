@@ -6,7 +6,7 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
 import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {EpochFrequency} from "../../src/lib/EpochFrequency.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
-// import {FeeManager} from "../../src/FeeManager.sol";
+import {FeeManager} from "../../src/FeeManager.sol";
 import {IG} from "../../src/IG.sol";
 import {Vault} from "../../src/Vault.sol";
 import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "../../src/lib/FinanceIG.sol";
@@ -80,6 +80,8 @@ contract DeployDVP is EnhancedScript {
             _setTimeLockedParameters(dvp);
         }
 
+        _setDefaultFees(dvp);
+
         _registry.register(dvp);
 
         vm.stopBroadcast();
@@ -129,6 +131,13 @@ contract DeployDVP is EnhancedScript {
     //     feeMan.setMaturityCapPercentage(0.05e18);
     //     vm.stopBroadcast();
     // }
+
+    function _setDefaultFees(address dvpAddr) internal {
+        FeeManager(_addressProvider.feeManager()).setDVPFee(
+            dvpAddr,
+            FeeManager.FeeParams(3600, 0, 0, 0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18)
+        );
+    }
 
     function setTimeLockedParameters(address igAddress) public {
         vm.startBroadcast(_deployerPrivateKey);

@@ -70,14 +70,7 @@ contract DeployCoreFoundations is Script {
         TestnetSwapAdapter swapper = new TestnetSwapAdapter(address(priceOracle));
         ap.setExchangeAdapter(address(swapper));
 
-        FeeManager feeManager = new FeeManager(FeeManager.Params({
-            minFee: 0,
-            feePercentage: 0.00015e18,
-            capPercentage: 0.05e18,
-            maturityFeePercentage: 0.000075e18,
-            maturityCapPercentage: 0.05e18,
-            vaultFeePercentage: 0
-        }));
+        FeeManager feeManager = new FeeManager();
         feeManager.grantRole(feeManager.ROLE_GOD(), _adminMultiSigAddress);
         feeManager.grantRole(feeManager.ROLE_ADMIN(), _deployerAddress);
         //feeManager.renounceRole(feeManager.ROLE_GOD(), _deployerAddress);
