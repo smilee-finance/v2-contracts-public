@@ -63,7 +63,7 @@ contract IGTest is Test {
 
         FeeManager(ap.feeManager()).setDVPFee(
             address(this),
-            FeeManager.FeeParams(3600, 0, 0, 0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18)
+            FeeManager.FeeParams(3600, 0, 0, 0, 0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18)
         );
 
         registry.register(address(ig));

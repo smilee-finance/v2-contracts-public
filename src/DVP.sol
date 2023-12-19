@@ -61,6 +61,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     error MissingPriceOracle();
     error MissingFeeManager();
     error SlippedMarketValue();
+    error PayoffTooLow();
     error VaultDead();
 
     /**
@@ -141,7 +142,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
-        uint256 fee = feeManager.tradeBuyFee(
+        (uint256 fee, uint256 vaultFee) = feeManager.tradeBuyFee(
             address(this),
             epoch.current,
             amount.up + amount.down,
@@ -153,13 +154,13 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         // NOTE: cannot use the approved premium as a reference due to the PositionManager...
         _checkSlippage(premium_, expectedPremium, maxSlippage, true);
 
-        // Get base premium from sender:
-        IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_);
-
         // Get fees from sender:
         IERC20Metadata(baseToken).safeTransferFrom(msg.sender, address(this), fee);
-        IERC20Metadata(baseToken).safeApprove(address(feeManager), fee);
-        feeManager.receiveFee(fee);
+        IERC20Metadata(baseToken).safeApprove(address(feeManager), fee - vaultFee);
+        feeManager.receiveFee(fee - vaultFee);
+
+        // Get base premium from sender:
+        IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_ + vaultFee);
 
         // Update user premium:
         premium_ += fee;
@@ -243,7 +244,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         IFeeManager feeManager = IFeeManager(_getFeeManager());
 
         bool reachedMaturity = epoch_ != getEpoch().current;
-        uint256 fee;
         if (!reachedMaturity) {
             // NOTE: checked only here as expired positions needs to be burned even if the vault was killed.
             _checkEpochNotFinished();
@@ -263,7 +263,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         // Compute fee:
-        fee = feeManager.tradeSellFee(
+        (uint256 fee, uint256 vaultMinFee) = feeManager.tradeSellFee(
             address(this),
             amount.up + amount.down,
             paidPayoff,
@@ -275,8 +275,16 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         if (paidPayoff >= fee) {
             paidPayoff -= fee;
         } else {
+            if (!reachedMaturity && vaultMinFee > paidPayoff) {
+                revert PayoffTooLow();
+            }
+
             fee = paidPayoff;
             paidPayoff = 0;
+
+            if (vaultMinFee > fee) {
+                vaultMinFee = fee;
+            }
         }
 
         // Account change of used liquidity between wallet and protocol:
@@ -285,11 +293,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         // NOTE: must be updated after the previous computations based on used liquidity.
         liquidity.decreaseUsage(strike, amount);
 
+        uint256 netFee = fee - vaultMinFee;
         IVault(vault).transferPayoff(recipient, paidPayoff, reachedMaturity);
 
-        IVault(vault).transferPayoff(address(this), fee, reachedMaturity);
-        IERC20Metadata(baseToken).safeApprove(address(feeManager), fee);
-        feeManager.receiveFee(fee);
+        IVault(vault).transferPayoff(address(this), netFee, reachedMaturity);
+        IERC20Metadata(baseToken).safeApprove(address(feeManager), netFee);
+        feeManager.receiveFee(netFee);
 
         emit Burn(msg.sender);
     }
@@ -413,7 +422,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
-        fee_ = feeManager.tradeSellFee(
+        (fee_, ) = feeManager.tradeSellFee(
             address(this),
             amount_.up + amount_.down,
             payoff_,

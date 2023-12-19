@@ -233,8 +233,9 @@ contract TestScenariosJson is Test {
 
         FeeManager.FeeParams memory params = FeeManager.FeeParams(
             3600,
-            5e6,
-            5e6,
+            0,
+            0,
+            0,
             0,
             t0.pre.fee,
             t0.pre.capFee,

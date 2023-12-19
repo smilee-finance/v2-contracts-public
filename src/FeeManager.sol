@@ -21,6 +21,8 @@ contract FeeManager is IFeeManager, AccessControl {
         uint256 minFeeAfterTimeThreshold;
         // Percentage to be appied to the PNL of the sell.
         uint256 successFeeTier;
+        // The minimum fee paid for any sell trade that hasn't reached maturity.
+        uint256 vaultSellMinFee;
         // Fee percentage applied for each DVPs in WAD, it's used to calculate fees on notional.
         uint256 feePercentage;
         // CAP percentage, works like feePercentage in WAD, but it's used to calculate fees on premium.
@@ -43,6 +45,7 @@ contract FeeManager is IFeeManager, AccessControl {
     event UpdateTimeToExpiryThreshold(address dvp, uint256 timeToExpiryThreshold, uint256 previous);
     event UpdateMinFeeBeforeTimeThreshold(address dvp, uint256 minFeeBeforeTimeThreshold, uint256 previous);
     event UpdateMinFeeAfterTimeThreshold(address dvp, uint256 minFeeAfterTimeThreshold, uint256 previous);
+    event UpdateVaultSellMinFee(address dvp, uint256 minFeeAfterTimeThreshold, uint256 previous);
     event UpdateSuccessFeeTier(address dvp, uint256 minFeeAfterTimeThreshold, uint256 previous);
     event UpdateFeePercentage(address dvp, uint256 fee, uint256 previous);
     event UpdateCapPercentage(address dvp, uint256 fee, uint256 previous);
@@ -74,6 +77,7 @@ contract FeeManager is IFeeManager, AccessControl {
         _setTimeToExpiryThreshold(dvp, params.timeToExpiryThreshold);
         _setMinFeeBeforeTimeThreshold(dvp, params.minFeeBeforeTimeThreshold);
         _setMinFeeAfterTimeThreshold(dvp, params.minFeeAfterTimeThreshold);
+        _setVaultSellMinFee(dvp, params.vaultSellMinFee);
         _setSuccessFeeTier(dvp, params.successFeeTier);
         _setFeePercentage(dvp, params.feePercentage);
         _setCapPercentage(dvp, params.capPercentage);
@@ -88,10 +92,10 @@ contract FeeManager is IFeeManager, AccessControl {
         uint256 notional,
         uint256 premium,
         uint8 tokenDecimals
-    ) external view returns (uint256 fee) {
+    ) external view returns (uint256 fee, uint256 minFee) {
         fee = _getFeeFromNotionalAndPremium(dvp, notional, premium, tokenDecimals, false);
 
-        uint256 minFee = epoch - block.timestamp > dvpsFeeParams[dvp].timeToExpiryThreshold
+        minFee = epoch - block.timestamp > dvpsFeeParams[dvp].timeToExpiryThreshold
             ? dvpsFeeParams[dvp].minFeeBeforeTimeThreshold
             : dvpsFeeParams[dvp].minFeeAfterTimeThreshold;
 
@@ -108,12 +112,17 @@ contract FeeManager is IFeeManager, AccessControl {
         uint256 entryPremium,
         uint8 tokenDecimals,
         bool expired
-    ) external view returns (uint256 fee) {
+    ) external view returns (uint256 fee, uint256 vaultMinFee) {
         fee = _getFeeFromNotionalAndPremium(dvp, notional, currPremium, tokenDecimals, expired);
 
         if (currPremium > entryPremium) {
             uint256 pnl = currPremium - entryPremium;
             fee += pnl.wmul(dvpsFeeParams[dvp].successFeeTier);
+        }
+
+        if (!expired) {
+            vaultMinFee = dvpsFeeParams[dvp].vaultSellMinFee;
+            fee += vaultMinFee;
         }
     }
 
@@ -198,6 +207,19 @@ contract FeeManager is IFeeManager, AccessControl {
         dvpsFeeParams[dvp].minFeeAfterTimeThreshold = minFee;
 
         emit UpdateMinFeeAfterTimeThreshold(dvp, minFee, previousMinFee);
+    }
+
+    /// @notice Update fee percentage value
+    function _setVaultSellMinFee(address dvp, uint256 vaultSellMinFee) internal {
+        if (vaultSellMinFee > 5e6) {
+            // calibrated on USDC
+            revert OutOfAllowedRange();
+        }
+
+        uint256 previousVaultSellMinFee = dvpsFeeParams[dvp].vaultSellMinFee;
+        dvpsFeeParams[dvp].vaultSellMinFee = vaultSellMinFee;
+
+        emit UpdateVaultSellMinFee(dvp, vaultSellMinFee, previousVaultSellMinFee);
     }
 
     /// @notice Update fee percentage value

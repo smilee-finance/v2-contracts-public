@@ -84,7 +84,13 @@ contract IG is DVP {
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
         premium_ = _getMarketValue(financeParameters.currentStrike, amount_, true, price);
-        fee = IFeeManager(_getFeeManager()).tradeBuyFee(address(this), getEpoch().current, amountUp + amountDown, premium_, _baseTokenDecimals);
+        (fee, ) = IFeeManager(_getFeeManager()).tradeBuyFee(
+            address(this),
+            getEpoch().current,
+            amountUp + amountDown,
+            premium_,
+            _baseTokenDecimals
+        );
         premium_ += fee;
     }
 
@@ -167,12 +173,7 @@ contract IG is DVP {
         Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
         // Also update the epoch volatility with the postTradeVol:
-        FinanceIG.updateAverageVolatility(
-            financeParameters,
-            amount,
-            postTradeVol,
-            _baseTokenDecimals
-        );
+        FinanceIG.updateAverageVolatility(financeParameters, amount, postTradeVol, _baseTokenDecimals);
 
         Amount memory availableLiquidity = liquidity.available(strike);
         (, uint256 sideTokensAmount) = IVault(vault).balances();

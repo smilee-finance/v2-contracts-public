@@ -2,15 +2,18 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "@project/interfaces/IPositionManager.sol";
 import {Epoch} from "@project/lib/EpochController.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {OptionStrategy} from "@project/lib/OptionStrategy.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
+import {MarketOracle} from "@project/MarketOracle.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {Vault} from "@project/Vault.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
@@ -36,6 +39,7 @@ contract IGVaultTest is Test {
     address charlie = address(0x4);
     address david = address(0x5);
 
+    AddressProvider ap;
     TestnetToken baseToken;
     TestnetToken sideToken;
     FeeManager feeManager;
@@ -49,7 +53,7 @@ contract IGVaultTest is Test {
         vm.warp(EpochFrequency.REF_TS);
         //ToDo: Replace with Factory
         vm.startPrank(admin);
-        AddressProvider ap = new AddressProvider(0);
+        ap = new AddressProvider(0);
         registry = new MockedRegistry();
         ap.grantRole(ap.ROLE_ADMIN(), admin);
         registry.grantRole(registry.ROLE_ADMIN(), admin);
@@ -320,7 +324,7 @@ contract IGVaultTest is Test {
             assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
         }
 
-        (uint256  charlieInitialBalance, ) = _assurePremium(
+        (uint256 charlieInitialBalance, ) = _assurePremium(
             charlie,
             0,
             (params.optionStrategy) ? params.charlieAmount : 0,
@@ -389,6 +393,7 @@ contract IGVaultTest is Test {
             (params.optionStrategy) ? 0 : params.davidAmount
         );
 
+        console.log("davidPayoff + davidFeePayoff", davidPayoff + davidFeePayoff);
         assertApproxEqAbs(params.davidAmount / 5, davidPayoff + davidFeePayoff, 1e2);
 
         uint256 pendingPayoff = VaultUtils.vaultState(vault).liquidity.pendingPayoffs;

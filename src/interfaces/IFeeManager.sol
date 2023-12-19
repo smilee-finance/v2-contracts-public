@@ -10,6 +10,7 @@ interface IFeeManager {
         @param premium The premium of the traded option (cost)
         @param tokenDecimals Decimals of token
         @return fee_ The required fee
+        @return vaultMinFee_ TThe required minimum fee paid for each trade that is transferred to the vault.
      */
     function tradeBuyFee(
         address dvp,
@@ -17,7 +18,7 @@ interface IFeeManager {
         uint256 notional,
         uint256 premium,
         uint8 tokenDecimals
-    ) external view returns (uint256 fee_);
+    ) external view returns (uint256 fee_, uint256 vaultMinFee_);
 
     /**
         Computes trade fee for selling options
@@ -28,6 +29,8 @@ interface IFeeManager {
         @param tokenDecimals # of decimals in the notation of the option base token
         @param expired Flag to tell if option is expired, used to apply different fees
         @return fee_ The required fee
+        @return vaultMinFee_ TThe required minimum fee paid for each trade that is transferred to the vault.
+
      */
     function tradeSellFee(
         address dvp,
@@ -36,7 +39,7 @@ interface IFeeManager {
         uint256 entryPremium,
         uint8 tokenDecimals,
         bool expired
-    ) external view returns (uint256 fee_);
+    ) external view returns (uint256 fee_, uint256 vaultMinFee_);
 
     /**
      * Receive fee from sender and record the value into account

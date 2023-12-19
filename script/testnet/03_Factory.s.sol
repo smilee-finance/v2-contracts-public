@@ -135,7 +135,7 @@ contract DeployDVP is EnhancedScript {
     function _setDefaultFees(address dvpAddr) internal {
         FeeManager(_addressProvider.feeManager()).setDVPFee(
             dvpAddr,
-            FeeManager.FeeParams(3600, 0, 0, 0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18)
+            FeeManager.FeeParams(3600, 0, 0, 0, 0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18)
         );
     }
 
