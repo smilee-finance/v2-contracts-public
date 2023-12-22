@@ -505,30 +505,32 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         Epoch memory epoch = getEpoch();
-
-        // At least one epoch must have passed since the start of the withdrawal
-        if (withdrawal.epoch == epoch.current && _state.deadReason != VaultLib.DeadManualKillReason) {
-            revert WithdrawTooEarly();
-        }
-
-        uint256 amountToWithdraw;
-        if (_state.deadReason == VaultLib.DeadManualKillReason && withdrawal.epoch == epoch.current) {
-            amountToWithdraw = VaultLib.sharesToAsset(
-                withdrawal.shares,
-                epochPricePerShare[epoch.previous],
-                _shareDecimals
-            );
+        uint256 pricePerShare = 0;
+        if (withdrawal.epoch == epoch.current) {
+            if (!_state.dead) {
+                // At least one epoch must have passed since the start of the withdrawal
+                revert WithdrawTooEarly();
+            }
+            if (!manuallyKilled) {
+                revert NotManuallyKilled();
+            }
+            pricePerShare = epochPricePerShare[epoch.previous];
         } else {
-            amountToWithdraw = VaultLib.sharesToAsset(
-                withdrawal.shares,
-                epochPricePerShare[withdrawal.epoch],
-                _shareDecimals
-            );
+            pricePerShare = epochPricePerShare[withdrawal.epoch];
         }
+        uint256 amountToWithdraw = VaultLib.sharesToAsset(
+            withdrawal.shares,
+            pricePerShare,
+            _shareDecimals
+        );
 
-        // NOTE: the user transferred the required shares to the vault when she initiated the withdraw
+        // NOTE: the user transferred the required shares to the vault when he initiated the withdraw
         if (!_state.dead) {
+            // NOTE: when the vault is dead (rescue shares flow), the newHeldShares are not accounted as held.
+            //       The newHeldShares change is not performed here as the user may have an already initiated withdrawal request which will [...]
             _state.withdrawals.heldShares -= withdrawal.shares;
+            // NOTE: when the vault is dead (rescue shares flow), the pendingWithdrawals
+            //       counter has not been increased for such shares in the roll-epoch phase.
             _state.liquidity.pendingWithdrawals -= amountToWithdraw;
         }
 
@@ -574,6 +576,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         _initiateWithdraw(0, true);
+        // NOTE: due to the missing roll-epoch between the initiate withdraw
+        //       flow and the complete one, the withdrawed shares are not
+        //       accounted as held, but newHeld.
+        _state.withdrawals.newHeldShares -= withdrawal.shares;
         _completeWithdraw();
     }
 
