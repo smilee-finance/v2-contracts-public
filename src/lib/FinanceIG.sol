@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
+import {SD59x18, sd} from "@prb/math/SD59x18.sol";
+import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
 import {Amount, AmountHelper} from "./Amount.sol";
 import {AmountsMath} from "./AmountsMath.sol";
 import {FinanceIGDelta} from "./FinanceIGDelta.sol";
@@ -20,16 +22,24 @@ struct FinanceParameters {
     int256 limSup;
     int256 limInf;
     TimeLockedFinanceParameters timeLocked;
-    uint256 averageSigma;
-    uint256 totalTradedNotional;
     uint256 sigmaZero;
+    VolatilityParameters internalVolatilityParameters;
+}
+
+struct VolatilityParameters {
+    uint256 epochStart;
+    uint256 v_previous;
+    uint256 t_previous;
+    uint256 u_previous;
+    uint256 avg_u;
+    uint256 omega;
 }
 
 struct TimeLockedFinanceParameters {
-    TimeLockedUInt sigmaMultiplier;
-    TimeLockedUInt tradeVolatilityUtilizationRateFactor;
-    TimeLockedUInt tradeVolatilityTimeDecay;
-    TimeLockedUInt volatilityPriceDiscountFactor;
+    TimeLockedUInt sigmaMultiplier; // m
+    TimeLockedUInt tradeVolatilityUtilizationRateFactor; // N
+    TimeLockedUInt tradeVolatilityTimeDecay; // theta
+    TimeLockedUInt volatilityPriceDiscountFactor; // rho
     TimeLockedBool useOracleImpliedVolatility;
 }
 
@@ -172,10 +182,6 @@ library FinanceIG {
     ) public {
         _updateSigmaZero(params, impliedVolatility);
 
-        // Reset the average for the next epoch:
-        params.averageSigma = 0;
-        params.totalTradedNotional = 0;
-
         {
             uint256 sigmaMultiplier = params.timeLocked.sigmaMultiplier.get();
             uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
@@ -216,17 +222,26 @@ library FinanceIG {
             if (params.sigmaZero == 0) {
                 // if it was never set, take the one from the oracle:
                 params.sigmaZero = impliedVolatility;
+                params.internalVolatilityParameters.avg_u = 0;
+                params.internalVolatilityParameters.omega = 0;
+                params.internalVolatilityParameters.u_previous = 0;
+                params.internalVolatilityParameters.v_previous = 1e18;
             } else {
-                if (params.averageSigma > 0) {
-                    // Update with the average of the trades:
-                    params.sigmaZero = params.averageSigma;
+                VolatilityParameters storage vParams = params.internalVolatilityParameters;
+                UD60x18 sharedUpdateFactor = ud(vParams.v_previous).mul(convert(params.maturity).sub(convert(vParams.t_previous)));
+                vParams.avg_u = ud(vParams.avg_u).add(ud(vParams.v_previous).mul(sharedUpdateFactor).mul(ud(vParams.u_previous))).unwrap();
+                vParams.omega = ud(vParams.omega).add(sharedUpdateFactor).unwrap();
+                if (vParams.omega == 0) {
+                    vParams.avg_u = 0;
                 } else {
-                    uint256 rho = params.timeLocked.tradeVolatilityUtilizationRateFactor.get();
-                    uint256 theta = params.timeLocked.tradeVolatilityTimeDecay.get();
-                    uint256 newSigmaZero = rho.wmul(params.sigmaZero).wmul(1e18 - theta);
-
-                    params.sigmaZero = newSigmaZero;
+                    vParams.avg_u = ud(vParams.avg_u).div(ud(vParams.omega)).unwrap();
                 }
+                uint256 n = params.timeLocked.tradeVolatilityUtilizationRateFactor.get();
+                uint256 theta = params.timeLocked.tradeVolatilityTimeDecay.get();
+                UD60x18 factor_1 = convert(1).add(ud(n).sub(convert(1)).mul(ud(vParams.avg_u).powu(3)));
+                uint256 rho = params.timeLocked.volatilityPriceDiscountFactor.get();
+                UD60x18 factor_2 = ud(vParams.avg_u).add(convert(1).sub(ud(theta)).mul(convert(1).sub(ud(vParams.avg_u))));
+                params.sigmaZero = ud(rho).mul(ud(params.sigmaZero)).mul(factor_1).mul(factor_2).unwrap();
             }
         }
     }
@@ -289,21 +304,35 @@ library FinanceIG {
         sigma = FinanceIGPrice.tradeVolatility(igPriceParams);
     }
 
-    // Average trade volatility within an epoch
-    function updateAverageVolatility(
+    function updateVolatilityOnTrade(
         FinanceParameters storage params,
-        Amount memory tradeNotional,
-        uint256 postTradeVolatility,
-        uint8 tokenDecimals
-    ) public {
-        uint256 tradedNotional = AmountsMath.wrapDecimals(tradeNotional.getTotal(), tokenDecimals);
-        uint256 totalTradedNotional = AmountsMath.wrapDecimals(params.totalTradedNotional, tokenDecimals);
+        uint256 oraclePrice,
+        uint256 postTradeUtilizationRate
+    ) external {
+        uint256 v_i;
+        {
+            UD60x18 z_abs;
+            {
+                SD59x18 z_numerator = ud(oraclePrice).intoSD59x18().div(ud(params.currentStrike).intoSD59x18()).ln();
+                uint256 tau = WadTime.rangeInYears(params.internalVolatilityParameters.epochStart, params.maturity);
+                SD59x18 z_denominator = ud(params.sigmaZero).mul(ud(tau).sqrt()).intoSD59x18();
 
-        uint256 numerator = params.averageSigma.wmul(totalTradedNotional).add(tradedNotional.wmul(postTradeVolatility));
-        uint256 denominator = totalTradedNotional.add(tradedNotional);
+                z_abs = z_numerator.div(z_denominator).abs().intoUD60x18();
+            }
+            UD60x18 numerator = convert(params.maturity).sub(convert(block.timestamp)).div(convert(params.maturity));
+            UD60x18 denominator = convert(1).add(z_abs.div(convert(3)).powu(5));
 
-        // NOTE: denominator cannot be zero as tradeNotional is checked earlier.
-        params.averageSigma = numerator.wdiv(denominator);
-        params.totalTradedNotional += tradeNotional.getTotal();
+            v_i = numerator.div(denominator).unwrap();
+        }
+
+        {
+            UD60x18 sharedUpdateFactor = ud(params.internalVolatilityParameters.v_previous).mul(convert(block.timestamp).sub(convert(params.internalVolatilityParameters.t_previous)));
+            params.internalVolatilityParameters.avg_u = ud(params.internalVolatilityParameters.avg_u).add(sharedUpdateFactor.mul(ud(params.internalVolatilityParameters.u_previous))).unwrap();
+            params.internalVolatilityParameters.omega = ud(params.internalVolatilityParameters.omega).add(sharedUpdateFactor).unwrap();
+        }
+
+        params.internalVolatilityParameters.t_previous = block.timestamp;
+        params.internalVolatilityParameters.u_previous = postTradeUtilizationRate;
+        params.internalVolatilityParameters.v_previous = v_i;
     }
 }

@@ -257,7 +257,7 @@ contract TestScenariosJson is Test {
             _dvp.rollEpoch();
         }
 
-        (, , , , , , , , , , , uint256 sigmaZero) = _dvp.financeParameters();
+        (, , , , , , , , , uint256 sigmaZero, ) = _dvp.financeParameters();
         assertApproxEqAbs(t0.post.impliedVolatility, sigmaZero, _tolerance(t0.post.impliedVolatility));
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
@@ -346,8 +346,8 @@ contract TestScenariosJson is Test {
             _toleranceOnPercentage
         );
 
-        (, , , , , , , , , uint256 averageSigma, , ) = _dvp.financeParameters();
-        assertApproxEqAbs(t.post.averageSigma, averageSigma, _tolerance(t.post.averageSigma));
+        // (, , , , , , , , , uint256 averageSigma, , ) = _dvp.financeParameters();
+        // assertApproxEqAbs(t.post.averageSigma, averageSigma, _tolerance(t.post.averageSigma));
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
 

@@ -188,12 +188,17 @@ contract IG is DVP {
 
         Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
-        // Also update the epoch volatility with the postTradeVol:
-        FinanceIG.updateAverageVolatility(
-            financeParameters,
+        // Also update the epoch volatility with the trade effect:
+        uint256 ur = liquidity.postTradeUtilizationRate(
+            financeParameters.currentStrike,
             amount,
-            postTradeVol,
+            tradeIsBuy,
             _baseTokenDecimals
+        );
+        FinanceIG.updateVolatilityOnTrade(
+            financeParameters,
+            oraclePrice,
+            ur
         );
 
         Amount memory availableLiquidity = liquidity.available(strike);
@@ -250,6 +255,7 @@ contract IG is DVP {
 
         financeParameters.maturity = epoch.current;
         financeParameters.currentStrike = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+        financeParameters.internalVolatilityParameters.epochStart = epoch.previous;
 
         emit EpochStrike(epoch.current, financeParameters.currentStrike);
 

@@ -31,6 +31,10 @@ library WadTime {
     }
 
     function yearsToTimestamp(uint256 timestamp) external view returns (uint256 years_) {
-        years_ = nYears(_daysFromTs(block.timestamp, timestamp));
+        years_ = rangeInYears(block.timestamp, timestamp);
+    }
+
+    function rangeInYears(uint256 start, uint256 end) public pure returns (uint256 years_) {
+        years_ = nYears(_daysFromTs(start, end));
     }
 }
