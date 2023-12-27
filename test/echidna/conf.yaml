@@ -1,0 +1,13 @@
+corpusDir: "/app/test-echidna/out/corpus"
+seqLen: 100
+testMode: assertion
+deployContracts: [
+  ['0xf1a', 'TokensPair' ],
+  ['0xf1b', 'EpochController' ],
+  ['0xf1c', 'VaultLib' ],
+  ['0xf1d', 'EpochFrequency' ],
+]
+cryticArgs: [
+  '--solc-remaps', '@project/=src forge-std/=lib/forge-std/src/ @openzeppelin/=lib/openzeppelin-contracts/ @uniswap/v3-periphery/=lib/v3-periphery/ @uniswap/v3-core/=lib/v3-core/ @solstat/=lib/solstat/src/ prb-math/=lib/solidity-trigonometry/lib/prb-math/contracts/ @prb/math/=lib/prb-math/src/ @chainlink/=lib/chainlink-brownie-contracts/contracts/src/v0.8/ src/=src/',
+  '--compile-libraries=(TokensPair,0xf1a),(EpochController,0xf1b),(VaultLib,0xf1c),(EpochFrequency,0xf1d)'
+]

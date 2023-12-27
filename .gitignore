@@ -21,3 +21,6 @@ lcov.info
 report/
 
 .DS_Store
+
+crytic-export
+test-echidna/out
