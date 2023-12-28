@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {IDVP} from "./interfaces/IDVP.sol";
+import {IDVPAccessNFT} from "./interfaces/IDVPAccessNFT.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
@@ -22,6 +23,12 @@ contract IG is DVP {
 
     FinanceParameters public financeParameters;
 
+    /// @notice A flag to tell if this DVP is currently bound to check access for trade
+    bool public nftAccessFlag = false;
+
+    error NFTAccessDenied();
+    error NFTAccessCapExceeded();
+
     // Used by TheGraph for frontend needs:
     event EpochStrike(uint256 epoch, uint256 strike);
 
@@ -37,6 +44,15 @@ contract IG is DVP {
         );
     }
 
+    /**
+        @notice Allows the contract's owner to enable or disable the nft access to trade operations
+     */
+    function setNftAccessFlag(bool flag) external {
+        _checkRole(ROLE_ADMIN);
+
+        nftAccessFlag = flag;
+    }
+
     /// @notice Common strike price for all impermanent gain positions in this DVP, set at epoch start
     function currentStrike() external view returns (uint256 strike_) {
         strike_ = financeParameters.currentStrike;
@@ -49,9 +65,11 @@ contract IG is DVP {
         uint256 amountUp,
         uint256 amountDown,
         uint256 expectedPremium,
-        uint256 maxSlippage
+        uint256 maxSlippage,
+        uint256 nftAccessTokenId
     ) external override returns (uint256 premium_) {
         strike;
+        _checkNFTAccess(nftAccessTokenId, recipient, amountUp + amountDown);
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
         premium_ = _mint(recipient, financeParameters.currentStrike, amount_, expectedPremium, maxSlippage);
@@ -318,4 +336,16 @@ contract IG is DVP {
         uint256 timeToValidity = getEpoch().timeToNextEpoch();
         FinanceIG.updateTimeLockedParameters(financeParameters.timeLocked, params, timeToValidity);
     }
+
+    function _checkNFTAccess(uint256 accessTokenId, address receiver, uint256 notionalAmount) internal view {
+        if (nftAccessFlag) {
+            IDVPAccessNFT nft = IDVPAccessNFT(_addressProvider.dvpAccessNFT());
+            if (accessTokenId == 0 || nft.ownerOf(accessTokenId) != receiver) {
+                revert NFTAccessDenied();
+            }
+            if (notionalAmount > nft.capAmount(accessTokenId)) {
+                revert NFTAccessCapExceeded();
+            }
+        }
+    } 
 }

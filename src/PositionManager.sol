@@ -126,7 +126,8 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             params.notionalUp,
             params.notionalDown,
             params.expectedPremium,
-            params.maxSlippage
+            params.maxSlippage,
+            params.nftAccessTokenId
         );
 
         if (obtainedPremium > premium) {

@@ -120,7 +120,7 @@ contract IGVaultTest is Test {
         (uint256 expectedMarketValue, ) = ig.premium(0, inputAmount, 0);
         vm.prank(charlie);
         vm.expectRevert(NotEnoughLiquidity);
-        ig.mint(charlie, 0, inputAmount, 0, expectedMarketValue, 0.1e18);
+        ig.mint(charlie, 0, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
 
         VaultUtils.addVaultDeposit(alice, 0.5 ether, admin, address(vault), vm);
 
@@ -131,7 +131,7 @@ contract IGVaultTest is Test {
         _assurePremium(charlie, 0, inputAmount, 0);
 
         vm.expectRevert(NotEnoughLiquidity);
-        ig.mint(charlie, 0, inputAmount, 0, expectedMarketValue, 0.1e18);
+        ig.mint(charlie, 0, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
     }
 
     // Assumption: Price 1:1
@@ -153,7 +153,7 @@ contract IGVaultTest is Test {
         (uint256 premium, uint256 fee) = _assurePremium(charlie, 0, optionAmount, 0);
 
         vm.startPrank(charlie);
-        premium = ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18);
+        premium = ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
         vm.stopPrank();
         // ToDo: check premium change
 
@@ -218,7 +218,8 @@ contract IGVaultTest is Test {
             (params.optionStrategy) ? params.charlieAmount : 0,
             (params.optionStrategy) ? 0 : params.charlieAmount,
             premium,
-            0.1e18
+            0.1e18,
+            0
         );
 
         initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
@@ -241,7 +242,8 @@ contract IGVaultTest is Test {
                 (params.optionStrategy) ? params.davidAmount : 0,
                 (params.optionStrategy) ? 0 : params.davidAmount,
                 davidInitialBalance,
-                0.1e18
+                0.1e18,
+                0
             );
             davidInitialBalance -= davidPremium;
         }
@@ -338,7 +340,8 @@ contract IGVaultTest is Test {
                 (params.optionStrategy) ? params.charlieAmount : 0,
                 (params.optionStrategy) ? 0 : params.charlieAmount,
                 charlieInitialBalance,
-                0.1e18
+                0.1e18,
+                0
             );
         }
 
@@ -356,7 +359,8 @@ contract IGVaultTest is Test {
                 (params.optionStrategy) ? params.davidAmount : 0,
                 (params.optionStrategy) ? 0 : params.davidAmount,
                 davidInitialBalance,
-                0.1e18
+                0.1e18,
+                0
             );
             davidInitialBalance -= davidPremium;
         }
@@ -456,7 +460,7 @@ contract IGVaultTest is Test {
         uint256 optionAmount = 250e18;
         _assurePremium(charlie, 0, optionAmount, 0);
         vm.prank(charlie);
-        ig.mint(charlie, 0, optionAmount, 0, 0, 0.1e18);
+        ig.mint(charlie, 0, optionAmount, 0, 0, 0.1e18, 0);
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
@@ -474,7 +478,7 @@ contract IGVaultTest is Test {
         (uint256 premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
         // Mint option of 125:
         vm.prank(charlie);
-        ig.mint(charlie, 0, optionAmount / 2, 0, premium, 0.1e18);
+        ig.mint(charlie, 0, optionAmount / 2, 0, premium, 0.1e18, 0);
 
         vm.prank(admin);
         vault.changePauseState();
@@ -486,7 +490,7 @@ contract IGVaultTest is Test {
         vm.startPrank(charlie);
 
         vm.expectRevert("Pausable: paused");
-        ig.mint(charlie, 0, optionAmount, 0, expectedMarketValue, 0.1e18);
+        ig.mint(charlie, 0, optionAmount, 0, expectedMarketValue, 0.1e18, 0);
         vm.stopPrank();
 
         // Try burn option after Vault was paused

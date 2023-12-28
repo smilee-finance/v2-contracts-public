@@ -17,4 +17,7 @@ interface IAddressProvider {
     function feeManager() external view returns (address);
 
     function vaultAccessNFT() external view returns (address);
+
+    function dvpAccessNFT() external view returns (address);
+
 }

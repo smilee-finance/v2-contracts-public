@@ -86,13 +86,13 @@ contract IGErrorTest is Test {
         Utils.skipDay(true, vm);
 
         vm.prank(admin);
-        ig.rollEpoch();
-
-        vm.prank(admin);
         registry.registerDVP(address(ig));
         vm.prank(admin);
         MockedVault(vault).setAllowedDVP(address(ig));
         feeManager = FeeManager(ap.feeManager());
+        
+        vm.prank(admin);
+        ig.rollEpoch();
     }
 
     function testBuySellPremium0Scenario1() public {
@@ -108,7 +108,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 1e18, 0);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18);
+            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
             prezzo -= 20e18;
             console.log(prezzo);
         }
@@ -134,7 +134,7 @@ contract IGErrorTest is Test {
         // (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
 
         // vm.prank(charlie);
-        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18);
+        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
     function testBuySellPremium0Scenario2() public {
@@ -151,12 +151,12 @@ contract IGErrorTest is Test {
         (uint256 premium_, ) = _assurePremium(charlie, 2000e18, 0, 15e18);
 
         vm.prank(charlie);
-        ig.mint(charlie, 2000e18, 0, 15e18, premium_, 0.1e18);
+        ig.mint(charlie, 2000e18, 0, 15e18, premium_, 0.1e18,0);
 
         (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
 
         vm.prank(charlie);
-        ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18);
+        ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
     function testBuySellPremium0Scenario21() public {
@@ -172,7 +172,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 0, 1e18);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18);
+            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
             prezzo += 20e18;
             //console.log(prezzo);
         }
@@ -198,7 +198,7 @@ contract IGErrorTest is Test {
         // (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
 
         // vm.prank(charlie);
-        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18);
+        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
     function testBuySellPremium0Scenario3() public {
@@ -212,7 +212,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 1e18, 0);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18);
+            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
             prezzo -= 20e18;
             //console.log(prezzo);
         }
@@ -255,7 +255,7 @@ contract IGErrorTest is Test {
         // (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
 
         // vm.prank(charlie);
-        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18);
+        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
     function testBuySellPremium0Scenario31() public {
@@ -269,7 +269,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 1e18, 0);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18);
+            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
             prezzo -= 20e18;
             //console.log(prezzo);
         }
@@ -303,7 +303,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 0, 1e18);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18);
+            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
             prezzo += 20e18;
             //console.log(prezzo);
         }
@@ -346,7 +346,7 @@ contract IGErrorTest is Test {
         // (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
 
         // vm.prank(charlie);
-        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18);
+        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
     function testBuySellPremium0Scenario41() public {
@@ -360,7 +360,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 0, 1e18);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18);
+            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
             prezzo += 20e18;
             //console.log(prezzo);
         }

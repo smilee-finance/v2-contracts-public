@@ -18,6 +18,7 @@ contract AddressProvider is AccessControl, IAddressProvider {
     TimeLockedAddress internal _vaultProxy;
     TimeLockedAddress internal _feeManager;
     TimeLockedAddress internal _vaultAccessNFT;
+    TimeLockedAddress internal _dvpAccessNFT;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -31,6 +32,8 @@ contract AddressProvider is AccessControl, IAddressProvider {
     event ChangedPositionManager(address newValue, address oldValue);
     event ChangedVaultProxy(address newValue, address oldValue);
     event ChangedFeeManager(address newValue, address oldValue);
+    event ChangedVaultAccessNFT(address newValue, address oldValue);
+    event ChangedDVPAccessNFT(address newValue, address oldValue);
 
     constructor(uint256 timeLockDelay_) AccessControl() {
         timeLockDelay = timeLockDelay_;
@@ -152,10 +155,25 @@ contract AddressProvider is AccessControl, IAddressProvider {
         address previous = _vaultAccessNFT.proposed;
         _vaultAccessNFT.set(vaultAccessNFT_, timeLockDelay);
 
-        emit ChangedFeeManager(vaultAccessNFT_, previous);
+        emit ChangedVaultAccessNFT(vaultAccessNFT_, previous);
     }
 
     function vaultAccessNFT() external view returns (address) {
         return _vaultAccessNFT.get();
     }
+
+    function setDVPAccessNFT(address dvpAccessNFT_) external {
+        _checkRole(ROLE_ADMIN);
+        _checkZeroAddress(dvpAccessNFT_);
+
+        address previous = _dvpAccessNFT.proposed;
+        _dvpAccessNFT.set(dvpAccessNFT_, timeLockDelay);
+
+        emit ChangedDVPAccessNFT(dvpAccessNFT_, previous);
+    }
+
+    function dvpAccessNFT() external view returns (address) {
+        return _dvpAccessNFT.get();
+    }
+
 }

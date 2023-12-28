@@ -306,7 +306,7 @@ contract TestScenariosJson is Test {
             (marketValue, fee) = _dvp.premium(strike, t.amountUp, t.amountDown);
             TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue, vm);
             vm.prank(_trader);
-            marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue, 0.1e18);
+            marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue, 0.1e18, 0);
 
             // TBD: check slippage on market value
         } else {

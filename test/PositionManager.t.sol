@@ -89,7 +89,8 @@ contract PositionManagerTest is Test {
                 recipient: alice,
                 tokenId: 0,
                 expectedPremium: expectedMarketValue,
-                maxSlippage: 0.1e18
+                maxSlippage: 0.1e18,
+                nftAccessTokenId: 0
             })
         );
         assertGe(1, tokenId);
@@ -220,7 +221,8 @@ contract PositionManagerTest is Test {
                 recipient: alice,
                 tokenId: 1,
                 expectedPremium: expectedMarketValue,
-                maxSlippage: 0.1e18
+                maxSlippage: 0.1e18,
+                nftAccessTokenId: 0
             })
         );
 
@@ -256,7 +258,8 @@ contract PositionManagerTest is Test {
                 recipient: address(0x5),
                 tokenId: 1,
                 expectedPremium: 0,
-                maxSlippage: 0.1e18
+                maxSlippage: 0.1e18,
+                nftAccessTokenId: 0
             })
         );
     }

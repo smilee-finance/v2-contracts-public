@@ -19,6 +19,7 @@ interface IPositionManager is IERC721Metadata, IERC721Enumerable {
         address recipient;
         uint256 expectedPremium;
         uint256 maxSlippage;
+        uint256 nftAccessTokenId;
     }
 
     struct SellParams {
