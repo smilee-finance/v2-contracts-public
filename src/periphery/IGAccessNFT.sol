@@ -21,8 +21,7 @@ contract IGAccessNFT is IDVPAccessNFT, ERC721, AccessControl {
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
-    error CallerNotVault();
-    error ExceedsAvailable();
+    error NotionalCapExceeded();
 
     constructor(address addressProvider) ERC721("Smilee Trade Priority Access Token", "STPT") AccessControl() {
         _ap = IAddressProvider(addressProvider);
@@ -60,5 +59,11 @@ contract IGAccessNFT is IDVPAccessNFT, ERC721, AccessControl {
         _requireMinted(tokenId);
 
         return _capAmount[tokenId];
+    }
+
+    function checkCap(uint256 tokenId, uint256 amount) external view {
+        if(amount > _capAmount[tokenId]) {
+            revert NotionalCapExceeded();
+        }
     }
 }

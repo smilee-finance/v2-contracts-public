@@ -7,6 +7,7 @@ import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {OptionStrategy} from "@project/lib/OptionStrategy.sol";
 import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "@project/lib/FinanceIG.sol";
 import {TimeLock, TimeLockedBool, TimeLockedUInt} from "@project/lib/TimeLock.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
@@ -417,6 +418,62 @@ contract IGTest is Test {
         assertEq(0.25e18, currentValues.tradeVolatilityTimeDecay);
         assertEq(0.85e18, currentValues.volatilityPriceDiscountFactor);
         assertEq(false, currentValues.useOracleImpliedVolatility);
+    }
+
+    function testDeltaTrade() public {
+        TestnetPriceOracle priceOracle = TestnetPriceOracle(ap.priceOracle());
+        uint256 sideTokenPrice = 100e18;
+        vm.startPrank(admin);
+        priceOracle.setTokenPrice(ig.sideToken(), sideTokenPrice);
+        vm.stopPrank();
+
+        uint256[4] memory swapPrices = [uint256(90e18), 110e18, 95e18, 105e18];
+        int256[2] memory deltaTrades = [int256(2), -2];
+        uint256 strike = 100e18;
+
+        for (uint256 i = 0; i < swapPrices.length; i++) {
+            for (uint256 j = 0; j < deltaTrades.length; j++) {
+                uint256 smileTradePriceResult = ig.getWorstOfPrice(swapPrices[i], deltaTrades[j], strike, true, true);
+
+                uint256 buyingNoSmileTradePriceResult = ig.getWorstOfPrice(
+                    swapPrices[i],
+                    deltaTrades[j],
+                    strike,
+                    false,
+                    true
+                );
+
+                uint256 sellNoSmileTradePriceResult = ig.getWorstOfPrice(
+                    swapPrices[i],
+                    deltaTrades[j],
+                    strike,
+                    false,
+                    false
+                );
+
+                if (
+                    (swapPrices[i] < strike && sideTokenPrice > strike) ||
+                    (swapPrices[i] > strike && sideTokenPrice < strike)
+                ) {
+                    assertEq(smileTradePriceResult, sideTokenPrice);
+                } else {
+                    uint256 expectedPrice = deltaTrades[j] > 0
+                        ? (swapPrices[i] > sideTokenPrice ? swapPrices[i] : sideTokenPrice)
+                        : (swapPrices[i] < sideTokenPrice ? swapPrices[i] : sideTokenPrice);
+                    assertEq(smileTradePriceResult, expectedPrice);
+                }
+
+                uint256 expectedBuyingPrice = deltaTrades[j] > 0
+                    ? (swapPrices[i] > sideTokenPrice ? swapPrices[i] : sideTokenPrice)
+                    : (swapPrices[i] < sideTokenPrice ? swapPrices[i] : sideTokenPrice);
+                assertEq(buyingNoSmileTradePriceResult, expectedBuyingPrice);
+
+                uint256 expectedSellingPrice = deltaTrades[j] > 0
+                    ? (swapPrices[i] < sideTokenPrice ? swapPrices[i] : sideTokenPrice)
+                    : (swapPrices[i] > sideTokenPrice ? swapPrices[i] : sideTokenPrice);
+                assertEq(sellNoSmileTradePriceResult, expectedSellingPrice);
+            }
+        }
     }
 
     function _getTimeLockedFinanceParameters() private view returns (TimeLockedFinanceValues memory currentValues) {

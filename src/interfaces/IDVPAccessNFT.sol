@@ -19,10 +19,10 @@ interface IDVPAccessNFT is IERC721 {
      */
     function capAmount(uint256 tokenId) external view returns (uint256 capAmount);
 
-    // /**
-    //     @notice The callback function to call when trade is processed
-    //     @param tokenId The id of the token used to trade
-    //     @param amount The notional amount actually deposited
-    //  */
-    // function decreasePriorityAmount(uint256 tokenId, uint256 amount) external;
+    /**
+        @notice The callback function to check if the user is allowed to trade.
+        @param tokenId The id of the token used to trade
+        @param amount The notional amount to be traded
+     */
+    function checkCap(uint256 tokenId, uint256 amount) external;
 }

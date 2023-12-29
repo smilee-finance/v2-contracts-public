@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPositionManager} from "@project/interfaces/IPositionManager.sol";
 import {Epoch} from "@project/lib/EpochController.sol";
@@ -110,19 +109,14 @@ contract IGErrorTest is Test {
             vm.prank(charlie);
             ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
             prezzo -= 20e18;
-            console.log(prezzo);
         }
 
-        // console.log(ig.currentEpoch());
-        // console.log(block.timestamp);
 
         // vm.prank(admin);
         // po.setTokenPrice(address(sideToken), 1870e18);
 
         // (uint256 premiumUp, uint256 premiumDown) = ig.premium(2000, 15e18, 0);
-        // console.log(premiumUp, premiumDown);
         // (premiumUp, premiumDown) = ig.premium(2000, 0, 15e18);
-        // console.log(premiumUp, premiumDown);
 
         // vm.startPrank(charlie);
         // (uint256 payoff, ) = ig.payoff(ig.currentEpoch(), 2000e18, 0, 15e18);
@@ -144,9 +138,7 @@ contract IGErrorTest is Test {
         po.setTokenPrice(address(sideToken), 50e18);
 
         (uint256 premiumUp, uint256 premiumDown) = ig.premium(2000, 15e18, 0);
-        console.log(premiumUp, premiumDown);
         (premiumUp, premiumDown) = ig.premium(2000, 0, 15e18);
-        console.log(premiumUp, premiumDown);
 
         (uint256 premium_, ) = _assurePremium(charlie, 2000e18, 0, 15e18);
 
@@ -174,19 +166,14 @@ contract IGErrorTest is Test {
             vm.prank(charlie);
             ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
             prezzo += 20e18;
-            //console.log(prezzo);
         }
 
-        // console.log(ig.currentEpoch());
-        // console.log(block.timestamp);
 
         // vm.prank(admin);
         // po.setTokenPrice(address(sideToken), 1870e18);
 
         // (uint256 premiumUp, uint256 premiumDown) = ig.premium(2000, 15e18, 0);
-        // console.log(premiumUp, premiumDown);
         // (premiumUp, premiumDown) = ig.premium(2000, 0, 15e18);
-        // console.log(premiumUp, premiumDown);
 
         // vm.startPrank(charlie);
         // (uint256 payoff, ) = ig.payoff(ig.currentEpoch(), 2000e18, 0, 15e18);
@@ -214,7 +201,6 @@ contract IGErrorTest is Test {
             vm.prank(charlie);
             ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
             prezzo -= 20e18;
-            //console.log(prezzo);
         }
 
         prezzo = 2000e18;
@@ -231,19 +217,14 @@ contract IGErrorTest is Test {
             ig.burn(epoch, charlie, 2000e18, 1e18, 0, premium, 0.1e18);
             vm.stopPrank();
             prezzo -= 20e18;
-            console.log(prezzo);
         }
 
-        // console.log(ig.currentEpoch());
-        // console.log(block.timestamp);
 
         // vm.prank(admin);
         // po.setTokenPrice(address(sideToken), 1870e18);
 
         // (uint256 premiumUp, uint256 premiumDown) = ig.premium(2000, 15e18, 0);
-        // console.log(premiumUp, premiumDown);
         // (premiumUp, premiumDown) = ig.premium(2000, 0, 15e18);
-        // console.log(premiumUp, premiumDown);
 
         // vm.startPrank(charlie);
         // (uint256 payoff, ) = ig.payoff(ig.currentEpoch(), 2000e18, 0, 15e18);
@@ -271,7 +252,6 @@ contract IGErrorTest is Test {
             vm.prank(charlie);
             ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
             prezzo -= 20e18;
-            //console.log(prezzo);
         }
 
         prezzo = 2000e18;
@@ -288,7 +268,6 @@ contract IGErrorTest is Test {
             ig.burn(epoch, charlie, 2000e18, 1e18, 0, premium, 0.1e18);
             vm.stopPrank();
             prezzo -= 20e18;
-            console.log(prezzo);
         }
     }
 
@@ -305,7 +284,6 @@ contract IGErrorTest is Test {
             vm.prank(charlie);
             ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
             prezzo += 20e18;
-            //console.log(prezzo);
         }
 
         prezzo = 2000e18;
@@ -322,19 +300,14 @@ contract IGErrorTest is Test {
             ig.burn(epoch, charlie, 2000e18, 0, 1e18, payoff, 0.1e18);
             vm.stopPrank();
             prezzo += 20e18;
-            console.log(prezzo);
         }
 
-        // console.log(ig.currentEpoch());
-        // console.log(block.timestamp);
 
         // vm.prank(admin);
         // po.setTokenPrice(address(sideToken), 1870e18);
 
         // (uint256 premiumUp, uint256 premiumDown) = ig.premium(2000, 15e18, 0);
-        // console.log(premiumUp, premiumDown);
         // (premiumUp, premiumDown) = ig.premium(2000, 0, 15e18);
-        // console.log(premiumUp, premiumDown);
 
         // vm.startPrank(charlie);
         // (uint256 payoff, ) = ig.payoff(ig.currentEpoch(), 2000e18, 0, 15e18);
@@ -362,7 +335,6 @@ contract IGErrorTest is Test {
             vm.prank(charlie);
             ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
             prezzo += 20e18;
-            //console.log(prezzo);
         }
 
         prezzo = 2000e18;
@@ -379,7 +351,6 @@ contract IGErrorTest is Test {
             ig.burn(epoch, charlie, 2000e18, 0, 1e18, payoff, 0.1e18);
             vm.stopPrank();
             prezzo += 20e18;
-            console.log(prezzo);
         }
     }
 

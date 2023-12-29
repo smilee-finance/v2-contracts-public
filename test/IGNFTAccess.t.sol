@@ -22,7 +22,7 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
  */
 contract IGNFTAccessTest is Test {
     bytes4 constant _NFT_ACCESS_DENIED = bytes4(keccak256("NFTAccessDenied()"));
-    bytes4 constant _NFT_ACCESS_CAP_EXCEEDED = bytes4(keccak256("NFTAccessCapExceeded()"));
+    bytes4 constant _NFT_ACCESS_CAP_EXCEEDED = bytes4(keccak256("NotionalCapExceeded()"));
 
     address _admin = address(0x1);
     address _alice = address(0x2);

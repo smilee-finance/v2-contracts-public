@@ -27,7 +27,6 @@ contract IG is DVP {
     bool public nftAccessFlag = false;
 
     error NFTAccessDenied();
-    error NFTAccessCapExceeded();
 
     // Used by TheGraph for frontend needs:
     event EpochStrike(uint256 epoch, uint256 strike);
@@ -184,7 +183,7 @@ contract IG is DVP {
         uint256 strike,
         Amount memory amount,
         bool tradeIsBuy
-    ) internal virtual override returns (uint256 swapPrice) {
+    ) internal virtual override returns (uint256 swapPrice, int256 deltaTrade) {
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         uint256 postTradeVol = getPostTradeVolatility(strike, amount, tradeIsBuy);
 
@@ -195,8 +194,9 @@ contract IG is DVP {
 
         Amount memory availableLiquidity = liquidity.available(strike);
         (, uint256 sideTokensAmount) = IVault(vault).balances();
-
-        int256 tokensToSwap = FinanceIG.getDeltaHedgeAmount(
+        
+        int256 tokensToSwap;
+        (tokensToSwap, deltaTrade) = FinanceIG.getDeltaHedgeAmount(
             financeParameters,
             amount,
             tradeIsBuy,
@@ -209,7 +209,7 @@ contract IG is DVP {
         );
 
         if (tokensToSwap == 0) {
-            return oraclePrice;
+            return (oraclePrice, 0);
         }
 
         // NOTE: We negate the value because the protocol will sell side tokens when `h` is positive.
@@ -337,15 +337,13 @@ contract IG is DVP {
         FinanceIG.updateTimeLockedParameters(financeParameters.timeLocked, params, timeToValidity);
     }
 
-    function _checkNFTAccess(uint256 accessTokenId, address receiver, uint256 notionalAmount) internal view {
+    function _checkNFTAccess(uint256 accessTokenId, address receiver, uint256 notionalAmount) internal {
         if (nftAccessFlag) {
             IDVPAccessNFT nft = IDVPAccessNFT(_addressProvider.dvpAccessNFT());
             if (accessTokenId == 0 || nft.ownerOf(accessTokenId) != receiver) {
                 revert NFTAccessDenied();
             }
-            if (notionalAmount > nft.capAmount(accessTokenId)) {
-                revert NFTAccessCapExceeded();
-            }
+            nft.checkCap(accessTokenId, notionalAmount);
         }
     } 
 }

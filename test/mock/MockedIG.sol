@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {console} from "forge-std/console.sol";
 import {IFeeManager} from "../../src/interfaces/IFeeManager.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
 import {Amount} from "../../src/lib/Amount.sol";
@@ -112,10 +113,11 @@ contract MockedIG is IG {
         uint256 strike,
         Amount memory amount,
         bool tradeIsBuy
-    ) internal override returns (uint256 swapPrice) {
+    ) internal override returns (uint256 swapPrice, int256 deltaTrade) {
         if (_fakeDeltaHedge) {
+            console.log("Sono dentro al fake dh");
             IVault(vault).deltaHedge(-int256((amount.up + amount.down) / 4));
-            return 1e18;
+            return (1e18, 0);
         }
         return super._deltaHedgePosition(strike, amount, tradeIsBuy);
     }
@@ -160,6 +162,16 @@ contract MockedIG is IG {
 
         // TBD: review
         financeParameters.timeLocked.sigmaMultiplier.set(value, 0);
+    }
+
+    function getWorstOfPrice(
+        uint256 swapPrice,
+        int256 deltaTrade,
+        uint256 strike,
+        bool isSmileTrade,
+        bool isBuying
+    ) public view returns (uint256) {
+        return super._getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade, isBuying);
     }
 
     /// @dev must be defined in Wad

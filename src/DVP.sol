@@ -137,7 +137,13 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             revert NotEnoughLiquidity();
         }
 
-        uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
+        uint256 swapPrice;
+        {
+            int256 deltaTrade;
+            (swapPrice, deltaTrade) = _deltaHedgePosition(strike, amount, true);
+            bool isSmileTrade = amount.up > 0 && amount.down > 0;
+            swapPrice = _getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade, true);
+        }
 
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
@@ -201,7 +207,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 strike,
         Amount memory amount,
         bool tradeIsBuy
-    ) internal virtual returns (uint256 swapPrice);
+    ) internal virtual returns (uint256 swapPrice, int256 deltaTrade);
 
     /**
         @notice Burn or decrease a position.
@@ -248,7 +254,13 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             // NOTE: checked only here as expired positions needs to be burned even if the vault was killed.
             _checkEpochNotFinished();
 
-            uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
+            uint256 swapPrice;
+            {
+                int256 deltaTrade;
+                (swapPrice, deltaTrade) = _deltaHedgePosition(strike, amount, false);
+                bool isSmileTrade = amount.up > 0 && amount.down > 0;
+                swapPrice = _getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade, false);
+            }
 
             // Compute the payoff to be paid:
             paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
@@ -301,6 +313,37 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         feeManager.receiveFee(netFee);
 
         emit Burn(msg.sender);
+    }
+
+    function _getWorstOfPrice(
+        uint256 swapPrice,
+        int256 deltaTrade,
+        uint256 strike,
+        bool isSmileTrade,
+        bool isBuying
+    ) internal view returns (uint256 worstPrice) {
+        uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+
+        if (
+            isSmileTrade &&
+            ((swapPrice < strike && oraclePrice > strike) || (swapPrice > strike && oraclePrice < strike))
+        ) {
+            worstPrice = oraclePrice;
+        } else {
+            bool isDeltaPositive = deltaTrade > 0;
+            bool isSwapPriceHigher = swapPrice > oraclePrice;
+            bool isSwapPriceLower = swapPrice < oraclePrice;
+
+            if (isBuying) {
+                worstPrice = isDeltaPositive
+                    ? (isSwapPriceHigher ? swapPrice : oraclePrice)
+                    : (isSwapPriceLower ? swapPrice : oraclePrice);
+            } else {
+                worstPrice = isDeltaPositive
+                    ? (isSwapPriceLower ? swapPrice : oraclePrice)
+                    : (isSwapPriceHigher ? swapPrice : oraclePrice);
+            }
+        }
     }
 
     /// @inheritdoc EpochControls

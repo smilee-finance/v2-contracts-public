@@ -8,7 +8,6 @@ import {SignedMath} from "./SignedMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library FinanceIGDelta {
-
     /// @notice A wrapper for the input parameters of delta functions
     struct Parameters {
         ////// INPUTS //////
@@ -118,6 +117,21 @@ library FinanceIGDelta {
         params.sideTokensAmount = SignedMath.abs(tokensToSwap);
         params.sideTokensAmount = AmountsMath.unwrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
         tokensToSwap = SignedMath.revabs(params.sideTokensAmount, tokensToSwap >= 0);
+    }
+
+    function deltaTrade(
+        uint256 amountUp,
+        uint256 amountDown,
+        int256 igDBull,
+        int256 igDBear
+    ) public pure returns (int256 deltaTrade_) {
+        UD60x18 udAmountUp = ud(amountUp);
+        UD60x18 udAmountDown = ud(amountDown);
+        UD60x18 udIgDBull = ud(SignedMath.abs(igDBull));
+        UD60x18 udIgDBear = ud(SignedMath.abs(igDBear));
+        
+        deltaTrade_ = SignedMath.revabs(udAmountUp.mul(udIgDBull).unwrap(), igDBull > 0) +
+            SignedMath.revabs(udAmountDown.mul(udIgDBear).unwrap(), igDBear > 0);
     }
 
     ////// HELPERS //////
