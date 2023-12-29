@@ -48,7 +48,7 @@ contract IGErrorTest is Test {
 
     function setUp() public {
         vm.warp(EpochFrequency.REF_TS);
-        //ToDo: Replace with Factory
+
         vm.startPrank(admin);
         ap = new AddressProvider(0);
         registry = new MockedRegistry();
@@ -93,11 +93,16 @@ contract IGErrorTest is Test {
         vm.prank(admin);
         ig.rollEpoch();
     }
-
-    function testBuySellPremium0Scenario1() public {
+    /**
+        @dev Scenario 1.1 - Buy Bull at Start.
+        Strike = 2000
+        t_exp = 1 minute
+        Buy 1 bull at: price = 2000 - 20 * x
+        Issue:
+            - Arithmetic underflow or overflow at 1820
+     */
+    function testBuyPremiumScenario1() public {
         uint256 premium;
-
-        //vm.warp(block.timestamp + 86000);
 
         uint256 prezzo = 2000e18;
         while (prezzo > 0) {
@@ -110,28 +115,15 @@ contract IGErrorTest is Test {
             ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
             prezzo -= 20e18;
         }
-
-
-        // vm.prank(admin);
-        // po.setTokenPrice(address(sideToken), 1870e18);
-
-        // (uint256 premiumUp, uint256 premiumDown) = ig.premium(2000, 15e18, 0);
-        // (premiumUp, premiumDown) = ig.premium(2000, 0, 15e18);
-
-        // vm.startPrank(charlie);
-        // (uint256 payoff, ) = ig.payoff(ig.currentEpoch(), 2000e18, 0, 15e18);
-        // vm.stopPrank();
-
-        // vm.prank(charlie);
-        // ig.burn(ig.currentEpoch(), charlie, 2000e18, 0, 15e18, payoff, 0.1e18);
-
-        // (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
-
-        // vm.prank(charlie);
-        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
-    function testBuySellPremium0Scenario2() public {
+    /**
+        @dev Scenario 1.2 - Buy Bull at Expiration.
+        Strike = 2000
+        Issue:
+            - Arithmetic underflow or overflow at 300
+     */
+    function testBuySellPremiumScenario12() public {
         vm.warp(block.timestamp + 86340);
 
         vm.prank(admin);
@@ -151,10 +143,16 @@ contract IGErrorTest is Test {
         ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
-    function testBuySellPremium0Scenario21() public {
+    /**
+        @dev Scenario 2.1 - Buy Bear at Start.
+        Strike = 2000
+        t_exp = 1 day
+        Buy 1 bear at: price = 2000 + 20 * x
+        Issue:
+            - Arithmetic underflow or overflow at 12600
+    */  
+    function testBuyPremiumScenario21() public {
         uint256 premium;
-
-        //vm.warp(block.timestamp + 86340);
 
         uint256 prezzo = 2000e18;
         while (prezzo < 100000e18) {
@@ -167,35 +165,23 @@ contract IGErrorTest is Test {
             ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
             prezzo += 20e18;
         }
-
-
-        // vm.prank(admin);
-        // po.setTokenPrice(address(sideToken), 1870e18);
-
-        // (uint256 premiumUp, uint256 premiumDown) = ig.premium(2000, 15e18, 0);
-        // (premiumUp, premiumDown) = ig.premium(2000, 0, 15e18);
-
-        // vm.startPrank(charlie);
-        // (uint256 payoff, ) = ig.payoff(ig.currentEpoch(), 2000e18, 0, 15e18);
-        // vm.stopPrank();
-
-        // vm.prank(charlie);
-        // ig.burn(ig.currentEpoch(), charlie, 2000e18, 0, 15e18, payoff, 0.1e18);
-
-        // (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
-
-        // vm.prank(charlie);
-        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
+    /**
+        @dev Scenario 3.1 - Sell Bull at Expiration.
+        Strike = 2000
+        t_exp = 1 day
+        Buy 1 bull at: price = 2000
+        t_exp = 1 minute
+        Sell 1 bull at: price = 2000 - 20 * x
+        Issue:
+            - Insufficient allowance at 1900
+     */
     function testBuySellPremium0Scenario3() public {
         uint256 premium;
 
         uint256 prezzo = 2000e18;
         while (prezzo > 300e18) {
-            // vm.startPrank(admin);
-            // po.setTokenPrice(address(sideToken), prezzo);
-            // vm.stopPrank();
 
             (premium, ) = _assurePremium(charlie, 2000e18, 1e18, 0);
             vm.prank(charlie);
@@ -218,35 +204,23 @@ contract IGErrorTest is Test {
             vm.stopPrank();
             prezzo -= 20e18;
         }
-
-
-        // vm.prank(admin);
-        // po.setTokenPrice(address(sideToken), 1870e18);
-
-        // (uint256 premiumUp, uint256 premiumDown) = ig.premium(2000, 15e18, 0);
-        // (premiumUp, premiumDown) = ig.premium(2000, 0, 15e18);
-
-        // vm.startPrank(charlie);
-        // (uint256 payoff, ) = ig.payoff(ig.currentEpoch(), 2000e18, 0, 15e18);
-        // vm.stopPrank();
-
-        // vm.prank(charlie);
-        // ig.burn(ig.currentEpoch(), charlie, 2000e18, 0, 15e18, payoff, 0.1e18);
-
-        // (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
-
-        // vm.prank(charlie);
-        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
+    /**
+        @dev Scenario 3.2 - Sell Bull at Start.
+        Strike = 2000
+        t_exp = 23 hours
+        Buy 1 bull at: price = 2000
+        t_exp = 23 hours
+        Sell 1 bull at: price = 2000 - 20 * x
+        Issue:
+            - Arithmetic overflow/underflow at 320
+     */
     function testBuySellPremium0Scenario31() public {
         uint256 premium;
 
         uint256 prezzo = 2000e18;
         while (prezzo > 300e18) {
-            // vm.startPrank(admin);
-            // po.setTokenPrice(address(sideToken), prezzo);
-            // vm.stopPrank();
 
             (premium, ) = _assurePremium(charlie, 2000e18, 1e18, 0);
             vm.prank(charlie);
@@ -271,14 +245,21 @@ contract IGErrorTest is Test {
         }
     }
 
-    function testBuySellPremium0Scenario4() public {
+    /**
+        @dev Scenario 4.1 - Sell Bear at Expiration.
+        Strike = 2000
+        t_exp = 1 day
+        Buy 1 bear at: price = 2000
+        t_exp = 1 minute
+        Sell 1 bear at: price = 2000 + 20 * x
+        Issue:
+            - No issue (tested up to 50k)
+     */
+    function testBuySellPremium0Scenario41() public {
         uint256 premium;
 
         uint256 prezzo = 2000e18;
         while (prezzo < 50000e18) {
-            // vm.startPrank(admin);
-            // po.setTokenPrice(address(sideToken), prezzo);
-            // vm.stopPrank();
 
             (premium, ) = _assurePremium(charlie, 2000e18, 0, 1e18);
             vm.prank(charlie);
@@ -301,35 +282,23 @@ contract IGErrorTest is Test {
             vm.stopPrank();
             prezzo += 20e18;
         }
-
-
-        // vm.prank(admin);
-        // po.setTokenPrice(address(sideToken), 1870e18);
-
-        // (uint256 premiumUp, uint256 premiumDown) = ig.premium(2000, 15e18, 0);
-        // (premiumUp, premiumDown) = ig.premium(2000, 0, 15e18);
-
-        // vm.startPrank(charlie);
-        // (uint256 payoff, ) = ig.payoff(ig.currentEpoch(), 2000e18, 0, 15e18);
-        // vm.stopPrank();
-
-        // vm.prank(charlie);
-        // ig.burn(ig.currentEpoch(), charlie, 2000e18, 0, 15e18, payoff, 0.1e18);
-
-        // (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
-
-        // vm.prank(charlie);
-        // ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
     }
 
-    function testBuySellPremium0Scenario41() public {
+    /**
+        @dev Scenario 4.2 - Sell Bear at Start.
+        Strike = 2000
+        t_exp = 1 day
+        Buy 1 bear at: price = 2000
+        t_exp = 23 hours
+        Sell 1 bear at: price = 2000 + 20 * x
+        Issue:
+            - Arithmetic overflow/underflow at 11940
+     */
+    function testBuySellPremium0Scenario42() public {
         uint256 premium;
 
         uint256 prezzo = 2000e18;
         while (prezzo < 50000e18) {
-            // vm.startPrank(admin);
-            // po.setTokenPrice(address(sideToken), prezzo);
-            // vm.stopPrank();
 
             (premium, ) = _assurePremium(charlie, 2000e18, 0, 1e18);
             vm.prank(charlie);
