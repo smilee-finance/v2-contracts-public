@@ -337,6 +337,7 @@ contract IG is DVP {
         FinanceIG.updateTimeLockedParameters(financeParameters.timeLocked, params, timeToValidity);
     }
 
+    /// @dev Checks if given trade is allowed to be made using nft.checkCap callback func
     function _checkNFTAccess(uint256 accessTokenId, address receiver, uint256 notionalAmount) internal {
         if (nftAccessFlag) {
             IDVPAccessNFT nft = IDVPAccessNFT(_addressProvider.dvpAccessNFT());

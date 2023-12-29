@@ -315,6 +315,14 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         emit Burn(msg.sender);
     }
 
+    /**
+        @dev Calculate the worst of price between swapPrice and oraclePrice for the given inputs.
+        @param swapPrice The price returned by deltaHedgeAmount
+        @param deltaTrade The delta of the current trade
+        @param strike The strike
+        @param isSmileTrade Positive if the trade is a Smile Trade, false otherwise.
+        @param isBuying Positive if buyed by a user, negative otherwise.
+     */
     function _getWorstOfPrice(
         uint256 swapPrice,
         int256 deltaTrade,

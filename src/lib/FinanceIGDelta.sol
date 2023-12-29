@@ -119,6 +119,14 @@ library FinanceIGDelta {
         tokensToSwap = SignedMath.revabs(params.sideTokensAmount, tokensToSwap >= 0);
     }
 
+    /**
+        @notice Calculate deltaTrade given notional and unitary integer quantity of bull and bear posizion or both.
+        @param amountUp The bull notional
+        @param amountDown The bear notional
+        @param igDBull The unitary integer quantity of side token to hedge a bull position
+        @param igDBear The unitary integer quantity of side token to hedge a bear position
+        @return deltaTrade_ := amountUp * igDBull + amountDown * igDBear
+     */
     function deltaTrade(
         uint256 amountUp,
         uint256 amountDown,
