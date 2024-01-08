@@ -111,15 +111,17 @@ contract IGNFTAccessTest is Test {
         _ig.mint(_alice, 0, 100e18, 100e18, 0, 0.1e18, tokenId);
     }
 
-    function testNFTCapExceededWithToken() public {
+    function testNFTCapExceededWithToken(uint256 additionalAmount) public {
+        vm.assume(additionalAmount > 0);
+
         vm.prank(_admin);
         uint256 tokenId = _nft.createToken(_bob, 1000e18);
 
-        (uint256 expected, ) = _ig.premium(0, 1000e18, 1000e18);
+        (uint256 expected, ) = _ig.premium(0, 1000e18, additionalAmount);
 
         vm.prank(_bob);
         vm.expectRevert(_NFT_ACCESS_CAP_EXCEEDED);
-        _ig.mint(_bob, 0, 1000e18, 1000e18, expected, 0.1e18, tokenId);
+        _ig.mint(_bob, 0, 1000e18, additionalAmount, expected, 0.1e18, tokenId);
     }
 
     function testPriorityAccessOk() public {

@@ -131,8 +131,12 @@ library FinanceIGDelta {
         uint256 amountUp,
         uint256 amountDown,
         int256 igDBull,
-        int256 igDBear
+        int256 igDBear,
+        uint8 baseTokenDecimals
     ) public pure returns (int256 deltaTrade_) {
+        amountUp = AmountsMath.wrapDecimals(amountUp, baseTokenDecimals);
+        amountDown = AmountsMath.wrapDecimals(amountDown, baseTokenDecimals);
+        
         UD60x18 udAmountUp = ud(amountUp);
         UD60x18 udAmountDown = ud(amountDown);
         UD60x18 udIgDBull = ud(SignedMath.abs(igDBull));

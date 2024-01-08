@@ -26,8 +26,8 @@ contract VaultOps is EnhancedScript {
 
     constructor() {
         // Load the private key that will be used for signing the transactions:
-        _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        _deployerAddress = vm.envAddress("DEPLOYER_ADDRESS");
+        _deployerPrivateKey = 0xdfe19c020cf20507921cc2bf1a1bc0aaeb5ed1dccdb9570beaf72af442ca09a8;
+        _deployerAddress = 0x3362cbef80b4Ef674f1cBc336194c75a0D891a71;
     }
 
     function run() external {
@@ -58,6 +58,14 @@ contract VaultOps is EnhancedScript {
 
         vm.startBroadcast(_deployerPrivateKey);
         vault.changePauseState();
+        vm.stopBroadcast();
+    }
+
+    function killVault(address vaultAddr) public {
+         Vault vault = Vault(vaultAddr);
+
+        vm.startBroadcast(_deployerPrivateKey);
+        vault.killVault();
         vm.stopBroadcast();
     }
 

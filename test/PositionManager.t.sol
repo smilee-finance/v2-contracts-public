@@ -2,6 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
+import {ud, convert} from "@prb/math/UD60x18.sol";
 import {IPositionManager} from "@project/interfaces/IPositionManager.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {OptionStrategy} from "@project/lib/OptionStrategy.sol";
@@ -13,6 +15,7 @@ import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {IG} from "@project/IG.sol";
 import {PositionManager} from "@project/PositionManager.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 
@@ -21,6 +24,8 @@ contract PositionManagerTest is Test {
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant InvalidTokenID = bytes4(keccak256("InvalidTokenID()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
+    bytes4 constant SlippedMarketValue = bytes4(keccak256("SlippedMarketValue()"));
+
 
     address baseToken;
     address sideToken;
@@ -73,11 +78,11 @@ contract PositionManagerTest is Test {
         ig.rollEpoch();
         vm.stopPrank();
 
-        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), 10 ether, vm);
 
         uint256 strike = ig.currentStrike();
 
         (uint256 expectedMarketValue, ) = ig.premium(0, 10 ether, 0);
+        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), expectedMarketValue, vm);
         // NOTE: somehow, the sender is something else without this prank...
         vm.prank(DEFAULT_SENDER);
         (tokenId, ) = pm.mint(
@@ -258,6 +263,96 @@ contract PositionManagerTest is Test {
                 recipient: address(0x5),
                 tokenId: 1,
                 expectedPremium: 0,
+                maxSlippage: 0.1e18,
+                nftAccessTokenId: 0
+            })
+        );
+    }
+
+    function testSlippage() public {
+        (, IG ig) = initAndMint();
+
+        uint256 strike = ig.currentStrike();
+        (uint256 expectedMarketValue, ) = ig.premium(0, 10 ether, 0);
+        uint256 slippage = ud(expectedMarketValue).mul(ud(0.1e18)).unwrap();
+
+        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), expectedMarketValue + slippage , vm);
+        
+
+        console.log(expectedMarketValue);
+        console.log(strike);
+        TestnetPriceOracle po = TestnetPriceOracle(ap.priceOracle());
+        
+        vm.startPrank(admin);
+        // Increase the premium of about 9.8% and anyway below the slippage value of 10%
+        po.setTokenPrice(ig.sideToken(), 1.0014e18);
+        vm.stopPrank();
+
+        (uint256 expectedMarketValue2, ) = ig.premium(0, 10e18, 0);
+        console.log(expectedMarketValue2);
+        assertLt(expectedMarketValue2, expectedMarketValue + slippage);
+        
+        // Pass because 9.8% is less than 10% (slippage)
+        vm.prank(DEFAULT_SENDER);
+        pm.mint(
+            IPositionManager.MintParams({
+                dvpAddr: address(ig),
+                notionalUp: 10 ether,
+                notionalDown: 0,
+                strike: strike,
+                recipient: address(0x5),
+                tokenId: 0,
+                expectedPremium: expectedMarketValue,
+                maxSlippage: 0.1e18,
+                nftAccessTokenId: 0
+            })
+        );
+
+        // Increase premium of about 18% which is higher than 10% (slippage)
+        vm.startPrank(admin);
+        po.setTokenPrice(ig.sideToken(), 1.002 ether);
+        vm.stopPrank();
+
+        /**
+         * Approve the preview premium with slippage
+         */
+        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), expectedMarketValue + slippage , vm);
+
+        (uint256 expectedMarketValue3, ) = ig.premium(0, 10e18, 0);
+        console.log(expectedMarketValue3);
+        assertGt(expectedMarketValue3, expectedMarketValue + slippage);
+
+        vm.prank(DEFAULT_SENDER);
+        vm.expectRevert("ERC20: insufficient allowance");
+        pm.mint(
+            IPositionManager.MintParams({
+                dvpAddr: address(ig),
+                notionalUp: 10 ether,
+                notionalDown: 0,
+                strike: strike,
+                recipient: address(0x5),
+                tokenId: 0,
+                expectedPremium: expectedMarketValue,
+                maxSlippage: 0.1e18,
+                nftAccessTokenId: 0
+            })
+        );
+
+        /**
+         * Approve all the balance of the user or anyway greather than the expected value + slippage
+         */
+        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), 100e18 , vm);
+        vm.prank(DEFAULT_SENDER);
+        vm.expectRevert(SlippedMarketValue);
+        pm.mint(
+            IPositionManager.MintParams({
+                dvpAddr: address(ig),
+                notionalUp: 10 ether,
+                notionalDown: 0,
+                strike: strike,
+                recipient: address(0x5),
+                tokenId: 0,
+                expectedPremium: expectedMarketValue,
                 maxSlippage: 0.1e18,
                 nftAccessTokenId: 0
             })

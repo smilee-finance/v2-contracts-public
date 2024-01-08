@@ -39,6 +39,9 @@ contract FeeManager is IFeeManager, AccessControl {
     /// @notice Fee account per sender
     mapping(address => uint256) public senders;
 
+    /// @notice Fee account per vault
+    mapping(address => uint256) public vaultFeeAmounts;
+
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
@@ -53,6 +56,7 @@ contract FeeManager is IFeeManager, AccessControl {
     event UpdateMaturityCapPercentage(address dvp, uint256 fee, uint256 previous);
     event ReceiveFee(address sender, uint256 amount);
     event WithdrawFee(address receiver, address sender, uint256 amount);
+    event TransferVaultFee(address vault, uint256 feeAmount);
 
     error NoEnoughFundsFromSender();
     error OutOfAllowedRange();
@@ -156,6 +160,13 @@ contract FeeManager is IFeeManager, AccessControl {
         senders[msg.sender] += feeAmount;
 
         emit ReceiveFee(msg.sender, feeAmount);
+    }
+
+    /// @inheritdoc IFeeManager
+    function trackVaultFee(address vault, uint256 feeAmount) public {
+        vaultFeeAmounts[vault] += feeAmount;
+
+        emit TransferVaultFee(vault, feeAmount);
     }
 
     /// @inheritdoc IFeeManager

@@ -93,7 +93,8 @@ library FinanceIG {
             amount.up,
             amount.down,
             deltaHedgeParams.igDBull,
-            deltaHedgeParams.igDBear
+            deltaHedgeParams.igDBear,
+            baseTokenDecimals
         );
     }
 

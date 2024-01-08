@@ -57,6 +57,14 @@ library Finance {
         return ud(used).div(ud(total)).unwrap();
     }
 
+    /**
+     * @notice Check slippage between premium and expected premium 
+     * @param premium Premium computed including the fees
+     * @param expectedpremium External previewed premium computed including the fees
+     * @param maxSlippage The slippage percentage value
+     * @param tradeIsBuy true if buy, false otherwise
+     * @return ok true if the slippage is on range, false otherwise
+     */
     function checkSlippage(
         uint256 premium,
         uint256 expectedpremium,

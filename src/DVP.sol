@@ -158,15 +158,16 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
         // Revert if actual price exceeds the previewed premium
         // NOTE: cannot use the approved premium as a reference due to the PositionManager...
-        _checkSlippage(premium_, expectedPremium, maxSlippage, true);
+        _checkSlippage(premium_ + fee, expectedPremium, maxSlippage, true);
 
         // Get fees from sender:
-        IERC20Metadata(baseToken).safeTransferFrom(msg.sender, address(this), fee);
+        IERC20Metadata(baseToken).safeTransferFrom(msg.sender, address(this), fee - vaultFee);
         IERC20Metadata(baseToken).safeApprove(address(feeManager), fee - vaultFee);
         feeManager.receiveFee(fee - vaultFee);
 
         // Get base premium from sender:
         IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_ + vaultFee);
+        feeManager.trackVaultFee(address(vault), vaultFee);
 
         // Update user premium:
         premium_ += fee;
@@ -275,7 +276,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         // Compute fee:
-        (uint256 fee, uint256 vaultMinFee) = feeManager.tradeSellFee(
+        (uint256 fee, uint256 vaultFee) = feeManager.tradeSellFee(
             address(this),
             amount.up + amount.down,
             paidPayoff,
@@ -287,15 +288,18 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         if (paidPayoff >= fee) {
             paidPayoff -= fee;
         } else {
-            if (!reachedMaturity && vaultMinFee > paidPayoff) {
+            // if the option didn't reached maturity, vaultFee is always paid expect if vaultFee exceed paidPayoff
+            if (!reachedMaturity && vaultFee > paidPayoff) {
                 revert PayoffTooLow();
             }
 
+            // Fee becomes all paidPayoff and the user will not receive anything.
             fee = paidPayoff;
             paidPayoff = 0;
 
-            if (vaultMinFee > fee) {
-                vaultMinFee = fee;
+            // if vaultFee is greather than the paidPayoff all the fee will be transfered to the Vault.
+            if (vaultFee > fee) {
+                vaultFee = fee;
             }
         }
 
@@ -305,12 +309,13 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         // NOTE: must be updated after the previous computations based on used liquidity.
         liquidity.decreaseUsage(strike, amount);
 
-        uint256 netFee = fee - vaultMinFee;
+        uint256 netFee = fee - vaultFee;
         IVault(vault).transferPayoff(recipient, paidPayoff, reachedMaturity);
 
         IVault(vault).transferPayoff(address(this), netFee, reachedMaturity);
         IERC20Metadata(baseToken).safeApprove(address(feeManager), netFee);
         feeManager.receiveFee(netFee);
+        feeManager.trackVaultFee(address(vault), vaultFee);
 
         emit Burn(msg.sender);
     }

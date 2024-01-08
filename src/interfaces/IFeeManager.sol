@@ -48,6 +48,13 @@ interface IFeeManager {
     function receiveFee(uint256 feeAmount) external;
 
     /**
+     * Track the vault fee amount
+     * @param vault The vault the fee will be transfered on.
+     * @param feeAmount The fee amount transfered to the vault.
+     */
+    function trackVaultFee(address vault, uint256 feeAmount) external;
+
+    /**
      *
      * @param receiver The address where fees will send to.
      * @param sender The address who has paid fees.
