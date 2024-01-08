@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {IHevm} from "./IHevm.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {MarketOracle} from "@project/MarketOracle.sol";
@@ -23,6 +24,7 @@ library AddressProviderUtils {
 
         address priceOracleAddress = addressProvider.priceOracle();
         if (priceOracleAddress == address(0)) {
+            vm.prank(admin);
             TestnetPriceOracle priceOracle = new TestnetPriceOracle(address(baseToken));
             priceOracleAddress = address(priceOracle);
             vm.prank(admin);
@@ -49,6 +51,7 @@ library AddressProviderUtils {
 
         address dexAddress = addressProvider.exchangeAdapter();
         if (dexAddress == address(0)) {
+            vm.prank(admin);
             TestnetSwapAdapter exchange = new TestnetSwapAdapter(priceOracleAddress);
             dexAddress = address(exchange);
             vm.prank(admin);

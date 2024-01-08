@@ -1,38 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IHevm} from "./IHevm.sol";
+import {IHevm} from "../utils/IHevm.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {AddressProviderUtils} from "./AddressProviderUtils.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedRegistry} from "../../mock/MockedRegistry.sol";
+import {MockedIG} from "../../mock/MockedIG.sol";
 
 library EchidnaVaultUtils {
     function createVault(
+        address baseToken,
         address tokenAdmin,
         AddressProvider addressProvider,
-        uint256 epochFrequency,
-        IHevm vm
+        uint256 epochFrequency
     ) public returns (address) {
-        TestnetToken baseToken = new TestnetToken("BaseTestToken", "BTT");
-        baseToken.setAddressProvider(address(addressProvider));
         TestnetToken sideToken = new TestnetToken("SideTestToken", "STT");
         sideToken.setAddressProvider(address(addressProvider));
-
-        AddressProviderUtils.initialize(tokenAdmin, addressProvider, address(baseToken), vm);
-
         TestnetPriceOracle apPriceOracle = TestnetPriceOracle(addressProvider.priceOracle());
         apPriceOracle.setTokenPrice(address(sideToken), 1 ether);
-
         MockedVault vault = new MockedVault(
             address(baseToken),
             address(sideToken),
             epochFrequency,
             address(addressProvider)
         );
-
         return address(vault);
     }
 
@@ -58,5 +52,27 @@ library EchidnaVaultUtils {
     function rollEpoch(address admin, MockedVault vault, IHevm vm) public {
         vm.prank(admin);
         vault.rollEpoch();
+    }
+
+    function igSetup(address admin, MockedVault vault, AddressProvider ap, IHevm vm) public returns (address) {
+
+        MockedIG ig = new MockedIG(address(vault), address(ap));
+
+        bytes32 roleAdmin = ig.ROLE_ADMIN();
+        bytes32 roleRoller = ig.ROLE_EPOCH_ROLLER();
+
+        ig.grantRole(roleAdmin, admin);
+        vm.prank(admin);
+        ig.grantRole(roleRoller, admin);
+
+        MockedRegistry registry = MockedRegistry(ap.registry());
+
+        vm.prank(admin);
+        registry.registerDVP(address(ig));
+
+        vm.prank(admin);
+        vault.setAllowedDVP(address(ig));
+
+        return address(ig);
     }
 }

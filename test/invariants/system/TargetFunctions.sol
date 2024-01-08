@@ -1,30 +1,30 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {Setup} from "./Setup.sol";
 import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
 import {BeforeAfter} from "./BeforeAfter.sol";
 import {Properties} from "./Properties.sol";
+import {MockedVault} from "../../mock/MockedVault.sol";
+import {TokenUtils} from "../../utils/TokenUtils.sol";
 
 /**
  * medusa fuzz --no-color
  * echidna . --contract CryticTester --config config.yaml
  */
-abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfter {
+abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     function setup() internal virtual override {
       deploy();
     }
 
-    function increment(uint256 value) public {
-      // bound input
-      value = between(value, 0, type(uint256).max / 2);
+    function deposit(address user, uint256 amount) public {
+      MockedVault igVault = MockedVault(ig.vault());
+      TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), user, address(igVault), amount, _convertVm());
 
-      __before();
+      hevm.prank(user);
+      igVault.deposit(amount, user, 0);
 
-      counter.increment(value);
-
-      __after();
-      // assertions
-
-      lt(_before.value, _after.value, COUNTER_01);
+      gt(baseToken.balanceOf(address(igVault)), 0, "");
     }
+
 }

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {Vm} from "forge-std/Vm.sol";
-import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {MockedVault} from "../mock/MockedVault.sol";

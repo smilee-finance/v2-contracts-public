@@ -3,67 +3,18 @@ pragma solidity ^0.8.19;
 
 import {Setup} from "./Setup.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {AddressProvider} from "@project/AddressProvider.sol";
 import {MasterChefSmilee} from "@project/periphery/MasterChefSmilee.sol";
-import {SimpleRewarderPerSec} from "@project/periphery/SimpleRewarderPerSec.sol";
-import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
-import {MarketOracle} from "@project/MarketOracle.sol";
 import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
-import {MockedVault} from "../../mock/MockedVault.sol";
-import {VaultUtils} from "../../utils/VaultUtils.sol";
-import {EchidnaVaultUtils} from "../utils/EchidnaVaultUtils.sol";
+import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
 
-contract MasterChefSmileeTest is Setup {
+abstract contract TargetFunctions is BaseTargetFunctions, Setup {
     event AddStakingVault(uint256);
     event Log(uint256);
 
-    uint256 internal smileePerSec = 1;
-
-    MockedVault internal vault;
-
-    MasterChefSmilee internal mcs;
-    SimpleRewarderPerSec internal rewarder;
-    address internal baseToken;
-    address internal sideToken;
     bool internal vaultAdded;
 
-    constructor() {
-        vm.warp(EpochFrequency.REF_TS + 1);
-        AddressProvider ap = new AddressProvider(0);
-        ap.grantRole(ap.ROLE_ADMIN(), tokenAdmin);
-
-        vault = MockedVault(EchidnaVaultUtils.createVault(tokenAdmin, ap, EpochFrequency.DAILY, vm));
-        EchidnaVaultUtils.grantAdminRole(tokenAdmin, address(vault));
-        EchidnaVaultUtils.grantEpochRollerRole(tokenAdmin, tokenAdmin, address(vault), vm);
-        EchidnaVaultUtils.registerVault(tokenAdmin, address(vault), ap, vm);
-        baseToken = vault.baseToken();
-        sideToken = vault.sideToken();
-
-        mcs = new MasterChefSmilee(smileePerSec, block.timestamp, ap);
-
-        MarketOracle apMarketOracle = MarketOracle(ap.marketOracle());
-        uint256 lastUpdate = apMarketOracle.getImpliedVolatilityLastUpdate(baseToken, sideToken, EpochFrequency.DAILY);
-        if (lastUpdate == 0) {
-            vm.prank(tokenAdmin);
-            apMarketOracle.setImpliedVolatility(baseToken, sideToken, EpochFrequency.DAILY, 0.5e18);
-        }
-
-        skipDay(false);
-        EchidnaVaultUtils.rollEpoch(tokenAdmin, vault, vm);
-
-        VaultUtils.addVaultDeposit(alice, 100, address(this), address(vault), _convertVm());
-        VaultUtils.addVaultDeposit(bob, 100, address(this), address(vault), _convertVm());
-
-        skipDay(false);
-        EchidnaVaultUtils.rollEpoch(tokenAdmin, vault, vm);
-
-        vm.prank(alice);
-        vault.redeem(100);
-
-        vm.prank(bob);
-        vault.redeem(100);
-
-        skipDay(false);
+    function setup() internal virtual override {
+      deploy();
     }
 
     function testAddStakingVault(uint256 allocPoint) public {
@@ -194,7 +145,7 @@ contract MasterChefSmileeTest is Setup {
 
         (uint256 amount, uint256 rewardDebt, ) = mcs.userStakeInfo(address(vault), alice);
 
-        vm.prank(alice);
+        hevm.prank(alice);
         mcs.harvest(address(vault));
         /**
             smileeReward = (multiplier * smileePerSec * allocPoint / totalAllocPoint)
@@ -230,7 +181,7 @@ contract MasterChefSmileeTest is Setup {
 
         (uint256 amount, uint256 rewardDebt, ) = mcs.userStakeInfo(address(vault), alice);
 
-        vm.prank(alice);
+        hevm.prank(alice);
         mcs.withdraw(address(vault), convert(ud(amount)));
         /**
             smileeReward = (multiplier * smileePerSec * allocPoint / totalAllocPoint)
@@ -263,9 +214,9 @@ contract MasterChefSmileeTest is Setup {
     }
 
     function _stake(address user, uint256 amount) internal {
-        vm.prank(user);
+        hevm.prank(user);
         vault.approve(address(mcs), amount);
-        vm.prank(user);
+        hevm.prank(user);
         mcs.deposit(address(vault), amount);
     }
 }
