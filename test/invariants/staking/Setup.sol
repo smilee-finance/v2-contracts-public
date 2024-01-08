@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IHevm} from "./IHevm.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {IHevm} from "../utils/IHevm.sol";
 
 contract Setup {
     // Cheat code address, 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D.

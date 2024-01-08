@@ -9,9 +9,9 @@ import {SimpleRewarderPerSec} from "@project/periphery/SimpleRewarderPerSec.sol"
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {MarketOracle} from "@project/MarketOracle.sol";
 import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
-import {MockedVault} from "../mock/MockedVault.sol";
-import {VaultUtils} from "../utils/VaultUtils.sol";
-import {EchidnaVaultUtils} from "./utils/VaultUtils.sol";
+import {MockedVault} from "../../mock/MockedVault.sol";
+import {VaultUtils} from "../../utils/VaultUtils.sol";
+import {EchidnaVaultUtils} from "../utils/EchidnaVaultUtils.sol";
 
 contract MasterChefSmileeTest is Setup {
     event AddStakingVault(uint256);

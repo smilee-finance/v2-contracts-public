@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.15;
+
+import {Setup} from "./Setup.sol";
+
+abstract contract BeforeAfter is Setup {
+  struct Vars {
+    uint256 value;
+  }
+
+  Vars internal _before;
+  Vars internal _after;
+
+  function __before() internal {
+    _before.value = counter.value();
+  }
+
+  function __after() internal {
+    _after.value = counter.value();
+  }
+}

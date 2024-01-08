@@ -8,3 +8,4 @@ prb-math/=lib/solidity-trigonometry/lib/prb-math/contracts/
 @prb/math/=lib/prb-math/src/
 @chainlink/=lib/chainlink-brownie-contracts/contracts/src/v0.8/
 src/=src/
+@chimera=lib/chimera/src

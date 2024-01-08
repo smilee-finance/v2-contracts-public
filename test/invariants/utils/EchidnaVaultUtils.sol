@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IHevm} from "../IHevm.sol";
+import {IHevm} from "./IHevm.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {AddressProviderUtils} from "./AddressProviderUtils.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
-import {TestnetPriceOracle} from "../../../src/testnet/TestnetPriceOracle.sol";
 import {MockedRegistry} from "../../mock/MockedRegistry.sol";
 
 library EchidnaVaultUtils {

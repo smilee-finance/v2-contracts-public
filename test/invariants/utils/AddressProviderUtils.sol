@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IHevm} from "../IHevm.sol";
+import {IHevm} from "./IHevm.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {MarketOracle} from "@project/MarketOracle.sol";
 import {TestnetSwapAdapter} from "@project/testnet/TestnetSwapAdapter.sol";
-import {TestnetPriceOracle} from "../../../src/testnet/TestnetPriceOracle.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {MockedRegistry} from "../../mock/MockedRegistry.sol";
 
 library AddressProviderUtils {
