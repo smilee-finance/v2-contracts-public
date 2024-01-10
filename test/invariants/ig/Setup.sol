@@ -11,6 +11,8 @@ import {AddressProviderUtils} from "../utils/AddressProviderUtils.sol";
 import {EchidnaVaultUtils} from "../utils/EchidnaVaultUtils.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedIG} from "../../mock/MockedIG.sol";
+import {VaultUtils} from "../../utils/VaultUtils.sol";
+
 
 abstract contract Setup {
     address internal constant VM_ADDRESS_SETUP = address(uint160(uint256(keccak256("hevm cheat code"))));
@@ -47,6 +49,13 @@ abstract contract Setup {
         ig = MockedIG(EchidnaVaultUtils.igSetup(tokenAdmin, vault, ap, hevm));
 
         _impliedVolSetup(address(baseToken), sideToken, ap);
+
+        VaultUtils.addVaultDeposit(alice, 1000000000e18, tokenAdmin, address(vault), _convertVm());
+
+        skipDay(false);
+        hevm.prank(tokenAdmin);
+        ig.rollEpoch();
+
     }
 
     function skipTo(uint256 to) internal {

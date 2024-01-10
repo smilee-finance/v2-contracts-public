@@ -1,4 +1,5 @@
 corpusDir: "/app/test-echidna/out/corpus"
+workers: 6
 seqLen: 50
 testLimit: 4000
 shrinkLimit: 1000

@@ -9,10 +9,6 @@ import {Properties} from "./Properties.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
 
-/**
- * medusa fuzz --no-color
- * echidna . --contract CryticTester --config config.yaml
- */
 abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     struct DepositInfo {
         address user;
@@ -45,55 +41,27 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     }
 
     //----------------------------------------------
-    // VAULT
-    //----------------------------------------------
-    function deposit(address user, uint256 amount) public {
-        amount = _between(amount, 1, 1000e18);
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), user, address(vault), amount, _convertVm());
-        gte(baseToken.balanceOf(user), amount, "");
-
-        hevm.prank(user);
-        vault.deposit(amount, user, 0);
-
-        gt(baseToken.balanceOf(address(vault)), 0, "");
-
-        depositInfo[depositCounter] = DepositInfo(user, amount);
-        depositCounter++;
-    }
-
-    function redeem(uint256 index) public {
-        index = _between(index, 0, depositCounter);
-        DepositInfo storage depInfo = depositInfo[index];
-
-        (uint256 heldByUser, uint256 heldByVault) = vault.shareBalances(depInfo.user);
-        precondition(depInfo.amount > 0);
-        precondition(heldByVault > 0); // can't redeem befor epoch roll
-
-        hevm.prank(depInfo.user);
-        vault.redeem(heldByVault);
-
-        eq(vault.balanceOf(depInfo.user), heldByUser + heldByVault, "");
-        depInfo.amount = 0;
-    }
-
-    //----------------------------------------------
     // IG
     //----------------------------------------------
     function buyBull(address recipient, uint256 amount) public {
-        precondition(epochCounter > 0);
-        precondition(block.timestamp < ig.getEpoch().current);
-
         (, , , uint256 bullAvailNotional) = ig.notional();
-        amount = _between(amount, 0.01e18, bullAvailNotional);
+        amount = _between(amount, 1000e18, bullAvailNotional);
+
+        precondition(block.timestamp < ig.getEpoch().current);
 
         uint256 initialUserBalance = baseToken.balanceOf(recipient);
         uint256 currentStrike = ig.currentStrike();
         (uint256 expectedPremium /* uint256 _fee */, ) = ig.premium(currentStrike, amount, 0);
         uint256 maxPremium = expectedPremium + (0.03e18 * expectedPremium) / 1e18;
-
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), recipient, address(ig), maxPremium, _convertVm());
+        TokenUtils.provideApprovedTokens(
+            tokenAdmin,
+            address(baseToken),
+            recipient,
+            address(ig),
+            maxPremium,
+            _convertVm()
+        );
         initialUserBalance = baseToken.balanceOf(recipient);
-
         // uint256 minPremium = expectedPremium - (0.03e18 * expectedPremium) / 1e18;
         hevm.prank(recipient);
         uint256 premium = ig.mint(recipient, currentStrike, amount, 0, expectedPremium, 0.03e18);
@@ -114,8 +82,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         index = _between(index, 0, buyCounter);
         BuyInfo storage buyInfo_ = buyInfo[index];
 
-        precondition(buyInfo_.amountUp > 0 && buyInfo_.amountDown == 0);
         precondition(epochCounter > buyInfo_.epochCounter);
+        precondition(buyInfo_.amountUp > 0 && buyInfo_.amountDown == 0);
 
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
         TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
