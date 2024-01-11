@@ -46,12 +46,109 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     function buyBull(address recipient, uint256 amount) public {
         (, , , uint256 bullAvailNotional) = ig.notional();
         amount = _between(amount, 1000e18, bullAvailNotional);
+        precondition(block.timestamp < ig.getEpoch().current);
+        _buy(recipient, amount, 0);
+    }
 
+    function buyBear(address recipient, uint256 amount) public {
+        (, , uint256 bearAvailNotional, ) = ig.notional();
+        amount = _between(amount, 1000e18, bearAvailNotional);
         precondition(block.timestamp < ig.getEpoch().current);
 
+        _buy(recipient, 0, amount);
+    }
+
+    function sellBull(uint256 index) public {
+        index = _between(index, 0, buyCounter);
+        BuyInfo storage buyInfo_ = buyInfo[index];
+
+        precondition(epochCounter > buyInfo_.epochCounter);
+        precondition(buyInfo_.amountUp > 0 && buyInfo_.amountDown == 0);
+
+        uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
+
+        (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
+
+        // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
+        gte(payoff, minPayoff, "IG BULL-01: Payoff never exeed slippage");
+        gte(
+            baseToken.balanceOf(buyInfo_.recipient),
+            initialUserBalance + payoff,
+            "IG BULL-01: The option seller never gains more than the payoff"
+        );
+
+        if (sellTokenPrice > buyInfo_.strike) {
+            t(
+                payoff > 0,
+                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
+            );
+        } else {
+            t(
+                payoff == 0,
+                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
+            );
+        }
+        buyInfo_.amountUp = 0;
+    }
+
+    function sellBear(uint256 index) public {
+        index = _between(index, 0, buyCounter);
+        BuyInfo storage buyInfo_ = buyInfo[index];
+
+        precondition(epochCounter > buyInfo_.epochCounter);
+        precondition(buyInfo_.amountUp == 0 && buyInfo_.amountDown > 0);
+
+        uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
+
+        (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
+
+        // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
+        gte(payoff, minPayoff, "IG BULL-01: Payoff never exeed slippage");
+        gte(
+            baseToken.balanceOf(buyInfo_.recipient),
+            initialUserBalance + payoff,
+            "IG BULL-01: The option seller never gains more than the payoff"
+        );
+
+        if (sellTokenPrice < buyInfo_.strike) {
+            t(
+                payoff > 0,
+                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
+            );
+        } else {
+            t(
+                payoff == 0,
+                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
+            );
+        }
+        buyInfo_.amountUp = 0;
+    }
+
+    //----------------------------------------------
+    // UTILS
+    //----------------------------------------------
+
+    function rollEpoch() public {
+        uint256 currentEpoch = ig.getEpoch().current;
+        uint256 currentStrike = ig.currentStrike();
+        epochInfo[epochCounter] = EpochInfo(currentEpoch, currentStrike);
+        hevm.prank(tokenAdmin);
+        ig.rollEpoch();
+        epochCounter++;
+    }
+
+    function setTokenPrice(uint256 price) public {
+        TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
+        address sideToken = vault.sideToken();
+
+        price = _between(price, 0.01e18, 1000e18);
+        apPriceOracle.setTokenPrice(sideToken, price);
+    }
+
+    function _buy(address recipient, uint256 amountUp, uint256 amountDown) internal {
         uint256 initialUserBalance = baseToken.balanceOf(recipient);
         uint256 currentStrike = ig.currentStrike();
-        (uint256 expectedPremium /* uint256 _fee */, ) = ig.premium(currentStrike, amount, 0);
+        (uint256 expectedPremium /* uint256 _fee */, ) = ig.premium(currentStrike, amountUp, amountDown);
         uint256 maxPremium = expectedPremium + (0.03e18 * expectedPremium) / 1e18;
         TokenUtils.provideApprovedTokens(
             tokenAdmin,
@@ -64,7 +161,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         initialUserBalance = baseToken.balanceOf(recipient);
         // uint256 minPremium = expectedPremium - (0.03e18 * expectedPremium) / 1e18;
         hevm.prank(recipient);
-        uint256 premium = ig.mint(recipient, currentStrike, amount, 0, expectedPremium, 0.03e18);
+        uint256 premium = ig.mint(recipient, currentStrike, amountUp, amountDown, expectedPremium, 0.03e18);
 
         lte(premium, maxPremium, "GENERAL-01: Premium never exeed slippage max");
         // gte(premium, minPremium, "GENERAL-01: Premium never exeed slippage min");
@@ -75,17 +172,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         );
 
         uint256 currentEpoch = ig.getEpoch().current; // salvo strike per ogni epoca
-        buyInfo[buyCounter] = BuyInfo(recipient, currentEpoch, epochCounter, amount, 0, currentStrike);
+        buyInfo[buyCounter] = BuyInfo(recipient, currentEpoch, epochCounter, amountUp, amountDown, currentStrike);
+        buyCounter++;
     }
 
-    function sellBull(uint256 index) public {
-        index = _between(index, 0, buyCounter);
-        BuyInfo storage buyInfo_ = buyInfo[index];
-
-        precondition(epochCounter > buyInfo_.epochCounter);
-        precondition(buyInfo_.amountUp > 0 && buyInfo_.amountDown == 0);
-
-        uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
+    function _sell(BuyInfo memory buyInfo_) internal returns(uint256, uint256, uint256) {
         TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
         address sideToken = vault.sideToken();
         uint256 sellTokenPrice = apPriceOracle.getTokenPrice(sideToken);
@@ -119,46 +210,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             0.03e18
         );
 
-        // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(payoff, minPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(
-            baseToken.balanceOf(buyInfo_.recipient),
-            initialUserBalance + payoff,
-            "IG BULL-01: The option seller never gains more than the payoff"
-        );
-
-        if (sellTokenPrice > buyInfo_.strike) {
-            t(
-                payoff > 0,
-                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
-            );
-        } else {
-            t(
-                payoff == 0,
-                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
-            );
-        }
-        buyInfo_.amountUp = 0;
-    }
-
-    //----------------------------------------------
-    // UTILS
-    //----------------------------------------------
-
-    function rollEpoch() public {
-        uint256 currentEpoch = ig.getEpoch().current;
-        uint256 currentStrike = ig.currentStrike();
-        epochInfo[epochCounter] = EpochInfo(currentEpoch, currentStrike);
-        hevm.prank(tokenAdmin);
-        ig.rollEpoch();
-        epochCounter++;
-    }
-
-    function setTokenPrice(uint256 price) public {
-        TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
-        address sideToken = vault.sideToken();
-
-        price = _between(price, 0.01e18, 1000e18);
-        apPriceOracle.setTokenPrice(sideToken, price);
+        return (payoff, minPayoff, sellTokenPrice);
     }
 }
