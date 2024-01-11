@@ -1,4 +1,5 @@
-corpusDir: "/app/test-echidna/out/corpus"
+codeSize: 0x10000
+corpusDir: "/app/test/invariants/out/system/corpus"
 seqLen: 50
 testLimit: 4000
 shrinkLimit: 1000
@@ -27,4 +28,5 @@ deployContracts: [
 
 ]
 cryticArgs: [
+  '--solc-remaps', '@project/=src/ forge-std/=lib/forge-std/src/ @openzeppelin/=lib/openzeppelin-contracts/ @uniswap/v3-periphery/=lib/v3-periphery/ @uniswap/v3-core/=lib/v3-core/ @solstat/=lib/solstat/src/ prb-math/=lib/solidity-trigonometry/lib/prb-math/contracts/ @prb/math/=lib/prb-math/src/ @chainlink/=lib/chainlink-brownie-contracts/contracts/src/v0.8/ src/=src/ @chimera/=lib/chimera/src/ solmate=lib/solstat/lib/solmate/src',
   '--compile-libraries=(TokensPair,0xf1a),(EpochController,0xf1b),(VaultLib,0xf1c),(EpochFrequency,0xf1d),(TimeLock,0xf1e),(AmountsMath,0xf1f),(TokenUtils,0xf2a),(AddressProviderUtils,0xf2d),(EchidnaVaultUtils,0xf2e),(AmountHelper,0xf2f)(Notional,0xf32),(OptionStrategy,0xf33),(Position,0xf34),(SignedMath,0xf35),(Finance,0xf36),(FinanceIG,0xf37),(FinanceIGDelta,0xf38),(FinanceIGPayoff,0xf39),(FinanceIGPrice,0xf30),(WadTime,0xf3a)']

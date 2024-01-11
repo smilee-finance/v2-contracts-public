@@ -23,4 +23,4 @@ report/
 .DS_Store
 
 crytic-export
-test-echidna/out
+test/invariants/out
