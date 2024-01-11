@@ -65,13 +65,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         _popTrades(index, buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_02);
-        gte(payoff, minPayoff, IG_03);
+        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_09);
+        gte(payoff, minPayoff, IG_11);
 
         if (sellTokenPrice > buyInfo_.strike) {
-            t(payoff > 0, IG_BULL_01);
+            t(payoff > 0, IG_12);
         } else {
-            t(payoff == 0, IG_BULL_01);
+            t(payoff == 0, IG_12);
         }
     }
 
@@ -88,13 +88,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         _popTrades(index, buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_02);
-        gte(payoff, minPayoff, IG_03);
+        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_09);
+        gte(payoff, minPayoff, IG_11);
 
         if (sellTokenPrice < buyInfo_.strike) {
-            t(payoff > 0, IG_BEAR_01);
+            t(payoff > 0, IG_13);
         } else {
-            t(payoff == 0, IG_BEAR_01);
+            t(payoff == 0, IG_13);
         }
     }
 
@@ -130,13 +130,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(ig), maxPremium, _convertVm());
         uint256 initialUserBalance = baseToken.balanceOf(msg.sender);
-
-        // uint256 minPremium = expectedPremium - (0.03e18 * expectedPremium) / 1e18;
         uint256 premium = ig.mint(msg.sender, currentStrike, amountUp, amountDown, expectedPremium, 0.03e18);
 
-        // gte(premium, minPremium, "GENERAL-01: Premium never exeed slippage min");
-        gte(baseToken.balanceOf(msg.sender), initialUserBalance - premium, IG_01);
-        lte(premium, maxPremium, IG_03);
+        gte(baseToken.balanceOf(msg.sender), initialUserBalance - premium, IG_10);
+        lte(premium, maxPremium, IG_11);
 
         if (amountUp > 0 && amountDown == 0) {
             bullTrades.push(
