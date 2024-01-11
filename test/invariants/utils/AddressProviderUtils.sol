@@ -24,8 +24,8 @@ library AddressProviderUtils {
 
         address priceOracleAddress = addressProvider.priceOracle();
         if (priceOracleAddress == address(0)) {
-            vm.prank(admin);
             TestnetPriceOracle priceOracle = new TestnetPriceOracle(address(baseToken));
+            priceOracle.transferOwnership(admin);
             priceOracleAddress = address(priceOracle);
             vm.prank(admin);
             addressProvider.setPriceOracle(priceOracleAddress);
@@ -51,8 +51,8 @@ library AddressProviderUtils {
 
         address dexAddress = addressProvider.exchangeAdapter();
         if (dexAddress == address(0)) {
-            vm.prank(admin);
             TestnetSwapAdapter exchange = new TestnetSwapAdapter(priceOracleAddress);
+            exchange.transferOwnership(admin);
             dexAddress = address(exchange);
             vm.prank(admin);
             addressProvider.setExchangeAdapter(dexAddress);

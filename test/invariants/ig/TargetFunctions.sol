@@ -70,23 +70,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(payoff, minPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(
-            baseToken.balanceOf(buyInfo_.recipient),
-            initialUserBalance + payoff,
-            "IG BULL-01: The option seller never gains more than the payoff"
-        );
+        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_02);
+        gte(payoff, minPayoff, IG_03);
 
         if (sellTokenPrice > buyInfo_.strike) {
-            t(
-                payoff > 0,
-                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
-            );
+            t(payoff > 0, IG_BULL_01);
         } else {
-            t(
-                payoff == 0,
-                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
-            );
+            t(payoff == 0, IG_BULL_01);
         }
         buyInfo_.amountUp = 0;
     }
@@ -103,23 +93,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(payoff, minPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(
-            baseToken.balanceOf(buyInfo_.recipient),
-            initialUserBalance + payoff,
-            "IG BULL-01: The option seller never gains more than the payoff"
-        );
+        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_02);
+        gte(payoff, minPayoff, IG_03);
 
         if (sellTokenPrice < buyInfo_.strike) {
-            t(
-                payoff > 0,
-                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
-            );
+            t(payoff > 0, IG_BEAR_01);
         } else {
-            t(
-                payoff == 0,
-                "IG BULL-01: A IG bull payoff is always positive above the strike price & zero at or below the strike price"
-            );
+            t(payoff == 0, IG_BEAR_01);
         }
         buyInfo_.amountUp = 0;
     }
@@ -142,6 +122,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         address sideToken = vault.sideToken();
 
         price = _between(price, 0.01e18, 1000e18);
+        hevm.prank(tokenAdmin);
         apPriceOracle.setTokenPrice(sideToken, price);
     }
 
@@ -163,20 +144,16 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         hevm.prank(recipient);
         uint256 premium = ig.mint(recipient, currentStrike, amountUp, amountDown, expectedPremium, 0.03e18);
 
-        lte(premium, maxPremium, "GENERAL-01: Premium never exeed slippage max");
         // gte(premium, minPremium, "GENERAL-01: Premium never exeed slippage min");
-        gte(
-            baseToken.balanceOf(recipient),
-            initialUserBalance - premium,
-            "GENERAL-01: The option buyer never loses more than the premium"
-        );
+        gte(baseToken.balanceOf(recipient), initialUserBalance - premium, IG_01);
+        lte(premium, maxPremium, IG_03);
 
         uint256 currentEpoch = ig.getEpoch().current; // salvo strike per ogni epoca
         buyInfo[buyCounter] = BuyInfo(recipient, currentEpoch, epochCounter, amountUp, amountDown, currentStrike);
         buyCounter++;
     }
 
-    function _sell(BuyInfo memory buyInfo_) internal returns(uint256, uint256, uint256) {
+    function _sell(BuyInfo memory buyInfo_) internal returns (uint256, uint256, uint256) {
         TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
         address sideToken = vault.sideToken();
         uint256 sellTokenPrice = apPriceOracle.getTokenPrice(sideToken);

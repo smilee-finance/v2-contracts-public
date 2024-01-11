@@ -13,7 +13,6 @@ import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedIG} from "../../mock/MockedIG.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
 
-
 abstract contract Setup {
     address internal constant VM_ADDRESS_SETUP = address(uint160(uint256(keccak256("hevm cheat code"))));
     IHevm internal hevm;
@@ -32,15 +31,17 @@ abstract contract Setup {
     function deploy() internal {
         hevm.warp(EpochFrequency.REF_TS + 1);
         ap = new AddressProvider(0);
-        ap.grantRole(ap.ROLE_ADMIN(), tokenAdmin);
 
+        ap.grantRole(ap.ROLE_ADMIN(), tokenAdmin);
         baseToken = new TestnetToken("BaseTestToken", "BTT");
         baseToken.transferOwnership(tokenAdmin);
         hevm.prank(tokenAdmin);
         baseToken.setAddressProvider(address(ap));
 
         AddressProviderUtils.initialize(tokenAdmin, ap, address(baseToken), hevm);
-        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), tokenAdmin, ap, EpochFrequency.DAILY));
+        vault = MockedVault(
+            EchidnaVaultUtils.createVault(address(baseToken), tokenAdmin, ap, EpochFrequency.DAILY, hevm)
+        );
 
         EchidnaVaultUtils.grantAdminRole(tokenAdmin, address(vault));
         EchidnaVaultUtils.registerVault(tokenAdmin, address(vault), ap, hevm);
@@ -55,7 +56,6 @@ abstract contract Setup {
         skipDay(false);
         hevm.prank(tokenAdmin);
         ig.rollEpoch();
-
     }
 
     function skipTo(uint256 to) internal {
@@ -81,13 +81,11 @@ abstract contract Setup {
     }
 
     function _impliedVolSetup(address baseToken_, address sideToken, AddressProvider _ap) internal {
-      MarketOracle apMarketOracle = MarketOracle(_ap.marketOracle());
-      uint256 lastUpdate = apMarketOracle.getImpliedVolatilityLastUpdate(baseToken_, sideToken, EpochFrequency.DAILY);
-      if (lastUpdate == 0) {
-          hevm.prank(tokenAdmin);
-          apMarketOracle.setImpliedVolatility(baseToken_, sideToken, EpochFrequency.DAILY, 0.5e18);
-      }
+        MarketOracle apMarketOracle = MarketOracle(_ap.marketOracle());
+        uint256 lastUpdate = apMarketOracle.getImpliedVolatilityLastUpdate(baseToken_, sideToken, EpochFrequency.DAILY);
+        if (lastUpdate == 0) {
+            hevm.prank(tokenAdmin);
+            apMarketOracle.setImpliedVolatility(baseToken_, sideToken, EpochFrequency.DAILY, 0.5e18);
+        }
     }
-
-
 }
