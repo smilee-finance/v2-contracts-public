@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {console} from "forge-std/console.sol";
 import {Setup} from "./Setup.sol";
 import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
@@ -48,7 +49,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         (, , uint256 bearAvailNotional, ) = ig.notional();
         amount = _between(amount, 1000e18, bearAvailNotional);
         precondition(block.timestamp < ig.getEpoch().current);
-
         _buy(0, amount);
     }
 
@@ -62,7 +62,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
 
         (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
-        _popTrades(index, buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
         gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_09);
@@ -73,6 +72,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         } else {
             t(payoff == 0, IG_12);
         }
+
+        _popTrades(index, buyInfo_);
     }
 
     function sellBear(uint256 index) public {
@@ -85,7 +86,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
 
         (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
-        _popTrades(index, buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
         gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_09);
@@ -96,6 +96,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         } else {
             t(payoff == 0, IG_13);
         }
+
+        _popTrades(index, buyInfo_);
     }
 
     //----------------------------------------------
