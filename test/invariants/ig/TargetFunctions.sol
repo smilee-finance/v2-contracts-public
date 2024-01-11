@@ -10,11 +10,6 @@ import {MockedVault} from "../../mock/MockedVault.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
 
 abstract contract TargetFunctions is BaseTargetFunctions, Properties {
-    struct DepositInfo {
-        address user;
-        uint256 amount;
-    }
-
     struct BuyInfo {
         address recipient;
         uint256 epoch;
@@ -29,45 +24,45 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         uint256 epochStrike;
     }
 
-    mapping(uint256 => DepositInfo) internal depositInfo;
-    mapping(uint256 => BuyInfo) internal buyInfo;
-    mapping(uint256 => EpochInfo) internal epochInfo;
-    uint256 depositCounter = 0;
-    uint256 buyCounter = 0;
-    uint256 epochCounter = 0;
+    BuyInfo[] internal bullTrades;
+    BuyInfo[] internal bearTrades;
+
+    EpochInfo[] internal epochs;
 
     function setup() internal virtual override {
         deploy();
     }
 
     //----------------------------------------------
-    // IG
+    // USER OPs.
     //----------------------------------------------
-    function buyBull(address recipient, uint256 amount) public {
+
+    function buyBull(uint256 amount) public {
         (, , , uint256 bullAvailNotional) = ig.notional();
         amount = _between(amount, 1000e18, bullAvailNotional);
         precondition(block.timestamp < ig.getEpoch().current);
-        _buy(recipient, amount, 0);
+        _buy(amount, 0);
     }
 
-    function buyBear(address recipient, uint256 amount) public {
+    function buyBear(uint256 amount) public {
         (, , uint256 bearAvailNotional, ) = ig.notional();
         amount = _between(amount, 1000e18, bearAvailNotional);
         precondition(block.timestamp < ig.getEpoch().current);
 
-        _buy(recipient, 0, amount);
+        _buy(0, amount);
     }
 
     function sellBull(uint256 index) public {
-        index = _between(index, 0, buyCounter);
-        BuyInfo storage buyInfo_ = buyInfo[index];
+        index = _between(index, 0, bullTrades.length - 1);
+        BuyInfo storage buyInfo_ = bullTrades[index];
 
-        precondition(epochCounter > buyInfo_.epochCounter);
+        precondition(epochs.length > buyInfo_.epochCounter);
         precondition(buyInfo_.amountUp > 0 && buyInfo_.amountDown == 0);
 
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
 
         (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
+        _popTrades(index, buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
         gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_02);
@@ -78,19 +73,19 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         } else {
             t(payoff == 0, IG_BULL_01);
         }
-        buyInfo_.amountUp = 0;
     }
 
     function sellBear(uint256 index) public {
-        index = _between(index, 0, buyCounter);
-        BuyInfo storage buyInfo_ = buyInfo[index];
+        index = _between(index, 0, bearTrades.length - 1);
+        BuyInfo storage buyInfo_ = bearTrades[index];
 
-        precondition(epochCounter > buyInfo_.epochCounter);
+        precondition(epochs.length > buyInfo_.epochCounter);
         precondition(buyInfo_.amountUp == 0 && buyInfo_.amountDown > 0);
 
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
 
         (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
+        _popTrades(index, buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
         gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_02);
@@ -101,20 +96,18 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         } else {
             t(payoff == 0, IG_BEAR_01);
         }
-        buyInfo_.amountUp = 0;
     }
 
     //----------------------------------------------
-    // UTILS
+    // ADMIN OPs.
     //----------------------------------------------
 
     function rollEpoch() public {
         uint256 currentEpoch = ig.getEpoch().current;
         uint256 currentStrike = ig.currentStrike();
-        epochInfo[epochCounter] = EpochInfo(currentEpoch, currentStrike);
-        hevm.prank(tokenAdmin);
+        hevm.prank(admin);
         ig.rollEpoch();
-        epochCounter++;
+        epochs.push(EpochInfo(currentEpoch, currentStrike));
     }
 
     function setTokenPrice(uint256 price) public {
@@ -122,35 +115,38 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         address sideToken = vault.sideToken();
 
         price = _between(price, 0.01e18, 1000e18);
-        hevm.prank(tokenAdmin);
+        hevm.prank(admin);
         apPriceOracle.setTokenPrice(sideToken, price);
     }
 
-    function _buy(address recipient, uint256 amountUp, uint256 amountDown) internal {
-        uint256 initialUserBalance = baseToken.balanceOf(recipient);
+    //----------------------------------------------
+    // COMMON
+    //----------------------------------------------
+
+    function _buy(uint256 amountUp, uint256 amountDown) internal {
         uint256 currentStrike = ig.currentStrike();
         (uint256 expectedPremium /* uint256 _fee */, ) = ig.premium(currentStrike, amountUp, amountDown);
         uint256 maxPremium = expectedPremium + (0.03e18 * expectedPremium) / 1e18;
-        TokenUtils.provideApprovedTokens(
-            tokenAdmin,
-            address(baseToken),
-            recipient,
-            address(ig),
-            maxPremium,
-            _convertVm()
-        );
-        initialUserBalance = baseToken.balanceOf(recipient);
+
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(ig), maxPremium, _convertVm());
+        uint256 initialUserBalance = baseToken.balanceOf(msg.sender);
+
         // uint256 minPremium = expectedPremium - (0.03e18 * expectedPremium) / 1e18;
-        hevm.prank(recipient);
-        uint256 premium = ig.mint(recipient, currentStrike, amountUp, amountDown, expectedPremium, 0.03e18);
+        uint256 premium = ig.mint(msg.sender, currentStrike, amountUp, amountDown, expectedPremium, 0.03e18);
 
         // gte(premium, minPremium, "GENERAL-01: Premium never exeed slippage min");
-        gte(baseToken.balanceOf(recipient), initialUserBalance - premium, IG_01);
+        gte(baseToken.balanceOf(msg.sender), initialUserBalance - premium, IG_01);
         lte(premium, maxPremium, IG_03);
 
-        uint256 currentEpoch = ig.getEpoch().current; // salvo strike per ogni epoca
-        buyInfo[buyCounter] = BuyInfo(recipient, currentEpoch, epochCounter, amountUp, amountDown, currentStrike);
-        buyCounter++;
+        if (amountUp > 0 && amountDown == 0) {
+            bullTrades.push(
+                BuyInfo(msg.sender, ig.getEpoch().current, epochs.length, amountUp, amountDown, currentStrike)
+            );
+        } else if (amountUp == 0 && amountDown > 0) {
+            bearTrades.push(
+                BuyInfo(msg.sender, ig.getEpoch().current, epochs.length, amountUp, amountDown, currentStrike)
+            );
+        }
     }
 
     function _sell(BuyInfo memory buyInfo_) internal returns (uint256, uint256, uint256) {
@@ -158,11 +154,14 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         address sideToken = vault.sideToken();
         uint256 sellTokenPrice = apPriceOracle.getTokenPrice(sideToken);
 
-        if (epochCounter == buyInfo_.epochCounter + 1) {
+        // if one epoch have passed, get end price from current epoch
+        if (epochs.length == buyInfo_.epochCounter + 1) {
             sellTokenPrice = ig.currentStrike();
         }
-        if (epochCounter > buyInfo_.epochCounter + 1) {
-            EpochInfo storage epochInfo_ = epochInfo[buyInfo_.epochCounter + 1];
+
+        // if more epochs have passed, get end price from trade subsequent epoch
+        if (epochs.length > buyInfo_.epochCounter + 1) {
+            EpochInfo storage epochInfo_ = epochs[buyInfo_.epochCounter + 1];
             sellTokenPrice = epochInfo_.epochStrike;
         }
 
@@ -188,5 +187,16 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         );
 
         return (payoff, minPayoff, sellTokenPrice);
+    }
+
+    /// Removes element at the given index from trades
+    function _popTrades(uint256 index, BuyInfo memory trade) internal {
+        if (trade.amountUp > 0 && trade.amountDown == 0) {
+            bullTrades[index] = bullTrades[bullTrades.length - 1];
+            bullTrades.pop();
+        } else if (trade.amountUp == 0 && trade.amountDown > 0) {
+            bearTrades[index] = bearTrades[bearTrades.length - 1];
+            bearTrades.pop();
+        }
     }
 }
