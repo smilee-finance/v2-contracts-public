@@ -1,5 +1,8 @@
-    setTokenPrice(0)
-    buyBull(246)
-    *wait* Time delay: 87452 seconds Block delay: 65
+    deposit(3578706174938954202)
+    rollEpoch() Time delay: 155558 seconds Block delay: 47744
+    setTokenPrice(0) Time delay: 23868 seconds Block delay: 32
+    setTokenPrice(45983761769906279817156975139317861479442466770717909274806547943026811342)
     rollEpoch()
-    sellBull(396205024051372058106855126321379448441821842794)
+    buyBear(141240444195450860448009340423517740181821239060945757625090100534686884)
+    rollEpoch() Time delay: 109662 seconds Block delay: 16304
+    sellBear(202274267)

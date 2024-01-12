@@ -13,11 +13,14 @@ import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedIG} from "../../mock/MockedIG.sol";
 
 abstract contract Setup {
+    event Debug(string, uint256);
+    event DebugAddr(string, address);
+
     address internal constant VM_ADDRESS_SETUP = address(uint160(uint256(keccak256("hevm cheat code"))));
     IHevm internal hevm;
-    address internal alice = address(0xf9a);
-    address internal bob = address(0xf9b);
-    address internal tokenAdmin = address(0xf9c);
+
+    address internal admin = address(0xf9c);
+
     MockedVault internal vault;
     MockedIG internal ig;
     AddressProvider ap;
@@ -30,21 +33,21 @@ abstract contract Setup {
     function deploy() internal {
         hevm.warp(EpochFrequency.REF_TS + 1);
         ap = new AddressProvider(0);
-        ap.grantRole(ap.ROLE_ADMIN(), tokenAdmin);
 
+        ap.grantRole(ap.ROLE_ADMIN(), admin);
         baseToken = new TestnetToken("BaseTestToken", "BTT");
-        baseToken.transferOwnership(tokenAdmin);
-        hevm.prank(tokenAdmin);
+        baseToken.transferOwnership(admin);
+        hevm.prank(admin);
         baseToken.setAddressProvider(address(ap));
 
-        AddressProviderUtils.initialize(tokenAdmin, ap, address(baseToken), hevm);
-        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), tokenAdmin, ap, EpochFrequency.DAILY, hevm));
+        AddressProviderUtils.initialize(admin, ap, address(baseToken), hevm);
+        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, ap, EpochFrequency.DAILY, hevm));
 
-        EchidnaVaultUtils.grantAdminRole(tokenAdmin, address(vault));
-        EchidnaVaultUtils.registerVault(tokenAdmin, address(vault), ap, hevm);
+        EchidnaVaultUtils.grantAdminRole(admin, address(vault));
+        EchidnaVaultUtils.registerVault(admin, address(vault), ap, hevm);
         address sideToken = vault.sideToken();
 
-        ig = MockedIG(EchidnaVaultUtils.igSetup(tokenAdmin, vault, ap, hevm));
+        ig = MockedIG(EchidnaVaultUtils.igSetup(admin, vault, ap, hevm));
 
         _impliedVolSetup(address(baseToken), sideToken, ap);
     }
@@ -75,7 +78,7 @@ abstract contract Setup {
       MarketOracle apMarketOracle = MarketOracle(_ap.marketOracle());
       uint256 lastUpdate = apMarketOracle.getImpliedVolatilityLastUpdate(baseToken_, sideToken, EpochFrequency.DAILY);
       if (lastUpdate == 0) {
-          hevm.prank(tokenAdmin);
+          hevm.prank(admin);
           apMarketOracle.setImpliedVolatility(baseToken_, sideToken, EpochFrequency.DAILY, 0.5e18);
       }
     }
