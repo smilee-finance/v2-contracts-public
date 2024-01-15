@@ -11,7 +11,7 @@ import {Notional} from "../../src/lib/Notional.sol";
 import {OptionStrategy} from "../../src/lib/OptionStrategy.sol";
 import {Position} from "../../src/lib/Position.sol";
 import {SignedMath} from "../../src/lib/SignedMath.sol";
-import {TimeLock, TimeLockedUInt} from "../../src/lib/TimeLock.sol";
+import {TimeLock, TimeLockedUInt, TimeLockedBool} from "../../src/lib/TimeLock.sol";
 import {IG} from "../../src/IG.sol";
 import {Epoch, EpochController} from "../../src/lib/EpochController.sol";
 
@@ -21,6 +21,7 @@ contract MockedIG is IG {
     using Notional for Notional.Info;
     using EpochController for Epoch;
     using TimeLock for TimeLockedUInt;
+    using TimeLock for TimeLockedBool;
 
     bool internal _fakePremium;
     bool internal _fakePayoff;
@@ -193,5 +194,12 @@ contract MockedIG is IG {
 
         // TBD: review
         financeParameters.timeLocked.tradeVolatilityTimeDecay.set(value, 0);
+    }
+
+    function setUseOracleImpliedVolatility(bool value) external {
+        _checkRole(ROLE_ADMIN);
+
+        // TBD: review
+        financeParameters.timeLocked.useOracleImpliedVolatility.set(value, 0);
     }
 }

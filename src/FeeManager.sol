@@ -220,8 +220,9 @@ contract FeeManager is IFeeManager, AccessControl {
         emit UpdateMinFeeAfterTimeThreshold(dvp, minFee, previousMinFee);
     }
 
-    /// @notice Update fee percentage value
+    /// @notice Update fee value
     function _setVaultSellMinFee(address dvp, uint256 vaultSellMinFee) internal {
+        // NOTE: set > 5e18 for scenario testing (USDC with 18 decimals)
         if (vaultSellMinFee > 5e6) {
             // calibrated on USDC
             revert OutOfAllowedRange();
@@ -235,8 +236,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setSuccessFeeTier(address dvp, uint256 successFeeTier) internal {
-        if (successFeeTier > 10e17) {
-            // calibrated on USDC
+        if (successFeeTier > 1e18) {
             revert OutOfAllowedRange();
         }
 
@@ -248,7 +248,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setFeePercentage(address dvp, uint256 feePercentage_) internal {
-        if (feePercentage_ > 5e22) {
+        if (feePercentage_ > 50_000e18) {
             revert OutOfAllowedRange();
         }
 
@@ -260,7 +260,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update cap percentage value
     function _setCapPercentage(address dvp, uint256 capPercentage_) internal {
-        if (capPercentage_ > 5e22) {
+        if (capPercentage_ > 50_000e18) {
             revert OutOfAllowedRange();
         }
 
@@ -272,7 +272,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value at maturity
     function _setMaturityFeePercentage(address dvp, uint256 maturityFeePercentage_) internal {
-        if (maturityFeePercentage_ > 5e22) {
+        if (maturityFeePercentage_ > 50_000e18) {
             revert OutOfAllowedRange();
         }
 
@@ -284,7 +284,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update cap percentage value at maturity
     function _setMaturityCapPercentage(address dvp, uint256 maturityCapPercentage_) internal {
-        if (maturityCapPercentage_ > 5e22) {
+        if (maturityCapPercentage_ > 50_000e18) {
             revert OutOfAllowedRange();
         }
 

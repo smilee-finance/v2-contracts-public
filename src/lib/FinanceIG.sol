@@ -228,7 +228,8 @@ library FinanceIG {
                 params.internalVolatilityParameters.v_previous = 1e18;
             } else {
                 VolatilityParameters storage vParams = params.internalVolatilityParameters;
-                UD60x18 sharedUpdateFactor = ud(vParams.v_previous).mul(convert(params.maturity).sub(convert(vParams.t_previous)));
+                UD60x18 maturityWindow = convert(params.maturity - params.internalVolatilityParameters.epochStart);
+                UD60x18 sharedUpdateFactor = ud(vParams.v_previous).mul(maturityWindow.sub(convert(vParams.t_previous)));
                 vParams.avg_u = ud(vParams.avg_u).add(ud(vParams.v_previous).mul(sharedUpdateFactor).mul(ud(vParams.u_previous))).unwrap();
                 vParams.omega = ud(vParams.omega).add(sharedUpdateFactor).unwrap();
                 if (vParams.omega == 0) {
@@ -239,9 +240,8 @@ library FinanceIG {
                 uint256 n = params.timeLocked.tradeVolatilityUtilizationRateFactor.get();
                 uint256 theta = params.timeLocked.tradeVolatilityTimeDecay.get();
                 UD60x18 factor_1 = convert(1).add(ud(n).sub(convert(1)).mul(ud(vParams.avg_u).powu(3)));
-                uint256 rho = params.timeLocked.volatilityPriceDiscountFactor.get();
                 UD60x18 factor_2 = ud(vParams.avg_u).add(convert(1).sub(ud(theta)).mul(convert(1).sub(ud(vParams.avg_u))));
-                params.sigmaZero = ud(rho).mul(ud(params.sigmaZero)).mul(factor_1).mul(factor_2).unwrap();
+                params.sigmaZero = ud(params.sigmaZero).mul(factor_1).mul(factor_2).unwrap();
             }
         }
     }
@@ -309,29 +309,33 @@ library FinanceIG {
         uint256 oraclePrice,
         uint256 postTradeUtilizationRate
     ) external {
+        uint256 timeElapsed = block.timestamp - params.internalVolatilityParameters.epochStart;
         uint256 v_i;
         {
             UD60x18 z_abs;
             {
                 SD59x18 z_numerator = ud(oraclePrice).intoSD59x18().div(ud(params.currentStrike).intoSD59x18()).ln();
                 uint256 tau = WadTime.rangeInYears(params.internalVolatilityParameters.epochStart, params.maturity);
-                SD59x18 z_denominator = ud(params.sigmaZero).mul(ud(tau).sqrt()).intoSD59x18();
+                uint256 volatilityPriceDiscountFactor = params.timeLocked.volatilityPriceDiscountFactor.get();
+                // NOTE: sigma zero must be the original one, without the discount factor, hence the division.
+                SD59x18 z_denominator = ud(params.sigmaZero).div(ud(volatilityPriceDiscountFactor)).mul(ud(tau).sqrt()).intoSD59x18();
 
                 z_abs = z_numerator.div(z_denominator).abs().intoUD60x18();
             }
-            UD60x18 numerator = convert(params.maturity).sub(convert(block.timestamp)).div(convert(params.maturity));
+            UD60x18 maturityWindow = convert(params.maturity - params.internalVolatilityParameters.epochStart);
+            UD60x18 numerator = (maturityWindow.sub(convert(timeElapsed))).div(maturityWindow);
             UD60x18 denominator = convert(1).add(z_abs.div(convert(3)).powu(5));
 
             v_i = numerator.div(denominator).unwrap();
         }
 
         {
-            UD60x18 sharedUpdateFactor = ud(params.internalVolatilityParameters.v_previous).mul(convert(block.timestamp).sub(convert(params.internalVolatilityParameters.t_previous)));
+            UD60x18 sharedUpdateFactor = ud(params.internalVolatilityParameters.v_previous).mul(convert(timeElapsed).sub(convert(params.internalVolatilityParameters.t_previous)));
             params.internalVolatilityParameters.avg_u = ud(params.internalVolatilityParameters.avg_u).add(sharedUpdateFactor.mul(ud(params.internalVolatilityParameters.u_previous))).unwrap();
             params.internalVolatilityParameters.omega = ud(params.internalVolatilityParameters.omega).add(sharedUpdateFactor).unwrap();
         }
 
-        params.internalVolatilityParameters.t_previous = block.timestamp;
+        params.internalVolatilityParameters.t_previous = timeElapsed;
         params.internalVolatilityParameters.u_previous = postTradeUtilizationRate;
         params.internalVolatilityParameters.v_previous = v_i;
     }
