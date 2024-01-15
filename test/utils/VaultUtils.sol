@@ -82,7 +82,7 @@ library VaultUtils {
             uint256 queuedWithdrawShares,
             uint256 currentQueuedWithdrawShares,
             bool dead,
-            bytes4 deadReason
+            bool killed
         ) = vault.vaultState();
         return
             VaultLib.VaultState(
@@ -96,7 +96,7 @@ library VaultUtils {
                 ),
                 VaultLib.VaultWithdrawals(queuedWithdrawShares, currentQueuedWithdrawShares),
                 dead,
-                deadReason
+                killed
             );
     }
 

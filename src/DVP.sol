@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
@@ -17,6 +18,7 @@ import {Finance} from "./lib/Finance.sol";
 import {Notional} from "./lib/Notional.sol";
 import {Position} from "./lib/Position.sol";
 import {EpochControls} from "./EpochControls.sol";
+import {VaultLib} from "./lib/VaultLib.sol";
 
 abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     using AmountHelper for Amount;
@@ -543,6 +545,17 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             _unpause();
         } else {
             _pause();
+        }
+    }
+
+    /// @inheritdoc IDVP
+    function adjustEpochPayoff(uint256 epoch, uint256 strike) external override {
+        _checkRole(ROLE_ADMIN);
+
+        uint256 scale = IVault(vault).emergencyScaleRatio();
+        if (!_liquidity[epoch].rescaled[strike]) {
+            _liquidity[epoch].payoff[strike].up = (_liquidity[epoch].payoff[strike].up * scale) / 1e18;
+            _liquidity[epoch].payoff[strike].down = (_liquidity[epoch].payoff[strike].down * scale) / 1e18;
         }
     }
 }

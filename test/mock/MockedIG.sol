@@ -115,7 +115,6 @@ contract MockedIG is IG {
         bool tradeIsBuy
     ) internal override returns (uint256 swapPrice, int256 deltaTrade) {
         if (_fakeDeltaHedge) {
-            console.log("Sono dentro al fake dh");
             IVault(vault).deltaHedge(-int256((amount.up + amount.down) / 4));
             return (1e18, 0);
         }

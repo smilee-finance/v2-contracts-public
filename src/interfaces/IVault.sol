@@ -84,11 +84,6 @@ interface IVault is IVaultParams {
     function reservePayoff(uint256 residualPayoff) external;
 
     /**
-        @notice Adjusts stored payoff with a new one computed with swap price instead of oracle price
-     */
-    function adjustReservedPayoff(uint256 residualPayoff) external;
-
-    /**
         @notice Tranfers an amount of reserved payoff to the user
         @param recipient The address receiving the quantity
         @param amount The number of base tokens to move
@@ -100,4 +95,24 @@ interface IVault is IVaultParams {
         @notice Pause/Unpause
      */
     function changePauseState() external;
+
+    function vaultState()
+        external
+        returns (
+            uint256 v0,
+            uint256 pendingDeposit,
+            uint256 pendingWithdraws,
+            uint256 pendingPayoffs,
+            uint256 totalDeposit,
+            uint256 queuedWithdrawShares,
+            uint256 currentQueuedWithdrawShares,
+            bool dead_,
+            bool killed
+        );
+
+    /**
+        @notice Provides available assets / owed assets ratio in emergency cases
+        @return ratio the ratio denominated with 18 decimals
+     */
+    function emergencyScaleRatio() external view returns (uint256 ratio);
 }

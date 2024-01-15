@@ -12,7 +12,7 @@ library VaultLib {
         // Vault dies if ever the locked liquidity goes to zero (outstanding shares are worth 0, can't mint new shares ever)
         // The Vault is dead if underlying locked liquidity goes to zero because we can't mint new shares since then
         bool dead;
-        bytes4 deadReason;
+        bool killed; // manually executed
     }
 
     struct VaultLiquidity {

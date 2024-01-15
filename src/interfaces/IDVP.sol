@@ -106,4 +106,10 @@ interface IDVP is IDVPImmutables, IEpochControls {
         @notice Pause/Unpause
      */
     function changePauseState() external;
+
+    /**
+        @notice Rescale payoffs given max quantity available.
+        @dev See `Vault.emergencyKill()`
+     */
+    function adjustEpochPayoff(uint256 epoch, uint256 strike) external;
 }

@@ -245,57 +245,13 @@ contract IG is DVP {
         _accountResidualPayoff(financeParameters.currentStrike, price);
     }
 
-    function _beforeRollEpoch() internal virtual override {
-        bool noLockedLiquidity = IVault(vault).v0() == 0;
-
-        super._beforeRollEpoch();
-
-        // happens when rolling first time, no need to adjust payoff
-        if (noLockedLiquidity) {
-            return;
-        }
-
-        uint256 nextStrike;
-        {
-            (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
-            uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-            nextStrike = FinanceIG.getStrike(
-                oraclePrice,
-                baseTokenAmount,
-                sideTokenAmount,
-                _baseTokenDecimals,
-                _sideTokenDecimals
-            );
-        }
-
-        {
-            // Need to get residual payoff of the previous strike (because strike has already been updated)
-            Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
-            _accountResidualPayoff(financeParameters.currentStrike, nextStrike);
-            uint256 residualPayoff = liquidity.getAccountedPayoff(financeParameters.currentStrike).getTotal();
-            IVault(vault).adjustReservedPayoff(residualPayoff);
-        }
-    }
-
     /// @inheritdoc EpochControls
     function _afterRollEpoch() internal virtual override {
         Epoch memory epoch = getEpoch();
 
         financeParameters.maturity = epoch.current;
+        financeParameters.currentStrike = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
-        {
-            // Update strike price:
-            (uint256 baseTokenAmount, uint256 sideTokenAmount) = IVault(vault).balances();
-            uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-            FinanceIG.updateStrike(
-                financeParameters,
-                oraclePrice,
-                baseTokenAmount,
-                sideTokenAmount,
-                _baseTokenDecimals,
-                _sideTokenDecimals
-            );
-        }
         emit EpochStrike(epoch.current, financeParameters.currentStrike);
 
         {
