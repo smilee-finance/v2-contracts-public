@@ -40,6 +40,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
     BuyInfo[] internal bullTrades;
     BuyInfo[] internal bearTrades;
+    BuyInfo[] internal smileeTrades;
     WithdrawInfo[] internal withdrawals;
 
     EpochInfo[] internal epochs;
@@ -61,7 +62,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             address(baseToken),
             msg.sender,
             address(vault),
-            amount + 1000e18,
+            amount,
             _convertVm()
         );
         gte(baseToken.balanceOf(msg.sender), amount, "");
@@ -139,6 +140,17 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         _buy(0, amount);
     }
 
+    function buySmilee(uint256 amount) public {
+        (, , uint256 bearAvailNotional, uint256 bullAvailNotional) = ig.notional();
+        uint256 minAvailNotional = bearAvailNotional;
+        if (bullAvailNotional < minAvailNotional) {
+            minAvailNotional = bullAvailNotional;
+        }
+        amount = _between(amount, 0, minAvailNotional);
+        precondition(block.timestamp < ig.getEpoch().current);
+        _buy(amount, amount);
+    }
+
     function sellBull(uint256 index) public {
         precondition(bullTrades.length > 0);
         index = _between(index, 0, bullTrades.length - 1);
@@ -171,7 +183,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
         precondition(epochs.length > buyInfo_.epochCounter);
         precondition(buyInfo_.amountUp == 0 && buyInfo_.amountDown > 0);
-        (, , uint256 bearAvailNotional, ) = ig.notional();
 
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
 
@@ -181,6 +192,30 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_09);
         gte(payoff, minPayoff, IG_11);
         if (sellTokenPrice < buyInfo_.strike) {
+            t(payoff > 0, IG_13);
+        } else {
+            t(payoff == 0, IG_13);
+        }
+
+        _popTrades(index, buyInfo_);
+    }
+
+    function sellSmilee(uint256 index) public {
+        precondition(smileeTrades.length > 0);
+        index = _between(index, 0, smileeTrades.length - 1);
+        BuyInfo storage buyInfo_ = smileeTrades[index];
+
+        precondition(epochs.length > buyInfo_.epochCounter);
+        precondition(buyInfo_.amountUp != 0 && buyInfo_.amountDown != 0);
+
+        uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
+
+        (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
+
+        // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
+        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_09);
+        gte(payoff, minPayoff, IG_11);
+        if (sellTokenPrice != buyInfo_.strike) {
             t(payoff > 0, IG_13);
         } else {
             t(payoff == 0, IG_13);
@@ -224,13 +259,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             address(baseToken),
             msg.sender,
             address(ig),
-            maxPremium + 100e18,
+            maxPremium,
             _convertVm()
         );
         uint256 initialUserBalance = baseToken.balanceOf(msg.sender);
-        emit Debug("initialUserBalance", initialUserBalance);
-        emit Debug("allowance", baseToken.allowance(msg.sender, address(ig)));
-        emit Debug("expectedPremium", expectedPremium);
         hevm.prank(msg.sender);
         uint256 premium = ig.mint(msg.sender, currentStrike, amountUp, amountDown, expectedPremium, 0.03e18);
 
@@ -243,6 +275,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             );
         } else if (amountUp == 0 && amountDown > 0) {
             bearTrades.push(
+                BuyInfo(msg.sender, ig.getEpoch().current, epochs.length, amountUp, amountDown, currentStrike)
+            );
+        } else {
+            smileeTrades.push(
                 BuyInfo(msg.sender, ig.getEpoch().current, epochs.length, amountUp, amountDown, currentStrike)
             );
         }
