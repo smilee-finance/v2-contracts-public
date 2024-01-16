@@ -6,217 +6,116 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MasterChefSmilee} from "@project/periphery/MasterChefSmilee.sol";
 import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
 import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
+import {Properties} from "./Properties.sol";
 
-abstract contract TargetFunctions is BaseTargetFunctions, Setup {
-    event AddStakingVault(uint256);
-    event Log(uint256);
+abstract contract TargetFunctions is BaseTargetFunctions, Properties {
+    event Debug(string, uint256);
 
-    bool internal vaultAdded;
+    bool internal _vaultAdded;
 
     function setup() internal virtual override {
-      deploy();
+        deploy();
     }
 
-    function testAddStakingVault(uint256 allocPoint) public {
+    //----------------------------------------------
+    // ADMIN OPs.
+    //----------------------------------------------
+
+    function addStakingVault(uint256 allocPoint) public {
         allocPoint = _between(allocPoint, 1, type(uint256).max - 1);
-        if (!vaultAdded) {
-            _init(allocPoint);
-            MasterChefSmilee.VaultInfo memory vaultInfo = mcs.getVaultInfo(address(vault));
 
-            emit AddStakingVault(vaultInfo.allocPoint);
-            assert(allocPoint == vaultInfo.allocPoint);
-            assert(0 == vaultInfo.accSmileePerShare);
-        }
+        mcs.add(address(vault), allocPoint, rewarder);
+        MasterChefSmilee.VaultInfo memory vaultInfo = mcs.getVaultInfo(address(vault));
+        eq(0, vaultInfo.accSmileePerShare, "");
+
+        _vaultAdded = true;
     }
 
-    function testFirstDepositShareInVault(uint256 allocPoint, uint256 depositAmount) public {
-        // PRE CONDITIONS
-        skipDay(false);
-        if (!vaultAdded) {
-            allocPoint = _between(allocPoint, 1, type(uint256).max - 1);
-            _init(allocPoint);
-        }
-        uint256 initialBalance = IERC20(vault).balanceOf(alice);
+    //----------------------------------------------
+    // USER OPs.
+    //----------------------------------------------
+
+    function deposit(uint256 depositAmount) public {
+        precondition(_vaultAdded);
+
+        uint256 initialBalance = IERC20(vault).balanceOf(depositor);
         depositAmount = _between(depositAmount, 1, initialBalance);
 
-        _stake(alice, depositAmount);
+        _stake(depositor, depositAmount);
 
-        // POST CONDITIONS
-        emit Log(initialBalance - depositAmount);
-        assert(IERC20(vault).balanceOf(alice) == initialBalance - depositAmount);
+        eq(IERC20(vault).balanceOf(depositor), initialBalance - depositAmount, "");
 
-        MasterChefSmilee.VaultInfo memory vaultInfo = mcs.getVaultInfo(address(vault));
-        assert(block.timestamp == vaultInfo.lastRewardTimestamp);
+        uint256 expectedRewardSupply = _rewardSupply();
+        lte(expectedRewardSupply, mcs.rewardSupply(), STK_1);
     }
 
-    function testMultipleDeposit(uint256 allocPoint, uint256 aliceDepositAmount, uint256 bobDepositAmount) public {
-        skipDay(false);
-        if (!vaultAdded) {
-            allocPoint = _between(allocPoint, 1, type(uint256).max - 1);
-            _init(allocPoint);
-        }
-
-        // First deposit by Alice
-        uint256 aliceInitialBalance = IERC20(vault).balanceOf(alice);
-        aliceDepositAmount = _between(aliceDepositAmount, 1, aliceInitialBalance);
-
-        _stake(alice, aliceDepositAmount);
-
-        // Collect data for test purpose
-        uint256 shareSupply = IERC20(vault).balanceOf(address(mcs)); // aliceDepositAmount
-        skipDay(false);
-        MasterChefSmilee.VaultInfo memory vaultInfoPreDeposit = mcs.getVaultInfo(address(vault));
-        uint256 multiplier = convert(block.timestamp).sub(convert(vaultInfoPreDeposit.lastRewardTimestamp)).unwrap();
-
-        // Second deposit on same vault (shareSupply > 0)
-        uint256 bobInitialBalance = IERC20(vault).balanceOf(bob);
-        bobDepositAmount = _between(bobDepositAmount, 1, bobInitialBalance);
-
-        _stake(bob, bobDepositAmount);
-
-        assert(bobDepositAmount + aliceDepositAmount <= mcs.totalStaked()); // Total stake within all vaults
-
-        MasterChefSmilee.VaultInfo memory vaultInfoAfterDeposit = mcs.getVaultInfo(address(vault));
-        /**
-            smileePerSec = 1
-            allocPoint = totalAllocPoint -> only one stake vault
-            expectedRewardSupply = multiplier * smileePerSec * allocPoint / totalAllocPoint
-         */
-        uint256 expectedRewardSupply = ud(multiplier).unwrap();
-        assert (expectedRewardSupply <= ud(mcs.rewardSupply()).unwrap());
-
-        // accSmileePerShare = 0
-        uint256 expectedAccSmileePerSec = ud(expectedRewardSupply).div(convert(shareSupply)).unwrap();
-        assert (expectedAccSmileePerSec <= vaultInfoAfterDeposit.accSmileePerShare);
+    function pendingReward() public {
+        precondition(_vaultAdded);
+        uint256 expectedPendingReward = _reward(depositor);
+        (uint256 pendingRewardToken, , ) = mcs.pendingTokens(address(vault), depositor);
+        lte(expectedPendingReward, pendingRewardToken, STK_2);
     }
 
-    function testPendingRewardAfterTimes(uint256 allocPoint) public {
-        skipDay(false);
-        if (!vaultAdded) {
-            allocPoint = _between(allocPoint, 1, type(uint256).max - 1);
-            _init(allocPoint);
-        }
+    function harvest() public {
+        precondition(_vaultAdded);
 
-        // Collect data for test purpose
-        uint256 shareSupply = IERC20(vault).balanceOf(address(mcs));
-
-        skipDay(false);
-
-        MasterChefSmilee.VaultInfo memory vaultInfo = mcs.getVaultInfo(address(vault));
-        uint256 multiplier = convert(block.timestamp).sub(convert(vaultInfo.lastRewardTimestamp)).unwrap();
-
-        (uint256 amount, uint256 rewardDebt, ) = mcs.userStakeInfo(address(vault), alice);
-        emit Log(amount);
-        emit Log(rewardDebt);
-        /**
-            smileeReward = (multiplier * smileePerSec * allocPoint / totalAllocPoint)
-            pendingReward = amount * ((multiplier * smileePerSec * allocPoint / totalAllocPoint) / totalSupply)
-            smileePerSec = 1
-            allocPoint = totalAllocPoint
-            pendingReward = amount * multiplier / totalAllocPoint - rewardDebt
-            amount = shareSupply -> only only deposit
-            pendingReward = multiplier
-        */
-        uint256 expectedPendingReward = ud(amount)
-            .mul(ud(multiplier))
-            .div(convert(shareSupply))
-            .sub(ud(rewardDebt))
-            .unwrap();
-        (uint256 pendingRewardToken, , ) = mcs.pendingTokens(address(vault), alice);
-        emit Log(expectedPendingReward);
-        emit Log(pendingRewardToken);
-        assert(expectedPendingReward <= pendingRewardToken);
-    }
-
-    function testHarvestRewardAfterTimes(uint256 allocPoint) public {
-        skipDay(false);
-        if (!vaultAdded) {
-            allocPoint = _between(allocPoint, 1, type(uint256).max - 1);
-            _init(allocPoint);
-        }
-
-        // Collect data for test purpose
-        uint256 shareSupply = IERC20(vault).balanceOf(address(mcs));
-
-        skipDay(false);
-
-        MasterChefSmilee.VaultInfo memory vaultInfo = mcs.getVaultInfo(address(vault));
-        uint256 multiplier = convert(block.timestamp).sub(convert(vaultInfo.lastRewardTimestamp)).unwrap();
-
-        (uint256 amount, uint256 rewardDebt, ) = mcs.userStakeInfo(address(vault), alice);
-
-        hevm.prank(alice);
+        hevm.prank(depositor);
         mcs.harvest(address(vault));
-        /**
-            smileeReward = (multiplier * smileePerSec * allocPoint / totalAllocPoint)
-            pendingReward = amount * ((multiplier * smileePerSec * allocPoint / totalAllocPoint) / totalSupply)
-            smileePerSec = 1
-            allocPoint = totalAllocPoint
-            pendingReward = amount * multiplier / totalAllocPoint -rewardDebt
-            amount = shareSupply -> only only deposit
-            pendingReward = multiplier
-        */
-        uint256 expectedReward = ud(amount).mul(ud(multiplier)).div(convert(shareSupply)).sub(ud(rewardDebt)).unwrap();
 
-        (, , uint256 rewardCollect) = mcs.userStakeInfo(address(vault), alice);
-
-        assert(expectedReward <= rewardCollect);
+        uint256 expectedReward = _reward(depositor);
+        (, , uint256 rewardCollect) = mcs.userStakeInfo(address(vault), depositor);
+        lte(expectedReward, rewardCollect, STK_3);
     }
 
-    function testWithdrawRewardAfterTimes(uint256 allocPoint) public {
-        skipDay(false);
-        if (!vaultAdded) {
-            allocPoint = _between(allocPoint, 1, type(uint256).max - 1);
-            _init(allocPoint);
-        }
+    function withdraw() public {
+        precondition(_vaultAdded);
 
-        // Collect data for test purpose
-        uint256 shareSupply = IERC20(vault).balanceOf(address(mcs));
-        uint256 aliceInitialBalance = IERC20(vault).balanceOf(alice);
+        uint256 depositorInitialBalance = IERC20(vault).balanceOf(depositor);
+        (uint256 amount, , ) = mcs.userStakeInfo(address(vault), depositor);
 
-        skipDay(false);
-
-        MasterChefSmilee.VaultInfo memory vaultInfo = mcs.getVaultInfo(address(vault));
-        uint256 multiplier = convert(block.timestamp).sub(convert(vaultInfo.lastRewardTimestamp)).unwrap();
-
-        (uint256 amount, uint256 rewardDebt, ) = mcs.userStakeInfo(address(vault), alice);
-
-        hevm.prank(alice);
+        hevm.prank(depositor);
         mcs.withdraw(address(vault), convert(ud(amount)));
-        /**
-            smileeReward = (multiplier * smileePerSec * allocPoint / totalAllocPoint)
-            pendingReward = amount * ((multiplier * smileePerSec * allocPoint / totalAllocPoint) / totalSupply)
-            smileePerSec = 1
-            allocPoint = totalAllocPoint
-            pendingReward = amount * multiplier / totalAllocPoint - rewardDebt
-            amount = shareSupply -> only only deposit
-            pendingReward = multiplier
-        */
-        uint256 expectedReward = ud(amount).mul(ud(multiplier)).div(convert(shareSupply)).sub(ud(rewardDebt)).unwrap();
 
-        (, , uint256 rewardCollect) = mcs.userStakeInfo(address(vault), alice);
+        uint256 expectedReward = _reward(depositor);
+        (, , uint256 rewardCollect) = mcs.userStakeInfo(address(vault), depositor);
+        lte(expectedReward, rewardCollect, STK_3);
 
-        uint256 expectedAliceFinalShareBalance = convert(ud(amount).add(convert(aliceInitialBalance)));
-        emit Log(expectedAliceFinalShareBalance);
-        emit Log(IERC20(vault).balanceOf(alice));
-        assert(expectedAliceFinalShareBalance == IERC20(vault).balanceOf(alice)); // assert share balance after withdraw
-
-        emit Log(expectedReward);
-        emit Log(rewardCollect);
-        assert(expectedReward <= rewardCollect);
+        uint256 expectedFinalShareBalance = convert(ud(amount).add(convert(depositorInitialBalance)));
+        eq(expectedFinalShareBalance, IERC20(vault).balanceOf(depositor), STK_4); // assert share balance after withdraw
     }
 
-    /* --- FUNCTIONS --- */
-
-    function _init(uint256 allocPoint) internal {
-        mcs.add(address(vault), allocPoint, rewarder);
-        vaultAdded = true;
-    }
+    //----------------------------------------------
+    // COMMON
+    //----------------------------------------------
 
     function _stake(address user, uint256 amount) internal {
         hevm.prank(user);
         vault.approve(address(mcs), amount);
         hevm.prank(user);
         mcs.deposit(address(vault), amount);
+    }
+
+    function _rewardSupply() internal returns (uint256 expectedRewardSupply) {
+        MasterChefSmilee.VaultInfo memory vaultInfo = mcs.getVaultInfo(address(vault));
+        uint256 multiplier = convert(block.timestamp).sub(convert(vaultInfo.lastRewardTimestamp)).unwrap();
+
+        expectedRewardSupply = ud(multiplier)
+            .mul(convert(smileePerSec))
+            .mul(convert(vaultInfo.allocPoint))
+            .div(ud(mcs.totalAllocPoint()))
+            .unwrap();
+    }
+
+    function _reward(address user) internal returns (uint256 expectedReward) {
+        uint256 shareSupply = IERC20(vault).balanceOf(address(mcs));
+        (uint256 amount, uint256 rewardDebt, ) = mcs.userStakeInfo(address(vault), user);
+
+        uint256 expectedRewardSupply = _rewardSupply();
+        MasterChefSmilee.VaultInfo memory vaultInfo = mcs.getVaultInfo(address(vault));
+        uint256 accSmileePerShare = ud(vaultInfo.accSmileePerShare)
+            .add(ud(expectedRewardSupply).div(convert(shareSupply)))
+            .unwrap();
+
+        expectedReward = ud(amount).mul(ud(accSmileePerShare)).sub(ud(rewardDebt)).unwrap();
     }
 }

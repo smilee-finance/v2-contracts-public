@@ -14,13 +14,14 @@ import {MasterChefSmilee} from "@project/periphery/MasterChefSmilee.sol";
 import {MasterChefSmilee} from "@project/periphery/MasterChefSmilee.sol";
 import {SimpleRewarderPerSec} from "@project/periphery/SimpleRewarderPerSec.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
+import {Parameters} from "../utils/Parameters.sol";
 
-abstract contract Setup {
+abstract contract Setup is Parameters{
     address internal constant VM_ADDRESS_SETUP = address(uint160(uint256(keccak256("hevm cheat code"))));
     IHevm internal hevm;
-    address internal alice = address(0xf9a);
-    address internal bob = address(0xf9b);
-    address internal tokenAdmin = address(0xf9c);
+
+    address internal depositor = address(0xf9a);
+    address internal admin = address(0xf9c);
 
     MockedVault internal vault;
     MasterChefSmilee internal mcs;
@@ -34,35 +35,33 @@ abstract contract Setup {
     function deploy() internal {
         hevm.warp(EpochFrequency.REF_TS + 1);
         AddressProvider ap = new AddressProvider(0);
-        ap.grantRole(ap.ROLE_ADMIN(), tokenAdmin);
+        ap.grantRole(ap.ROLE_ADMIN(), admin);
 
         TestnetToken baseToken = new TestnetToken("BaseTestToken", "BTT");
+        baseToken.transferOwnership(admin);
+        hevm.prank(admin);
         baseToken.setAddressProvider(address(ap));
 
-        AddressProviderUtils.initialize(tokenAdmin, ap, address(baseToken), hevm);
-        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), tokenAdmin, ap, EpochFrequency.DAILY, hevm));
+        AddressProviderUtils.initialize(admin, ap, address(baseToken), hevm);
+        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, ap, EpochFrequency.DAILY, hevm));
 
-        EchidnaVaultUtils.grantAdminRole(tokenAdmin, address(vault));
-        EchidnaVaultUtils.registerVault(tokenAdmin, address(vault), ap, hevm);
-        EchidnaVaultUtils.grantEpochRollerRole(tokenAdmin, tokenAdmin, address(vault), hevm);
+        EchidnaVaultUtils.grantAdminRole(admin, address(vault));
+        EchidnaVaultUtils.registerVault(admin, address(vault), ap, hevm);
+        EchidnaVaultUtils.grantEpochRollerRole(admin, admin, address(vault), hevm);
         address sideToken = vault.sideToken();
 
         _impliedVolSetup(address(baseToken), sideToken, ap);
 
         skipDay(false);
-        EchidnaVaultUtils.rollEpoch(tokenAdmin, vault, hevm);
+        EchidnaVaultUtils.rollEpoch(admin, vault, hevm);
 
-        VaultUtils.addVaultDeposit(alice, 100, address(this), address(vault), _convertVm());
-        VaultUtils.addVaultDeposit(bob, 100, address(this), address(vault), _convertVm());
+        VaultUtils.addVaultDeposit(depositor, INITIAL_VAULT_DEPOSIT, admin, address(vault), _convertVm());
 
         skipDay(false);
-        EchidnaVaultUtils.rollEpoch(tokenAdmin, vault, hevm);
+        EchidnaVaultUtils.rollEpoch(admin, vault, hevm);
 
-        hevm.prank(alice);
-        vault.redeem(100);
-
-        hevm.prank(bob);
-        vault.redeem(100);
+        hevm.prank(depositor);
+        vault.redeem(INITIAL_VAULT_DEPOSIT);
 
         mcs = new MasterChefSmilee(smileePerSec, block.timestamp, ap);
 
@@ -87,7 +86,7 @@ abstract contract Setup {
         return lower + (val % (upper - lower + 1));
     }
 
-    function _convertVm() internal returns (Vm) {
+    function _convertVm() internal view returns (Vm) {
         return Vm(address(hevm));
     }
 
@@ -95,7 +94,7 @@ abstract contract Setup {
       MarketOracle apMarketOracle = MarketOracle(ap.marketOracle());
       uint256 lastUpdate = apMarketOracle.getImpliedVolatilityLastUpdate(baseToken, sideToken, EpochFrequency.DAILY);
       if (lastUpdate == 0) {
-          hevm.prank(tokenAdmin);
+          hevm.prank(admin);
           apMarketOracle.setImpliedVolatility(baseToken, sideToken, EpochFrequency.DAILY, 0.5e18);
       }
     }

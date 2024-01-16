@@ -1,6 +1,9 @@
 codeSize: 0x10000
 corpusDir: "/app/test/invariants/out/staking/corpus"
-seqLen: 100
+workers: 6
+seqLen: 40
+testLimit: 10000
+shrinkLimit: 1000
 testMode: assertion
 deployContracts: [
   ['0xf1a', 'TokensPair' ],
