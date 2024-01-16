@@ -5,6 +5,10 @@ seqLen: 50
 testLimit: 4000
 shrinkLimit: 1000
 testMode: assertion
+# list of methods to filter
+filterFunctions: ["CryticTester.deposit(uint256)", "CryticTester.redeem(uint256)", "CryticTester.initiateWithdraw(uint256)", "CryticTester.completeWithdraw(uint256)"]
+# by default, blacklist methods in filterFunctions
+filterBlacklist: true
 deployContracts: [
   ['0xf1a', 'TokensPair' ],
   ['0xf1b', 'EpochController' ],

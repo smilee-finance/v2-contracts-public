@@ -56,15 +56,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     // VAULT
     //----------------------------------------------
     function deposit(uint256 amount) public {
-        // amount = _between(amount, 1000e18, 1000000e18);
-        TokenUtils.provideApprovedTokens(
-            admin,
-            address(baseToken),
-            msg.sender,
-            address(vault),
-            amount,
-            _convertVm()
-        );
+        amount = _between(amount, MIN_VAULT_DEPOSIT, MAX_VAULT_DEPOSIT);
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(vault), amount, _convertVm());
         gte(baseToken.balanceOf(msg.sender), amount, "");
 
         hevm.prank(msg.sender);
@@ -128,14 +121,14 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
     function buyBull(uint256 amount) public {
         (, , , uint256 bullAvailNotional) = ig.notional();
-        amount = _between(amount, 0, bullAvailNotional);
+        amount = _between(amount, MIN_OPTION_BUY, bullAvailNotional);
         precondition(block.timestamp < ig.getEpoch().current);
         _buy(amount, 0);
     }
 
     function buyBear(uint256 amount) public {
         (, , uint256 bearAvailNotional, ) = ig.notional();
-        amount = _between(amount, 0, bearAvailNotional);
+        amount = _between(amount, MIN_OPTION_BUY, bearAvailNotional);
         precondition(block.timestamp < ig.getEpoch().current);
         _buy(0, amount);
     }
@@ -146,7 +139,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         if (bullAvailNotional < minAvailNotional) {
             minAvailNotional = bullAvailNotional;
         }
-        amount = _between(amount, 0, minAvailNotional);
+        amount = _between(amount, MIN_OPTION_BUY, minAvailNotional);
         precondition(block.timestamp < ig.getEpoch().current);
         _buy(amount, amount);
     }
@@ -237,12 +230,14 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     }
 
     function setTokenPrice(uint256 price) public {
-        TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
-        address sideToken = vault.sideToken();
+        if (TOKEN_PRICE_CAN_CHANGE) {
+            TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
+            address sideToken = vault.sideToken();
 
-        price = _between(price, 0.01e18, 1000e18);
-        hevm.prank(admin);
-        apPriceOracle.setTokenPrice(sideToken, price);
+            price = _between(price, MIN_TOKEN_PRICE, MAX_TOKEN_PRICE);
+            hevm.prank(admin);
+            apPriceOracle.setTokenPrice(sideToken, price);
+        }
     }
 
     //----------------------------------------------
@@ -252,19 +247,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     function _buy(uint256 amountUp, uint256 amountDown) internal {
         uint256 currentStrike = ig.currentStrike();
         (uint256 expectedPremium /* uint256 _fee */, ) = ig.premium(currentStrike, amountUp, amountDown);
-        uint256 maxPremium = expectedPremium + (0.03e18 * expectedPremium) / 1e18;
+        uint256 maxPremium = expectedPremium + (SLIPPAGE * expectedPremium) / 1e18;
 
-        TokenUtils.provideApprovedTokens(
-            admin,
-            address(baseToken),
-            msg.sender,
-            address(ig),
-            maxPremium,
-            _convertVm()
-        );
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(ig), maxPremium, _convertVm());
         uint256 initialUserBalance = baseToken.balanceOf(msg.sender);
         hevm.prank(msg.sender);
-        uint256 premium = ig.mint(msg.sender, currentStrike, amountUp, amountDown, expectedPremium, 0.03e18);
+        uint256 premium = ig.mint(msg.sender, currentStrike, amountUp, amountDown, expectedPremium, SLIPPAGE);
 
         gte(baseToken.balanceOf(msg.sender), initialUserBalance - premium, IG_10);
         lte(premium, maxPremium, IG_11);
@@ -308,8 +296,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             buyInfo_.amountDown
         );
 
-        // uint256 maxPayoff = expectedPayoff + (0.03e18 * expectedPayoff) / 1e18;
-        uint256 minPayoff = expectedPayoff - (0.03e18 * expectedPayoff) / 1e18;
+        // uint256 maxPayoff = expectedPayoff + (SLIPPAGE * expectedPayoff) / 1e18;
+        uint256 minPayoff = expectedPayoff - (SLIPPAGE * expectedPayoff) / 1e18;
         hevm.prank(buyInfo_.recipient);
         uint256 payoff = ig.burn(
             buyInfo_.epoch,
@@ -318,7 +306,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             buyInfo_.amountUp,
             buyInfo_.amountDown,
             expectedPayoff,
-            0.03e18
+            SLIPPAGE
         );
 
         return (payoff, minPayoff, sellTokenPrice);

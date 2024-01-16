@@ -11,8 +11,9 @@ import {AddressProviderUtils} from "../utils/AddressProviderUtils.sol";
 import {EchidnaVaultUtils} from "../utils/EchidnaVaultUtils.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedIG} from "../../mock/MockedIG.sol";
+import {Parameters} from "../utils/Parameters.sol";
 
-abstract contract Setup {
+abstract contract Setup is Parameters {
     event Debug(string, uint256);
     event DebugAddr(string, address);
 
