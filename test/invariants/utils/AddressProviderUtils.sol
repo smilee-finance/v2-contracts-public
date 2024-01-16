@@ -59,4 +59,7 @@ library AddressProviderUtils {
         }
     }
 
+    function getFeeManager(AddressProvider ap) public returns (FeeManager feeManager) {
+        feeManager = FeeManager(ap.feeManager());
+    }
 }
