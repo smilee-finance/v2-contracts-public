@@ -273,6 +273,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             Amount memory payoff_ = liquidity.shareOfPayoff(strike, amount, _baseTokenDecimals);
             paidPayoff = payoff_.getTotal();
 
+            // TODO [EK]
+            // (, , , , , , , , , uint256 scale) = IVault(vault).vaultState();
+            // if (scale > 0) {
+            //     paidPayoff = (paidPayoff * scale) / 1e18;
+            // }
+
             // Account transfer of setted aside payoff:
             liquidity.decreasePayoff(strike, payoff_);
         }
@@ -299,7 +305,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             fee = paidPayoff;
             paidPayoff = 0;
 
-            // if vaultFee is greather than the paidPayoff all the fee will be transfered to the Vault.
+            // if vaultFee is greater than the paidPayoff all the fee will be transfered to the Vault.
             if (vaultFee > fee) {
                 vaultFee = fee;
             }
@@ -545,17 +551,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             _unpause();
         } else {
             _pause();
-        }
-    }
-
-    /// @inheritdoc IDVP
-    function adjustEpochPayoff(uint256 epoch, uint256 strike) external override {
-        _checkRole(ROLE_ADMIN);
-
-        uint256 scale = IVault(vault).emergencyScaleRatio();
-        if (!_liquidity[epoch].rescaled[strike]) {
-            _liquidity[epoch].payoff[strike].up = (_liquidity[epoch].payoff[strike].up * scale) / 1e18;
-            _liquidity[epoch].payoff[strike].down = (_liquidity[epoch].payoff[strike].down * scale) / 1e18;
         }
     }
 }

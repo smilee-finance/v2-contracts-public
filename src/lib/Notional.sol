@@ -19,8 +19,6 @@ library Notional {
         mapping(uint256 => Amount) used;
         // payoff set aside
         mapping(uint256 => Amount) payoff;
-        // if payoff has been rescaled (see `DVP.adjustPayoff()`)
-        mapping(uint256 => bool) rescaled;
     }
 
     /**

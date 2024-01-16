@@ -72,10 +72,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     error VaultNotDead();
     error WithdrawNotInitiated();
     error WithdrawTooEarly();
-    error NotManuallyKilled();
+    error NotKilled();
     error ManuallyKilled();
     error InsufficientLiquidity(bytes32);
-    error NoRescaleNeeded();
 
     event Deposit(uint256 amount);
     event Redeem(uint256 amount);
@@ -508,13 +507,18 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
                 revert WithdrawTooEarly();
             }
             if (!_state.killed) {
-                revert NotManuallyKilled();
+                revert NotKilled();
             }
             pricePerShare = epochPricePerShare[epoch.previous];
         } else {
             pricePerShare = epochPricePerShare[withdrawal.epoch];
         }
+
         uint256 amountToWithdraw = VaultLib.sharesToAsset(withdrawal.shares, pricePerShare, _shareDecimals);
+        // TODO [EK]
+        // if (_state.emergencyScaleRatio > 0) {
+        //     amountToWithdraw = (amountToWithdraw * _state.emergencyScaleRatio) / 1e18;
+        // }
 
         // NOTE: the user transferred the required shares to the vault when he initiated the withdraw
         if (!_state.dead) {
@@ -536,7 +540,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
     function rescueShares() external isDead whenNotPaused {
         if (!_state.killed) {
-            revert NotManuallyKilled();
+            revert NotKilled();
         }
 
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
@@ -561,17 +565,13 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     function _beforeRollEpoch() internal virtual override isNotDead {
         _checkRole(ROLE_EPOCH_ROLLER);
 
-        uint256 lockedLiquidity = notional();
-
         if (_state.killed) {
             // Sell all sideToken to be able to pay all the withdraws initiated after manual kill.
             (, uint256 sideTokens) = _tokenBalances();
             _sellSideTokens(sideTokens);
-
-            // TODO capire se tenere sta riga.
-            // NOTE: update locked liquidity in order to take into account dex fees and slippage
-            lockedLiquidity = _notionalBaseTokens();
         }
+
+        uint256 lockedLiquidity = notional();
 
         // [IL-NOTE]
         // In rare scenarios (ex. roundings or very tiny TVL vaults with high impact swap slippage) there can be small losses in a single epoch.
@@ -739,22 +739,28 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
         IExchange exchange = IExchange(exchangeAddress);
 
-        uint256 baseTokensAmount = exchange.getInputAmountMax(baseToken, sideToken, amount);
+        uint256 requiredInput = exchange.getInputAmountMax(baseToken, sideToken, amount);
+        uint256 minRequiredInput = exchange.getInputAmount(baseToken, sideToken, amount);
 
-        uint256 amountToApprove = baseTokensAmount;
-        uint256 currentNotional = _notionalBaseTokens();
+        uint256 amountToApprove = requiredInput;
+        uint256 availableBaseTokens = _notionalBaseTokens();
 
         // If we don't have enough tokens to cover getInputAmountMax, try to approve all available tokens and do the swap.
-        // If this is not enough the swap will revert. Otherwise  currentNotional will be sufficient because baseTokensAmount was an over-estimate
-        if (baseTokensAmount > currentNotional) {
-            amountToApprove = currentNotional;
+        // If this is not enough the swap will revert. Otherwise  availableBaseTokens will be sufficient because requiredInput was an over-estimate
+        if (availableBaseTokens < requiredInput) {
+            amountToApprove = availableBaseTokens;
+
+            // If even minRequiredInput cannot be covered, we reduce the required side tokens amount up to a 2.5% safety margin to tackle with rare scenarios
+            if (availableBaseTokens < minRequiredInput) {
+                amount -= (amount * 25) / 1000;
+            }
         }
 
         IERC20(baseToken).safeApprove(exchangeAddress, amountToApprove);
         baseTokens = exchange.swapOut(baseToken, sideToken, amount, amountToApprove);
 
         // The swap itself should revert
-        if (baseTokens > currentNotional) {
+        if (baseTokens > availableBaseTokens) {
             revert ExceedsAvailable();
         }
     }
@@ -826,22 +832,26 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
     }
 
-    /// @inheritdoc IVault
-    function emergencyScaleRatio() public view returns (uint256) {
-        uint256 basetokens = IERC20(baseToken).balanceOf(address(this));
-        if (basetokens < (_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs)) {
-            return (basetokens * 1e18) / (_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs);
-        }
-        revert NoRescaleNeeded();
-    }
+    // TODO [EK]
+    // /**
+    //     @notice If ever stuck in MissingLiquidity, need to rescale accounting values for total withdrawals and payoffs
+    //     @dev This function only sets the scale ratio on the vault state, which will be used by `IG.payoff()` and `Vault.completeWitdraw`
+    //  */
+    // function emergencyRescale() external onlyRole(ROLE_ADMIN) {
+    //     if (!_state.killed) {
+    //         revert NotKilled();
+    //     }
 
-    /**
-        @notice If ever stuck in MissingLiquidity, need to rescale accounting values for total withdrawals and payoffs.
-        @dev Only call this function after adjusting IG payoffs (see `DVP.adjustEpochPayoff()`)
-     */
-    function emergencyRescale() external onlyRole(ROLE_ADMIN) {
-        uint256 scale = emergencyScaleRatio();
-        _state.liquidity.pendingWithdrawals = (_state.liquidity.pendingWithdrawals * scale) / 1e18;
-        _state.liquidity.pendingPayoffs = (_state.liquidity.pendingPayoffs * scale) / 1e18;
-    }
+    //     uint256 basetokens = IERC20(baseToken).balanceOf(address(this));
+    //     if (basetokens < (_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs)) {
+    //         // set rescale ratio for existing withdrawals and payoffs
+    //         _state.emergencyScaleRatio =
+    //             (basetokens * 1e18) /
+    //             (_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs);
+    //         // revoke last epoch deposits
+    //         epochPricePerShare[getEpoch().previous] = 0;
+    //     } else {
+    //         revert NoRescaleNeeded();
+    //     }
+    // }
 }

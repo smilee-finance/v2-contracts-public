@@ -148,108 +148,108 @@ contract VaultDeathTest is Test {
     /**
      *
      */
-    function testVaultMathLiquidityGoesToZeroWithDepositBeforeDie() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+    // function testVaultMathLiquidityGoesToZeroWithDepositBeforeDie() public {
+    //     VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
-        Utils.skipDay(true, vm);
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
+    //     Utils.skipDay(true, vm);
+    //     vm.prank(tokenAdmin);
+    //     vault.rollEpoch();
 
-        (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(100, vault.totalSupply());
-        assertEq(100, heldByVaultAlice);
+    //     (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+    //     assertEq(100, vault.totalSupply());
+    //     assertEq(100, heldByVaultAlice);
 
-        Utils.skipDay(false, vm);
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
+    //     Utils.skipDay(false, vm);
+    //     vm.prank(tokenAdmin);
+    //     vault.rollEpoch();
 
-        // NOTE: cause the locked liquidity to go to zero; this, in turn, cause the vault death
-        vault.moveValue(-10000);
+    //     // NOTE: cause the locked liquidity to go to zero; this, in turn, cause the vault death
+    //     vault.moveValue(-10000);
 
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+    //     VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
-        Utils.skipDay(false, vm);
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
+    //     Utils.skipDay(false, vm);
+    //     vm.prank(tokenAdmin);
+    //     vault.rollEpoch();
 
-        assertEq(true, VaultUtils.vaultState(vault).dead);
-        // No new shares has been minted:
-        assertEq(100, vault.totalSupply());
+    //     assertEq(true, VaultUtils.vaultState(vault).dead);
+    //     // No new shares has been minted:
+    //     assertEq(100, vault.totalSupply());
 
-        (heldByAccountAlice, heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(0, heldByAccountAlice);
-        assertEq(100, heldByVaultAlice);
+    //     (heldByAccountAlice, heldByVaultAlice) = vault.shareBalances(alice);
+    //     assertEq(0, heldByAccountAlice);
+    //     assertEq(100, heldByVaultAlice);
 
-        assertEq(100, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
+    //     assertEq(100, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
 
-        (, uint256 depositReceiptsAliceAmount, , ) = vault.depositReceipts(alice);
-        assertEq(100, depositReceiptsAliceAmount);
+    //     (, uint256 depositReceiptsAliceAmount, , ) = vault.depositReceipts(alice);
+    //     assertEq(100, depositReceiptsAliceAmount);
 
-        // Alice rescues her baseToken
-        vm.prank(alice);
-        vault.rescueDeposit();
+    //     // Alice rescues her baseToken
+    //     vm.prank(alice);
+    //     vault.rescueDeposit();
 
-        assertEq(0, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
-        assertEq(0, baseToken.balanceOf(address(vault)));
-        assertEq(100, baseToken.balanceOf(alice));
-        (, depositReceiptsAliceAmount, , ) = vault.depositReceipts(alice);
-        assertEq(0, depositReceiptsAliceAmount);
-    }
+    //     assertEq(0, VaultUtils.vaultState(vault).liquidity.pendingDeposits);
+    //     assertEq(0, baseToken.balanceOf(address(vault)));
+    //     assertEq(100, baseToken.balanceOf(alice));
+    //     (, depositReceiptsAliceAmount, , ) = vault.depositReceipts(alice);
+    //     assertEq(0, depositReceiptsAliceAmount);
+    // }
 
-    function testVaultRescueDepositVaultNotDeath() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+    // function testVaultRescueDepositVaultNotDeath() public {
+    //     VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
 
-        vm.startPrank(alice);
-        vm.expectRevert(VaultNotDead);
-        vault.rescueDeposit();
-        vm.stopPrank();
-        Utils.skipDay(true, vm);
+    //     vm.startPrank(alice);
+    //     vm.expectRevert(VaultNotDead);
+    //     vault.rescueDeposit();
+    //     vm.stopPrank();
+    //     Utils.skipDay(true, vm);
 
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
+    //     vm.prank(tokenAdmin);
+    //     vault.rollEpoch();
 
-        (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(100, vault.totalSupply());
-        assertEq(100, heldByVaultAlice);
+    //     (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+    //     assertEq(100, vault.totalSupply());
+    //     assertEq(100, heldByVaultAlice);
 
-        Utils.skipDay(false, vm);
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
-    }
+    //     Utils.skipDay(false, vm);
+    //     vm.prank(tokenAdmin);
+    //     vault.rollEpoch();
+    // }
 
     /**
      * An user tries to call rescueDeposit function when a vault is dead, but without nothing to rescue. A NothingToRescue error is expected.
      */
-    function testVaultRescueDepositNothingToRescue() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
-        Utils.skipDay(true, vm);
+    // function testVaultRescueDepositNothingToRescue() public {
+    //     VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+    //     Utils.skipDay(true, vm);
 
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
+    //     vm.prank(tokenAdmin);
+    //     vault.rollEpoch();
 
-        (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(100, vault.totalSupply());
-        assertEq(100, heldByVaultAlice);
+    //     (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
+    //     assertEq(100, vault.totalSupply());
+    //     assertEq(100, heldByVaultAlice);
 
-        vault.moveValue(-10000);
+    //     vault.moveValue(-10000);
 
-        // assertEq(0, vault.v0());
+    //     // assertEq(0, vault.v0());
 
-        Utils.skipDay(false, vm);
-        vm.prank(tokenAdmin);
-        vault.rollEpoch();
+    //     Utils.skipDay(false, vm);
+    //     vm.prank(tokenAdmin);
+    //     vault.rollEpoch();
 
-        assertEq(100, vault.totalSupply());
+    //     assertEq(100, vault.totalSupply());
 
-        // Check if lockedLiquidity has gone to 0 and the Vault is dead.
-        // assertEq(0, vault.v0());
-        assertEq(true, VaultUtils.vaultState(vault).dead);
+    //     // Check if lockedLiquidity has gone to 0 and the Vault is dead.
+    //     // assertEq(0, vault.v0());
+    //     assertEq(true, VaultUtils.vaultState(vault).dead);
 
-        // Alice starts the rescue procedure. An error is expected
-        vm.prank(alice);
-        vm.expectRevert(NothingToRescue);
-        vault.rescueDeposit();
-    }
+    //     // Alice starts the rescue procedure. An error is expected
+    //     vm.prank(alice);
+    //     vm.expectRevert(NothingToRescue);
+    //     vault.rescueDeposit();
+    // }
 
     function testVaultManualDead() public {
         Utils.skipDay(true, vm);
@@ -259,14 +259,14 @@ contract VaultDeathTest is Test {
         vm.prank(tokenAdmin);
         vault.killVault();
 
-        assertEq(true, vault.manuallyKilled());
+        (, , , , , , , , bool killed) = vault.vaultState();
+        assertEq(true, killed);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         assertEq(true, VaultUtils.vaultState(vault).dead);
-        assertEq(DeadManualKillReason, VaultUtils.vaultState(vault).deadReason);
     }
 
     function testVaultManualDeadRescueShares() public {

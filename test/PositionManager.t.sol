@@ -26,7 +26,6 @@ contract PositionManagerTest is Test {
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
     bytes4 constant SlippedMarketValue = bytes4(keccak256("SlippedMarketValue()"));
 
-
     address baseToken;
     address sideToken;
 
@@ -77,7 +76,6 @@ contract PositionManagerTest is Test {
         Utils.skipDay(true, vm);
         ig.rollEpoch();
         vm.stopPrank();
-
 
         uint256 strike = ig.currentStrike();
 
@@ -160,13 +158,15 @@ contract PositionManagerTest is Test {
         (uint256 tokenId, ) = initAndMint();
 
         vm.prank(alice);
-        pm.sell(IPositionManager.SellParams({
-            tokenId: tokenId,
-            notionalUp: 10 ether,
-            notionalDown: 0,
-            expectedMarketValue: 0,
-            maxSlippage: 0.1e18
-        }));
+        pm.sell(
+            IPositionManager.SellParams({
+                tokenId: tokenId,
+                notionalUp: 10 ether,
+                notionalDown: 0,
+                expectedMarketValue: 0,
+                maxSlippage: 0.1e18
+            })
+        );
 
         vm.expectRevert(InvalidTokenID);
         pm.positionDetail(tokenId);
@@ -276,22 +276,25 @@ contract PositionManagerTest is Test {
         (uint256 expectedMarketValue, ) = ig.premium(0, 10 ether, 0);
         uint256 slippage = ud(expectedMarketValue).mul(ud(0.1e18)).unwrap();
 
-        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), expectedMarketValue + slippage , vm);
-        
+        TokenUtils.provideApprovedTokens(
+            admin,
+            baseToken,
+            DEFAULT_SENDER,
+            address(pm),
+            expectedMarketValue + slippage,
+            vm
+        );
 
-        console.log(expectedMarketValue);
-        console.log(strike);
         TestnetPriceOracle po = TestnetPriceOracle(ap.priceOracle());
-        
+
         vm.startPrank(admin);
         // Increase the premium of about 9.8% and anyway below the slippage value of 10%
         po.setTokenPrice(ig.sideToken(), 1.0014e18);
         vm.stopPrank();
 
         (uint256 expectedMarketValue2, ) = ig.premium(0, 10e18, 0);
-        console.log(expectedMarketValue2);
         assertLt(expectedMarketValue2, expectedMarketValue + slippage);
-        
+
         // Pass because 9.8% is less than 10% (slippage)
         vm.prank(DEFAULT_SENDER);
         pm.mint(
@@ -316,7 +319,14 @@ contract PositionManagerTest is Test {
         /**
          * Approve the preview premium with slippage
          */
-        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), expectedMarketValue + slippage , vm);
+        TokenUtils.provideApprovedTokens(
+            admin,
+            baseToken,
+            DEFAULT_SENDER,
+            address(pm),
+            expectedMarketValue + slippage,
+            vm
+        );
 
         (uint256 expectedMarketValue3, ) = ig.premium(0, 10e18, 0);
         console.log(expectedMarketValue3);
@@ -341,7 +351,7 @@ contract PositionManagerTest is Test {
         /**
          * Approve all the balance of the user or anyway greather than the expected value + slippage
          */
-        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), 100e18 , vm);
+        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), 100e18, vm);
         vm.prank(DEFAULT_SENDER);
         vm.expectRevert(SlippedMarketValue);
         pm.mint(

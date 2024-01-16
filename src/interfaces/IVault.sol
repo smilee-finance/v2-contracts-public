@@ -109,10 +109,4 @@ interface IVault is IVaultParams {
             bool dead_,
             bool killed
         );
-
-    /**
-        @notice Provides available assets / owed assets ratio in emergency cases
-        @return ratio the ratio denominated with 18 decimals
-     */
-    function emergencyScaleRatio() external view returns (uint256 ratio);
 }
