@@ -56,7 +56,6 @@ contract TestScenariosJson is Test {
         uint256 fee;
         uint256 feeMaturity;
         uint256 vaultFee;
-        uint256 feeTier;
         uint256 successFee;
     }
 
@@ -233,8 +232,8 @@ contract TestScenariosJson is Test {
 
         FeeManager.FeeParams memory params = FeeManager.FeeParams(
             3600,
-            0,
-            0,
+            t0.pre.vaultFee,
+            t0.pre.vaultFee,
             t0.pre.successFee,
             t0.pre.vaultFee,
             t0.pre.fee,
@@ -446,7 +445,7 @@ contract TestScenariosJson is Test {
     }
 
     function _getStartEpochFromJson(string memory json) private returns (StartEpoch memory) {
-        string[23] memory paths = [
+        string[22] memory paths = [
             "pre.sideTokenPrice",
             "pre.impliedVolatility",
             "pre.riskFreeRate",
@@ -458,7 +457,6 @@ contract TestScenariosJson is Test {
             "pre.fee",
             "pre.feeMaturity",
             "pre.vaultFee",
-            "pre.feeTier",
             "pre.successFee",
             "v0",
             "post.baseTokenAmount",
@@ -471,7 +469,7 @@ contract TestScenariosJson is Test {
             "post.limInf",
             "post.limSup"
         ];
-        uint256[23] memory vars;
+        uint256[22] memory vars;
 
         string memory fixedJsonPath = "$.startEpoch";
         for (uint256 i = 0; i < paths.length; i++) {
@@ -497,7 +495,6 @@ contract TestScenariosJson is Test {
                 fee: vars[counter++],
                 feeMaturity: vars[counter++],
                 vaultFee: vars[counter++],
-                feeTier: vars[counter++],
                 successFee: vars[counter++]
             }),
             v0: vars[counter++],

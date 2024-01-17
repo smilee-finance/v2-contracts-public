@@ -23,7 +23,6 @@
             "feeMaturity": 150000000000000,
             "capFeeMaturity": 125000000000000000,
             "vaultFee": 1000000000000000000,
-            "feeTier": 5000000000000000,
             "successFee": 50000000000000000
         },
         "v0": 800000000000000000000000,
@@ -43,7 +42,7 @@
                 "availableNotionalBull": 400000000000000000000000
             },
             "post": {
-                "marketValue": 15560984521725100000000,
+                "marketValue": 15561984521725100000000,
                 "volatility": 899665178571429000,
                 "baseTokenAmount": 415321984521726000000000,
                 "sideTokenAmount": 200000000000000000000,
@@ -69,10 +68,10 @@
                 "availableNotionalBull": 0
             },
             "post": {
-                "marketValue": 2372116080142360000000,
+                "marketValue": 2371116080142360000000,
                 "volatility": 338169642857143000,
-                "baseTokenAmount": -10987797459136100000000,
-                "sideTokenAmount": 422999297842484000000,
+                "baseTokenAmount": -8879843897441000000000,
+                "sideTokenAmount": 421889848599486000000,
                 "utilizationRate": 0,
                 "availableNotionalBear": 400000000000000000000000,
                 "availableNotionalBull": 400000000000000000000000

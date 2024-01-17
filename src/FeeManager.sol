@@ -96,16 +96,14 @@ contract FeeManager is IFeeManager, AccessControl {
         uint256 notional,
         uint256 premium,
         uint8 tokenDecimals
-    ) external view returns (uint256 fee, uint256 minFee) {
-        fee = _getFeeFromNotionalAndPremium(dvp, notional, premium, tokenDecimals, false);
+    ) external view returns (uint256 fee, uint256 baseFee) {
+        uint256 tradeFee = _getFeeFromNotionalAndPremium(dvp, notional, premium, tokenDecimals, false);
 
-        minFee = epoch - block.timestamp > dvpsFeeParams[dvp].timeToExpiryThreshold
+        baseFee = epoch - block.timestamp > dvpsFeeParams[dvp].timeToExpiryThreshold
             ? dvpsFeeParams[dvp].minFeeBeforeTimeThreshold
             : dvpsFeeParams[dvp].minFeeAfterTimeThreshold;
 
-        if (fee < minFee) {
-            fee = minFee;
-        }
+        fee = baseFee + tradeFee;
     }
 
     /// @inheritdoc IFeeManager
@@ -116,17 +114,21 @@ contract FeeManager is IFeeManager, AccessControl {
         uint256 entryPremium,
         uint8 tokenDecimals,
         bool expired
-    ) external view returns (uint256 fee, uint256 vaultMinFee) {
+    ) external view returns (uint256 fee, uint256 baseFee) {
         fee = _getFeeFromNotionalAndPremium(dvp, notional, currPremium, tokenDecimals, expired);
 
         if (currPremium > entryPremium) {
             uint256 pnl = currPremium - entryPremium;
-            fee += pnl.wmul(dvpsFeeParams[dvp].successFeeTier);
+            pnl = AmountsMath.wrapDecimals(pnl, tokenDecimals);
+            uint256 successFee = pnl.wmul(dvpsFeeParams[dvp].successFeeTier);
+            successFee = AmountsMath.unwrapDecimals(successFee, tokenDecimals);
+            
+            fee += successFee;
         }
 
         if (!expired) {
-            vaultMinFee = dvpsFeeParams[dvp].vaultSellMinFee;
-            fee += vaultMinFee;
+            baseFee = dvpsFeeParams[dvp].vaultSellMinFee;
+            fee += baseFee;
         }
     }
 
@@ -185,6 +187,7 @@ contract FeeManager is IFeeManager, AccessControl {
     /// @notice Update time to expiry threshold value
     function _setTimeToExpiryThreshold(address dvp, uint256 timeToExpiryThreshold) internal {
         if (timeToExpiryThreshold == 0) {
+            // TODO: review
             revert OutOfAllowedRange();
         }
 
@@ -196,8 +199,8 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setMinFeeBeforeTimeThreshold(address dvp, uint256 minFee) internal {
-        if (minFee > 5e6) {
-            // calibrated on USDC
+        uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals();
+        if (minFee > 5 * 10**tokenDecimals) {
             revert OutOfAllowedRange();
         }
 
@@ -209,8 +212,8 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setMinFeeAfterTimeThreshold(address dvp, uint256 minFee) internal {
-        if (minFee > 5e6) {
-            // calibrated on USDC
+        uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals();
+        if (minFee > 5 * 10**tokenDecimals) {
             revert OutOfAllowedRange();
         }
 
@@ -222,9 +225,8 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee value
     function _setVaultSellMinFee(address dvp, uint256 vaultSellMinFee) internal {
-        // NOTE: set > 5e18 for scenario testing (USDC with 18 decimals)
-        if (vaultSellMinFee > 5e6) {
-            // calibrated on USDC
+        uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals();
+        if (vaultSellMinFee > 5 * 10**tokenDecimals) {
             revert OutOfAllowedRange();
         }
 

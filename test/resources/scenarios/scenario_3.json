@@ -23,7 +23,6 @@
             "feeMaturity": 150000000000000,
             "capFeeMaturity": 125000000000000000,
             "vaultFee": 1000000000000000000,
-            "feeTier": 5000000000000000,
             "successFee": 50000000000000000
         },
         "v0": 800000000000000000000000,
@@ -43,9 +42,9 @@
                 "availableNotionalBull": 400000000000000000000000
             },
             "post": {
-                "marketValue": 845733740122337000000,
+                "marketValue": 846733740122337000000,
                 "volatility": 453431250000000000,
-                "baseTokenAmount": 405080508766493000000000,
+                "baseTokenAmount": 405102025223912000000000,
                 "sideTokenAmount": 197848354258105000000,
                 "utilizationRate": 200000000000000000,
                 "availableNotionalBear": 320000000000000000000000,
@@ -62,16 +61,16 @@
                 "sideTokenPrice": 2200000000000000000000,
                 "volatility": 452925000000000000,
                 "riskFreeRate": 30000000000000000,
-                "baseTokenAmount": 405080508766493000000000,
+                "baseTokenAmount": 405102025223912000000000,
                 "sideTokenAmount": 197848354258105000000,
                 "utilizationRate": 200000000000000000,
                 "availableNotionalBear": 320000000000000000000000,
                 "availableNotionalBull": 320000000000000000000000
             },
             "post": {
-                "marketValue": 14625637035277100000,
+                "marketValue": 13625637035277100000,
                 "volatility": 449779687500000000,
-                "baseTokenAmount": 566520447538250000000000,
+                "baseTokenAmount": 567353298939314000000000,
                 "sideTokenAmount": 124090632108488000000,
                 "utilizationRate": 100000000000000000,
                 "availableNotionalBear": 400000000000000000000000,
@@ -88,17 +87,17 @@
                 "sideTokenPrice": 1900000000000000000000,
                 "volatility": 449444531250000000,
                 "riskFreeRate": 30000000000000000,
-                "baseTokenAmount": 566520447538250000000000,
+                "baseTokenAmount": 567353298939314000000000,
                 "sideTokenAmount": 124090632108488000000,
                 "utilizationRate": 100000000000000000,
                 "availableNotionalBear": 400000000000000000000000,
                 "availableNotionalBull": 320000000000000000000000
             },
             "post": {
-                "marketValue": 73557989441754600000,
+                "marketValue": 72557989441754600000,
                 "volatility": 448995535714286000,
-                "baseTokenAmount": 334298753721131000000000,
-                "sideTokenAmount": 246268857131368000000,
+                "baseTokenAmount": 336286523667188000000000,
+                "sideTokenAmount": 245661005265582000000,
                 "utilizationRate": 0,
                 "availableNotionalBear": 400000000000000000000000,
                 "availableNotionalBull": 400000000000000000000000
@@ -114,17 +113,17 @@
                 "sideTokenPrice": 1900000000000000000000,
                 "volatility": 447991071428571000,
                 "riskFreeRate": 30000000000000000,
-                "baseTokenAmount": 334298753721131000000000,
-                "sideTokenAmount": 246268857131368000000,
+                "baseTokenAmount": 336286523667188000000000,
+                "sideTokenAmount": 245661005265582000000,
                 "utilizationRate": 0,
                 "availableNotionalBear": 400000000000000000000000,
                 "availableNotionalBull": 400000000000000000000000
             },
             "post": {
-                "marketValue": 1197431289655010000000,
+                "marketValue": 1198431289655010000000,
                 "volatility": 448439062500000000,
-                "baseTokenAmount": 358308227993835000000000,
-                "sideTokenAmount": 234250413456079000000,
+                "baseTokenAmount": 359255828354614000000000,
+                "sideTokenAmount": 234190019266756000000,
                 "utilizationRate": 100000000000000000,
                 "availableNotionalBear": 320000000000000000000000,
                 "availableNotionalBull": 400000000000000000000000
@@ -140,16 +139,16 @@
                 "sideTokenPrice": 2050000000000000000000,
                 "volatility": 370012500000000000,
                 "riskFreeRate": 30000000000000000,
-                "baseTokenAmount": 358308227993835000000000,
-                "sideTokenAmount": 234250413456079000000,
+                "baseTokenAmount": 359255828354614000000000,
+                "sideTokenAmount": 234190019266756000000,
                 "utilizationRate": 100000000000000000,
                 "availableNotionalBear": 320000000000000000000000,
                 "availableNotionalBull": 400000000000000000000000
             },
             "post": {
-                "marketValue": 12367157109394200000,
+                "marketValue": 11367157109394200000,
                 "volatility": 369642857142857000,
-                "baseTokenAmount": 516001324532484000000000,
+                "baseTokenAmount": 517617610425414000000000,
                 "sideTokenAmount": 156933962698639000000,
                 "utilizationRate": 0,
                 "availableNotionalBear": 400000000000000000000000,
@@ -165,14 +164,14 @@
     "endEpoch": {
         "impliedVolatility": 347735767455297000,
         "depositAmount": 40000000000000000000000,
-        "withdrawSharesAmount": 20354396341497400000000,
-        "baseTokenAmount": 416910728659200000000000,
-        "sideTokenAmount": 219426699294316000000,
+        "withdrawSharesAmount": 20394803488820700000000,
+        "baseTokenAmount": 417698668032004000000000,
+        "sideTokenAmount": 219841404227370000000,
         "sideTokenPrice": 1900000000000000000000,
         "payoffBear": 0,
         "payoffBull": 0,
         "payoffTotal": 0,
         "payoffNet": 0,
-        "v0": 833821457318400000000000
+        "v0": 835397336064007000000000
     }
 }

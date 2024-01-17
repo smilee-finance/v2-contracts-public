@@ -283,12 +283,17 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             liquidity.decreasePayoff(strike, payoff_);
         }
 
+        // NOTE: premium fix for the leverage issue annotated in the mint flow.
+        // notional : position.notional = fix : position.premium
+        uint256 premiumFix = ((amount.up + amount.down) * position.premium) / (position.amountUp + position.amountDown);
+        position.premium -= premiumFix;
+
         // Compute fee:
         (uint256 fee, uint256 vaultFee) = feeManager.tradeSellFee(
             address(this),
             amount.up + amount.down,
             paidPayoff,
-            position.premium,
+            premiumFix,
             _baseTokenDecimals,
             reachedMaturity
         );
