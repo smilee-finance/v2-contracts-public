@@ -59,7 +59,7 @@ contract MockedVault is Vault {
         _sellSideTokens(sideTokens);
 
         int256 baseDelta = (int(_notionalBaseTokens()) * percentage) / 10000;
-        _moveToken(baseToken, baseDelta);
+        _moveToken(baseToken, baseDelta, false);
 
         address exchangeAddress = _addressProvider.exchangeAdapter();
         IExchange exchange = IExchange(exchangeAddress);
@@ -81,13 +81,17 @@ contract MockedVault is Vault {
         return _notionalBaseTokens();
     }
 
+    function moveBaseToken(int amount) public {
+        _moveToken(baseToken, amount, true);
+    }
+
     /// @notice Gets or gives an amount of token from/to the sender, for testing purposes
-    function _moveToken(address token, int256 amount) internal {
+    function _moveToken(address token, int256 amount, bool ignoreBaseTokenCheck) internal {
         if (amount > 0) {
             IERC20(token).transferFrom(msg.sender, address(this), uint256(amount));
         } else {
             uint256 absAmount = uint256(-amount);
-            if (token == baseToken && absAmount > _notionalBaseTokens()) {
+            if (!ignoreBaseTokenCheck && token == baseToken && absAmount > _notionalBaseTokens()) {
                 revert ExceedsAvailable();
             }
             IERC20(token).transfer(msg.sender, absAmount);

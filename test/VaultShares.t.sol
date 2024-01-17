@@ -129,6 +129,8 @@ contract VaultSharesTest is Test {
         Utils.skipDay(true, vm);
         vm.prank(alice);
         vault.completeWithdraw();   
+
+        assertEq(0, vault.totalSupply());
     }
 
     /**

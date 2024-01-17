@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 import {Epoch} from "@project/lib/EpochController.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {IExchange} from "@project/interfaces/IExchange.sol";
@@ -19,6 +20,8 @@ import {AddressProvider} from "@project/AddressProvider.sol";
 contract VaultStateTest is Test {
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
     bytes4 constant ExceedsMaxDeposit = bytes4(keccak256("ExceedsMaxDeposit()"));
+    bytes4 constant SelectorInsufficientLiquidity = bytes4(keccak256("InsufficientLiquidity(bytes32)"));
+    
     bytes constant VaultPaused = bytes("Pausable: paused");
 
     address admin = address(0x1);
@@ -451,6 +454,171 @@ contract VaultStateTest is Test {
         vm.prank(alice);
         vault.completeWithdraw();
     }
+
+    /**
+     * 
+     */
+    function testVaultRevertInsufficientLiquidityNewPendingPayoff() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.prank(admin);
+        vault.setAllowedDVP(admin);
+        
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("reservePayoff()")));
+        vault.reservePayoff(101e18);
+    }
+
+        /**
+     * 
+     */
+    function testVaultRevertInsufficientLiquidityNewPendingPayoffWithMoveValue() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.prank(admin);
+        vault.setAllowedDVP(admin);
+        
+        vm.prank(admin);
+        vault.reservePayoff(99e18);
+
+        vault.moveValue(-1000); 
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():lockedLiquidity <= _state.liquidity.newPendingPayoffs")));
+        vault.rollEpoch();
+    }
+
+    function testVaultRevertInsufficientLiquiditySharePriceZeroMoveValue() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.prank(admin);
+        vault.setAllowedDVP(admin);
+        
+        vm.prank(admin);
+        vault.reservePayoff(99e18);
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vault.moveValue(-10000); 
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():sharePrice == 0")));
+        vault.rollEpoch();
+    }
+
+    function testVaultRevertInsufficientLiquiditySharePriceZeroReserveAllLiquidityToPayoff() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.prank(admin);
+        vault.setAllowedDVP(admin);
+        
+        vm.prank(admin);
+        vault.reservePayoff(100e18);
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():sharePrice == 0")));
+        vault.rollEpoch();
+    }
+
+    function testVaultRevertInsufficientLiquiditySharePriceZeroMoveValueScenario() public {
+        VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.prank(admin);
+        vault.setAllowedDVP(admin);
+        
+        vm.prank(admin);
+        vault.reservePayoff(99e18);
+
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vault.moveBaseToken(-1e18);
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_notionalBaseTokens()")));
+        vault.rollEpoch();
+    }
+
+    // ToDo: Fare con Mattia
+    // function testVaultRevertInsufficientLiquidityFuzzy(uint128 aliceDeposit, uint128 bobDeposit, uint128 firstReservePayoff, uint128 firstMoveToken) public {
+    //     vm.assume(aliceDeposit > 0);
+    //     vm.assume(bobDeposit > 0);
+    //     vm.assume(bobDeposit + aliceDeposit <= type(uint128).max);
+    //     vm.assume(firstMoveToken <= (aliceDeposit + bobDeposit) / 2);
+        
+        
+    //     vm.prank(admin);
+    //     vault.setMaxDeposit(type(uint256).max);
+        
+    //     VaultUtils.addVaultDeposit(alice, aliceDeposit, admin, address(vault), vm);
+    //     VaultUtils.addVaultDeposit(bob, bobDeposit, admin, address(vault), vm);
+
+    //     Utils.skipDay(true, vm);
+    //     vm.prank(admin);
+    //     vault.rollEpoch();
+
+    //     vm.prank(bob);
+    //     vault.initiateWithdraw(bobDeposit);
+
+    //     vm.prank(admin);
+    //     vault.setAllowedDVP(admin);
+        
+    //     if (firstReservePayoff > aliceDeposit + bobDeposit) {
+    //         vm.prank(admin);
+    //         vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("reservePayoff()")));
+    //         vault.reservePayoff(firstReservePayoff);
+    //     }
+
+    //     vm.prank(admin);
+    //     vault.reservePayoff(firstReservePayoff);
+
+    //     vault.moveBaseToken(int256(-int128(firstMoveToken)));
+        
+    //     Utils.skipDay(true, vm);
+    //     if(firstReservePayoff + firstMoveToken > aliceDeposit + bobDeposit) {
+    //         vm.prank(admin);
+    //         vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():lockedLiquidity <= _state.liquidity.newPendingPayoffs")));
+    //         vault.rollEpoch();
+    //     }
+
+    //     if(firstReservePayoff + firstMoveToken == aliceDeposit + bobDeposit) {
+    //         vm.prank(admin);
+    //         vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():sharePrice == 0")));
+    //         vault.rollEpoch();
+    //     }
+
+    //     vm.prank(admin);
+    //     vault.rollEpoch();
+    // }
+
 
     // /**
     //     Test that vault accounting properties are correct after calling `moveAsset()`

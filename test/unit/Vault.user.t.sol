@@ -1233,6 +1233,9 @@ contract VaultUserTest is Test {
         vault.redeem(shares);
     }
 
+    /**
+     * 
+     */
     function testInitiateWithdraw(uint256 shares) public {
         vm.assume(shares > 0);
         vm.assume(shares <= vault.maxDeposit());
@@ -1591,6 +1594,247 @@ contract VaultUserTest is Test {
 
         (, , , cumulativeAmount) = vault.depositReceipts(user);
         assertEq(secondDeposit, cumulativeAmount);
+    }
+
+    // Test 100% Initiate Withdraw with pendingDeposit
+    function testInitiateWithdrawWhenDepositedInCurrentEpochWithCompleteWithdrawInTheNextEpoch() public {
+        uint256 firstDeposit = 100 * (10 ** baseToken.decimals());
+        uint256 secondDeposit = 50 * (10 ** baseToken.decimals());
+
+        vm.prank(admin);
+        baseToken.mint(user, firstDeposit + secondDeposit);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), firstDeposit);
+        vault.deposit(firstDeposit, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.startPrank(user);
+        vault.redeem(firstDeposit);
+
+        baseToken.approve(address(vault), secondDeposit);
+        vault.deposit(secondDeposit, user, 0);
+        vm.stopPrank();
+
+        (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(firstDeposit, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(firstDeposit, vault.balanceOf(user));
+        assertEq(0, vault.balanceOf(address(vault)));
+
+        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
+        assertEq(firstDeposit + secondDeposit, totalDeposit);
+        assertEq(0, newHeldShares);
+
+        (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
+        assertEq(0, epoch);
+        assertEq(0, withdrawalShares);
+
+        (, , , uint256 cumulativeAmount) = vault.depositReceipts(user);
+        assertEq(firstDeposit + secondDeposit, cumulativeAmount);
+
+        vm.prank(user);
+        vault.initiateWithdraw(firstDeposit);
+
+        (userShares, userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(0, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(0, vault.balanceOf(user));
+        assertEq(firstDeposit, vault.balanceOf(address(vault)));
+
+        (, , , , totalDeposit, , newHeldShares , , ) = vault.vaultState();
+        assertEq(secondDeposit, totalDeposit);
+        assertEq(firstDeposit, newHeldShares);
+
+        (epoch, withdrawalShares) = vault.withdrawals(user);
+        assertEq(vault.getEpoch().current, epoch);
+        assertEq(firstDeposit, withdrawalShares);
+
+        (, , , cumulativeAmount) = vault.depositReceipts(user);
+        assertEq(secondDeposit, cumulativeAmount);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        assertEq(firstDeposit + secondDeposit, vault.balanceOf(address(vault)));
+
+        vm.prank(user);
+        vault.completeWithdraw();
+
+        assertEq(secondDeposit, vault.balanceOf(address(vault)));
+    }
+
+    // Test 100% Withdraw in the initial epoch with deposit on the completeWithdraw epoch
+    function testInitiateWithdrawWithCompleteWithdrawInTheNextEpochAndDeposit() public {
+        uint256 firstDeposit = 100 * (10 ** baseToken.decimals());
+        uint256 secondDeposit = 50 * (10 ** baseToken.decimals());
+
+        vm.prank(admin);
+        baseToken.mint(user, firstDeposit + secondDeposit);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), firstDeposit);
+        vault.deposit(firstDeposit, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.startPrank(user);
+        vault.redeem(firstDeposit);
+
+        vm.stopPrank();
+
+        (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(firstDeposit, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(firstDeposit, vault.balanceOf(user));
+        assertEq(0, vault.balanceOf(address(vault)));
+
+        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
+        assertEq(firstDeposit, totalDeposit);
+        assertEq(0, newHeldShares);
+
+        (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
+        assertEq(0, epoch);
+        assertEq(0, withdrawalShares);
+
+        (, , , uint256 cumulativeAmount) = vault.depositReceipts(user);
+        assertEq(firstDeposit, cumulativeAmount);
+
+        vm.prank(user);
+        vault.initiateWithdraw(firstDeposit);
+
+        (userShares, userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(0, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(0, vault.balanceOf(user));
+        assertEq(firstDeposit, vault.balanceOf(address(vault)));
+
+        (, , , , totalDeposit, , newHeldShares , , ) = vault.vaultState();
+        assertEq(firstDeposit, newHeldShares);
+
+        (epoch, withdrawalShares) = vault.withdrawals(user);
+        assertEq(vault.getEpoch().current, epoch);
+        assertEq(firstDeposit, withdrawalShares);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), secondDeposit);
+        vault.deposit(secondDeposit, user, 0);
+        vm.stopPrank();
+
+        assertEq(firstDeposit, vault.balanceOf(address(vault)));
+
+        vm.prank(user);
+        vault.completeWithdraw();
+
+        assertEq(0, vault.balanceOf(address(vault)));
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        (userShares, userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(0, userShares);
+        assertEq(secondDeposit, userUnredeemedShares);
+        assertEq(0, vault.balanceOf(user));
+        assertEq(secondDeposit, vault.balanceOf(address(vault)));
+    }
+
+    // Test 100% Withdraw in the initial epoch with deposit on the next epoch after the completeWithdraw one.
+    function testInitiateWithdrawWithCompleteWithdrawInTheNextEpochAndDepositAfterOneEpoch() public {
+        uint256 firstDeposit = 100 * (10 ** baseToken.decimals());
+        uint256 secondDeposit = 50 * (10 ** baseToken.decimals());
+
+        vm.prank(admin);
+        baseToken.mint(user, firstDeposit + secondDeposit);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), firstDeposit);
+        vault.deposit(firstDeposit, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.startPrank(user);
+        vault.redeem(firstDeposit);
+
+        vm.stopPrank();
+
+        (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(firstDeposit, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(firstDeposit, vault.balanceOf(user));
+        assertEq(0, vault.balanceOf(address(vault)));
+
+        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
+        assertEq(firstDeposit, totalDeposit);
+        assertEq(0, newHeldShares);
+
+        (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
+        assertEq(0, epoch);
+        assertEq(0, withdrawalShares);
+
+        (, , , uint256 cumulativeAmount) = vault.depositReceipts(user);
+        assertEq(firstDeposit, cumulativeAmount);
+
+        vm.prank(user);
+        vault.initiateWithdraw(firstDeposit);
+
+        (userShares, userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(0, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(0, vault.balanceOf(user));
+        assertEq(firstDeposit, vault.balanceOf(address(vault)));
+
+        (, , , , totalDeposit, , newHeldShares , , ) = vault.vaultState();
+        assertEq(firstDeposit, newHeldShares);
+
+        (epoch, withdrawalShares) = vault.withdrawals(user);
+        assertEq(vault.getEpoch().current, epoch);
+        assertEq(firstDeposit, withdrawalShares);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        assertEq(firstDeposit, vault.balanceOf(address(vault)));
+
+        vm.prank(user);
+        vault.completeWithdraw();
+
+        assertEq(0, vault.balanceOf(address(vault)));
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), secondDeposit);
+        vault.deposit(secondDeposit, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        (userShares, userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(0, userShares);
+        assertEq(secondDeposit, userUnredeemedShares);
+        assertEq(0, vault.balanceOf(user));
+        assertEq(secondDeposit, vault.balanceOf(address(vault)));
     }
 
 }
