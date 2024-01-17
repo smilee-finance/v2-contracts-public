@@ -10,6 +10,5 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         setup();
     }
 
-    function test() public {
-    }
+    function test() public {}
 }

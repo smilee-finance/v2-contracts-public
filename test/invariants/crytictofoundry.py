@@ -11,11 +11,17 @@ def outputToSol():
     with open('example.txt', 'r') as file:
         data = file.read()
         data = data.replace("*wait* ", "")
-        data = re.sub(r"([a-zA-z]+\(.*\)) (Time delay: .*\n)", r"    \2\1\n", data)
+        print(data)
+        data = re.sub(r"([a-zA-z]+\(.*\)) (Time delay: .*\n)", r"\2    \1\n", data)
+        print(data)
         data = re.sub(r"Time delay: (\d+) .*\n", r"vm.warp(block.timestamp + \1)\n", data)
+        print(data)
         data = re.sub(r"\)", r");", data)
+        print(data)
         data = re.sub(r"0x([a-fA-F0-9]+),", r"address(0x\1),", data)
+        print(data)
         data = re.sub(r"    ", r"        ", data)
+        print(data)
     return data
 
 
@@ -24,7 +30,8 @@ def fillFile(content, folder="ig"):
 
     with open(f"{folder}/CryticToFoundry.t.sol", 'r') as file:
         data = file.read()
-        data = re.sub(r"(function test\(\) public \{)(.*\n)*(    \})", r"\1\n" + content + r"    }", data)
+        ntest = data.count("function")
+        data = re.sub(r"\}\n\}", r"}\n\n    function test_" + str(ntest) + r"() public {\n" + content + r"    }\n}", data)
     print(data)
     with open(f'{folder}/CryticToFoundry.t.sol', 'w') as file:
         file.write(data)
