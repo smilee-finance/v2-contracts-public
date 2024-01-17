@@ -12,7 +12,7 @@ struct Epoch {
 }
 
 library EpochController {
-
+    error EpochFinished();
     error EpochNotFinished();
 
     function init(Epoch storage epoch, uint256 epochFrequency, uint256 firstEpochTimespan) external {
@@ -69,5 +69,4 @@ library EpochController {
 
         return epoch.current - block.timestamp;
     }
-
 }

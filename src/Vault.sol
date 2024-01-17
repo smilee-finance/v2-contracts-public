@@ -832,26 +832,13 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
     }
 
-    // TODO [EK]
-    // /**
-    //     @notice If ever stuck in MissingLiquidity, need to rescale accounting values for total withdrawals and payoffs
-    //     @dev This function only sets the scale ratio on the vault state, which will be used by `IG.payoff()` and `Vault.completeWitdraw`
-    //  */
-    // function emergencyRescale() external onlyRole(ROLE_ADMIN) {
-    //     if (!_state.killed) {
-    //         revert NotKilled();
-    //     }
-
-    //     uint256 basetokens = IERC20(baseToken).balanceOf(address(this));
-    //     if (basetokens < (_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs)) {
-    //         // set rescale ratio for existing withdrawals and payoffs
-    //         _state.emergencyScaleRatio =
-    //             (basetokens * 1e18) /
-    //             (_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs);
-    //         // revoke last epoch deposits
-    //         epochPricePerShare[getEpoch().previous] = 0;
-    //     } else {
-    //         revert NoRescaleNeeded();
-    //     }
-    // }
+    /**
+        @notice If ever stuck in InsufficientLiquidity error we sell all side tokens to maximize the amount that can be recovered
+        @dev Even if epoch can't roll over, users can still call `IG.burn()` and `Vault.completeWitdraw()`
+     */
+    function emergencyRebalance() external onlyRole(ROLE_ADMIN) {
+        _checkEpochFinished();
+        (, uint256 sideTokens) = _tokenBalances();
+        _sellSideTokens(sideTokens);
+    }
 }

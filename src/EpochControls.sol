@@ -9,8 +9,6 @@ abstract contract EpochControls is IEpochControls {
 
     Epoch private _epoch;
 
-    error EpochFinished();
-
     event EpochRolled(uint256 previousEpoch, uint256 currentEpoch);
 
     constructor(uint256 epochFrequency, uint256 firstEpochTimespan) {
@@ -31,17 +29,23 @@ abstract contract EpochControls is IEpochControls {
         emit EpochRolled(_epoch.previous, _epoch.current);
     }
 
-    /// @notice Hook that is called before rolling the epoch.
+    /// @notice Hook that is called before rolling the epoch
     function _beforeRollEpoch() internal virtual {}
 
     /// @notice Hook that is called after rolling the epoch.
     function _afterRollEpoch() internal virtual {}
 
-    /// @notice Ensures that the current epoch is not concluded.
+    /// @notice Ensures that the current epoch is not concluded
     function _checkEpochNotFinished() internal view {
         if (_epoch.isFinished()) {
-            revert EpochFinished();
+            revert EpochController.EpochFinished();
         }
     }
 
+    /// @notice Ensures that the current epoch is concluded
+    function _checkEpochFinished() internal view {
+        if (!_epoch.isFinished()) {
+            revert EpochController.EpochNotFinished();
+        }
+    }
 }
