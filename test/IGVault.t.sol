@@ -28,6 +28,8 @@ import {MockedVault} from "./mock/MockedVault.sol";
  */
 contract IGVaultTest is Test {
     bytes4 constant NotEnoughLiquidity = bytes4(keccak256("NotEnoughLiquidity()"));
+    bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
+    bytes4 constant EpochFinished = bytes4(keccak256("EpochFinished()"));
 
     address admin = address(0x1);
 
@@ -512,7 +514,7 @@ contract IGVaultTest is Test {
         ig.burn(ig.currentEpoch(), charlie, strike, optionAmount / 2, 0, expectedMarketValue, 0.1e18);
         vm.stopPrank();
 
-        // Test RollEpoch revert when Vault is paused
+        // Test RollEpoch when Vault is paused
         vm.prank(admin);
         vault.changePauseState();
 
@@ -520,6 +522,110 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
         vm.prank(admin);
         ig.rollEpoch();
+    }
+
+    function testBehaviorWhenVaultHasBeenKilled() public {
+        VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        ig.rollEpoch();
+
+        // Buy first option
+        uint256 optionAmount = 250e18;
+        (uint256 premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+        vm.prank(charlie);
+        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+
+        uint256 firstOptionEpoch = ig.currentEpoch();
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        ig.rollEpoch();
+
+        // Buy second option during the manually kill epoch.
+        optionAmount = 250e18;
+        (premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+        vm.prank(charlie);
+        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+
+        uint256 secondOptionEpoch = ig.currentEpoch();
+
+        vm.prank(admin);
+        vault.killVault();
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        ig.rollEpoch();
+
+        // Strike is the same for the two options because price won't never change.
+        uint256 strike = ig.currentStrike();
+
+        // Burn the first option
+        vm.startPrank(charlie);
+        (uint256 expectedMarketValue, ) = ig.payoff(firstOptionEpoch, strike, optionAmount, 0);
+        ig.burn(firstOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
+
+        // Burn the second option
+        (expectedMarketValue, ) = ig.payoff(secondOptionEpoch, strike, optionAmount, 0);
+        ig.burn(secondOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
+        vm.stopPrank();
+
+        // Buy second option during the manually kill epoch.
+        optionAmount = 250e18;
+        (premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+        vm.prank(charlie);
+        vm.expectRevert(VaultDead);
+        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+    }
+
+    function testBehaviorWhenEpochFinishedButNotRolled() public {
+        VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        ig.rollEpoch();
+
+        // Buy first option
+        uint256 optionAmount = 250e18;
+        (uint256 premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+        vm.prank(charlie);
+        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+
+        uint256 firstOptionEpoch = ig.currentEpoch();
+
+        Utils.skipDay(true, vm);
+        vm.prank(admin);
+        ig.rollEpoch();
+
+        // Buy second option during the second epoch.
+        optionAmount = 250e18;
+        (premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+        vm.prank(charlie);
+        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+
+        uint256 secondOptionEpoch = ig.currentEpoch();
+
+        // Pass expiry time without rolling the epoch
+        Utils.skipDay(true, vm);
+
+        // Strike is the same for the two options because price won't never change.
+        uint256 strike = ig.currentStrike();
+
+        // Burn the first option successfully.
+        vm.startPrank(charlie);
+        (uint256 expectedMarketValue, ) = ig.payoff(firstOptionEpoch, strike, optionAmount, 0);
+        ig.burn(firstOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
+
+        // Burn the second option expecting EpochFinished error.
+        (expectedMarketValue, ) = ig.payoff(secondOptionEpoch, strike, optionAmount, 0);
+        vm.expectRevert(EpochFinished);
+        ig.burn(secondOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
+        vm.stopPrank();
+
+        // Buy third option expecting EpochFinished error.
+        optionAmount = 250e18;
+        vm.prank(charlie);
+        vm.expectRevert(EpochFinished);
+        ig.mint(charlie, 0, optionAmount, 0, 0, 0.1e18, 0);
     }
 
     function _assurePremium(

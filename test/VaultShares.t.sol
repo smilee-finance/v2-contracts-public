@@ -111,6 +111,26 @@ contract VaultSharesTest is Test {
         vault.initiateWithdraw(100);
     }
 
+    function testCompleteWithdrawEpochFinishedSuccess() public {
+        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
+
+        Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
+        vault.rollEpoch();
+        
+        vm.prank(alice);
+        vault.initiateWithdraw(100);
+        
+        Utils.skipDay(true, vm);
+        vm.prank(tokenAdmin);
+        vault.rollEpoch();
+        
+        Utils.skipDay(true, vm);
+        vm.prank(alice);
+        vault.completeWithdraw();   
+    }
+
     /**
         Wallet deposits twice (or more) in the same epoch. The amount of the shares minted for the user is the sum of all deposits.
      */

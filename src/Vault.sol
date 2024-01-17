@@ -569,6 +569,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             // Sell all sideToken to be able to pay all the withdraws initiated after manual kill.
             (, uint256 sideTokens) = _tokenBalances();
             _sellSideTokens(sideTokens);
+            _state.dead = true;
         }
 
         uint256 lockedLiquidity = notional();

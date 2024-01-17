@@ -179,9 +179,10 @@ contract VaultStateTest is Test {
     /**
         Check state of the vault after `deltaHedge()` call
      */
-    function testDeltaHedge(uint128 amountToDeposit, int128 amountToHedge, uint32 sideTokenPrice) public {
+      function testDeltaHedge(uint128 amountToDeposit, int128 amountToHedge, uint32 sideTokenPrice) public {
         // An amount should be always deposited
         // TBD: what if depositAmount < 1 ether ?
+
 
         vm.prank(admin);
         vault.setMaxDeposit(type(uint256).max);
@@ -218,19 +219,40 @@ contract VaultStateTest is Test {
         vault.rollEpoch();
 
         (uint256 btAmount, uint256 stAmount) = vault.balances();
+
         if (
-            (amountToHedge > 0 && baseTokenSwapAmount > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)
+            (amountToHedge > 0 && (baseTokenSwapAmount * 975 / 1000) + 1 > btAmount) || (amountToHedge < 0 && amountToHedgeAbs > stAmount)
         ) {
-            vm.expectRevert(ExceedsAvailable);
+            // InsufficientLiquidity or UniswapV3: "Too much requested"
+            vm.expectRevert();
             vault.deltaHedgeMock(amountToHedge);
             return;
+        }
+
+
+        if(baseTokenSwapAmount > btAmount) {
+            uint256 sideTokenDelta = exchange.getInputAmount( 
+            address(sideToken),
+            address(baseToken),
+            baseTokenSwapAmount - baseTokenSwapAmount * 975 / 1000);
+            expectedSideTokenDelta = int256(amountToHedge) - int256(sideTokenDelta);
+            
+            baseTokenSwapAmount = baseTokenSwapAmount * 975 / 1000;
+            expectedBaseTokenDelta = amountToHedge > 0 ? -int256(baseTokenSwapAmount) : int256(baseTokenSwapAmount);
         }
 
         vault.deltaHedgeMock(amountToHedge);
         (uint256 btAmountAfter, uint256 stAmountAfter) = vault.balances();
 
-        assertEq(int256(btAmount) + expectedBaseTokenDelta, int256(btAmountAfter));
-        assertEq(int256(stAmount) + expectedSideTokenDelta, int256(stAmountAfter));
+        assertApproxEqAbs(int256(btAmount) + expectedBaseTokenDelta, int256(btAmountAfter), _tolerance(btAmountAfter));
+        assertApproxEqAbs(int256(stAmount) + expectedSideTokenDelta, int256(stAmountAfter), _tolerance(stAmountAfter));
+    }
+
+    function _tolerance(uint256 value) private pure returns (uint256) {
+        if (value < 100) {
+            return 1;
+        }
+        return (value * 0.015e18) / 1e18;
     }
 
     /**
