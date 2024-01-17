@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {Registry} from "../../src/Registry.sol";
+import {Registry} from "../../src/periphery/Registry.sol";
 
 contract MockedRegistry is Registry {
     using EnumerableSet for EnumerableSet.AddressSet;

@@ -60,7 +60,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     error AmountZero();
     error DVPAlreadySet();
     error DVPNotSet();
-    error ExceedsAvailable();
+    error ExceedsAvailable(); // raised when a user tries to move more assets than allowed to or owned
     error ExceedsMaxDeposit();
     error ExistingIncompleteWithdraw();
     error NothingToRescue();
@@ -74,7 +74,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     error WithdrawTooEarly();
     error NotKilled();
     error ManuallyKilled();
-    error InsufficientLiquidity(bytes32);
+    error InsufficientLiquidity(bytes32); // raise when accounting operations would break the system due to lack of liquidity
 
     event Deposit(uint256 amount);
     event Redeem(uint256 amount);
@@ -760,10 +760,12 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         IERC20(baseToken).safeApprove(exchangeAddress, amountToApprove);
         baseTokens = exchange.swapOut(baseToken, sideToken, amount, amountToApprove);
 
-        // The swap itself should revert
-        if (baseTokens > availableBaseTokens) {
-            revert ExceedsAvailable();
-        }
+        // // Improvement: in order to standardize error response, catch a custom Adapter error when given input is < requested
+        // try exchange.swapOut(baseToken, sideToken, amount, amountToApprove) returns (uint256 inputBaseTokens) {
+        //     baseTokens = inputBaseTokens;
+        // } catch {
+        //     revert InsufficientLiquidity(keccak256("_buySideTokens()"));
+        // }
     }
 
     /**
@@ -777,7 +779,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
         (, uint256 sideTokens) = _tokenBalances();
         if (amount > sideTokens) {
-            revert ExceedsAvailable();
+            revert InsufficientLiquidity(keccak256("_sellSideTokens()"));
         }
 
         address exchangeAddress = _addressProvider.exchangeAdapter();
@@ -793,7 +795,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     /// @inheritdoc IVault
     function reservePayoff(uint256 residualPayoff) external onlyDVP {
         if (residualPayoff > notional()) {
-            revert ExceedsAvailable();
+            revert InsufficientLiquidity(keccak256("reservePayoff()"));
         }
         _state.liquidity.newPendingPayoffs = residualPayoff;
     }

@@ -10,7 +10,7 @@ import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
-import {VaultProxy} from "@project/VaultProxy.sol";
+import {VaultProxy} from "@project/periphery/VaultProxy.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 

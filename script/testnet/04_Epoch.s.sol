@@ -6,7 +6,7 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
 import {IDVP} from "../../src/interfaces/IDVP.sol";
 import {IRegistry} from "../../src/interfaces/IRegistry.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
-import {Registry} from "../../src/Registry.sol";
+import {Registry} from "../../src/periphery/Registry.sol";
 import {DVP} from "../../src/DVP.sol";
 
 /*

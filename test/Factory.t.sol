@@ -8,7 +8,7 @@ import {Factory} from "./utils/Factory.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {DVP} from "@project/DVP.sol";
 import {DVPType} from "@project/lib/DVPType.sol";
-import {Registry} from "@project/Registry.sol";
+import {Registry} from "@project/periphery/Registry.sol";
 import {Vault} from "@project/Vault.sol";
 import {IG} from "@project/IG.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";

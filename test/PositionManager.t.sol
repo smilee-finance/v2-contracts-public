@@ -14,7 +14,7 @@ import {TokenUtils} from "./utils/TokenUtils.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {IG} from "@project/IG.sol";
-import {PositionManager} from "@project/PositionManager.sol";
+import {PositionManager} from "@project/periphery/PositionManager.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";

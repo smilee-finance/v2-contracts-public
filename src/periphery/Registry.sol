@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {IDVP} from "../interfaces/IDVP.sol";
+import {IRegistry} from "../interfaces/IRegistry.sol";
+import {Epoch, EpochController} from "../lib/EpochController.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {IDVP} from "./interfaces/IDVP.sol";
-import {IRegistry} from "./interfaces/IRegistry.sol";
-import {Epoch, EpochController} from "./lib/EpochController.sol";
 
 contract Registry is AccessControl, IRegistry {
     using EnumerableSet for EnumerableSet.AddressSet;

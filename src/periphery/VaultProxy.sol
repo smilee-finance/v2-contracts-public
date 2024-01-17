@@ -2,11 +2,11 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
+import {IRegistry} from "../interfaces/IRegistry.sol";
+import {IVault} from "../interfaces/IVault.sol";
+import {IVaultProxy} from "../interfaces/IVaultProxy.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
-import {IRegistry} from "./interfaces/IRegistry.sol";
-import {IVault} from "./interfaces/IVault.sol";
-import {IVaultProxy} from "./interfaces/IVaultProxy.sol";
 
 contract VaultProxy is IVaultProxy {
     using SafeERC20 for IERC20;
