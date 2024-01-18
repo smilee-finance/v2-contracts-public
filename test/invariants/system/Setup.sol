@@ -15,8 +15,10 @@ import {Parameters} from "../utils/Parameters.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 
 abstract contract Setup is Parameters {
-    event Debug(string, uint256);
+    event Debug(string);
+    event DebugUInt(string, uint256);
     event DebugAddr(string, address);
+    event DebugBool(string, bool);
 
     address internal constant VM_ADDRESS_SETUP = address(uint160(uint256(keccak256("hevm cheat code"))));
     IHevm internal hevm;
@@ -52,11 +54,6 @@ abstract contract Setup is Parameters {
         ig = MockedIG(EchidnaVaultUtils.igSetup(admin, vault, ap, hevm));
 
         _impliedVolSetup(address(baseToken), sideToken, ap);
-
-        // PARAMETERS SETUP
-        FeeManager feeManager = AddressProviderUtils.getFeeManager(ap);
-        feeManager.setDVPFee(address(ig), FEE_PARAMS);
-        MIN_OPTION_BUY = 1000e18;
     }
 
     function skipTo(uint256 to) internal {

@@ -3,7 +3,7 @@ corpusDir: "/app/test/invariants/out/system/corpus"
 workers: 6
 seqLen: 100
 testLimit: 30000
-shrinkLimit: 5000
+shrinkLimit: 1000
 testMode: assertion
 deployContracts: [
   ['0xf1a', 'TokensPair' ],
