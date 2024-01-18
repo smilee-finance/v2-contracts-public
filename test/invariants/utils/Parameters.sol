@@ -17,6 +17,8 @@ abstract contract Parameters {
     uint256 internal MIN_OPTION_SELL = 0;
     uint256 internal MAX_OPTION_SELL = 100; // bearAvailNotional
 
+    uint256 internal _VOLATILITY = 0.5e18;
+
     uint256 internal SLIPPAGE = 0.03e18;
 
     // FEE MANAGER

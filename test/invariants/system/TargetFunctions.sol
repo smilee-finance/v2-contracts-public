@@ -9,6 +9,8 @@ import {Properties} from "./Properties.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
 import {FeeManager} from "@project/FeeManager.sol";
+import {VaultUtils} from "../../utils/VaultUtils.sol";
+import {console} from "forge-std/console.sol";
 
 /**
  * medusa fuzz --no-color
@@ -44,10 +46,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     BuyInfo[] internal bearTrades;
     BuyInfo[] internal smileeTrades;
     WithdrawInfo[] internal withdrawals;
+    DepositInfo[] internal _depositInfo;
 
     EpochInfo[] internal epochs;
 
     mapping(uint256 => DepositInfo) internal depositInfo;
+    mapping(address => bool) internal _pendingWithdraw;
     uint256 depositCounter = 0;
 
     function setup() internal virtual override {
@@ -59,25 +63,26 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     // VAULT
     //----------------------------------------------
     function deposit(uint256 amount) public {
+        // precondition revert ExceedsMaxDeposit
         (, , , , uint256 totalDeposit, , , , ) = vault.vaultState();
         uint256 maxDeposit = vault.maxDeposit();
-        uint256 depositCapacity = maxDeposit - totalDeposit; // maxDeposit > totalDeposit
+        uint256 depositCapacity = maxDeposit - totalDeposit;
         amount = _between(amount, MIN_VAULT_DEPOSIT, depositCapacity);
 
         precondition(block.timestamp < ig.getEpoch().current);
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(vault), amount, _convertVm());
-        gte(baseToken.balanceOf(msg.sender), amount, "");
+        gte(baseToken.balanceOf(msg.sender), amount, "ERROR: Minting baseToken");
 
+        uint256 vaultInitialBalance = baseToken.balanceOf(address(vault));
         hevm.prank(msg.sender);
         try vault.deposit(amount, msg.sender, 0) {} catch (bytes memory err) {
             _shouldNotRevertUnless(err, _GENERAL_1);
         }
 
-        gt(baseToken.balanceOf(address(vault)), 0, "");
+        gt(baseToken.balanceOf(address(vault)), vaultInitialBalance, "ERROR: Deposit fail");
 
-        depositInfo[depositCounter] = DepositInfo(msg.sender, amount);
-        depositCounter++;
+        _depositInfo.push(DepositInfo(msg.sender, amount));
     }
 
     function redeem(uint256 index) public {
@@ -85,8 +90,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
         DepositInfo storage depInfo = depositInfo[index];
         (uint256 heldByUser, uint256 heldByVault) = vault.shareBalances(depInfo.user);
-        precondition(depInfo.amount > 0);
-        precondition(heldByVault > 0); // can't redeem befor epoch roll
+        precondition(heldByVault > 0); // can't redeem shares before epoch roll
 
         hevm.prank(depInfo.user);
         try vault.redeem(heldByVault) {} catch (bytes memory err) {
@@ -94,23 +98,28 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         }
 
         eq(vault.balanceOf(depInfo.user), heldByUser + heldByVault, "");
-        depInfo.amount = 0;
     }
 
     function initiateWithdraw(uint256 index) public {
-        precondition(block.timestamp < ig.getEpoch().current);
-        index = _between(index, 0, depositCounter);
+        precondition(_depositInfo.length > 0);
+        index = _between(index, 0, _depositInfo.length - 1);
+        precondition(block.timestamp < ig.getEpoch().current); // EpochFinished()
 
-        DepositInfo storage depInfo = depositInfo[index];
+        DepositInfo storage depInfo = _depositInfo[index];
+
+        precondition(!_pendingWithdraw[depInfo.user]); // ExistingIncompleteWithdraw()
         (uint256 heldByUser, uint256 heldByVault) = vault.shareBalances(depInfo.user);
-        precondition((heldByVault > 0 || heldByUser > 0));
+        uint256 sharesToWithdraw = heldByUser + heldByVault;
+        precondition(sharesToWithdraw > 0); // AmountZero()
 
         hevm.prank(depInfo.user);
-        try vault.initiateWithdraw(depInfo.amount) {} catch (bytes memory err) {
+        try vault.initiateWithdraw(sharesToWithdraw) {} catch (bytes memory err) {
             _shouldNotRevertUnless(err, _GENERAL_1);
         }
-        withdrawals.push(WithdrawInfo(depInfo.user, depInfo.amount, epochs.length));
-        depInfo.amount = 0;
+
+        _pendingWithdraw[depInfo.user] = true;
+        withdrawals.push(WithdrawInfo(depInfo.user, sharesToWithdraw, epochs.length));
+        _popDepositInfo(index);
     }
 
     function completeWithdraw(uint256 index) public {
@@ -118,8 +127,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         index = _between(index, 0, withdrawals.length - 1);
 
         WithdrawInfo storage withdrawInfo = withdrawals[index];
-
-        precondition(withdrawInfo.epochCounter < epochs.length);
+        precondition(withdrawInfo.epochCounter < epochs.length); // WithdrawTooEarly()
 
         // uint256 initialVaultBalance = baseToken.balanceOf(address(vault));
         uint256 initialUserBalance = baseToken.balanceOf(withdrawInfo.user);
@@ -133,6 +141,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         }
 
         eq(baseToken.balanceOf(withdrawInfo.user), initialUserBalance + expectedAmountToWithdraw, "");
+        _pendingWithdraw[withdrawInfo.user] = false;
         _popWithdrawals(index);
     }
 
@@ -200,7 +209,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         BuyInfo storage buyInfo_ = bearTrades[index];
 
         precondition(buyInfo_.amountUp == 0 && buyInfo_.amountDown > 0);
-        precondition(!vault.paused() && !vault.dead()); // GENERAL 1
 
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
 
@@ -229,7 +237,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         BuyInfo storage buyInfo_ = smileeTrades[index];
 
         precondition(buyInfo_.amountUp != 0 && buyInfo_.amountDown != 0);
-        precondition(!vault.paused() && !vault.dead()); // GENERAL 1
 
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
 
@@ -261,6 +268,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
         if (perc < 10) {
             // DO NOTHING
+            emit Debug("Do nothing");
             return;
         } else if (perc < 30) {
             // 20% - RollEpoch
@@ -274,17 +282,18 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     }
 
     function _rollEpoch() internal {
+        VaultUtils.debugState(vault);
         uint256 currentEpoch = ig.getEpoch().current;
         uint256 currentStrike = ig.currentStrike();
         hevm.prank(admin);
-        ig.rollEpoch();
-        // try ig.rollEpoch() {} catch (bytes memory err) {
-        //     if(block.timestamp > currentEpoch) {    // GENERAL 5
-        //         _shouldNotRevertUnless(err, _GENERAL_5_AFTER_TIMESTAMP);
-        //     }
-        //     _shouldNotRevertUnless(err, _GENERAL_5_BEFORE_TIMESTAMP);
-        // }
+        try ig.rollEpoch() {} catch (bytes memory err) {
+            if(block.timestamp > currentEpoch) {    // GENERAL 5
+                _shouldNotRevertUnless(err, _GENERAL_5_AFTER_TIMESTAMP);
+            }
+            _shouldNotRevertUnless(err, _GENERAL_5_BEFORE_TIMESTAMP);
+        }
         epochs.push(EpochInfo(currentEpoch, currentStrike));
+        VaultUtils.debugState(vault);
     }
 
     function _setTokenPrice(uint256 price) internal {
@@ -310,7 +319,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
     function _buy(uint256 amountUp, uint256 amountDown) internal {
         uint256 currentStrike = ig.currentStrike();
-        (uint256 expectedPremium /* uint256 _fee */, ) = ig.premium(currentStrike, amountUp, amountDown);
+        (uint256 expectedPremium, uint256 fee ) = ig.premium(currentStrike, amountUp, amountDown);
         uint256 maxPremium = expectedPremium + (SLIPPAGE * expectedPremium) / 1e18;
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(ig), maxPremium, _convertVm());
@@ -401,7 +410,16 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         } else if (trade.amountUp == 0 && trade.amountDown > 0) {
             bearTrades[index] = bearTrades[bearTrades.length - 1];
             bearTrades.pop();
+        } else {
+            smileeTrades[index] = smileeTrades[smileeTrades.length - 1];
+            smileeTrades.pop();
         }
+    }
+
+    /// Removes element at the given index from deposit info
+    function _popDepositInfo(uint256 index) internal {
+        _depositInfo[index] = _depositInfo[_depositInfo.length - 1];
+        _depositInfo.pop();
     }
 
     /// Removes element at the given index from withdrawals

@@ -83,7 +83,7 @@ abstract contract Setup is Parameters {
       uint256 lastUpdate = apMarketOracle.getImpliedVolatilityLastUpdate(baseToken_, sideToken, EpochFrequency.DAILY);
       if (lastUpdate == 0) {
           hevm.prank(admin);
-          apMarketOracle.setImpliedVolatility(baseToken_, sideToken, EpochFrequency.DAILY, 0.5e18);
+          apMarketOracle.setImpliedVolatility(baseToken_, sideToken, EpochFrequency.DAILY, _VOLATILITY);
       }
     }
 

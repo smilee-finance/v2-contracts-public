@@ -27,7 +27,7 @@ abstract contract Properties is Setup {
     bytes32 internal constant _ERR_VAULT_DEAD = keccak256(abi.encodeWithSignature("VaultDead()"));
     bytes32 internal constant _ERR_VAULT_PAUSED = keccak256(abi.encodeWithSignature("Pausable: paused"));
     bytes32 internal constant _ERR_EPOCH_NOT_FINISHED = keccak256(abi.encodeWithSignature("EpochNotFinished()"));
-    bytes32 internal constant _ERR_INSUFFICIENT_LIQUIDITY = keccak256(abi.encodeWithSignature("ExceedsAvailable()"));
+    bytes32 internal constant _ERR_EXCEEDS_AVAILABLE = keccak256(abi.encodeWithSignature("ExceedsAvailable()"));
     bytes32 internal constant _ERR_NOT_ENOUGH_LIQUIDITY = keccak256(abi.encodeWithSignature("NotEnoughLiquidity()"));
 
     // Accept reverts array
@@ -38,11 +38,11 @@ abstract contract Properties is Setup {
 
         // GENERAL 5
         _ACCEPTED_REVERTS[_GENERAL_5_BEFORE_TIMESTAMP][_ERR_EPOCH_NOT_FINISHED] = true;
-        _ACCEPTED_REVERTS[_GENERAL_5_AFTER_TIMESTAMP][_ERR_INSUFFICIENT_LIQUIDITY] = true;
+        _ACCEPTED_REVERTS[_GENERAL_5_AFTER_TIMESTAMP][_ERR_EXCEEDS_AVAILABLE] = true;
 
         // GENERAL 6
         _ACCEPTED_REVERTS[_GENERAL_6][_ERR_NOT_ENOUGH_LIQUIDITY] = true;
-        _ACCEPTED_REVERTS[_GENERAL_6][_ERR_INSUFFICIENT_LIQUIDITY] = true;
+        _ACCEPTED_REVERTS[_GENERAL_6][_ERR_EXCEEDS_AVAILABLE] = true;
     }
 
 

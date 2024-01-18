@@ -26,4 +26,13 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.warp(block.timestamp + 59060);
         callAdminFunction(10, 2592262954105063);
     }
+
+    function test_2() public {
+        vm.warp(block.timestamp + 65280);
+        deposit(53660751925402942071444234319586906678597225057891828354971127042736941450);
+        vm.warp(block.timestamp + 334984);
+        callAdminFunction(2114683348797038701721556498398548843679748884308985742881043097095705417104,2);
+        vm.warp(block.timestamp + 29113);
+        buyBull(10616969518659123581099617347038970877541454535286915844038626259034985343772);
+    }
 }
