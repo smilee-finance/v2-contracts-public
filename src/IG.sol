@@ -190,7 +190,12 @@ contract IG is DVP {
         Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
         // Also update the epoch volatility with the postTradeVol:
-        FinanceIG.updateAverageVolatility(financeParameters, amount, postTradeVol, _baseTokenDecimals);
+        FinanceIG.updateAverageVolatility(
+            financeParameters,
+            amount,
+            postTradeVol,
+            _baseTokenDecimals
+        );
 
         Amount memory availableLiquidity = liquidity.available(strike);
         (, uint256 sideTokensAmount) = IVault(vault).balances();

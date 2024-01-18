@@ -7,11 +7,13 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {VaultLib} from "../../src/lib/VaultLib.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {MarketOracle} from "../../src/MarketOracle.sol";
+import {IG} from "../../src/IG.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 // import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 import {MockedRegistry} from "../mock/MockedRegistry.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
 import {TokenUtils} from "./TokenUtils.sol";
+import {FinanceParameters} from "../../src/lib/FinanceIG.sol";
 
 library VaultUtils {
     function createVault(uint256 epochFrequency, AddressProvider ap, address admin, Vm vm) public returns (address) {
@@ -98,7 +100,7 @@ library VaultUtils {
             );
     }
 
-    function debugState(MockedVault vault) public {
+    function debugState(MockedVault vault) public view {
         VaultLib.VaultState memory state = vaultState(vault);
         console.log("----------VAULT STATE----------");
         console.log("lockedInitially", state.liquidity.lockedInitially);
@@ -110,6 +112,39 @@ library VaultUtils {
         console.log("heldShares", state.withdrawals.heldShares);
         console.log("newHeldShares", state.withdrawals.newHeldShares);
         console.log("-------------------------------");
+    }
+
+    function debugStateIG(IG ig) public view {
+        (
+            uint256 maturity,
+            uint256 currentStrike,
+            ,
+            /* Amount initialLiquidity */ uint256 kA,
+            uint256 kB,
+            uint256 theta,
+            int256 limSup,
+            int256 limInf,
+            ,
+            /* TimeLockedFinanceParameters timeLocked */ uint256 averageSigma,
+            uint256 totalTradedNotional,
+            uint256 sigmaZero
+        ) = ig.financeParameters();
+        console.log("----------IG STATE----------");
+        console.log("maturity", maturity);
+        console.log("currentStrike", currentStrike);
+        // console.log("initialLiquidity", initialLiquidity);
+        console.log("kA", kA);
+        console.log("kB", kB);
+        console.log("theta", theta);
+        console.log("limSup");
+        console.logInt(limSup);
+        console.log("limInf");
+        console.logInt(limInf);
+        // console.log("timeLocked", timeLocked);
+        console.log("averageSigma", averageSigma);
+        console.log("totalTradedNotional", totalTradedNotional);
+        console.log("sigmaZero", sigmaZero);
+        console.log("----------------------------");
     }
 
     /**

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {console} from "forge-std/console.sol";
 import {Setup} from "./Setup.sol";
 import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
@@ -8,6 +9,7 @@ import {BeforeAfter} from "./BeforeAfter.sol";
 import {Properties} from "./Properties.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
+import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {console} from "forge-std/console.sol";
@@ -68,6 +70,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         uint256 maxDeposit = vault.maxDeposit();
         uint256 depositCapacity = maxDeposit - totalDeposit;
         amount = _between(amount, MIN_VAULT_DEPOSIT, depositCapacity);
+        console.log("** DEPOSIT", amount);
+        VaultUtils.debugState(vault);
 
         precondition(block.timestamp < ig.getEpoch().current);
 
@@ -83,6 +87,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         gt(baseToken.balanceOf(address(vault)), vaultInitialBalance, "ERROR: Deposit fail");
 
         _depositInfo.push(DepositInfo(msg.sender, amount));
+        VaultUtils.debugState(vault);
     }
 
     function redeem(uint256 index) public {
@@ -101,6 +106,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     }
 
     function initiateWithdraw(uint256 index) public {
+        VaultUtils.debugState(vault);
         precondition(_depositInfo.length > 0);
         index = _between(index, 0, _depositInfo.length - 1);
         precondition(block.timestamp < ig.getEpoch().current); // EpochFinished()
@@ -120,6 +126,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         _pendingWithdraw[depInfo.user] = true;
         withdrawals.push(WithdrawInfo(depInfo.user, sharesToWithdraw, epochs.length));
         _popDepositInfo(index);
+        VaultUtils.debugState(vault);
     }
 
     function completeWithdraw(uint256 index) public {
@@ -150,8 +157,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     //----------------------------------------------
 
     function buyBull(uint256 amount) public {
+        VaultUtils.debugStateIG(ig);
         (, , , uint256 bullAvailNotional) = ig.notional();
         amount = _between(amount, MIN_OPTION_BUY, bullAvailNotional);
+        console.log("DIOCANE MINT", amount);
         precondition(block.timestamp < ig.getEpoch().current);
 
         _buy(amount, 0);
@@ -267,6 +276,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         perc = _between(perc, 0, 100);
 
         if (perc < 10) {
+            console.log("SKIP");
             // DO NOTHING
             emit Debug("Do nothing");
             return;
@@ -282,18 +292,22 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     }
 
     function _rollEpoch() internal {
+        console.log("** ROLLEPOCH");
         VaultUtils.debugState(vault);
+        VaultUtils.debugStateIG(ig);
         uint256 currentEpoch = ig.getEpoch().current;
         uint256 currentStrike = ig.currentStrike();
         hevm.prank(admin);
         try ig.rollEpoch() {} catch (bytes memory err) {
-            if(block.timestamp > currentEpoch) {    // GENERAL 5
+            if (block.timestamp > currentEpoch) {
+                // GENERAL 5
                 _shouldNotRevertUnless(err, _GENERAL_5_AFTER_TIMESTAMP);
             }
             _shouldNotRevertUnless(err, _GENERAL_5_BEFORE_TIMESTAMP);
         }
         epochs.push(EpochInfo(currentEpoch, currentStrike));
         VaultUtils.debugState(vault);
+        VaultUtils.debugStateIG(ig);
     }
 
     function _setTokenPrice(uint256 price) internal {
@@ -302,6 +316,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             address sideToken = vault.sideToken();
 
             price = _between(price, MIN_TOKEN_PRICE, MAX_TOKEN_PRICE);
+            console.log("** SET TOKEN PRICE", price);
             hevm.prank(admin);
             apPriceOracle.setTokenPrice(sideToken, price);
         }
@@ -319,7 +334,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
     function _buy(uint256 amountUp, uint256 amountDown) internal {
         uint256 currentStrike = ig.currentStrike();
-        (uint256 expectedPremium, uint256 fee ) = ig.premium(currentStrike, amountUp, amountDown);
+        (uint256 expectedPremium, uint256 fee) = ig.premium(currentStrike, amountUp, amountDown);
         uint256 maxPremium = expectedPremium + (SLIPPAGE * expectedPremium) / 1e18;
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(ig), maxPremium, _convertVm());
