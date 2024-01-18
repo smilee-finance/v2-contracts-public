@@ -98,6 +98,20 @@ library VaultUtils {
             );
     }
 
+    function debugState(MockedVault vault) public {
+        VaultLib.VaultState memory state = vaultState(vault);
+        console.log("----------VAULT STATE----------");
+        console.log("lockedInitially", state.liquidity.lockedInitially);
+        console.log("pendingDeposits", state.liquidity.pendingDeposits);
+        console.log("pendingWithdrawals", state.liquidity.pendingWithdrawals);
+        console.log("pendingPayoffs", state.liquidity.pendingPayoffs);
+        console.log("newPendingPayoffs", state.liquidity.newPendingPayoffs);
+        console.log("totalDeposit", state.liquidity.totalDeposit);
+        console.log("heldShares", state.withdrawals.heldShares);
+        console.log("newHeldShares", state.withdrawals.newHeldShares);
+        console.log("-------------------------------");
+    }
+
     /**
         @notice Computes the amount of recoverable tokens when the vault die.
      */

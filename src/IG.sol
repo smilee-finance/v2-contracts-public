@@ -194,7 +194,7 @@ contract IG is DVP {
 
         Amount memory availableLiquidity = liquidity.available(strike);
         (, uint256 sideTokensAmount) = IVault(vault).balances();
-        
+
         int256 tokensToSwap;
         (tokensToSwap, deltaTrade) = FinanceIG.getDeltaHedgeAmount(
             financeParameters,
@@ -346,5 +346,5 @@ contract IG is DVP {
             }
             nft.checkCap(accessTokenId, notionalAmount);
         }
-    } 
+    }
 }

@@ -59,7 +59,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     // VAULT
     //----------------------------------------------
     function deposit(uint256 amount) public {
-        (uint256 totalDeposit, , ) = vault.getInfo();
+        (, , , , uint256 totalDeposit, , , , ) = vault.vaultState();
         uint256 maxDeposit = vault.maxDeposit();
         uint256 depositCapacity = maxDeposit - totalDeposit; // maxDeposit > totalDeposit
         amount = _between(amount, MIN_VAULT_DEPOSIT, depositCapacity);
