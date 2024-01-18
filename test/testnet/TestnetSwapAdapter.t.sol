@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {AmountsMath} from "../../src/lib/AmountsMath.sol";
+import {SignedMath} from "../../src/lib/SignedMath.sol";
 import {AddressProvider} from "../../src/AddressProvider.sol";
 import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
@@ -21,7 +22,7 @@ contract TestnetSwapAdapterTest is Test {
     uint8 constant ETH_DECIMALS = 18;
     uint8 constant USD_DECIMALS = 7;
 
-    address adminWallet = address(0x1);
+    address admin = address(0x1);
     address alice = address(0x2);
 
     TestnetPriceOracle priceOracle;
@@ -32,7 +33,7 @@ contract TestnetSwapAdapterTest is Test {
     MockedRegistry registry;
 
     constructor() {
-        vm.startPrank(adminWallet);
+        vm.startPrank(admin);
         USD = new TestnetToken("Testnet USD", "USD");
         USD.setDecimals(USD_DECIMALS);
         WETH = new TestnetToken("Testnet WETH", "WETH");
@@ -41,7 +42,7 @@ contract TestnetSwapAdapterTest is Test {
         WBTC.setDecimals(BTC_DECIMALS);
 
         AddressProvider ap = new AddressProvider(0);
-        ap.grantRole(ap.ROLE_ADMIN(), adminWallet);
+        ap.grantRole(ap.ROLE_ADMIN(), admin);
         registry = new MockedRegistry();
         priceOracle = new TestnetPriceOracle(address(USD));
         dex = new TestnetSwapAdapter(address(priceOracle));
@@ -56,7 +57,7 @@ contract TestnetSwapAdapterTest is Test {
     }
 
     function setUp() public {
-        vm.startPrank(adminWallet);
+        vm.startPrank(admin);
         priceOracle.setTokenPrice(address(WETH), 2_000e18);
         priceOracle.setTokenPrice(address(WBTC), 20_000e18);
         vm.stopPrank();
@@ -68,7 +69,7 @@ contract TestnetSwapAdapterTest is Test {
     }
 
     function testChangePriceOracle() public {
-        vm.startPrank(adminWallet);
+        vm.startPrank(admin);
         TestnetPriceOracle newPriceOracle = new TestnetPriceOracle(address(USD));
 
         dex.changePriceOracle(address(newPriceOracle));
@@ -107,7 +108,7 @@ contract TestnetSwapAdapterTest is Test {
         Test if `getSwapAmount()` and the actual swap give the same result beside performing the swap.
      */
     function testSwapIn() public {
-        TokenUtils.provideApprovedTokens(adminWallet, address(WETH), alice, address(dex), 100 ether, vm);
+        TokenUtils.provideApprovedTokens(admin, address(WETH), alice, address(dex), 100 ether, vm);
 
         uint256 input = 10 ether; // WETH
         uint256 amountToReceive = dex.getOutputAmount(address(WETH), address(WBTC), input);
@@ -149,7 +150,7 @@ contract TestnetSwapAdapterTest is Test {
         Output swap - alice wants 1 WBTC, inputs 10 WETH
      */
     function testSwapOut() public {
-        TokenUtils.provideApprovedTokens(adminWallet, address(WETH), alice, address(dex), 100 ether, vm);
+        TokenUtils.provideApprovedTokens(admin, address(WETH), alice, address(dex), 100 ether, vm);
 
         uint256 wanted = AmountsMath.unwrapDecimals(1e18, BTC_DECIMALS); // WBTC
         uint256 amountToGive = dex.getInputAmount(address(WETH), address(WBTC), wanted);
@@ -172,7 +173,7 @@ contract TestnetSwapAdapterTest is Test {
         }
 
         uint256 input = 1 ether; // WETH
-        TokenUtils.provideApprovedTokens(adminWallet, address(WETH), alice, address(dex), input, vm);
+        TokenUtils.provideApprovedTokens(admin, address(WETH), alice, address(dex), input, vm);
 
         if (price == 0) {
             vm.expectRevert(PriceZero);
@@ -213,7 +214,7 @@ contract TestnetSwapAdapterTest is Test {
         uint256 expextedWethForWbtcAmount = AmountsMath.wrapDecimals(output, BTC_DECIMALS).wmul(price);
         assertEq(expextedWethForWbtcAmount, wethForWbtcAmount);
 
-        TokenUtils.provideApprovedTokens(adminWallet, address(WETH), alice, address(dex), wethForWbtcAmount, vm);
+        TokenUtils.provideApprovedTokens(admin, address(WETH), alice, address(dex), wethForWbtcAmount, vm);
 
         vm.prank(alice);
         dex.swapOut(address(WETH), address(WBTC), output, wethForWbtcAmount);
@@ -230,12 +231,82 @@ contract TestnetSwapAdapterTest is Test {
         }
         uint256 priceToSet = price.wmul(wethPrice);
         uint256 priceLimit = type(uint256).max / 1e18;
-        vm.startPrank(adminWallet);
+        vm.startPrank(admin);
         if (priceToSet > priceLimit) {
             vm.expectRevert();
         }
         priceOracle.setTokenPrice(address(WBTC), priceToSet);
         vm.stopPrank();
         success = true;
+    }
+
+    function testRandom(int256 min, int256 max) public view {
+        vm.assume(min < max);
+        vm.assume(SignedMath.abs(min) < type(uint128).max);
+        vm.assume(SignedMath.abs(max) < type(uint128).max);
+
+        int256 random = dex.random(min, max);
+        assert(random <= max);
+        assert(random >= min);
+    }
+
+    function testExactSlip() public {
+        vm.prank(admin);
+        dex.setSlippage(-0.03e18, 0, 0); // -3%
+        uint256 slippedAmount = dex.slipped(100);
+        assertEq(slippedAmount, 97);
+
+        vm.prank(admin);
+        dex.setSlippage(0.03e18, 0, 0); // +3%
+        slippedAmount = dex.slipped(100);
+        assertEq(slippedAmount, 103);
+    }
+
+    function testExactSlipFuz(int256 slippage, uint256 amount) public {
+        vm.assume(SignedMath.abs(slippage) < 1e18);
+        vm.assume(amount < type(uint128).max);
+        vm.prank(admin);
+        dex.setSlippage(slippage, 0, 0);
+        uint256 slippedAmount = dex.slipped(amount);
+        int256 expectedSlip = (slippage * int256(amount)) / 1e18;
+        assertEq(uint256(int(amount) + expectedSlip), slippedAmount);
+    }
+
+    function testRandomSlip() public {
+        vm.prank(admin);
+        dex.setSlippage(0, -0.03e18, 0); // -3%
+        uint256 slippedAmount = dex.slipped(100);
+        assert(slippedAmount >= 97);
+        assert(slippedAmount <= 100);
+
+        vm.prank(admin);
+        dex.setSlippage(0, 0, 0.03e18); // +3%
+        slippedAmount = dex.slipped(100);
+        assert(slippedAmount <= 103);
+        assert(slippedAmount >= 100);
+
+        vm.prank(admin);
+        dex.setSlippage(0, 0.025e18, 0.03e18); // [2.5%, 3%]
+        slippedAmount = dex.slipped(1000);
+        assert(slippedAmount <= 1030);
+        assert(slippedAmount >= 1025);
+    }
+
+    function testRandomSlipFuz(int256 minSlippage, int256 maxSlippage, uint256 amount) public {
+        vm.assume(SignedMath.abs(minSlippage) < 1e18);
+        vm.assume(SignedMath.abs(maxSlippage) < 1e18);
+        vm.assume(minSlippage < maxSlippage);
+        vm.assume(amount < type(uint128).max);
+        vm.prank(admin);
+
+        dex.setSlippage(0, minSlippage, maxSlippage);
+        int256 minExpectedSlipped = int256(amount) + (minSlippage * int256(amount)) / 1e18;
+        int256 maxExpectedSlipped = int256(amount) + (maxSlippage * int256(amount)) / 1e18;
+        uint256 slippedAmount = dex.slipped(amount);
+
+        assert(minExpectedSlipped >= 0);
+        assert(maxExpectedSlipped >= 0);
+        assertLe(slippedAmount, uint256(maxExpectedSlipped));
+        assertGe(slippedAmount, uint256(minExpectedSlipped));
     }
 }

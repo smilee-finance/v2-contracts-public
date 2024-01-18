@@ -95,7 +95,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         mcs.deposit(address(vault), amount);
     }
 
-    function _rewardSupply() internal returns (uint256 expectedRewardSupply) {
+    function _rewardSupply() internal view returns (uint256 expectedRewardSupply) {
         MasterChefSmilee.VaultInfo memory vaultInfo = mcs.getVaultInfo(address(vault));
         uint256 multiplier = convert(block.timestamp).sub(convert(vaultInfo.lastRewardTimestamp)).unwrap();
 
@@ -106,7 +106,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             .unwrap();
     }
 
-    function _reward(address user) internal returns (uint256 expectedReward) {
+    function _reward(address user) internal view returns (uint256 expectedReward) {
         uint256 shareSupply = IERC20(vault).balanceOf(address(mcs));
         (uint256 amount, uint256 rewardDebt, ) = mcs.userStakeInfo(address(vault), user);
 

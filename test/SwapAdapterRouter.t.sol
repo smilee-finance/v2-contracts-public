@@ -17,6 +17,7 @@ contract SwapProviderRouterTest is Test {
     bytes4 constant _ADDRESS_ZERO = bytes4(keccak256("AddressZero()"));
     bytes4 constant _SLIPPAGE = bytes4(keccak256("Slippage()"));
     bytes4 constant _SWAP_ZERO = bytes4(keccak256("SwapZero()"));
+    bytes4 constant _INSUFF_INPUT = bytes4(keccak256("InsufficientInput()"));
 
     address _admin = address(0x1);
     address _alice = address(0x2);
@@ -141,7 +142,7 @@ contract SwapProviderRouterTest is Test {
         vm.startPrank(_alice);
         uint256 t0IniBal = _token0.balanceOf(_alice);
         _token0.approve(address(_swapRouter), t0IniBal);
-        vm.expectRevert("ERC20: insufficient allowance");
+        vm.expectRevert(_INSUFF_INPUT);
         _swapRouter.swapOut(address(_token0), address(_token1), amount, t0IniBal);
         vm.stopPrank();
     }

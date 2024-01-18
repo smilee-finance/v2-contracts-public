@@ -11,7 +11,6 @@ import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {MockedRegistry} from "../../mock/MockedRegistry.sol";
 
 library AddressProviderUtils {
-
     function initialize(address admin, AddressProvider addressProvider, address baseToken, IHevm vm) public {
         address registryAddress = addressProvider.registry();
         if (registryAddress == address(0)) {
@@ -59,7 +58,7 @@ library AddressProviderUtils {
         }
     }
 
-    function getFeeManager(AddressProvider ap) public returns (FeeManager feeManager) {
+    function getFeeManager(AddressProvider ap) public view returns (FeeManager feeManager) {
         feeManager = FeeManager(ap.feeManager());
     }
 }
