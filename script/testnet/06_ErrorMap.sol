@@ -9,7 +9,7 @@ contract ErrorMap is Script {
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
 
     // DVP.sol
-    bytes4 constant NotEnoughLiquidity = bytes4(keccak256("NotEnoughLiquidity()"));
+    bytes4 constant NotEnoughNotional = bytes4(keccak256("NotEnoughNotional()"));
     bytes4 constant PositionNotFound = bytes4(keccak256("PositionNotFound()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
     bytes4 constant MissingMarketOracle = bytes4(keccak256("MissingMarketOracle()"));
@@ -143,8 +143,8 @@ contract ErrorMap is Script {
     function _printErrors() internal view {
         console.log("AddressZero");
         console.logBytes4(AddressZero);
-        console.log("NotEnoughLiquidity");
-        console.logBytes4(NotEnoughLiquidity);
+        console.log("NotEnoughNotional");
+        console.logBytes4(NotEnoughNotional);
         console.log("PositionNotFound");
         console.logBytes4(PositionNotFound);
         console.log("CantBurnMoreThanMinted");

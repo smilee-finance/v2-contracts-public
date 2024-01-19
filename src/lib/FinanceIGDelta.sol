@@ -95,8 +95,14 @@ library FinanceIGDelta {
             ? ud(params.availableLiquidityBear).sub(ud(notionalBear)).unwrap()
             : ud(params.availableLiquidityBear).add(ud(notionalBear)).unwrap();
 
-        uint256 protoDBull = ud(SignedMath.abs(params.igDBull)).mul(ud(protoNotionalBull)).div(ud(params.initialLiquidityBull)).unwrap();
-        uint256 protoDBear = ud(SignedMath.abs(params.igDBear)).mul(ud(protoNotionalBear)).div(ud(params.initialLiquidityBear)).unwrap();
+        uint256 protoDBull = ud(SignedMath.abs(params.igDBull))
+            .mul(ud(protoNotionalBull))
+            .div(ud(params.initialLiquidityBull))
+            .unwrap();
+        uint256 protoDBear = ud(SignedMath.abs(params.igDBear))
+            .mul(ud(protoNotionalBear))
+            .div(ud(params.initialLiquidityBear))
+            .unwrap();
 
         uint256 deltaLimit;
         {
@@ -114,6 +120,12 @@ library FinanceIGDelta {
             SignedMath.castInt(params.sideTokensAmount) -
             SignedMath.castInt(deltaLimit);
 
+        // due to sqrt computation error, sideTokens to sell may be very few more than available
+        if (SignedMath.abs(tokensToSwap) > params.sideTokensAmount) {
+            if (SignedMath.abs(tokensToSwap) - params.sideTokensAmount < params.sideTokensAmount / 10000) {
+                tokensToSwap = SignedMath.revabs(params.sideTokensAmount, true);
+            }
+        }
         params.sideTokensAmount = SignedMath.abs(tokensToSwap);
         params.sideTokensAmount = AmountsMath.unwrapDecimals(params.sideTokensAmount, params.sideTokenDecimals);
         tokensToSwap = SignedMath.revabs(params.sideTokensAmount, tokensToSwap >= 0);
@@ -136,13 +148,14 @@ library FinanceIGDelta {
     ) public pure returns (int256 deltaTrade_) {
         amountUp = AmountsMath.wrapDecimals(amountUp, baseTokenDecimals);
         amountDown = AmountsMath.wrapDecimals(amountDown, baseTokenDecimals);
-        
+
         UD60x18 udAmountUp = ud(amountUp);
         UD60x18 udAmountDown = ud(amountDown);
         UD60x18 udIgDBull = ud(SignedMath.abs(igDBull));
         UD60x18 udIgDBear = ud(SignedMath.abs(igDBear));
-        
-        deltaTrade_ = SignedMath.revabs(udAmountUp.mul(udIgDBull).unwrap(), igDBull > 0) +
+
+        deltaTrade_ =
+            SignedMath.revabs(udAmountUp.mul(udIgDBull).unwrap(), igDBull > 0) +
             SignedMath.revabs(udAmountDown.mul(udIgDBear).unwrap(), igDBear > 0);
     }
 
@@ -243,13 +256,17 @@ library FinanceIGDelta {
         {
             // b := 0.95 + σ√τ / 2 + 0.08 * (σ√τ)^2
             UD60x18 sigmaTaurtdSquared = ud(sigmaTrtd).mul(ud(sigmaTrtd));
-            UD60x18 b = ud(0.95e18).add(ud(sigmaTrtd).div(convert(2))).add(sigmaTaurtdSquared.mul(convert(8)).div(convert(100)));
+            UD60x18 b = ud(0.95e18).add(ud(sigmaTrtd).div(convert(2))).add(
+                sigmaTaurtdSquared.mul(convert(8)).div(convert(100))
+            );
 
             // expE := m*z + b*q
-            expE = SignedMath.revabs(
-                ud(SignedMath.abs(m)).mul(ud(SignedMath.abs(z_))).unwrap(),
-                (m > 0 && z_ > 0) || (m < 0 && z_ < 0)
-            ) + SignedMath.revabs(b.mul(ud(SignedMath.abs(q))).unwrap(), (q > 0));
+            expE =
+                SignedMath.revabs(
+                    ud(SignedMath.abs(m)).mul(ud(SignedMath.abs(z_))).unwrap(),
+                    (m > 0 && z_ > 0) || (m < 0 && z_ < 0)
+                ) +
+                SignedMath.revabs(b.mul(ud(SignedMath.abs(q))).unwrap(), (q > 0));
         }
         if (expE > _MAX_EXP) {
             return 0;
@@ -269,7 +286,7 @@ library FinanceIGDelta {
         uint256 alfaAbs = SignedMath.abs(alfa2);
         uint256 alfaSqrd = SignedMath.pow2(alfa2);
 
-        m = - SignedMath.revabs((alfaAbs * 22) / 100, alfa2 >= 0) + SignedMath.castInt(1.8e18 + (alfaSqrd / 100));
+        m = -SignedMath.revabs((alfaAbs * 22) / 100, alfa2 >= 0) + SignedMath.castInt(1.8e18 + (alfaSqrd / 100));
         q = SignedMath.revabs((alfaAbs * 95) / 100, alfa2 >= 0) - (SignedMath.castInt(alfaSqrd) / 10);
     }
 
