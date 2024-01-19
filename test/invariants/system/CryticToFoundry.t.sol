@@ -10,7 +10,10 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         setup();
     }
 
-    function test() public {
+    /**
+        InsufficientLiquidity("_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens")
+     */
+    function test_01() public {
         vm.warp(block.timestamp + 15790);
         deposit(753780546426345955413931157775832410930106);
         vm.warp(block.timestamp + 99568);
@@ -27,6 +30,11 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         callAdminFunction(10, 2592262954105063);
     }
 
+    /**
+        Delta hedge failing on buy, requiring more sidetokens than can be bought
+        InsufficientInput()
+        // should be InsufficientLiquidity(bytes4(keccak256("_buySideTokens()")));
+     */
     function test_2() public {
         vm.warp(block.timestamp + 65280);
         deposit(53660751925402942071444234319586906678597225057891828354971127042736941450);

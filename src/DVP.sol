@@ -56,7 +56,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
      */
     mapping(uint256 => mapping(bytes32 => Position.Info)) internal _epochPositions;
 
-    error NotEnoughLiquidity();
+    error NotEnoughNotional();
     error PositionNotFound();
     error CantBurnMoreThanMinted();
     error MissingMarketOracle();
@@ -136,7 +136,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         // Check available liquidity:
         Amount memory availableLiquidity = liquidity.available(strike);
         if (availableLiquidity.up < amount.up || availableLiquidity.down < amount.down) {
-            revert NotEnoughLiquidity();
+            revert NotEnoughNotional();
         }
 
         uint256 swapPrice;

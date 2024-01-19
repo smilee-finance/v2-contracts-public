@@ -102,6 +102,8 @@ library VaultUtils {
 
     function debugState(MockedVault vault) public view {
         VaultLib.VaultState memory state = vaultState(vault);
+        uint256 baseBalance = IERC20(vault.baseToken()).balanceOf(address(vault));
+        uint256 sideBalance = IERC20(vault.sideToken()).balanceOf(address(vault));
         console.log("----------VAULT STATE----------");
         console.log("lockedInitially", state.liquidity.lockedInitially);
         console.log("pendingDeposits", state.liquidity.pendingDeposits);
@@ -111,6 +113,8 @@ library VaultUtils {
         console.log("totalDeposit", state.liquidity.totalDeposit);
         console.log("heldShares", state.withdrawals.heldShares);
         console.log("newHeldShares", state.withdrawals.newHeldShares);
+        console.log("baseBalance", baseBalance);
+        console.log("sideBalance", sideBalance);
         console.log("-------------------------------");
     }
 

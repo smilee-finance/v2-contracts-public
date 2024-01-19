@@ -6,10 +6,11 @@
         {
             "files": [
                 "test/FinanceLib.t.sol",
-                "test/UniswapAdapter.t.sol"
+                "test/UniswapAdapter.t.sol",
+                "test/invariants/system/Properties.sol"
             ],
             "options": {
-                "printWidth": 160
+                "printWidth": 260
             }
         }
     ]

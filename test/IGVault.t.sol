@@ -27,7 +27,7 @@ import {MockedVault} from "./mock/MockedVault.sol";
          new deposits are not allowed
  */
 contract IGVaultTest is Test {
-    bytes4 constant NotEnoughLiquidity = bytes4(keccak256("NotEnoughLiquidity()"));
+    bytes4 constant NotEnoughNotional = bytes4(keccak256("NotEnoughNotional()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant EpochFinished = bytes4(keccak256("EpochFinished()"));
 
@@ -121,7 +121,7 @@ contract IGVaultTest is Test {
         uint256 inputAmount = 1 ether;
         (uint256 expectedMarketValue, ) = ig.premium(0, inputAmount, 0);
         vm.prank(charlie);
-        vm.expectRevert(NotEnoughLiquidity);
+        vm.expectRevert(NotEnoughNotional);
         ig.mint(charlie, 0, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
 
         VaultUtils.addVaultDeposit(alice, 0.5 ether, admin, address(vault), vm);
@@ -132,7 +132,7 @@ contract IGVaultTest is Test {
 
         _assurePremium(charlie, 0, inputAmount, 0);
 
-        vm.expectRevert(NotEnoughLiquidity);
+        vm.expectRevert(NotEnoughNotional);
         ig.mint(charlie, 0, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
     }
 

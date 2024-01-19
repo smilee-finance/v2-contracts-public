@@ -2,6 +2,9 @@
 pragma solidity ^0.8.15;
 
 interface ISwapAdapter {
+
+    error InsufficientInput();
+
     /**
         @notice Swaps the given amount of tokenIn tokens in exchange for some tokenOut tokens
         @param tokenIn The address of the input token

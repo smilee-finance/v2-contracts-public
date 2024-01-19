@@ -25,7 +25,6 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     error PriceZero();
     error TransferFailed();
     error InvalidSlippage();
-    error InsufficientInput();
 
     constructor(address priceOracle) Ownable() {
         _priceOracle = IPriceOracle(priceOracle);

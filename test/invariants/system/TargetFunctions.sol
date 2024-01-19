@@ -106,7 +106,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     }
 
     function initiateWithdraw(uint256 index) public {
-        VaultUtils.debugState(vault);
         precondition(_depositInfo.length > 0);
         index = _between(index, 0, _depositInfo.length - 1);
         precondition(block.timestamp < ig.getEpoch().current); // EpochFinished()
@@ -117,6 +116,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         (uint256 heldByUser, uint256 heldByVault) = vault.shareBalances(depInfo.user);
         uint256 sharesToWithdraw = heldByUser + heldByVault;
         precondition(sharesToWithdraw > 0); // AmountZero()
+
+        console.log("** WITHDRAW", sharesToWithdraw);
+        VaultUtils.debugState(vault);
 
         hevm.prank(depInfo.user);
         try vault.initiateWithdraw(sharesToWithdraw) {} catch (bytes memory err) {
@@ -160,7 +162,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         VaultUtils.debugStateIG(ig);
         (, , , uint256 bullAvailNotional) = ig.notional();
         amount = _between(amount, MIN_OPTION_BUY, bullAvailNotional);
-        console.log("DIOCANE MINT", amount);
         precondition(block.timestamp < ig.getEpoch().current);
 
         _buy(amount, 0);
@@ -343,7 +344,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         uint256 premium;
 
         hevm.prank(msg.sender);
-        try ig.mint(msg.sender, currentStrike, amountUp, amountDown, expectedPremium, SLIPPAGE) returns (
+        try ig.mint(msg.sender, currentStrike, amountUp, amountDown, expectedPremium, SLIPPAGE, 0) returns (
             uint256 _premium
         ) {
             premium = _premium;

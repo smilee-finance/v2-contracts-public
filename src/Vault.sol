@@ -52,6 +52,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     /// @notice A flag to tell if this vault is currently bound to priority access for deposits
     bool public priorityAccessFlag = false;
 
+    /// @notice a tolerance margin when buying side tokens exceeds the availability (in basis points [0 - 10000])
+    uint256 internal _hedgeMargin = 0; /* 250 */
+
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
     bytes32 public constant ROLE_EPOCH_ROLLER = keccak256("ROLE_EPOCH_ROLLER");
@@ -74,7 +77,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     error WithdrawTooEarly();
     error NotKilled();
     error ManuallyKilled();
-    error InsufficientLiquidity(bytes32); // raise when accounting operations would break the system due to lack of liquidity
+    error InsufficientLiquidity(bytes4); // raise when accounting operations would break the system due to lack of liquidity
+    error FailingDeltaHedge();
 
     event Deposit(uint256 amount);
     event Redeem(uint256 amount);
@@ -234,7 +238,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         // Just catching the underflow and reverting with a more explicit error (see [IL-NOTE])
         if (baseTokens < pendings) {
-            revert InsufficientLiquidity(keccak256("_notionalBaseTokens()"));
+            revert InsufficientLiquidity(bytes4(keccak256("_notionalBaseTokens()")));
         }
 
         return baseTokens - pendings;
@@ -581,7 +585,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         if (lockedLiquidity < _state.liquidity.newPendingPayoffs) {
             revert InsufficientLiquidity(
-                keccak256("_beforeRollEpoch():lockedLiquidity <= _state.liquidity.newPendingPayoffs")
+                bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs"))
             );
         }
 
@@ -601,7 +605,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         // NOTE: if for any reason lockedLiquidity results in 0 we avoid new depositors to receive no shares
         if (sharePrice == 0) {
-            revert InsufficientLiquidity(keccak256("_beforeRollEpoch():sharePrice == 0"));
+            revert InsufficientLiquidity(bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0")));
         }
 
         // Increase shares hold due to initiated withdrawals:
@@ -654,8 +658,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // NOTE: if after rebalance there's no enough liquidity to fulfill pending liabilities (see [IL-NOTE])
         // pause vault and signal to admins
         if (baseTokens < _state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs) {
-            _pause();
-            emit MissingLiquidity(_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens);
+            // _pause();
+            // emit MissingLiquidity(_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens);
+            revert InsufficientLiquidity(
+                bytes4(keccak256("_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"))
+            );
         }
     }
 
@@ -682,7 +689,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             // see [IL-NOTE]
             if (sideTokensToSellToCoverMissingBaseTokens > sideTokens) {
                 revert InsufficientLiquidity(
-                    keccak256("_adjustBalances():sideTokensToSellToCoverMissingBaseTokens > sideTokens")
+                    bytes4(keccak256("_adjustBalances():sideTokensToSellToCoverMissingBaseTokens > sideTokens"))
                 );
             }
 
@@ -746,14 +753,13 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         uint256 amountToApprove = requiredInput;
         uint256 availableBaseTokens = _notionalBaseTokens();
 
-        // If we don't have enough tokens to cover getInputAmountMax, try to approve all available tokens and do the swap.
-        // If this is not enough the swap will revert. Otherwise  availableBaseTokens will be sufficient because requiredInput was an over-estimate
+        // Since `requiredInput` should be an over-estimate, if available tokens are not enough to cover `getInputAmountMax`, try to approve all and do the swap
         if (availableBaseTokens < requiredInput) {
             amountToApprove = availableBaseTokens;
 
-            // If even minRequiredInput cannot be covered, we reduce the required side tokens amount up to a 2.5% safety margin to tackle with rare scenarios
+            // If even `minRequiredInput` cannot be covered, we reduce the required side tokens amount up to a X% safety margin to tackle with extreme scenarios where swap slippages may reduce the initial notional used for hedging computation
             if (availableBaseTokens < minRequiredInput) {
-                amount -= (amount * 25) / 1000;
+                amount -= (amount * _hedgeMargin) / 10000;
             }
         }
 
@@ -763,8 +769,12 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // // Improvement: in order to standardize error response, catch a custom Adapter error when given input is < requested
         // try exchange.swapOut(baseToken, sideToken, amount, amountToApprove) returns (uint256 inputBaseTokens) {
         //     baseTokens = inputBaseTokens;
-        // } catch {
-        //     revert InsufficientLiquidity(keccak256("_buySideTokens()"));
+        // } catch (bytes memory reason) {
+        //     // catch failing assert()
+        //     if (bytes4(reason) == bytes4(keccak256("InsufficientInput()"))) {
+        //         revert InsufficientLiquidity(bytes4(keccak256("_buySideTokens()")));
+        //     }
+        //     revert FailingDeltaHedge();
         // }
     }
 
@@ -779,7 +789,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
         (, uint256 sideTokens) = _tokenBalances();
         if (amount > sideTokens) {
-            revert InsufficientLiquidity(keccak256("_sellSideTokens()"));
+            revert InsufficientLiquidity(bytes4(keccak256("_sellSideTokens()")));
         }
 
         address exchangeAddress = _addressProvider.exchangeAdapter();
@@ -795,7 +805,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     /// @inheritdoc IVault
     function reservePayoff(uint256 residualPayoff) external onlyDVP {
         if (residualPayoff > notional()) {
-            revert InsufficientLiquidity(keccak256("reservePayoff()"));
+            revert InsufficientLiquidity(bytes4(keccak256("reservePayoff()")));
         }
         _state.liquidity.newPendingPayoffs = residualPayoff;
     }
