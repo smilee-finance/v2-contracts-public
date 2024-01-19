@@ -7,6 +7,7 @@ import {Epoch} from "@project/lib/EpochController.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {IExchange} from "@project/interfaces/IExchange.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
+import {Vault} from "@project/Vault.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {Utils} from "./utils/Utils.sol";
@@ -15,12 +16,10 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
-import {AddressProvider} from "@project/AddressProvider.sol";
 
 contract VaultStateTest is Test {
     bytes4 constant ExceedsAvailable = bytes4(keccak256("ExceedsAvailable()"));
     bytes4 constant ExceedsMaxDeposit = bytes4(keccak256("ExceedsMaxDeposit()"));
-    bytes4 constant SelectorInsufficientLiquidity = bytes4(keccak256("InsufficientLiquidity(bytes32)"));
     
     bytes constant VaultPaused = bytes("Pausable: paused");
 
@@ -469,7 +468,7 @@ contract VaultStateTest is Test {
         vault.setAllowedDVP(admin);
         
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("reservePayoff()")));
+        vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("reservePayoff()"))));
         vault.reservePayoff(101e18);
     }
 
@@ -493,7 +492,7 @@ contract VaultStateTest is Test {
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():lockedLiquidity <= _state.liquidity.newPendingPayoffs")));
+        vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs"))));
         vault.rollEpoch();
     }
 
@@ -518,7 +517,7 @@ contract VaultStateTest is Test {
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():sharePrice == 0")));
+        vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector,  bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0"))));
         vault.rollEpoch();
     }
 
@@ -537,7 +536,7 @@ contract VaultStateTest is Test {
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():sharePrice == 0")));
+        vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0"))));
         vault.rollEpoch();
     }
 
@@ -563,7 +562,7 @@ contract VaultStateTest is Test {
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_notionalBaseTokens()")));
+        vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_notionalBaseTokens()"))));
         vault.rollEpoch();
     }
 
@@ -593,7 +592,7 @@ contract VaultStateTest is Test {
         
     //     if (firstReservePayoff > aliceDeposit + bobDeposit) {
     //         vm.prank(admin);
-    //         vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("reservePayoff()")));
+    //         vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("reservePayoff()"))));
     //         vault.reservePayoff(firstReservePayoff);
     //     }
 
@@ -605,13 +604,13 @@ contract VaultStateTest is Test {
     //     Utils.skipDay(true, vm);
     //     if(firstReservePayoff + firstMoveToken > aliceDeposit + bobDeposit) {
     //         vm.prank(admin);
-    //         vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():lockedLiquidity <= _state.liquidity.newPendingPayoffs")));
+    //         vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_beforeRollEpoch():lockedLiquidity <= _state.liquidity.newPendingPayoffs"))));
     //         vault.rollEpoch();
     //     }
 
     //     if(firstReservePayoff + firstMoveToken == aliceDeposit + bobDeposit) {
     //         vm.prank(admin);
-    //         vm.expectRevert(abi.encodeWithSelector(SelectorInsufficientLiquidity, keccak256("_beforeRollEpoch():sharePrice == 0")));
+    //         vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_beforeRollEpoch():sharePrice == 0"))));
     //         vault.rollEpoch();
     //     }
 
