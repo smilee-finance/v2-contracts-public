@@ -14,6 +14,7 @@ import {MockedRegistry} from "../mock/MockedRegistry.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
 import {TokenUtils} from "./TokenUtils.sol";
 import {FinanceParameters} from "../../src/lib/FinanceIG.sol";
+import {IVault} from "../../src/interfaces/IVault.sol";
 
 library VaultUtils {
     function createVault(uint256 epochFrequency, AddressProvider ap, address admin, Vm vm) public returns (address) {
@@ -72,7 +73,7 @@ library VaultUtils {
     }
 
     /// @dev Builds and returns a `VaultLib.VaultState` with info on current vault state
-    function vaultState(MockedVault vault) internal view returns (VaultLib.VaultState memory) {
+    function vaultState(IVault vault) internal view returns (VaultLib.VaultState memory) {
         (
             uint256 lockedInitially,
             uint256 pendingDepositAmount,
@@ -100,7 +101,7 @@ library VaultUtils {
             );
     }
 
-    function debugState(MockedVault vault) public view {
+    function debugState(IVault vault) public view {
         VaultLib.VaultState memory state = vaultState(vault);
         uint256 baseBalance = IERC20(vault.baseToken()).balanceOf(address(vault));
         uint256 sideBalance = IERC20(vault.sideToken()).balanceOf(address(vault));

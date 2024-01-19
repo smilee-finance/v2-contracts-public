@@ -11,7 +11,6 @@ import {MockedVault} from "../../mock/MockedVault.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {FeeManager} from "@project/FeeManager.sol";
-import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {console} from "forge-std/console.sol";
 
 /**
@@ -22,6 +21,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     struct DepositInfo {
         address user;
         uint256 amount;
+        uint256 epoch;
     }
 
     struct BuyInfo {
@@ -86,7 +86,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
         gt(baseToken.balanceOf(address(vault)), vaultInitialBalance, "ERROR: Deposit fail");
 
-        _depositInfo.push(DepositInfo(msg.sender, amount));
+        _depositInfo.push(DepositInfo(msg.sender, amount, ig.getEpoch().current));
         VaultUtils.debugState(vault);
     }
 
@@ -197,14 +197,14 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_09);
-        gte(payoff, minPayoff, IG_11);
+        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, _IG_09.desc);
+        gte(payoff, minPayoff, _IG_11.desc);
 
         if (epochs.length > buyInfo_.epochCounter) {
             if (sellTokenPrice > buyInfo_.strike) {
-                t(payoff > 0, IG_12);
+                t(payoff > 0, _IG_12.desc);
             } else {
-                t(payoff == 0, IG_12);
+                t(payoff == 0, _IG_12.desc);
             }
         } else {
             t(true, ""); // TODO: implement invariant
@@ -225,14 +225,14 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_09);
-        gte(payoff, minPayoff, IG_11);
+        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, _IG_09.desc);
+        gte(payoff, minPayoff, _IG_11.desc);
 
         if (epochs.length > buyInfo_.epochCounter) {
             if (sellTokenPrice < buyInfo_.strike) {
-                t(payoff > 0, IG_13);
+                t(payoff > 0, _IG_13.desc);
             } else {
-                t(payoff == 0, IG_13);
+                t(payoff == 0, _IG_13.desc);
             }
         } else {
             t(true, ""); // TODO: implement invariant
@@ -253,14 +253,14 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
 
         // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
-        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, IG_09);
-        gte(payoff, minPayoff, IG_11);
+        gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, _IG_09.desc);
+        gte(payoff, minPayoff, _IG_11.desc);
 
         if (epochs.length > buyInfo_.epochCounter) {
             if (sellTokenPrice != buyInfo_.strike) {
-                t(payoff > 0, IG_13);
+                t(payoff > 0, _IG_13.desc);
             } else {
-                t(payoff == 0, IG_13);
+                t(payoff == 0, _IG_13.desc);
             }
         } else {
             t(true, ""); // TODO: implement invariant
@@ -298,6 +298,27 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         VaultUtils.debugStateIG(ig);
         uint256 currentEpoch = ig.getEpoch().current;
         uint256 currentStrike = ig.currentStrike();
+
+        _endingVaultState = VaultUtils.vaultState(vault);
+
+        if (_initialVaultState.liquidity.lockedInitially > 0) {
+            eq(_initialVaultState.liquidity.lockedInitially, _endingVaultState.liquidity.lockedInitially, "");
+            gte(
+                _initialVaultState.liquidity.pendingWithdrawals,
+                _endingVaultState.liquidity.pendingWithdrawals,
+                _VAULT_17.desc
+            );
+            gte(_initialVaultState.liquidity.pendingPayoffs, _endingVaultState.liquidity.pendingPayoffs, _VAULT_17.desc);
+            eq(
+                _initialVaultState.liquidity.newPendingPayoffs,
+                _endingVaultState.liquidity.newPendingPayoffs,
+                _VAULT_18.desc
+            );
+            // new pending withdrawals ?
+            // uint256 outstandingShares = vault.totalSupply() - _state.withdrawals.heldShares;
+            eq(_initialVaultState.withdrawals.heldShares, _endingVaultState.withdrawals.heldShares, _VAULT_13.desc); // shares are minted at roll epoch
+        }
+
         hevm.prank(admin);
         try ig.rollEpoch() {} catch (bytes memory err) {
             if (block.timestamp > currentEpoch) {
@@ -307,6 +328,18 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             _shouldNotRevertUnless(err, _GENERAL_5_BEFORE_TIMESTAMP);
         }
         epochs.push(EpochInfo(currentEpoch, currentStrike));
+
+        _initialVaultState = VaultUtils.vaultState(vault);
+
+        // (uint256 baseTokenAmount, uint256 sideTokenAmount) = vault.balances();
+        // gte(
+        //     baseTokenAmount + sideTokenAmount,
+        //     _initialVaultState.liquidity.pendingWithdrawals +
+        //         _initialVaultState.liquidity.pendingPayoffs +
+        //         (vault.totalSupply() * vault.epochPricePerShare(ig.getEpoch().previous)),
+        //     _VAULT_3
+        // );
+
         VaultUtils.debugState(vault);
         VaultUtils.debugStateIG(ig);
     }
@@ -335,7 +368,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
     function _buy(uint256 amountUp, uint256 amountDown) internal {
         uint256 currentStrike = ig.currentStrike();
-        (uint256 expectedPremium, uint256 fee) = ig.premium(currentStrike, amountUp, amountDown);
+        (uint256 expectedPremium /* uint256 fee */, ) = ig.premium(currentStrike, amountUp, amountDown);
         uint256 maxPremium = expectedPremium + (SLIPPAGE * expectedPremium) / 1e18;
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(ig), maxPremium, _convertVm());
@@ -352,8 +385,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             _shouldNotRevertUnless(err, _GENERAL_6);
         }
 
-        gte(baseToken.balanceOf(msg.sender), initialUserBalance - premium, IG_10);
-        lte(premium, maxPremium, IG_11);
+        VaultUtils.debugState(vault);
+
+        gte(baseToken.balanceOf(msg.sender), initialUserBalance - premium, _IG_10.desc);
+        lte(premium, maxPremium, _IG_11.desc);
 
         if (amountUp > 0 && amountDown == 0) {
             bullTrades.push(
@@ -397,7 +432,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         // uint256 maxPayoff = expectedPayoff + (SLIPPAGE * expectedPayoff) / 1e18;
         uint256 minPayoff = expectedPayoff - (SLIPPAGE * expectedPayoff) / 1e18;
         uint256 payoff;
-
         hevm.prank(buyInfo_.recipient);
         try
             ig.burn(
@@ -414,6 +448,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         } catch (bytes memory err) {
             _shouldNotRevertUnless(err, _GENERAL_6);
         }
+
+        // lte(payoff, baseTokenAmount, _VAULT_10); // Cannot be verified
 
         return (payoff, minPayoff, sellTokenPrice);
     }
@@ -448,10 +484,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     // INVARIANTS ASSERTIONS
     //----------------------------------------------
 
-    function _shouldNotRevertUnless(bytes memory err, string memory _invariant) internal {
-        if (!_ACCEPTED_REVERTS[_invariant][keccak256(err)]) {
-            emit DebugBool(_invariant, _ACCEPTED_REVERTS[_invariant][keccak256(err)]);
-            t(false, _invariant);
+    function _shouldNotRevertUnless(bytes memory err, InvariantInfo memory _invariant) internal {
+        if (!_ACCEPTED_REVERTS[_invariant.code][keccak256(err)]) {
+            emit DebugBool(_invariant.code, _ACCEPTED_REVERTS[_invariant.code][keccak256(err)]);
+            t(false, _invariant.desc);
         }
         revert(string(err));
     }

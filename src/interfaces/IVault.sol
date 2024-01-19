@@ -97,7 +97,7 @@ interface IVault is IVaultParams {
     function changePauseState() external;
 
     function vaultState()
-        external
+        external view
         returns (
             uint256 v0,
             uint256 pendingDeposit,
