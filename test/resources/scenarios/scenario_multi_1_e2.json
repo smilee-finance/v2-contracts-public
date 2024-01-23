@@ -164,7 +164,7 @@
     "endEpoch": {
         "impliedVolatility": 330484594296465000,
         "depositAmount": 40000000000000000000000,
-        "withdrawSharesAmount": 21398326393974600000000,
+        "withdrawSharesAmount": 20000000000000000000000,
         "baseTokenAmount": 460290658207901000000000,
         "sideTokenAmount": 242258241162053000000,
         "sideTokenPrice": 1900000000000000000000,

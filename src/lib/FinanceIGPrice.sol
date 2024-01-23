@@ -12,6 +12,7 @@ library FinanceIGPrice {
 
     error PriceZero();
     error OutOfRange(string varname, uint256 value);
+    error NegativePriceDetected();
 
     /// @notice A wrapper for the input parameters of delta and price functions
     struct Parameters {
@@ -57,7 +58,17 @@ library FinanceIGPrice {
         }
         {
             PriceParts memory ps = pBearParts(params, ert, sdivk, ns, nas);
-            igPBear = ps.p1 + ps.p2 - ps.p3 - ps.p4 - ps.p5;
+            uint256 tmp_1 = ps.p1 + ps.p2;
+            uint256 tmp_2 = ps.p3 + ps.p4 + ps.p5;
+            if (tmp_1 < tmp_2) {
+                // NOTE: rounding errors may yields a slightly negative number
+                if (tmp_2 - tmp_1 >= 0.1e18) {
+                    revert NegativePriceDetected();
+                }
+                igPBear = 0;
+            } else {
+                igPBear = tmp_1 - tmp_2;
+            }
         }
     }
 
@@ -188,16 +199,19 @@ library FinanceIGPrice {
             );
     }
 
+    // add1d
     /// @dev [ e^-(r τ) / θ ] * (1 - N(d2))
     function pbear1(uint256 ertdivteta, uint256 n2) public pure returns (uint256) {
         return ud(ertdivteta).mul(convert(1).sub(ud(n2))).unwrap();
     }
 
+    // add4d
     /// @dev S/θK * (1 - N(d1))
     function pbear2(uint256 sdivk, uint256 teta, uint256 n1) public pure returns (uint256) {
         return ud(sdivk).div(ud(teta)).mul(convert(1).sub(ud(n1))).unwrap();
     }
 
+    // add5d
     /// @dev [ 2/θ * √(S / K) e^-(r / 2 + σ^2 / 8)τ ] * [ N(d3a) - N(d3) ]
     function pbear3(
         uint256 sdivk,
@@ -214,12 +228,14 @@ library FinanceIGPrice {
         return coeff.mul(ud(n3a).sub(ud(n3))).unwrap();
     }
 
-    /// @dev [ s / θ√(K K_b) ] * (1 - N(d1a))
+    // add2d
+    /// @dev { s / [θ * √(K * K_a)] } * (1 - N(d1a))
     function pbear4(uint256 s, uint256 tetakkartd, uint256 n1a) public pure returns (uint256) {
         return ud(s).div(ud(tetakkartd)).mul(convert(1).sub(ud(n1a))).unwrap();
     }
 
-    /// @dev 1/θ * √(K_b / K) * N(1 - d2a)
+    // add3d
+    /// @dev e^-(r τ) * 1/θ * √(K_a / K) * N(1 - d2a)
     function pbear5(uint256 ert, uint256 kadivkrtddivteta, uint256 n2a) public pure returns (uint256) {
         return ud(ert).mul(ud(kadivkrtddivteta).mul(convert(1).sub(ud(n2a)))).unwrap();
     }

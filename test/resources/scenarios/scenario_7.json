@@ -163,7 +163,7 @@
         {
             "pre": {
                 "sideTokenPrice": 1900000000000000000000,
-                "volatility": 676339285714286000,
+                "volatility": 707142857142857000,
                 "riskFreeRate": 30000000000000000,
                 "baseTokenAmount": 408512437106380000000000,
                 "sideTokenAmount": 200000000000000000000,
@@ -172,15 +172,15 @@
                 "availableNotionalBull": 0
             },
             "post": {
-                "marketValue": 2371116080142360000000,
-                "volatility": 338169642857143000,
-                "baseTokenAmount": -15689391312787000000000,
-                "sideTokenAmount": 421889848599486000000,
+                "marketValue": 2688507590125420000000,
+                "volatility": 353571428571429000,
+                "baseTokenAmount": 194729337910553000000000,
+                "sideTokenAmount": 310976100845106000000,
                 "utilizationRate": 0,
                 "availableNotionalBear": 400000000000000000000000,
                 "availableNotionalBull": 400000000000000000000000
             },
-            "elapsedTimeSeconds": 590400,
+            "elapsedTimeSeconds": 507600,
             "amountUp": 400000000000000000000000,
             "amountDown": 400000000000000000000000,
             "isMint": false,
@@ -188,16 +188,16 @@
         }
     ],
     "endEpoch": {
-        "impliedVolatility": 888090704451646000,
+        "impliedVolatility": 850960211040494000,
         "depositAmount": 40000000000000000000000,
-        "withdrawSharesAmount": 19647533025655900000000,
-        "baseTokenAmount": 403126894000290000000000,
-        "sideTokenAmount": 212172049473837000000,
+        "withdrawSharesAmount": 20000000000000000000000,
+        "baseTokenAmount": 402972165639174000000000,
+        "sideTokenAmount": 212090613494302000000,
         "sideTokenPrice": 1900000000000000000000,
         "payoffBear": 0,
         "payoffBull": 0,
         "payoffTotal": 0,
         "payoffNet": 0,
-        "v0": 806253788000581000000000
+        "v0": 805944331278347000000000
     }
 }
