@@ -66,17 +66,12 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     error ExceedsAvailable(); // raised when a user tries to move more assets than allowed to or owned
     error ExceedsMaxDeposit();
     error ExistingIncompleteWithdraw();
-    error NothingToRescue();
-    error NothingToWithdraw();
     error OnlyDVPAllowed();
     error PriorityAccessDenied();
-    error SecondaryMarketNotAllowed();
     error VaultDead();
     error VaultNotDead();
     error WithdrawNotInitiated();
     error WithdrawTooEarly();
-    error NotKilled();
-    error ManuallyKilled();
     error InsufficientLiquidity(bytes4); // raise when accounting operations would break the system due to lack of liquidity
     error FailingDeltaHedge();
 
@@ -87,7 +82,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     // Used by TheGraph for frontend needs:
     event VaultTVL(uint256 epoch, uint256 value);
     event MissingLiquidity(uint256 missing);
-    event LowLiquidityVsSharePrice();
 
     constructor(
         address baseToken_,
@@ -510,9 +504,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
                 // At least one epoch must have passed since the start of the withdrawal
                 revert WithdrawTooEarly();
             }
-            if (!_state.killed) {
-                revert NotKilled();
-            }
+            // NOTE: epoch.previous is when the vault died, while the (rescued) withdrawal.epoch is the epoch.current one.
             pricePerShare = epochPricePerShare[epoch.previous];
         } else {
             pricePerShare = epochPricePerShare[withdrawal.epoch];
@@ -539,10 +531,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     }
 
     function rescueShares() external isDead whenNotPaused {
-        if (!_state.killed) {
-            revert NotKilled();
-        }
-
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
         // If an uncompleted withdraw exists, complete this one before to start with new one.
         if (withdrawal.shares > 0) {
@@ -578,7 +566,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // In rare scenarios (ex. roundings or very tiny TVL vaults with high impact swap slippage) there can be small losses in a single epoch.
         // As a precautionary design we plan to revert and have the protocol DAO / admin cover such tiny amount.
         // Managing such scenarios at code level would increase codebase complexity without bringing any real benefit to the protocol.
-
         if (lockedLiquidity < _state.liquidity.newPendingPayoffs) {
             revert InsufficientLiquidity(
                 bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs"))

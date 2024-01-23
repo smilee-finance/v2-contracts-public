@@ -66,10 +66,8 @@ contract FeeManager is IFeeManager, AccessControl {
     constructor() AccessControl() {
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
-        _grantRole(ROLE_GOD, msg.sender);
-        _grantRole(ROLE_ADMIN, msg.sender);
 
-        // renounceRole(ROLE_ADMIN, msg.sender);
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     /**
@@ -167,7 +165,7 @@ contract FeeManager is IFeeManager, AccessControl {
     }
 
     /// @inheritdoc IFeeManager
-    function trackVaultFee(address vault, uint256 feeAmount) public {
+    function trackVaultFee(address vault, uint256 feeAmount) external {
         // Check sender:
         IDVP dvp = IDVP(msg.sender);
         if (vault != dvp.vault()) {

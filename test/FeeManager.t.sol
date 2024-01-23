@@ -37,7 +37,7 @@ contract FeeManagerTest is Test {
     function setUp() public {
         vm.startPrank(_admin);
         _feeManager = new FeeManager();
-        // _feeManager.grantRole(_feeManager.ROLE_ADMIN(), _admin);
+        _feeManager.grantRole(_feeManager.ROLE_ADMIN(), _admin);
         vm.stopPrank();
     }
 
