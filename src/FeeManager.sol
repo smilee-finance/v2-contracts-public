@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IDVP} from "./interfaces/IDVP.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
@@ -60,6 +61,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     error NoEnoughFundsFromSender();
     error OutOfAllowedRange();
+    error WrongVault();
 
     constructor() AccessControl() {
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
@@ -166,6 +168,12 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @inheritdoc IFeeManager
     function trackVaultFee(address vault, uint256 feeAmount) public {
+        // Check sender:
+        IDVP dvp = IDVP(msg.sender);
+        if (vault != dvp.vault()) {
+            revert WrongVault();
+        }
+
         vaultFeeAmounts[vault] += feeAmount;
 
         emit TransferVaultFee(vault, feeAmount);
