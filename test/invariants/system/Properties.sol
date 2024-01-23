@@ -49,10 +49,10 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         _ACCEPTED_REVERTS[_GENERAL_5_AFTER_TIMESTAMP.code][_ERR_INSUFF_LIQUIDITY_ROLL_03] = true;
 
         // GENERAL 6
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_NOT_ENOUGH_NOTIONAL] = true;
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_EXCEEDS_AVAILABLE] = true;
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFFICIENT_INPUT] = true;
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_PRICE_ZERO] = true;
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_NOT_ENOUGH_NOTIONAL] = true;    // buy never more than notional available
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_EXCEEDS_AVAILABLE] = true;      // sell never more than owned
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFFICIENT_INPUT] = true;     // delta hedge can't be performed (DEX fees / slippage)
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_PRICE_ZERO] = true;             // option price is 0
     }
 
     /// @notice Share price never goes to 0

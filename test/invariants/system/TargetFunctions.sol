@@ -11,6 +11,7 @@ import {MockedVault} from "../../mock/MockedVault.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {FeeManager} from "@project/FeeManager.sol";
+import {TestOptionsFinanceHelper} from "./TestOptionsFinanceHelper.sol";
 import {console} from "forge-std/console.sol";
 
 /**
@@ -308,7 +309,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
                 _endingVaultState.liquidity.pendingWithdrawals,
                 _VAULT_17.desc
             );
-            gte(_initialVaultState.liquidity.pendingPayoffs, _endingVaultState.liquidity.pendingPayoffs, _VAULT_17.desc);
+            gte(
+                _initialVaultState.liquidity.pendingPayoffs,
+                _endingVaultState.liquidity.pendingPayoffs,
+                _VAULT_17.desc
+            );
             eq(
                 _initialVaultState.liquidity.newPendingPayoffs,
                 _endingVaultState.liquidity.newPendingPayoffs,

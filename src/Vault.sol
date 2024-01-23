@@ -519,10 +519,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         uint256 amountToWithdraw = VaultLib.sharesToAsset(withdrawal.shares, pricePerShare, _shareDecimals);
-        // TODO [EK]
-        // if (_state.emergencyScaleRatio > 0) {
-        //     amountToWithdraw = (amountToWithdraw * _state.emergencyScaleRatio) / 1e18;
-        // }
 
         // NOTE: the user transferred the required shares to the vault when he initiated the withdraw
         if (!_state.dead) {
@@ -661,7 +657,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             // _pause();
             // emit MissingLiquidity(_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens);
             revert InsufficientLiquidity(
-                bytes4(keccak256("_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"))
+                bytes4(
+                    keccak256(
+                        "_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"
+                    )
+                )
             );
         }
     }
