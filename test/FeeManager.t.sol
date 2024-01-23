@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
-import {Registry} from "@project/Registry.sol";
+import {Registry} from "@project/periphery/Registry.sol";
 import {Factory} from "./utils/Factory.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 

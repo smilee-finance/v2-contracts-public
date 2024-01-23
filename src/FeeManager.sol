@@ -199,7 +199,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setMinFeeBeforeTimeThreshold(address dvp, uint256 minFee) internal {
-        uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals() - 1;
+        uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals();
         if (minFee > 5 * 10**tokenDecimals) {
             revert OutOfAllowedRange();
         }
@@ -212,7 +212,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setMinFeeAfterTimeThreshold(address dvp, uint256 minFee) internal {
-        uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals() - 1;
+        uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals();
         if (minFee > 5 * 10**tokenDecimals) {
             revert OutOfAllowedRange();
         }
@@ -225,7 +225,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee value
     function _setVaultSellMinFee(address dvp, uint256 vaultSellMinFee) internal {
-        uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals() - 1;
+        uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals();
         if (vaultSellMinFee > 5 * 10**tokenDecimals) {
             revert OutOfAllowedRange();
         }

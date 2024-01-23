@@ -123,16 +123,15 @@ library VaultUtils {
         (
             uint256 maturity,
             uint256 currentStrike,
-            ,
-            /* Amount initialLiquidity */ uint256 kA,
+            , /* Amount initialLiquidity */ 
+            uint256 kA,
             uint256 kB,
             uint256 theta,
             int256 limSup,
             int256 limInf,
-            ,
-            /* TimeLockedFinanceParameters timeLocked */ uint256 averageSigma,
-            uint256 totalTradedNotional,
-            uint256 sigmaZero
+            , /* TimeLockedFinanceParameters timeLocked */
+            uint256 sigmaZero,
+            /* internalVolatilityParameters */
         ) = ig.financeParameters();
         console.log("----------IG STATE----------");
         console.log("maturity", maturity);
@@ -146,8 +145,6 @@ library VaultUtils {
         console.log("limInf");
         console.logInt(limInf);
         // console.log("timeLocked", timeLocked);
-        console.log("averageSigma", averageSigma);
-        console.log("totalTradedNotional", totalTradedNotional);
         console.log("sigmaZero", sigmaZero);
         console.log("----------------------------");
     }

@@ -9,7 +9,7 @@ import {DVPType} from "src/lib/DVPType.sol";
 import {Epoch, EpochController} from "src/lib/EpochController.sol";
 import {EpochFrequency} from "src/lib/EpochFrequency.sol";
 import {Finance} from "src/lib/Finance.sol";
-import {TimeLockedFinanceParameters, FinanceParameters, FinanceIG} from "src/lib/FinanceIG.sol";
+import {TimeLockedFinanceParameters, FinanceParameters, FinanceIG, VolatilityParameters} from "src/lib/FinanceIG.sol";
 import {FinanceIGDelta} from "src/lib/FinanceIGDelta.sol";
 import {FinanceIGPayoff} from "src/lib/FinanceIGPayoff.sol";
 import {FinanceIGPrice} from "src/lib/FinanceIGPrice.sol";
@@ -46,6 +46,7 @@ contract LibraryDeployer {
     TimeLockedUInt tlui;
     TimeLockedFinanceParameters tfp;
     Notional.Info notionalInfo;
+    VolatilityParameters tvp;
 
     constructor() {}
 
@@ -61,7 +62,8 @@ contract LibraryDeployer {
         tlui = TimeLockedUInt(1, 2, 3);
         TimeLockedBool memory tmlb = TimeLockedBool(true, true, 1);
         tfp = TimeLockedFinanceParameters(tlui, tlui, tlui, tlui, tmlb);
-        FinanceParameters memory fp = FinanceParameters(12, 13, amountOne, 123, 124, 1, 1, 2, tfp, 1, 1, 1);
+        tvp = VolatilityParameters(1, 1, 1, 1, 1, 1);
+        FinanceParameters memory fp = FinanceParameters(12, 13, amountOne, 123, 124, 1, 1, 2, tfp, 1, tvp);
         FinanceIG.getPayoffPercentages(fp, 1);
         FinanceIGDelta.mqParams(2);
         FinanceIGPayoff.igPayoffInRange(100000,2);
