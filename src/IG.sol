@@ -8,7 +8,6 @@ import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {Amount, AmountHelper} from "./lib/Amount.sol";
-import {DVPType} from "./lib/DVPType.sol";
 import {Epoch, EpochController} from "./lib/EpochController.sol";
 import {Finance} from "./lib/Finance.sol";
 import {FinanceParameters, FinanceIG, TimeLockedFinanceValues} from "./lib/FinanceIG.sol";
@@ -31,7 +30,7 @@ contract IG is DVP {
     // Used by TheGraph for frontend needs:
     event EpochStrike(uint256 epoch, uint256 strike);
 
-    constructor(address vault_, address addressProvider_) DVP(vault_, DVPType.IG, addressProvider_) {
+    constructor(address vault_, address addressProvider_) DVP(vault_, false, addressProvider_) {
         _setParameters(
             TimeLockedFinanceValues({
                 sigmaMultiplier: 3e18,
