@@ -39,6 +39,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     error InvalidTokenID();
     error NotOwner();
     error PositionExpired();
+    error AsymmetricAmount();
 
     constructor() ERC721Enumerable() ERC721("Smilee V0 Trade Positions", "SMIL-V0-TRAD") Ownable() {
         _nextId = 1;
@@ -108,6 +109,11 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
                 revert PositionExpired();
             }
         }
+        if ((params.notionalUp > 0 && params.notionalDown > 0) && (params.notionalUp != params.notionalDown)) {
+            // If amount is a smile, it must be balanced:
+            revert AsymmetricAmount();
+        }
+
         uint256 obtainedPremium;
         uint256 fee;
         (obtainedPremium, fee) = dvp.premium(params.strike, params.notionalUp, params.notionalDown);

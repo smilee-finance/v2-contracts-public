@@ -65,6 +65,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     error SlippedMarketValue();
     error PayoffTooLow();
     error VaultDead();
+    error OnlyPositionManager();
 
     /**
         @notice Emitted when option is minted for a given position
@@ -128,6 +129,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
         if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
+        }
+        if ((amount.up > 0 && amount.down > 0) && (amount.up != amount.down)) {
+            // If amount is an unbalanced smile, only the position manager is allowed to proceed:
+            if (msg.sender != _addressProvider.dvpPositionManager()) {
+                revert OnlyPositionManager();
+            }
         }
 
         Epoch memory epoch = getEpoch();
