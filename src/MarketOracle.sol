@@ -11,6 +11,9 @@ contract MarketOracle is IMarketOracle, AccessControl {
         uint256 lastUpdate;
     }
 
+    // Default maximum elapsed time used to check the value as old.
+    uint256 maxDelayFromLastUpdate;
+
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
@@ -18,17 +21,57 @@ contract MarketOracle is IMarketOracle, AccessControl {
     mapping(bytes32 => OracleValue) internal _impliedVolatility;
     /// @dev index is the base token address
     mapping(address => OracleValue) internal _riskFreeRate;
+    /// @dev max delay from last update for each token and frequency
+    mapping(bytes32 => uint256) internal _maxDelay;
 
     error OutOfAllowedRange();
+    error AddressZero();
+    error StaleOracleValue(address token0, address token1, uint256 frequency);
 
     event ChangedIV(address indexed token0, address indexed token1, uint256 frequency, uint256 value, uint256 oldValue);
+    event ChangedTokenPriceFeedMaxDelay(
+        address indexed token0,
+        address indexed token1,
+        uint256 timeWindows,
+        uint256 value
+    );
     event ChangedRFR(address indexed token, uint256 value, uint256 oldValue);
 
     constructor() AccessControl() {
+        maxDelayFromLastUpdate = 1 hours;
+
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
         _grantRole(ROLE_GOD, msg.sender);
+    }
+
+    function _getIndex(address token0, address token1, uint256 timeWindow) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(token0, token1, timeWindow));
+    }
+
+    function setMaxDefaultDelay(uint256 maxDefaultDelay) external {
+        maxDelayFromLastUpdate = maxDefaultDelay;
+    }
+
+    function setMaxDelay(address token0, address token1, uint256 timeWindow, uint256 delay) external {
+        _checkRole(ROLE_ADMIN);
+        if (token0 == address(0) || token1 == address(0)) {
+            revert AddressZero();
+        }
+        bytes32 index = _getIndex(token0, token1, timeWindow);
+        _maxDelay[index] = delay;
+
+        emit ChangedTokenPriceFeedMaxDelay(token0, token1, timeWindow, delay);
+    }
+
+    function getMaxDelay(address token0, address token1, uint256 timeWindow) public view returns (uint256 maxDelay_) {
+        bytes32 index = _getIndex(token0, token1, timeWindow);
+        maxDelay_ = _maxDelay[index];
+
+        if (_maxDelay[index] == 0) {
+            maxDelay_ = maxDelayFromLastUpdate;
+        }
     }
 
     function _getImpliedVolatility(
@@ -36,7 +79,7 @@ contract MarketOracle is IMarketOracle, AccessControl {
         address sideToken,
         uint256 timeWindow
     ) internal view returns (OracleValue storage) {
-        bytes32 index = keccak256(abi.encodePacked(baseToken, sideToken, timeWindow));
+        bytes32 index = _getIndex(baseToken, sideToken, timeWindow);
         return _impliedVolatility[index];
     }
 
@@ -54,18 +97,19 @@ contract MarketOracle is IMarketOracle, AccessControl {
 
         if (iv_.lastUpdate == 0) {
             // NOTE: it's up to the deployer to set the right values; this is just a safe last resort.
-            return 0.5e18;
+            return 1e18;
+        }
+
+        uint256 maxDelayForTriple = getMaxDelay(token0, token1, frequency);
+    
+        if (iv_.lastUpdate + maxDelayForTriple < block.timestamp ) {
+            revert StaleOracleValue(token0, token1, frequency);
         }
 
         iv = iv_.value;
     }
 
-    function setImpliedVolatility(
-        address token0,
-        address token1,
-        uint256 frequency,
-        uint256 value
-    ) public {
+    function setImpliedVolatility(address token0, address token1, uint256 frequency, uint256 value) public {
         _checkRole(ROLE_ADMIN);
         if (value < 0.01e18 || value > 10e18) {
             revert OutOfAllowedRange();
@@ -116,9 +160,7 @@ contract MarketOracle is IMarketOracle, AccessControl {
         emit ChangedRFR(token0, value, old);
     }
 
-    function getRiskFreeRateLastUpdate(
-        address token0
-    ) external view returns (uint256 lastUpdate) {
+    function getRiskFreeRateLastUpdate(address token0) external view returns (uint256 lastUpdate) {
         OracleValue storage rfr_ = _riskFreeRate[token0];
         lastUpdate = rfr_.lastUpdate;
     }

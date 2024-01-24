@@ -628,6 +628,44 @@ contract IGVaultTest is Test {
         ig.mint(charlie, 0, optionAmount, 0, 0, 0.1e18, 0);
     }
 
+    function testIGMultipleRollEpochWithoutDepositAnythingOnTheVault() public {
+        // First epoch rolled
+        uint256 lastEpoch = ig.currentEpoch();
+
+        Utils.skipDay(true, vm);
+
+        vm.startPrank(admin);
+        ig.rollEpoch();
+        Epoch memory epoch = ig.getEpoch();
+
+        assertNotEq(lastEpoch, ig.currentEpoch());
+        assertNotEq(lastEpoch, epoch.previous);
+
+        // Second epoch rolled
+        lastEpoch = ig.currentEpoch();
+
+        Utils.skipDay(true, vm);
+
+        vm.startPrank(admin);
+        ig.rollEpoch();
+        epoch = ig.getEpoch();
+
+        assertNotEq(lastEpoch, ig.currentEpoch());
+        assertNotEq(lastEpoch, epoch.previous);
+
+        // Third epoch rolled
+        lastEpoch = ig.currentEpoch();
+
+        Utils.skipDay(true, vm);
+
+        vm.startPrank(admin);
+        ig.rollEpoch();
+        epoch = ig.getEpoch();
+
+        assertNotEq(lastEpoch, ig.currentEpoch());
+        assertNotEq(lastEpoch, epoch.previous);
+    }
+
     function _assurePremium(
         address user,
         uint256 strike,
