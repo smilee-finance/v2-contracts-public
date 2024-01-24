@@ -19,7 +19,9 @@ contract MockedVault is Vault {
         address sideToken_,
         uint256 epochFrequency_,
         address addressProvider_
-    ) Vault(baseToken_, sideToken_, epochFrequency_, epochFrequency_, addressProvider_) {}
+    ) Vault(baseToken_, sideToken_, epochFrequency_, epochFrequency_, addressProvider_) {
+        _hedgeMargin = 0;
+    }
 
     function setV0(uint256 value) public {
         _v0 = value;
@@ -100,5 +102,21 @@ contract MockedVault is Vault {
 
     function currentEpoch() external view returns (uint256) {
         return getEpoch().current;
+    }
+
+    function _beforeRollEpoch() internal virtual override {
+        super._beforeRollEpoch();
+
+        (uint256 baseTokens, ) = _tokenBalances();
+
+        if (baseTokens < _state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs) {
+            revert InsufficientLiquidity(
+                bytes4(
+                    keccak256(
+                        "_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"
+                    )
+                )
+            );
+        }
     }
 }

@@ -49,11 +49,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     /// @notice The provider for external services addresses
     IAddressProvider internal immutable _addressProvider;
 
-    /// @notice A flag to tell if this vault is currently bound to priority access for deposits
+    /// @notice Flag to tell if this vault is currently bound to priority access for deposits
     bool public priorityAccessFlag = false;
 
-    /// @notice a tolerance margin when buying side tokens exceeds the availability (in basis points [0 - 10000])
-    uint256 internal _hedgeMargin = 0; /* 250 */
+    /// @notice Tolerance margin when buying side tokens exceeds the availability (in basis points [0 - 10000])
+    uint256 internal _hedgeMargin = 250; // 2.5 %
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -638,18 +638,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         (uint256 baseTokens, ) = _tokenBalances();
 
-        // NOTE: if after rebalance there's no enough liquidity to fulfill pending liabilities (see [IL-NOTE])
-        // pause vault and signal to admins
+        // NOTE: if after rebalance there's no enough liquidity to fulfill pending liabilities (see [IL-NOTE]) pause vault and signal to admins
         if (baseTokens < _state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs) {
-            // _pause();
-            // emit MissingLiquidity(_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens);
-            revert InsufficientLiquidity(
-                bytes4(
-                    keccak256(
-                        "_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"
-                    )
-                )
-            );
+            _pause();
+            emit MissingLiquidity(_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens);
         }
     }
 
