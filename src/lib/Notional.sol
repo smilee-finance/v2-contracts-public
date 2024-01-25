@@ -132,7 +132,7 @@ library Notional {
             accountedPayoff_.up = AmountsMath.wrapDecimals(accountedPayoff_.up, decimals);
 
             // amount : used = share : payoff
-            payoff_.up = ud(amount_.up).mul(ud(accountedPayoff_.up)).div(ud(used_.up)).unwrap();
+            payoff_.up = (amount_.up*accountedPayoff_.up)/used_.up;
             payoff_.up = AmountsMath.unwrapDecimals(payoff_.up, decimals);
         }
 
@@ -141,7 +141,7 @@ library Notional {
             used_.down = AmountsMath.wrapDecimals(used_.down, decimals);
             accountedPayoff_.down = AmountsMath.wrapDecimals(accountedPayoff_.down, decimals);
 
-            payoff_.down = ud(amount_.down).mul(ud(accountedPayoff_.down)).div(ud(used_.down)).unwrap();
+            payoff_.down = (amount_.down*accountedPayoff_.down)/used_.down;
             payoff_.down = AmountsMath.unwrapDecimals(payoff_.down, decimals);
         }
     }
