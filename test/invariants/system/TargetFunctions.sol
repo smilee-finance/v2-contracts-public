@@ -5,57 +5,25 @@ import {console} from "forge-std/console.sol";
 import {Setup} from "./Setup.sol";
 import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
-import {BeforeAfter} from "./BeforeAfter.sol";
-import {Properties} from "./Properties.sol";
+import {IMarketOracle} from "@project/interfaces/IMarketOracle.sol";
+import {State} from "./State.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {TestOptionsFinanceHelper} from "./TestOptionsFinanceHelper.sol";
 import {console} from "forge-std/console.sol";
+import {FinanceParameters, VolatilityParameters, TimeLockedFinanceParameters} from "@project/lib/FinanceIG.sol";
+import {Amount} from "@project/lib/Amount.sol";
 
 /**
  * medusa fuzz --no-color
  * echidna . --contract CryticTester --config config.yaml
  */
-abstract contract TargetFunctions is BaseTargetFunctions, Properties {
-    struct DepositInfo {
-        address user;
-        uint256 amount;
-        uint256 epoch;
-    }
-
-    struct BuyInfo {
-        address recipient;
-        uint256 epoch;
-        uint256 epochCounter;
-        uint256 amountUp;
-        uint256 amountDown;
-        uint256 strike;
-    }
-
-    struct WithdrawInfo {
-        address user;
-        uint256 amount;
-        uint256 epochCounter;
-    }
-
-    struct EpochInfo {
-        uint256 epochTimestamp;
-        uint256 epochStrike;
-    }
-
-    BuyInfo[] internal bullTrades;
-    BuyInfo[] internal bearTrades;
-    BuyInfo[] internal smileeTrades;
-    WithdrawInfo[] internal withdrawals;
-    DepositInfo[] internal _depositInfo;
-
-    EpochInfo[] internal epochs;
-
-    mapping(uint256 => DepositInfo) internal depositInfo;
+abstract contract TargetFunctions is BaseTargetFunctions, State {
     mapping(address => bool) internal _pendingWithdraw;
-    uint256 depositCounter = 0;
+
+    uint256 totalAmountBought = 0; // intra epoch
 
     function setup() internal virtual override {
         deploy();
@@ -71,33 +39,33 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         uint256 maxDeposit = vault.maxDeposit();
         uint256 depositCapacity = maxDeposit - totalDeposit;
         amount = _between(amount, MIN_VAULT_DEPOSIT, depositCapacity);
-        console.log("** DEPOSIT", amount);
+
         VaultUtils.debugState(vault);
 
         precondition(block.timestamp < ig.getEpoch().current);
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(vault), amount, _convertVm());
-        gte(baseToken.balanceOf(msg.sender), amount, "ERROR: Minting baseToken");
 
-        uint256 vaultInitialBalance = baseToken.balanceOf(address(vault));
+        console.log("** DEPOSIT", amount);
         hevm.prank(msg.sender);
         try vault.deposit(amount, msg.sender, 0) {} catch (bytes memory err) {
             _shouldNotRevertUnless(err, _GENERAL_1);
         }
-
-        gt(baseToken.balanceOf(address(vault)), vaultInitialBalance, "ERROR: Deposit fail");
 
         _depositInfo.push(DepositInfo(msg.sender, amount, ig.getEpoch().current));
         VaultUtils.debugState(vault);
     }
 
     function redeem(uint256 index) public {
-        index = _between(index, 0, depositCounter);
+        precondition(_depositInfo.length > 0);
+        index = _between(index, 0, _depositInfo.length - 1);
+        precondition(block.timestamp < ig.getEpoch().current); // EpochFinished()
 
-        DepositInfo storage depInfo = depositInfo[index];
+        DepositInfo storage depInfo = _depositInfo[index];
         (uint256 heldByUser, uint256 heldByVault) = vault.shareBalances(depInfo.user);
-        precondition(heldByVault > 0); // can't redeem shares before epoch roll
+        precondition(heldByVault > 0); // can't redeem shares before mint (before epoch roll)
 
+        console.log("** REDEEM", heldByVault);
         hevm.prank(depInfo.user);
         try vault.redeem(heldByVault) {} catch (bytes memory err) {
             _shouldNotRevertUnless(err, _GENERAL_1);
@@ -118,7 +86,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         uint256 sharesToWithdraw = heldByUser + heldByVault;
         precondition(sharesToWithdraw > 0); // AmountZero()
 
-        console.log("** WITHDRAW", sharesToWithdraw);
+        console.log("** INITIATE WITHDRAW", sharesToWithdraw);
         VaultUtils.debugState(vault);
 
         hevm.prank(depInfo.user);
@@ -139,12 +107,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         WithdrawInfo storage withdrawInfo = withdrawals[index];
         precondition(withdrawInfo.epochCounter < epochs.length); // WithdrawTooEarly()
 
-        // uint256 initialVaultBalance = baseToken.balanceOf(address(vault));
         uint256 initialUserBalance = baseToken.balanceOf(withdrawInfo.user);
         (uint256 withdrawEpoch, ) = vault.withdrawals(withdrawInfo.user);
         uint256 epochSharePrice = vault.epochPricePerShare(withdrawEpoch);
         uint256 expectedAmountToWithdraw = (withdrawInfo.amount * epochSharePrice) / 1e18;
 
+        console.log("** WITHDRAW", expectedAmountToWithdraw);
         hevm.prank(withdrawInfo.user);
         try vault.completeWithdraw() {} catch (bytes memory err) {
             _shouldNotRevertUnless(err, _GENERAL_1);
@@ -159,33 +127,87 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     // USER OPs.
     //----------------------------------------------
 
-    function buyBull(uint256 amount) public {
+    function buyBull(uint256 input) public {
+        Amount memory amount_ = _boundBuyInput(_BULL, input);
+        precondition(block.timestamp < ig.getEpoch().current);
+
+        uint256 tokenPrice = _getTokenPrice(vault.sideToken());
         VaultUtils.debugStateIG(ig);
-        (, , , uint256 bullAvailNotional) = ig.notional();
-        amount = _between(amount, MIN_OPTION_BUY, bullAvailNotional);
-        precondition(block.timestamp < ig.getEpoch().current);
 
-        _buy(amount, 0);
+        uint256 strike = ig.currentStrike();
+        uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
+        uint256 riskFreeRate = _getRiskFree(vault.baseToken());
+
+        console.log("** BUY BULL", amount_.up);
+        uint256 premium = _buy(amount_);
+
+        (uint256 premiumCallK, uint256 premiumCallKb) = TestOptionsFinanceHelper.equivalentOptionPremiums(
+            _BULL,
+            amount_.up,
+            tokenPrice,
+            riskFreeRate,
+            sigma,
+            _initialFinanceParameters
+        );
+
+        lte(premium, premiumCallK, _IG_05_1.desc);
+        gte(premium, premiumCallKb, _IG_05_2.desc);
     }
 
-    function buyBear(uint256 amount) public {
-        (, , uint256 bearAvailNotional, ) = ig.notional();
-        amount = _between(amount, MIN_OPTION_BUY, bearAvailNotional);
+    function buyBear(uint256 input) public {
+        Amount memory amount_ = _boundBuyInput(_BEAR, input);
         precondition(block.timestamp < ig.getEpoch().current);
 
-        _buy(0, amount);
+        uint256 tokenPrice = _getTokenPrice(vault.sideToken());
+        VaultUtils.debugStateIG(ig);
+
+        uint256 strike = ig.currentStrike();
+        uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
+        uint256 riskFreeRate = _getRiskFree(vault.baseToken());
+
+        console.log("** BUY BEAR", amount_.down);
+        uint256 premium = _buy(amount_);
+
+        (uint256 premiumPutK, uint256 premiumPutKa) = TestOptionsFinanceHelper.equivalentOptionPremiums(
+            _BEAR,
+            amount_.down,
+            tokenPrice,
+            riskFreeRate,
+            sigma,
+            _initialFinanceParameters
+        );
+
+        lte(premium, premiumPutK, _IG_07_1.desc);
+        gte(premium, premiumPutKa, _IG_07_2.desc);
     }
 
-    function buySmilee(uint256 amount) public {
-        (, , uint256 bearAvailNotional, uint256 bullAvailNotional) = ig.notional();
-        uint256 minAvailNotional = bearAvailNotional;
-        if (bullAvailNotional < minAvailNotional) {
-            minAvailNotional = bullAvailNotional;
-        }
-        amount = _between(amount, MIN_OPTION_BUY, minAvailNotional);
+    function buySmilee(uint256 input) public {
+        Amount memory amount_ = _boundBuyInput(_SMILEE, input);
         precondition(block.timestamp < ig.getEpoch().current);
 
-        _buy(amount, amount);
+        uint256 tokenPrice = _getTokenPrice(vault.sideToken());
+        VaultUtils.debugStateIG(ig);
+
+        uint256 strike = ig.currentStrike();
+        uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
+        uint256 riskFreeRate = _getRiskFree(vault.baseToken());
+
+        console.log("** BUY SMILEE");
+        console.log("**** AMOUNT UP", amount_.up);
+        console.log("**** AMOUNT DOWN", amount_.down);
+        uint256 premium = _buy(amount_);
+
+        (uint256 premiumStraddleK, uint256 premiumStrangleKaKb) = TestOptionsFinanceHelper.equivalentOptionPremiums(
+            _SMILEE,
+            amount_.up, // == amount_.down
+            tokenPrice,
+            riskFreeRate,
+            sigma,
+            _initialFinanceParameters
+        );
+
+        lte(premium, premiumStraddleK, _IG_08_1.desc);
+        gte(premium, premiumStrangleKaKb, _IG_08_2.desc);
     }
 
     function sellBull(uint256 index) public {
@@ -194,23 +216,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         BuyInfo storage buyInfo_ = bullTrades[index];
 
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
+        console.log("** SELL BULL", buyInfo_.amountUp);
+        uint256 payoff = _sell(buyInfo_, _BULL);
 
-        (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
-
-        // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
         gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, _IG_09.desc);
-        gte(payoff, minPayoff, _IG_11.desc);
-
-        if (epochs.length > buyInfo_.epochCounter) {
-            if (sellTokenPrice > buyInfo_.strike) {
-                t(payoff > 0, _IG_12.desc);
-            } else {
-                t(payoff == 0, _IG_12.desc);
-            }
-        } else {
-            t(true, ""); // TODO: implement invariant
-        }
-
         _popTrades(index, buyInfo_);
     }
 
@@ -219,26 +228,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         index = _between(index, 0, bearTrades.length - 1);
         BuyInfo storage buyInfo_ = bearTrades[index];
 
-        precondition(buyInfo_.amountUp == 0 && buyInfo_.amountDown > 0);
-
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
+        console.log("** SELL BEAR", buyInfo_.amountDown);
+        uint256 payoff = _sell(buyInfo_, _BEAR);
 
-        (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
-
-        // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
         gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, _IG_09.desc);
-        gte(payoff, minPayoff, _IG_11.desc);
-
-        if (epochs.length > buyInfo_.epochCounter) {
-            if (sellTokenPrice < buyInfo_.strike) {
-                t(payoff > 0, _IG_13.desc);
-            } else {
-                t(payoff == 0, _IG_13.desc);
-            }
-        } else {
-            t(true, ""); // TODO: implement invariant
-        }
-
         _popTrades(index, buyInfo_);
     }
 
@@ -247,26 +241,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         index = _between(index, 0, smileeTrades.length - 1);
         BuyInfo storage buyInfo_ = smileeTrades[index];
 
-        precondition(buyInfo_.amountUp != 0 && buyInfo_.amountDown != 0);
-
         uint256 initialUserBalance = baseToken.balanceOf(buyInfo_.recipient);
+        console.log("** SELL SMILEE", buyInfo_.amountUp + buyInfo_.amountDown);
+        uint256 payoff = _sell(buyInfo_, _SMILEE);
 
-        (uint256 payoff, uint256 minPayoff, uint256 sellTokenPrice) = _sell(buyInfo_);
-
-        // lte(payoff, maxPayoff, "IG BULL-01: Payoff never exeed slippage");
         gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, _IG_09.desc);
-        gte(payoff, minPayoff, _IG_11.desc);
-
-        if (epochs.length > buyInfo_.epochCounter) {
-            if (sellTokenPrice != buyInfo_.strike) {
-                t(payoff > 0, _IG_13.desc);
-            } else {
-                t(payoff == 0, _IG_13.desc);
-            }
-        } else {
-            t(true, ""); // TODO: implement invariant
-        }
-
         _popTrades(index, buyInfo_);
     }
 
@@ -294,47 +273,32 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
     }
 
     function _rollEpoch() internal {
-        console.log("** ROLLEPOCH");
+        console.log("** STATES PRE ROLLEPOCH");
         VaultUtils.debugState(vault);
         VaultUtils.debugStateIG(ig);
+
         uint256 currentEpoch = ig.getEpoch().current;
-        uint256 currentStrike = ig.currentStrike();
 
-        _endingVaultState = VaultUtils.vaultState(vault);
+        _before();
 
-        if (_initialVaultState.liquidity.lockedInitially > 0) {
-            eq(_initialVaultState.liquidity.lockedInitially, _endingVaultState.liquidity.lockedInitially, "");
-            gte(
-                _initialVaultState.liquidity.pendingWithdrawals,
-                _endingVaultState.liquidity.pendingWithdrawals,
-                _VAULT_17.desc
-            );
-            gte(
-                _initialVaultState.liquidity.pendingPayoffs,
-                _endingVaultState.liquidity.pendingPayoffs,
-                _VAULT_17.desc
-            );
-            eq(
-                _initialVaultState.liquidity.newPendingPayoffs,
-                _endingVaultState.liquidity.newPendingPayoffs,
-                _VAULT_18.desc
-            );
-            // new pending withdrawals ?
-            // uint256 outstandingShares = vault.totalSupply() - _state.withdrawals.heldShares;
-            eq(_initialVaultState.withdrawals.heldShares, _endingVaultState.withdrawals.heldShares, _VAULT_13.desc); // shares are minted at roll epoch
-        }
+        _rollepochAssertionBefore();
 
+        console.log("** ROLLEPOCH");
         hevm.prank(admin);
         try ig.rollEpoch() {} catch (bytes memory err) {
             if (block.timestamp > currentEpoch) {
-                // GENERAL 5
-                _shouldNotRevertUnless(err, _GENERAL_5_AFTER_TIMESTAMP);
+                _shouldNotRevertUnless(err, _GENERAL_5);
             }
-            _shouldNotRevertUnless(err, _GENERAL_5_BEFORE_TIMESTAMP);
+            _shouldNotRevertUnless(err, _GENERAL_4);
         }
-        epochs.push(EpochInfo(currentEpoch, currentStrike));
 
-        _initialVaultState = VaultUtils.vaultState(vault);
+        epochs.push(EpochInfo(currentEpoch, _endingStrike));
+
+        _after();
+
+        _rollepochAssertionAfter();
+
+        totalAmountBought = 0;
 
         // (uint256 baseTokenAmount, uint256 sideTokenAmount) = vault.balances();
         // gte(
@@ -345,8 +309,14 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         //     _VAULT_3
         // );
 
+        console.log("** STATES AFTER ROLLEPOCH");
         VaultUtils.debugState(vault);
         VaultUtils.debugStateIG(ig);
+    }
+
+    function _getTokenPrice(address tokenAddress) internal view returns (uint256 tokenPrice) {
+        TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
+        tokenPrice = apPriceOracle.getTokenPrice(tokenAddress);
     }
 
     function _setTokenPrice(uint256 price) internal {
@@ -367,22 +337,51 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         feeManager.setDVPFee(address(ig), FEE_PARAMS);
     }
 
+    function _getRiskFree(address tokenAddress) internal view returns (uint256 riskFreeRate) {
+        IMarketOracle marketOracle = IMarketOracle(ap.marketOracle());
+        riskFreeRate = marketOracle.getRiskFreeRate(tokenAddress);
+    }
+
+    function _boundBuyInput(uint8 buyType, uint256 input) internal view returns (Amount memory amount) {
+        (, , uint256 bearAvailNotional, uint256 bullAvailNotional) = ig.notional();
+        uint256 availNotional;
+        uint256 amountUp = 0;
+        uint256 amountDown = 0;
+        if (buyType == _BULL) {
+            amountUp = _between(input, MIN_OPTION_BUY, bullAvailNotional);
+        } else if (buyType == _BEAR) {
+            amountDown = _between(input, MIN_OPTION_BUY, bearAvailNotional);
+        } else {
+            availNotional = bearAvailNotional;
+            if (bullAvailNotional < availNotional) {
+                availNotional = bullAvailNotional;
+            }
+            amountUp = _between(input, MIN_OPTION_BUY, availNotional);
+            amountDown = amountUp;
+        }
+
+        amount = Amount(amountUp, amountDown);
+    }
+
     //----------------------------------------------
     // COMMON
     //----------------------------------------------
 
-    function _buy(uint256 amountUp, uint256 amountDown) internal {
+    function _buy(Amount memory amount) internal returns (uint256) {
         uint256 currentStrike = ig.currentStrike();
-        (uint256 expectedPremium /* uint256 fee */, ) = ig.premium(currentStrike, amountUp, amountDown);
+        (uint256 expectedPremium, uint256 fee) = ig.premium(currentStrike, amount.up, amount.down);
         uint256 maxPremium = expectedPremium + (SLIPPAGE * expectedPremium) / 1e18;
+
+        _checkFee(fee, _BUY);
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(ig), maxPremium, _convertVm());
         uint256 initialUserBalance = baseToken.balanceOf(msg.sender);
 
         uint256 premium;
 
+        uint256 buyTokenPrice = _getTokenPrice(vault.sideToken());
         hevm.prank(msg.sender);
-        try ig.mint(msg.sender, currentStrike, amountUp, amountDown, expectedPremium, SLIPPAGE, 0) returns (
+        try ig.mint(msg.sender, currentStrike, amount.up, amount.down, expectedPremium, SLIPPAGE, 0) returns (
             uint256 _premium
         ) {
             premium = _premium;
@@ -392,28 +391,31 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
 
         VaultUtils.debugState(vault);
 
+        totalAmountBought += amount.up + amount.down;
+
         gte(baseToken.balanceOf(msg.sender), initialUserBalance - premium, _IG_10.desc);
         lte(premium, maxPremium, _IG_11.desc);
 
-        if (amountUp > 0 && amountDown == 0) {
-            bullTrades.push(
-                BuyInfo(msg.sender, ig.getEpoch().current, epochs.length, amountUp, amountDown, currentStrike)
-            );
-        } else if (amountUp == 0 && amountDown > 0) {
-            bearTrades.push(
-                BuyInfo(msg.sender, ig.getEpoch().current, epochs.length, amountUp, amountDown, currentStrike)
-            );
-        } else {
-            smileeTrades.push(
-                BuyInfo(msg.sender, ig.getEpoch().current, epochs.length, amountUp, amountDown, currentStrike)
-            );
-        }
+        uint256 utilizationRate = ig.getUtilizationRate();
+        BuyInfo memory buyInfo = BuyInfo(
+            msg.sender,
+            ig.getEpoch().current,
+            epochs.length,
+            amount.up,
+            amount.down,
+            currentStrike,
+            premium,
+            utilizationRate,
+            buyTokenPrice
+        );
+
+        _pushTrades(buyInfo);
+
+        return premium;
     }
 
-    function _sell(BuyInfo memory buyInfo_) internal returns (uint256, uint256, uint256) {
-        TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
-        address sideToken = vault.sideToken();
-        uint256 sellTokenPrice = apPriceOracle.getTokenPrice(sideToken);
+    function _sell(BuyInfo memory buyInfo_, uint8 sellType) internal returns (uint256) {
+        uint256 sellTokenPrice = _getTokenPrice(vault.sideToken());
 
         // if one epoch have passed, get end price from current epoch
         if (epochs.length == buyInfo_.epochCounter + 1) {
@@ -427,15 +429,14 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
         }
 
         hevm.prank(buyInfo_.recipient);
-        (uint256 expectedPayoff /* uint256 _fee */, ) = ig.payoff(
+        (uint256 expectedPayoff, uint256 fee) = ig.payoff(
             buyInfo_.epoch,
             buyInfo_.strike,
             buyInfo_.amountUp,
             buyInfo_.amountDown
         );
 
-        // uint256 maxPayoff = expectedPayoff + (SLIPPAGE * expectedPayoff) / 1e18;
-        uint256 minPayoff = expectedPayoff - (SLIPPAGE * expectedPayoff) / 1e18;
+        _checkFee(fee, _SELL);
         uint256 payoff;
         hevm.prank(buyInfo_.recipient);
         try
@@ -454,35 +455,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             _shouldNotRevertUnless(err, _GENERAL_6);
         }
 
+        uint256 maxPayoff = expectedPayoff + (SLIPPAGE * expectedPayoff) / 1e18;
+        uint256 minPayoff = expectedPayoff - (SLIPPAGE * expectedPayoff) / 1e18;
         // lte(payoff, baseTokenAmount, _VAULT_10); // Cannot be verified
 
-        return (payoff, minPayoff, sellTokenPrice);
-    }
+        _sellAssertion(buyInfo_, sellType, payoff, maxPayoff, minPayoff, sellTokenPrice, ig.getUtilizationRate());
 
-    /// Removes element at the given index from trades
-    function _popTrades(uint256 index, BuyInfo memory trade) internal {
-        if (trade.amountUp > 0 && trade.amountDown == 0) {
-            bullTrades[index] = bullTrades[bullTrades.length - 1];
-            bullTrades.pop();
-        } else if (trade.amountUp == 0 && trade.amountDown > 0) {
-            bearTrades[index] = bearTrades[bearTrades.length - 1];
-            bearTrades.pop();
-        } else {
-            smileeTrades[index] = smileeTrades[smileeTrades.length - 1];
-            smileeTrades.pop();
-        }
-    }
-
-    /// Removes element at the given index from deposit info
-    function _popDepositInfo(uint256 index) internal {
-        _depositInfo[index] = _depositInfo[_depositInfo.length - 1];
-        _depositInfo.pop();
-    }
-
-    /// Removes element at the given index from withdrawals
-    function _popWithdrawals(uint256 index) internal {
-        withdrawals[index] = withdrawals[withdrawals.length - 1];
-        withdrawals.pop();
+        return payoff;
     }
 
     //----------------------------------------------
@@ -495,5 +474,156 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties {
             t(false, _invariant.desc);
         }
         revert(string(err));
+    }
+
+    function _checkProfit(
+        uint256 payoff,
+        uint256 premium,
+        bool isEpochRolled,
+        uint8 sellType,
+        uint256 sellTokenPrice,
+        uint256 buyTokenPrice,
+        uint256 sellUtilizationRate,
+        uint256 buyUtilizationRate
+    ) internal {
+        if (payoff > premium) {
+            bool checkTokenPrice = (sellType == _BULL && sellTokenPrice > buyTokenPrice) ||
+                (sellType == _BEAR && sellTokenPrice < buyTokenPrice) ||
+                (sellType == _SMILEE && sellTokenPrice != buyTokenPrice);
+            t(checkTokenPrice && (isEpochRolled || sellUtilizationRate > buyUtilizationRate), _IG_04.desc);
+        } else {
+            t(true, _IG_04.desc); // TODO: implement invariants
+        }
+    }
+
+    function _checkFee(uint256 fee, uint8 operation) internal {
+        FeeManager feeManager = FeeManager(ap.feeManager());
+        (
+            uint256 timeToExpiryThreshold,
+            uint256 minFeeBeforeTimeThreshold,
+            uint256 minFeeAfterTimeThreshold,
+            ,
+            uint256 vaultSellMinFee,
+            ,
+            ,
+            ,
+
+        ) = feeManager.dvpsFeeParams(address(ig));
+
+        if (operation == _BUY) {
+            if ((ig.getEpoch().current - block.timestamp) > timeToExpiryThreshold) {
+                gte(fee, minFeeAfterTimeThreshold, _IG_21.desc);
+            } else {
+                gte(fee, minFeeBeforeTimeThreshold, _IG_21.desc);
+            }
+        } else {
+            gte(fee, vaultSellMinFee, _IG_21.desc);
+        }
+    }
+
+    function _sellAssertion(
+        BuyInfo memory buyInfo_,
+        uint8 sellType,
+        uint256 payoff,
+        uint256 maxPayoff,
+        uint256 minPayoff,
+        uint256 sellTokenPrice,
+        uint256 sellUtilizationRate
+    ) internal {
+        lte(payoff, maxPayoff, _IG_11.desc);
+        gte(payoff, minPayoff, _IG_11.desc);
+
+        if (epochs.length > buyInfo_.epochCounter) {
+            _checkProfit(
+                payoff,
+                buyInfo_.premium,
+                true,
+                _SMILEE,
+                sellTokenPrice,
+                buyInfo_.buyTokenPrice,
+                sellUtilizationRate,
+                buyInfo_.utilizationRate
+            );
+
+            if (sellType == _BULL) {
+                if (sellTokenPrice > buyInfo_.strike) {
+                    t(payoff > 0, _IG_12.desc);
+                } else {
+                    t(payoff == 0, _IG_12.desc);
+                }
+            } else if (sellType == _BEAR) {
+                if (sellTokenPrice < buyInfo_.strike) {
+                    t(payoff > 0, _IG_13.desc);
+                } else {
+                    t(payoff == 0, _IG_13.desc);
+                }
+            } else if (sellType == _SMILEE) {
+                if (sellTokenPrice != buyInfo_.strike) {
+                    t(payoff > 0, _IG_27.desc);
+                } else {
+                    t(payoff == 0, _IG_27.desc);
+                }
+            }
+        } else {
+            t(true, ""); // TODO: implement invariant
+        }
+    }
+
+    function _compareFinanceParameters(
+        FinanceParameters memory ifp,
+        FinanceParameters memory efp
+    ) internal pure returns (bool) {
+        return (ifp.maturity == efp.maturity &&
+            ifp.currentStrike == efp.currentStrike &&
+            ifp.initialLiquidity.up == efp.initialLiquidity.up &&
+            ifp.initialLiquidity.down == efp.initialLiquidity.down &&
+            ifp.kA == efp.kA &&
+            ifp.kB == efp.kB &&
+            ifp.theta == efp.theta &&
+            ifp.limSup == efp.limSup &&
+            ifp.limInf == efp.limInf &&
+            ifp.sigmaZero == efp.sigmaZero);
+    }
+
+    function _rollepochAssertionBefore() internal {
+        // after first epoch
+        if (_initialVaultState.liquidity.lockedInitially > 0) {
+            eq(_initialVaultState.liquidity.lockedInitially, _endingVaultState.liquidity.lockedInitially, _IG_15.desc);
+            eq(_initialStrike, _endingStrike, _IG_16.desc);
+            t(_compareFinanceParameters(_initialFinanceParameters, _endingFinanceParameters), _IG_17.desc);
+            t(_endingFinanceParameters.limSup > 0, _IG_22.desc);
+            t(_endingFinanceParameters.limInf < 0, _IG_23.desc);
+            lte(totalAmountBought, _initialVaultState.liquidity.lockedInitially, _IG_18.desc);
+            gte(
+                _initialVaultState.liquidity.pendingWithdrawals,
+                _endingVaultState.liquidity.pendingWithdrawals,
+                _VAULT_17.desc
+            );
+            gte(
+                _initialVaultState.liquidity.pendingPayoffs,
+                _endingVaultState.liquidity.pendingPayoffs,
+                _VAULT_17.desc
+            );
+            eq(
+                _initialVaultState.liquidity.newPendingPayoffs,
+                _endingVaultState.liquidity.newPendingPayoffs,
+                _VAULT_18.desc
+            );
+
+            lte(_endingVaultState.withdrawals.heldShares, _initialVaultState.withdrawals.heldShares, _VAULT_13.desc); // shares are minted at roll epoch
+            lte(_endingVaultTotalSupply, _initialVaultTotalSupply, _VAULT_13.desc); // shares are minted at roll epoch
+        }
+    }
+
+    function _rollepochAssertionAfter() internal {
+        if (_endingVaultState.liquidity.lockedInitially > 0) {
+            // uint256 expectedPendingWithdrawals = _endingVaultState.withdrawals.newHeldShares * vault.epochPricePerShare(ig.getEpoch().previous);
+            // eq(_initialVaultState.liquidity.pendingWithdrawals, _endingVaultState.liquidity.pendingWithdrawals + expectedPendingWithdrawals, _VAULT_19.desc);
+            eq(
+                _initialVaultState.withdrawals.heldShares,
+                _endingVaultState.withdrawals.heldShares + _endingVaultState.withdrawals.newHeldShares,
+                _VAULT_23.desc
+            );
+        }
     }
 }

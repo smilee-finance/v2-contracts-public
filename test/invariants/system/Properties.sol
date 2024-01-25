@@ -7,11 +7,46 @@ import {BeforeAfter} from "./BeforeAfter.sol";
 import {console} from "forge-std/console.sol";
 import {PropertiesDescriptions} from "./PropertiesDescriptions.sol";
 import {IPriceOracle} from "@project/interfaces/IPriceOracle.sol";
-import {IFeeManager} from "@project/interfaces/IFeeManager.sol";
+import {FeeManager} from "@project/FeeManager.sol";
 
 abstract contract Properties is BeforeAfter, PropertiesDescriptions {
-
     error PropertyFail(string);
+
+    struct DepositInfo {
+        address user;
+        uint256 amount;
+        uint256 epoch;
+    }
+
+    struct BuyInfo {
+        address recipient;
+        uint256 epoch;
+        uint256 epochCounter;
+        uint256 amountUp;
+        uint256 amountDown;
+        uint256 strike;
+        uint256 premium;
+        uint256 utilizationRate;
+        uint256 buyTokenPrice;
+    }
+
+    struct WithdrawInfo {
+        address user;
+        uint256 amount;
+        uint256 epochCounter;
+    }
+
+    struct EpochInfo {
+        uint256 epochTimestamp;
+        uint256 epochStrike;
+    }
+
+    uint8 internal constant _BULL = 0;
+    uint8 internal constant _BEAR = 1;
+    uint8 internal constant _SMILEE = 2;
+
+    uint8 internal constant _BUY = 0;
+    uint8 internal constant _SELL = 1;
 
     // Constant echidna addresses
     address constant USER1 = address(0x10000);
@@ -42,21 +77,21 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         // GENERAL 1 - No reverts allowed
 
         // GENERAL 5
-        _ACCEPTED_REVERTS[_GENERAL_5_BEFORE_TIMESTAMP.code][_ERR_EPOCH_NOT_FINISHED] = true;
-        _ACCEPTED_REVERTS[_GENERAL_5_AFTER_TIMESTAMP.code][_ERR_EXCEEDS_AVAILABLE] = true;
-        _ACCEPTED_REVERTS[_GENERAL_5_AFTER_TIMESTAMP.code][_ERR_INSUFF_LIQUIDITY_ROLL_01] = true;
-        _ACCEPTED_REVERTS[_GENERAL_5_AFTER_TIMESTAMP.code][_ERR_INSUFF_LIQUIDITY_ROLL_02] = true;
-        _ACCEPTED_REVERTS[_GENERAL_5_AFTER_TIMESTAMP.code][_ERR_INSUFF_LIQUIDITY_ROLL_03] = true;
+        _ACCEPTED_REVERTS[_GENERAL_4.code][_ERR_EPOCH_NOT_FINISHED] = true;
+        _ACCEPTED_REVERTS[_GENERAL_5.code][_ERR_INSUFF_LIQUIDITY_ROLL_01] = true;
+        _ACCEPTED_REVERTS[_GENERAL_5.code][_ERR_INSUFF_LIQUIDITY_ROLL_02] = true;
+        _ACCEPTED_REVERTS[_GENERAL_5.code][_ERR_INSUFF_LIQUIDITY_ROLL_03] = true;
 
         // GENERAL 6
         _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_NOT_ENOUGH_NOTIONAL] = true;    // buy never more than notional available
         _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_EXCEEDS_AVAILABLE] = true;      // sell never more than owned
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFFICIENT_INPUT] = true;     // delta hedge can't be performed (DEX fees / slippage)
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFFICIENT_INPUT] = true;     // delta hedge can't be performed
         _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_PRICE_ZERO] = true;             // option price is 0
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFF_LIQUIDITY_EDGE_01] = true;   // delta hedge can't be performed
     }
 
     /// @notice Share price never goes to 0
-    function smilee_invariants_vault_16() public returns (bool) {
+    function smilee_invariants_vault_16() public view returns (bool) {
         if (vault.v0() > 0) {
             uint256 epochSharePrice = vault.epochPricePerShare(ig.getEpoch().previous);
             return epochSharePrice > 0;
@@ -64,11 +99,11 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         return true;
     }
 
-    function smilee_invariants_ig_20() public returns (bool) {
+    function smilee_invariants_ig_20() public view returns (bool) {
         // uint256 price = IPriceOracle(ap.priceOracle()).getPrice(sideToken, address(baseToken));
         uint256 price = IPriceOracle(ap.priceOracle()).getPrice(ig.sideToken(), ig.baseToken());
-        // IFeeManager feeManager = IFeeManager(ap.feeManager());
-        // uint256 minFee = feeManager.dvpsFeeParams(address(ig)).vaultSellMinFee; // TODO: verify how to
-        return price >= 0 /* + minFee */;
+        FeeManager feeManager = FeeManager(ap.feeManager());
+        (, , , , uint256 vaultSellMinFee, , , , ) = feeManager.dvpsFeeParams(address(ig));
+        return price >= 0 + vaultSellMinFee;
     }
 }
