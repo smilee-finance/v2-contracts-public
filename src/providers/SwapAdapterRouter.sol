@@ -2,11 +2,12 @@
 pragma solidity ^0.8.15;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
 import {IExchange} from "../interfaces/IExchange.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {ISwapAdapter} from "../interfaces/ISwapAdapter.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
     @title A simple contract delegated to exchange selection for token pairs swap
@@ -22,7 +23,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     // maximum accepted slippage during a swap for each swap pair, denominated in wad (1e18 = 100%)
     mapping(bytes32 => uint256) private _slippage;
     // address of the Chainlink dollar price oracle
-    IPriceOracle private _priceOracle;
+    IAddressProvider private _ap;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -31,22 +32,14 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     error Slippage();
     error SwapZero();
 
-    constructor(address priceOracle_) AccessControl() {
-        _zeroAddressCheck(priceOracle_);
-        _priceOracle = IPriceOracle(priceOracle_);
+    constructor(address addressProvider) AccessControl() {
+        _zeroAddressCheck(addressProvider);
+        _ap = IAddressProvider(addressProvider);
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
         _grantRole(ROLE_GOD, msg.sender);
-    }
-
-    /**
-        @notice Returns the address to use as dollar price oracle
-        @return priceOracle The address of the price oracle
-     */
-    function getPriceOracle() external view returns (address priceOracle) {
-        return address(_priceOracle);
     }
 
     /**
@@ -67,16 +60,6 @@ contract SwapAdapterRouter is IExchange, AccessControl {
      */
     function getSlippage(address tokenIn, address tokenOut) external view returns (uint256 slippage) {
         return _slippage[_encodePath(tokenIn, tokenOut)];
-    }
-
-    /**
-        @notice Sets an address to use as dollar price oracle
-        @param priceOracle_ The address of the price oracle
-     */
-    function setPriceOracle(address priceOracle_) external {
-        _checkRole(ROLE_ADMIN);
-        _zeroAddressCheck(priceOracle_);
-        _priceOracle = IPriceOracle(priceOracle_);
     }
 
     /**
@@ -227,7 +210,8 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         @return amountOut The output amount, denominated in output token
      */
     function _valueOut(address tokenIn, address tokenOut, uint256 amountIn) private view returns (uint256 amountOut) {
-        uint256 price = _priceOracle.getPrice(tokenIn, tokenOut);
+        IPriceOracle po = IPriceOracle(_ap.priceOracle());
+        uint256 price = po.getPrice(tokenIn, tokenOut);
         uint8 dIn = IERC20Metadata(tokenIn).decimals();
         uint8 dOut = IERC20Metadata(tokenOut).decimals();
         amountOut = price * amountIn;
@@ -243,7 +227,8 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         @return amountIn The input amount, denominated in input token
      */
     function _valueIn(address tokenIn, address tokenOut, uint256 amountOut) private view returns (uint256 amountIn) {
-        uint256 price = _priceOracle.getPrice(tokenOut, tokenIn);
+        IPriceOracle po = IPriceOracle(_ap.priceOracle());
+        uint256 price = po.getPrice(tokenOut, tokenIn);
         uint8 dIn = IERC20Metadata(tokenIn).decimals();
         uint8 dOut = IERC20Metadata(tokenOut).decimals();
         amountIn = price * amountOut;

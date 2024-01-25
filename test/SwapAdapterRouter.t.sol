@@ -24,6 +24,7 @@ contract SwapProviderRouterTest is Test {
 
     TestnetToken _token0;
     TestnetToken _token1;
+    AddressProvider _ap;
     IPriceOracle _oracle;
     SwapAdapterRouter _swapRouter;
     IPriceOracle _swapOracle;
@@ -32,34 +33,31 @@ contract SwapProviderRouterTest is Test {
     function setUp() public {
         vm.startPrank(_admin);
 
+        _ap = new AddressProvider(0);
+        _ap.grantRole(_ap.ROLE_ADMIN(), _admin);
+
         _oracle = new TestnetPriceOracle(address(0x123));
         _swapOracle = new TestnetPriceOracle(address(0x123));
         _swap = new TestnetSwapAdapter(address(_swapOracle));
-        _swapRouter = new SwapAdapterRouter(address(_oracle));
+        _swapRouter = new SwapAdapterRouter(address(_ap));
         _swapRouter.grantRole(_swapRouter.ROLE_ADMIN(), _admin);
 
-        AddressProvider ap = new AddressProvider(0);
-        ap.grantRole(ap.ROLE_ADMIN(), _admin);
         MockedRegistry r = new MockedRegistry();
         r.grantRole(r.ROLE_ADMIN(), _admin);
 
-        ap.setExchangeAdapter(address(_swap));
-        ap.setRegistry(address(r));
+        _ap.setPriceOracle(address(_oracle));
+        _ap.setExchangeAdapter(address(_swap));
+        _ap.setRegistry(address(r));
         _token0 = new TestnetToken("USDC", "");
         // _token0.setDecimals(12);
         _token1 = new TestnetToken("ETH", "");
         // _token1.setDecimals(6);
-        _token0.setAddressProvider(address(ap));
-        _token1.setAddressProvider(address(ap));
+        _token0.setAddressProvider(address(_ap));
+        _token1.setAddressProvider(address(_ap));
         vm.stopPrank();
     }
 
     function testConstructor() public {
-        assertEq(address(_oracle), _swapRouter.getPriceOracle());
-
-        vm.expectRevert();
-        _swapRouter.setPriceOracle(address(0x100));
-
         vm.expectRevert();
         _swapRouter.setAdapter(address(_token0), address(_token1), address(0x100));
 
@@ -69,9 +67,6 @@ contract SwapProviderRouterTest is Test {
 
     function testSetters() public {
         vm.startPrank(_admin);
-
-        _swapRouter.setPriceOracle(address(0x100));
-        assertEq(address(0x100), _swapRouter.getPriceOracle());
 
         _swapRouter.setAdapter(address(_token0), address(_token1), address(0x101));
         assertEq(address(0x101), _swapRouter.getAdapter(address(_token0), address(_token1)));
@@ -267,7 +262,6 @@ contract SwapProviderRouterTest is Test {
         TestnetPriceOracle(address(_oracle)).setTokenPrice(address(_token1), realPriceRef);
         TestnetPriceOracle(address(_swapOracle)).setTokenPrice(address(_token0), 1e18);
         TestnetPriceOracle(address(_swapOracle)).setTokenPrice(address(_token1), swapPriceRef);
-        _swapRouter.setPriceOracle(address(_oracle));
         _swapRouter.setAdapter(address(_token0), address(_token1), address(_swap));
         _swapRouter.setAdapter(address(_token1), address(_token0), address(_swap));
         _swapRouter.setSlippage(address(_token0), address(_token1), maxSlippage);
