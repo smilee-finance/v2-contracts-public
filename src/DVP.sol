@@ -221,7 +221,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
     /**
         @notice Burn or decrease a position.
-        @param epoch_ The epoch of the position.
+        @param expiry The expiry timestamp of the position.
         @param recipient The wallet of the recipient for the opened position.
         @param strike The strike
         @param amount The notional.
@@ -230,7 +230,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         @return paidPayoff The paid payoff.
      */
     function _burn(
-        uint256 epoch_,
+        uint256 expiry,
         address recipient,
         uint256 strike,
         Amount memory amount,
@@ -238,7 +238,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 maxSlippage
     ) internal returns (uint256 paidPayoff) {
         _requireNotPaused();
-        Position.Info storage position = _getPosition(epoch_, msg.sender, strike);
+        Position.Info storage position = _getPosition(expiry, msg.sender, strike);
         if (!position.exists()) {
             revert PositionNotFound();
         }
@@ -256,11 +256,8 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             revert CantBurnMoreThanMinted();
         }
 
-        Notional.Info storage liquidity = _liquidity[epoch_];
-        IFeeManager feeManager = IFeeManager(_getFeeManager());
-
-        bool reachedMaturity = epoch_ != getEpoch().current;
-        if (!reachedMaturity) {
+        bool expired = expiry != getEpoch().current;
+        if (!expired) {
             // NOTE: checked only here as expired positions needs to be burned even if the vault was killed.
             _checkEpochNotFinished();
 
@@ -277,39 +274,34 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             _checkSlippage(paidPayoff, expectedMarketValue, maxSlippage, false);
         } else {
             // Compute the payoff to be paid:
-            Amount memory payoff_ = liquidity.shareOfPayoff(strike, amount, _baseTokenDecimals);
+            Amount memory payoff_ = _liquidity[expiry].shareOfPayoff(strike, amount, _baseTokenDecimals);
             paidPayoff = payoff_.getTotal();
 
-            // TODO [EK]
-            // (, , , , , , , , , uint256 scale) = IVault(vault).vaultState();
-            // if (scale > 0) {
-            //     paidPayoff = (paidPayoff * scale) / 1e18;
-            // }
-
             // Account transfer of setted aside payoff:
-            liquidity.decreasePayoff(strike, payoff_);
+            _liquidity[expiry].decreasePayoff(strike, payoff_);
         }
 
         // NOTE: premium fix for the leverage issue annotated in the mint flow.
         // notional : position.notional = fix : position.premium
-        uint256 premiumFix = ((amount.up + amount.down) * position.premium) / (position.amountUp + position.amountDown);
-        position.premium -= premiumFix;
+        uint256 entryPremiumProp = ((amount.up + amount.down) * position.premium) /
+            (position.amountUp + position.amountDown);
+        position.premium -= entryPremiumProp;
 
-        // Compute fee:
+        IFeeManager feeManager = IFeeManager(_getFeeManager());
         (uint256 fee, uint256 vaultFee) = feeManager.tradeSellFee(
             address(this),
+            expiry,
             amount.up + amount.down,
             paidPayoff,
-            premiumFix,
-            _baseTokenDecimals,
-            reachedMaturity
+            entryPremiumProp,
+            _baseTokenDecimals
         );
 
         if (paidPayoff >= fee) {
             paidPayoff -= fee;
         } else {
             // if the option didn't reached maturity, vaultFee is always paid expect if vaultFee exceed paidPayoff
-            if (!reachedMaturity && vaultFee > paidPayoff) {
+            if (!expired && vaultFee > paidPayoff) {
                 revert PayoffTooLow();
             }
 
@@ -327,12 +319,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         position.amountUp -= amount.up;
         position.amountDown -= amount.down;
         // NOTE: must be updated after the previous computations based on used liquidity.
-        liquidity.decreaseUsage(strike, amount);
+        _liquidity[expiry].decreaseUsage(strike, amount);
 
         uint256 netFee = fee - vaultFee;
-        IVault(vault).transferPayoff(recipient, paidPayoff, reachedMaturity);
+        IVault(vault).transferPayoff(recipient, paidPayoff, expired);
 
-        IVault(vault).transferPayoff(address(this), netFee, reachedMaturity);
+        IVault(vault).transferPayoff(address(this), netFee, expired);
         IERC20Metadata(baseToken).safeApprove(address(feeManager), netFee);
         feeManager.receiveFee(netFee);
         feeManager.trackVaultFee(address(vault), vaultFee);
@@ -467,20 +459,20 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
     /// @inheritdoc IDVP
     function payoff(
-        uint256 epoch_,
+        uint256 expiry,
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown
     ) public view virtual returns (uint256 payoff_, uint256 fee_) {
-        Position.Info storage position = _getPosition(epoch_, msg.sender, strike);
+        Position.Info storage position = _getPosition(expiry, msg.sender, strike);
         if (!position.exists()) {
             revert PositionNotFound();
         }
 
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
-        bool reachedMaturity = position.epoch != getEpoch().current;
+        bool expired = position.epoch != getEpoch().current;
 
-        if (!reachedMaturity) {
+        if (!expired) {
             // The user wants to know how much is her position worth before reaching maturity
             uint256 price = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
             payoff_ = _getMarketValue(strike, amount_, false, price);
@@ -500,11 +492,11 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         IFeeManager feeManager = IFeeManager(_getFeeManager());
         (fee_, ) = feeManager.tradeSellFee(
             address(this),
+            expiry,
             amount_.up + amount_.down,
             payoff_,
             position.premium,
-            _baseTokenDecimals,
-            reachedMaturity
+            _baseTokenDecimals
         );
 
         if (payoff_ >= fee_) {

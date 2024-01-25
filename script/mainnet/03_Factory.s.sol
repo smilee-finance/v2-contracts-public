@@ -101,7 +101,6 @@ contract DeployDVP is EnhancedScript {
 
         // ToDo: Choose initial feeParams
         FeeManager.FeeParams memory feeParams = FeeManager.FeeParams(
-            0,    
             0,
             0,
             0,
@@ -146,18 +145,16 @@ contract DeployDVP is EnhancedScript {
         uint256 minFeeBeforeThreshold,
         uint256 minFeeAfterThreshold,
         uint256 successFeeTier,
-        uint256 vaultSellMinFee,
         uint256 feePercentage,
         uint256 capPercertage,
         uint256 mFeePercentage,
         uint256 mCapPercentage
     ) public {
         FeeManager.FeeParams memory params = FeeManager.FeeParams(
-            timeToExpiryThreshold,    
+            timeToExpiryThreshold,
             minFeeBeforeThreshold,
             minFeeAfterThreshold,
             successFeeTier,
-            vaultSellMinFee,
             feePercentage,
             capPercertage,
             mFeePercentage,

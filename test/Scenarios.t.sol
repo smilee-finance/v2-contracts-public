@@ -235,7 +235,7 @@ contract TestScenariosJson is Test {
             t0.pre.vaultFee,
             t0.pre.vaultFee,
             t0.pre.successFee,
-            t0.pre.vaultFee,
+            /* [TODO FIX] t0.pre.vaultFee, */
             t0.pre.fee,
             t0.pre.capFee,
             t0.pre.feeMaturity,

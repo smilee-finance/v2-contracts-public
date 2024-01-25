@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {IDVP} from "@project/interfaces/IDVP.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
@@ -64,7 +65,7 @@ contract IGTest is Test {
 
         FeeManager(ap.feeManager()).setDVPFee(
             address(ig),
-            FeeManager.FeeParams(3600, 0, 0, 0, 0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18)
+            FeeManager.FeeParams(3600, 0, 0, 0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18)
         );
 
         registry.register(address(ig));
@@ -477,7 +478,7 @@ contract IGTest is Test {
     }
 
     function _getTimeLockedFinanceParameters() private view returns (TimeLockedFinanceValues memory currentValues) {
-        (, , , , , , , , TimeLockedFinanceParameters memory igParams, ,) = ig.financeParameters();
+        (, , , , , , , , TimeLockedFinanceParameters memory igParams, , ) = ig.financeParameters();
         currentValues = TimeLockedFinanceValues({
             sigmaMultiplier: igParams.sigmaMultiplier.get(),
             tradeVolatilityUtilizationRateFactor: igParams.tradeVolatilityUtilizationRateFactor.get(),

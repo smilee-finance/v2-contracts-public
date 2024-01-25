@@ -659,23 +659,23 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         if (baseTokens < pendings) {
             // We must cover the missing base tokens by selling an amount of side tokens:
             uint256 missingBaseTokens = pendings - baseTokens;
-            uint256 sideTokensToSellToCoverMissingBaseTokens = exchange.getInputAmount(
+            uint256 sideTokensForMissingBaseTokens = exchange.getInputAmount(
                 sideToken,
                 baseToken,
                 missingBaseTokens
             );
 
             // see [IL-NOTE]
-            if (sideTokensToSellToCoverMissingBaseTokens > sideTokens) {
+            if (sideTokensForMissingBaseTokens > sideTokens) {
                 revert InsufficientLiquidity(
-                    bytes4(keccak256("_adjustBalances():sideTokensToSellToCoverMissingBaseTokens > sideTokens"))
+                    bytes4(keccak256("_adjustBalances():sideTokensForMissingBaseTokens > sideTokens"))
                 );
             }
 
             // Once we covered the missing base tokens, we still have to reach an equal weight portfolio
             // with residual liquidity, so we also have to sell half of the remaining side tokens
-            uint256 halfOfRemainingSideTokens = (sideTokens - sideTokensToSellToCoverMissingBaseTokens) / 2;
-            uint256 sideTokensToSell = sideTokensToSellToCoverMissingBaseTokens + halfOfRemainingSideTokens;
+            uint256 halfOfRemainingSideTokens = (sideTokens - sideTokensForMissingBaseTokens) / 2;
+            uint256 sideTokensToSell = sideTokensForMissingBaseTokens + halfOfRemainingSideTokens;
             _sellSideTokens(sideTokensToSell);
         } else {
             uint256 halfNotional = notional() / 2;

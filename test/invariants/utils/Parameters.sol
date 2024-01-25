@@ -28,7 +28,6 @@ abstract contract Parameters {
             minFeeBeforeTimeThreshold: 0,
             minFeeAfterTimeThreshold: 0,
             successFeeTier: 0,
-            vaultSellMinFee: 0,
             feePercentage: 0.0035e18,
             capPercentage: 0.125e18,
             maturityFeePercentage: 0.0015e18,
