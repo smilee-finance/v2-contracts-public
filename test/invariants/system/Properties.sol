@@ -83,11 +83,11 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         _ACCEPTED_REVERTS[_GENERAL_5.code][_ERR_INSUFF_LIQUIDITY_ROLL_03] = true;
 
         // GENERAL 6
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_NOT_ENOUGH_NOTIONAL] = true;    // buy never more than notional available
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_EXCEEDS_AVAILABLE] = true;      // sell never more than owned
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFFICIENT_INPUT] = true;     // delta hedge can't be performed
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_PRICE_ZERO] = true;             // option price is 0
-        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFF_LIQUIDITY_EDGE_01] = true;   // delta hedge can't be performed
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_NOT_ENOUGH_NOTIONAL] = true; // buy never more than notional available
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_EXCEEDS_AVAILABLE] = true; // sell never more than owned
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFFICIENT_INPUT] = true; // delta hedge can't be performed
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_PRICE_ZERO] = true; // option price is 0
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFF_LIQUIDITY_EDGE_01] = true; // delta hedge can't be performed
     }
 
     /// @notice Share price never goes to 0
@@ -103,7 +103,7 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         // uint256 price = IPriceOracle(ap.priceOracle()).getPrice(sideToken, address(baseToken));
         uint256 price = IPriceOracle(ap.priceOracle()).getPrice(ig.sideToken(), ig.baseToken());
         FeeManager feeManager = FeeManager(ap.feeManager());
-        (, , , , uint256 vaultSellMinFee, , , , ) = feeManager.dvpsFeeParams(address(ig));
-        return price >= 0 + vaultSellMinFee;
+        (, , uint256 minFeeAfterTimeThreshold, , , , , ) = feeManager.dvpsFeeParams(address(ig));
+        return price >= 0 + minFeeAfterTimeThreshold;
     }
 }

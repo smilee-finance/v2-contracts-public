@@ -503,7 +503,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             uint256 minFeeBeforeTimeThreshold,
             uint256 minFeeAfterTimeThreshold,
             ,
-            uint256 vaultSellMinFee,
             ,
             ,
             ,
@@ -517,7 +516,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 gte(fee, minFeeBeforeTimeThreshold, _IG_21.desc);
             }
         } else {
-            gte(fee, vaultSellMinFee, _IG_21.desc);
+            gte(fee, minFeeAfterTimeThreshold, _IG_21.desc);
         }
     }
 

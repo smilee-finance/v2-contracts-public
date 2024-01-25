@@ -24,8 +24,6 @@ abstract contract State is Properties {
     }
 
     function _pushTrades(BuyInfo memory buyInfo) internal {
-        console.log("buyInfo.amountUp", buyInfo.amountUp);
-        console.log("buyInfo.amountDown", buyInfo.amountDown);
         if (buyInfo.amountUp > 0 && buyInfo.amountDown == 0) {
             bullTrades.push(buyInfo);
         } else if (buyInfo.amountUp == 0 && buyInfo.amountDown > 0) {

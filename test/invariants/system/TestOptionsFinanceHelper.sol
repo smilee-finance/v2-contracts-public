@@ -24,7 +24,7 @@ library TestOptionsFinanceHelper {
         uint256 tau,
         uint256 n1,
         uint256 n2
-    ) private  returns (uint256) {
+    ) private pure returns (uint256) {
         UD60x18 p = (ud(s).mul(ud(n1))).sub(ud(k).mul(ud(FinanceIGPrice._ert(r, tau))).mul(ud(n2)));
         return ud(amount).mul(p).div(ud(k)).unwrap();
     }
@@ -38,7 +38,7 @@ library TestOptionsFinanceHelper {
         uint256 tau,
         uint256 n1,
         uint256 n2
-    ) private  returns (uint256) {
+    ) private pure returns (uint256) {
         UD60x18 p = (ud(k).mul(ud(FinanceIGPrice._ert(r, tau))).mul(ud(n2))).sub(ud(s).mul(ud(n1)));
         return ud(amount).mul(p).div(ud(k)).unwrap();
     }
@@ -101,7 +101,7 @@ library TestOptionsFinanceHelper {
     function _optionCallPremiumK(
         uint256 amount,
         FinanceIGPrice.Parameters memory params
-    ) internal returns (uint256) {
+    ) internal pure returns (uint256) {
         (FinanceIGPrice.DTerms memory ds, , ) = FinanceIGPrice.dTerms(params);
         FinanceIGPrice.NTerms memory ns = FinanceIGPrice.nTerms(ds);
         return _optionCallPremium(amount, params.s, params.k, params.r, params.tau, ns.n1, ns.n2);
@@ -113,7 +113,7 @@ library TestOptionsFinanceHelper {
     function _optionCallPremiumKb(
         uint256 amount,
         FinanceIGPrice.Parameters memory params
-    ) internal returns (uint256) {
+    ) internal pure returns (uint256) {
         (, , FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(params);
         FinanceIGPrice.NTerms memory ns = FinanceIGPrice.nTerms(dbs);
         return _optionCallPremium(amount, params.s, params.kb, params.r, params.tau, ns.n1, ns.n2);
@@ -125,7 +125,7 @@ library TestOptionsFinanceHelper {
     function _optionPutPremiumK(
         uint256 amount,
         FinanceIGPrice.Parameters memory params
-    ) internal returns (uint256) {
+    ) internal pure returns (uint256) {
         (FinanceIGPrice.DTerms memory ds, , ) = FinanceIGPrice.dTerms(params);
         ds.d1 = -ds.d1;
         ds.d2 = -ds.d2;
@@ -139,7 +139,7 @@ library TestOptionsFinanceHelper {
     function _optionPutPremiumKa(
         uint256 amount,
         FinanceIGPrice.Parameters memory params
-    ) internal returns (uint256) {
+    ) internal pure returns (uint256) {
         (, FinanceIGPrice.DTerms memory das, ) = FinanceIGPrice.dTerms(params);
         das.d1 = -das.d1;
         das.d2 = -das.d2;
@@ -183,7 +183,7 @@ library TestOptionsFinanceHelper {
         uint256 riskFree,
         uint256 sigma,
         FinanceParameters memory finParams
-    ) public returns (uint256, uint256) {
+    ) public view returns (uint256, uint256) {
         FinanceIGPrice.Parameters memory params = FinanceIGPrice.Parameters(
             riskFree, // r
             sigma,
