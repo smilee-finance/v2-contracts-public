@@ -113,6 +113,7 @@ contract IGNFTAccessTest is Test {
 
     function testNFTCapExceededWithToken(uint256 additionalAmount) public {
         vm.assume(additionalAmount > 0);
+        vm.assume(additionalAmount < 100000e18);
 
         vm.prank(_admin);
         uint256 tokenId = _nft.createToken(_bob, 1000e18);

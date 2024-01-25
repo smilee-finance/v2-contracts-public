@@ -14,6 +14,7 @@ import {FeeManager} from "@project/FeeManager.sol";
 import {Vault} from "@project/Vault.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
+import {IGUtils} from "./utils/IGUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
@@ -84,8 +85,6 @@ contract IGVaultTest is Test {
         feeManager = FeeManager(ap.feeManager());
     }
 
-    // ToDo: add test where we roll IG epochs without deposits in the vault
-
     function testEpochRollableOnlyByAdmin() public {
         assertNotEq(address(0), vault.dvp());
 
@@ -93,14 +92,12 @@ contract IGVaultTest is Test {
         assertNotEq(epoch.previous, epoch.current);
         uint256 epochBeforeRoll = epoch.current;
 
-        Utils.skipDay(true, vm);
 
         vm.prank(alice);
         vm.expectRevert();
         ig.rollEpoch();
 
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         epoch = vault.getEpoch();
         assertEq(epochBeforeRoll, epoch.previous);
@@ -126,9 +123,7 @@ contract IGVaultTest is Test {
 
         VaultUtils.addVaultDeposit(alice, 0.5 ether, admin, address(vault), vm);
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         _assurePremium(charlie, 0, inputAmount, 0);
 
@@ -147,9 +142,7 @@ contract IGVaultTest is Test {
         VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
         VaultUtils.addVaultDeposit(bob, bobAmount, admin, address(vault), vm);
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         uint256 vaultNotionalBeforeMint = vault.notional();
         (uint256 premium, uint256 fee) = _assurePremium(charlie, 0, optionAmount, 0);
@@ -200,9 +193,7 @@ contract IGVaultTest is Test {
         VaultUtils.addVaultDeposit(alice, params.aliceAmount, admin, address(vault), vm);
         VaultUtils.addVaultDeposit(bob, params.bobAmount, admin, address(vault), vm);
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
         assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
@@ -319,9 +310,7 @@ contract IGVaultTest is Test {
         VaultUtils.addVaultDeposit(alice, params.aliceAmount, admin, address(vault), vm);
         VaultUtils.addVaultDeposit(bob, params.bobAmount, admin, address(vault), vm);
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         {
             uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
@@ -371,9 +360,7 @@ contract IGVaultTest is Test {
         uint256 positionEpoch = ig.currentEpoch();
         uint256 positionStrike = ig.currentStrike();
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         // {
         //     uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
@@ -444,18 +431,14 @@ contract IGVaultTest is Test {
         uint256 aliceAmount = 10000e18;
         VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
         // VaultUtils.logState(vault);
 
         // Initiate half withdraw (500):
         vm.prank(alice);
         vault.initiateWithdraw(500e18);
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
         // VaultUtils.logState(vault);
 
         // Mint option of 250:
@@ -464,17 +447,13 @@ contract IGVaultTest is Test {
         vm.prank(charlie);
         ig.mint(charlie, 0, optionAmount, 0, 0, 0.1e18, 0);
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
         // VaultUtils.logState(vault);
     }
 
     function testIGBehaviourWhenVaultIsPaused() public {
         VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         uint256 optionAmount = 250e18;
         (uint256 premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
@@ -519,16 +498,12 @@ contract IGVaultTest is Test {
         vault.changePauseState();
 
         // Vault is pause but we can still call rollepoch on ig
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+       IGUtils.rollEpoch(ap, ig, admin, true, vm);
     }
 
     function testBehaviorWhenVaultHasBeenKilled() public {
         VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         // Buy first option
         uint256 optionAmount = 250e18;
@@ -538,9 +513,7 @@ contract IGVaultTest is Test {
 
         uint256 firstOptionEpoch = ig.currentEpoch();
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         // Buy second option during the manually kill epoch.
         optionAmount = 250e18;
@@ -553,9 +526,7 @@ contract IGVaultTest is Test {
         vm.prank(admin);
         vault.killVault();
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         // Strike is the same for the two options because price won't never change.
         uint256 strike = ig.currentStrike();
@@ -580,9 +551,7 @@ contract IGVaultTest is Test {
 
     function testBehaviorWhenEpochFinishedButNotRolled() public {
         VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         // Buy first option
         uint256 optionAmount = 250e18;
@@ -592,9 +561,7 @@ contract IGVaultTest is Test {
 
         uint256 firstOptionEpoch = ig.currentEpoch();
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         // Buy second option during the second epoch.
         optionAmount = 250e18;
@@ -632,38 +599,29 @@ contract IGVaultTest is Test {
         // First epoch rolled
         uint256 lastEpoch = ig.currentEpoch();
 
-        Utils.skipDay(true, vm);
-
-        vm.startPrank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
         Epoch memory epoch = ig.getEpoch();
 
         assertNotEq(lastEpoch, ig.currentEpoch());
-        assertNotEq(lastEpoch, epoch.previous);
+        assertEq(lastEpoch, epoch.previous);
 
         // Second epoch rolled
         lastEpoch = ig.currentEpoch();
 
-        Utils.skipDay(true, vm);
-
-        vm.startPrank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
         epoch = ig.getEpoch();
 
         assertNotEq(lastEpoch, ig.currentEpoch());
-        assertNotEq(lastEpoch, epoch.previous);
+        assertEq(lastEpoch, epoch.previous);
 
         // Third epoch rolled
         lastEpoch = ig.currentEpoch();
 
-        Utils.skipDay(true, vm);
-
-        vm.startPrank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
         epoch = ig.getEpoch();
 
         assertNotEq(lastEpoch, ig.currentEpoch());
-        assertNotEq(lastEpoch, epoch.previous);
+        assertEq(lastEpoch, epoch.previous);
     }
 
     function _assurePremium(

@@ -11,6 +11,7 @@ import {TimeLock, TimeLockedBool, TimeLockedUInt} from "@project/lib/TimeLock.so
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
+import {IGUtils} from "./utils/IGUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
@@ -41,6 +42,7 @@ contract IGTest is Test {
     address bob = address(0x2);
 
     constructor() {
+        vm.warp(EpochFrequency.REF_TS);
         vm.startPrank(admin);
         ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), admin);
@@ -77,11 +79,7 @@ contract IGTest is Test {
         // Suppose Vault has already liquidity
         VaultUtils.addVaultDeposit(alice, 100 ether, admin, address(vault), vm);
 
-        vm.warp(EpochFrequency.REF_TS + 1);
-
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
     }
 
     // ToDo: review with a different vault
@@ -294,8 +292,7 @@ contract IGTest is Test {
         ig.changePauseState();
         assertEq(ig.paused(), false);
 
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         epoch = ig.currentEpoch();
         strike = ig.currentStrike();
@@ -316,13 +313,13 @@ contract IGTest is Test {
         uint256 thirdExpiry = EpochFrequency.nextExpiry(secondExpiry, EpochFrequency.DAILY);
         Utils.skipDay(true, vm);
         Utils.skipDay(true, vm);
-        Utils.skipDay(true, vm);
+        
 
         uint256 epochNumbers = ig.getNumberOfEpochs();
         assertEq(epochNumbers, 1);
 
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
+
         uint256 nextEpoch = ig.currentEpoch();
         uint256 lastEpoch = ig.lastRolledEpoch();
         epochNumbers = ig.getNumberOfEpochs();
@@ -409,9 +406,7 @@ contract IGTest is Test {
         assertEq(0.9e18, currentValues.volatilityPriceDiscountFactor);
         assertEq(true, currentValues.useOracleImpliedVolatility);
 
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        ig.rollEpoch();
+        IGUtils.rollEpoch(ap, ig, admin, true, vm);
 
         currentValues = _getTimeLockedFinanceParameters();
         assertEq(3e18, currentValues.sigmaMultiplier);

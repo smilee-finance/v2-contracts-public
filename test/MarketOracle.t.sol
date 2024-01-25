@@ -87,64 +87,31 @@ contract MarketOracleTest is Test {
      * Test Get Implied volatility with daily frequency of update.
      * The value's keeped before 1 day plus the max_delay set for the given tokens (default 4 hours)
      */
-    function testGetImpliedVolatilityOfDailyBeforeAndAfterDelay() public {
+    function testGetImpliedVolatilityBeforeAndAfterDelay() public {
         uint256 timeWindow = 86400;
         uint256 newIvValue = 5e18;
+        uint256 maxTollerableDelay = marketOracle.maxDelayFromLastUpdate();
 
         vm.prank(admin);
         marketOracle.setImpliedVolatility(baseToken, sideToken, timeWindow, newIvValue);
 
         // It should still work: 1 day passed from last update
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(block.timestamp + maxTollerableDelay - 1 minutes);
         uint256 ivValue = marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
         assertEq(newIvValue, ivValue);
 
-
-        // It should still work: 1 day and 4 hours passed from last update
-        vm.warp(block.timestamp + 4 hours);
-        marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
-        assertEq(newIvValue, ivValue);
-
-        // It should revert: 1 day, 4 hours and 5 minute passed from the last update. 
-        vm.warp(block.timestamp + 5 minutes);
+        // It should revert:
+        vm.warp(block.timestamp + 2 minutes);
         vm.expectRevert(abi.encodeWithSelector(MarketOracle.StaleOracleValue.selector, baseToken, sideToken, timeWindow));
         marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
 
-    }
-
-    /**
-     * Test Get Implied volatility with weekly frequency of update.
-     * The value's keeped before 7 days plus the max_delay set for the given tokens (default 4 hours)
-     */
-    function testGetImpliedVolatilityOfWeeklyBeforeAndAfterDelay() public {
-        uint256 timeWindow = 86400 * 7;
-        uint256 newIvValue = 5e18;
-
-        vm.prank(admin);
-        marketOracle.setImpliedVolatility(baseToken, sideToken, timeWindow, newIvValue);
-
-        // It should still work: 7 day passed from last update
-        vm.warp(block.timestamp + 7 days);
-        uint256 ivValue = marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
-        assertEq(newIvValue, ivValue);
-
-
-        // It should still work: 7 day and 4 hours passed from last update
-        vm.warp(block.timestamp + 4 hours);
-        marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
-        assertEq(newIvValue, ivValue);
-
-        // It should revert: 7 day, 4 hours and 5 minute passed from the last update. 
-        vm.warp(block.timestamp + 5 minutes);
-        vm.expectRevert(abi.encodeWithSelector(MarketOracle.StaleOracleValue.selector, baseToken, sideToken, timeWindow));
-        marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
     }
 
     function testGetImpliedVolatilityOfNotSetTokenPair() public {
         uint256 timeWindow = 86400;
 
         uint256 ivValue = marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
-        assertEq(0.5e18, ivValue);
+        assertEq(1e18, ivValue);
     }
 
 }

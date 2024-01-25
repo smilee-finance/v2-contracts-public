@@ -23,6 +23,8 @@ contract RegistryTest is Test {
     AddressProvider ap;
 
     constructor() {
+        vm.warp(EpochFrequency.REF_TS);
+
         vm.startPrank(admin);
 
         ap = new AddressProvider(0);
@@ -174,7 +176,6 @@ contract RegistryTest is Test {
         vault.setAllowedDVP(address(dvp));
         vm.stopPrank();
 
-        vm.warp(EpochFrequency.REF_TS);
 
         MockedVault vault2 = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         vm.startPrank(admin);

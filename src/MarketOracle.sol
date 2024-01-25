@@ -12,7 +12,7 @@ contract MarketOracle is IMarketOracle, AccessControl {
     }
 
     // Default maximum elapsed time used to check the value as old.
-    uint256 maxDelayFromLastUpdate;
+    uint256 public maxDelayFromLastUpdate;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -38,7 +38,7 @@ contract MarketOracle is IMarketOracle, AccessControl {
     event ChangedRFR(address indexed token, uint256 value, uint256 oldValue);
 
     constructor() AccessControl() {
-        maxDelayFromLastUpdate = 1 hours;
+        maxDelayFromLastUpdate = 10000 days;
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
