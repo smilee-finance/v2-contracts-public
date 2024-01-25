@@ -169,10 +169,17 @@ contract FeeManagerTest is Test {
     }
 
     function testTradeSellFee() public {
+
+        // Since block.timestamp starts from 1, set 1000 to avoid underlow on simulating an expired epoch
+        vm.warp(1000);
+        
+        uint256 vaultMinFee = 0.2e6;
+        // Ignore timeToExpiry currently, so we set minFeeBeforeTimeThreshold and minFeeAfterTimeThreshold with the same value. 
+        // The thresholded fees are now applied both to buy or sell.
         FeeManager.FeeParams memory params = FeeManager.FeeParams({
             timeToExpiryThreshold: 3600, // 1H
-            minFeeBeforeTimeThreshold: 0.3e6,
-            minFeeAfterTimeThreshold: 0.2e6,
+            minFeeBeforeTimeThreshold: vaultMinFee,
+            minFeeAfterTimeThreshold: vaultMinFee,
             successFeeTier: 0.05e18,
             feePercentage: 0.05e18, // Fee Applied to Notional
             capPercentage: 0.01e18, // Fee Applied to Premium
@@ -189,7 +196,7 @@ contract FeeManagerTest is Test {
         uint256 amountUp = 3000e6;
         uint256 amountDown = 5e6;
 
-        uint256 expectedFee = 0.2e6 /* [TODO FIX] + params.vaultSellMinFee */; // min(3005 * 0.05, 20 * 0.01) = min(150.25, 0.2) = 0.2
+        uint256 expectedFee = 0.2e6 + vaultMinFee; // min(3005 * 0.05, 20 * 0.01) = min(150.25, 0.2) = 0.2 + 0.4 minFee = 0.5
         // uint256 expectedMinFee = 5e6;
 
         (uint256 fee, uint256 minFee) = _feeManager.tradeSellFee(
@@ -201,7 +208,7 @@ contract FeeManagerTest is Test {
             6
         );
         assertEq(expectedFee, fee);
-        /* [TODO FIX] assertEq(params.vaultSellMinFee, minFee); */
+        assertEq(vaultMinFee, minFee);
 
         // Check Sell Without Profit Maturity Reached (Premium based fee)
         premium = 20e6;
@@ -213,7 +220,7 @@ contract FeeManagerTest is Test {
 
         (fee, minFee) = _feeManager.tradeSellFee(
             _fakeDVP,
-            block.timestamp + 100, // anytime in the future
+            block.timestamp - 100, // anytime in the past
             amountUp + amountDown,
             premium,
             initialPaidPremium,
@@ -228,7 +235,7 @@ contract FeeManagerTest is Test {
         amountUp = 30e6;
         amountDown = 5e6;
 
-        expectedFee = 1.75e6 /* [TODO FIX] + params.vaultSellMinFee */; // min(35 * 0.05, 200 * 0.01) = min(1.75, 2) = 1.75
+        expectedFee = 1.75e6 + vaultMinFee; // min(35 * 0.05, 200 * 0.01) = min(1.75, 2) = 1.75
 
         (fee, minFee) = _feeManager.tradeSellFee(
             _fakeDVP,
@@ -239,7 +246,7 @@ contract FeeManagerTest is Test {
             6
         );
         assertEq(expectedFee, fee);
-        /* [TODO FIX] vaultSellMinFee, minFee); */
+        assertEq(vaultMinFee, minFee);
 
         // Check Sell Without Profit Maturity Reached (Notional based fee)
         premium = 200e6;
@@ -267,7 +274,7 @@ contract FeeManagerTest is Test {
         amountDown = 5e6;
 
         // successFee = (20 - 10) * 0.05 = 0.5
-        expectedFee = 0.2e6 + 0.5e6 /* [TODO FIX] + params.vaultSellMinFee */; // min(3005 * 0.05, 20 * 0.01) = min(150.25, 0.2) = 0.2
+        expectedFee = 0.2e6 + 0.5e6 + vaultMinFee; // min(3005 * 0.05, 20 * 0.01) = min(150.25, 0.2) = 0.2
 
         (fee, minFee) = _feeManager.tradeSellFee(
             _fakeDVP,
@@ -278,7 +285,7 @@ contract FeeManagerTest is Test {
             6
         );
         assertEq(expectedFee, fee);
-        /* [TODO FIX] assertEq(params.vaultSellMinFee, minFee); */
+        assertEq(vaultMinFee, minFee);
 
         // Check Sell With Profit Maturity Reached (Premium based fee)
         premium = 20e6;
@@ -307,7 +314,7 @@ contract FeeManagerTest is Test {
 
         // successFee = (200 - 100) * 0.05 = 5
         // tradeFee = min(35 * 0.05, 200 * 0.01) = min(1.75, 2) = 1.75
-        expectedFee = 1.75e6 + 5e6 /* [TODO FIX] + params.vaultSellMinFee */;
+        expectedFee = 1.75e6 + 5e6 + vaultMinFee;
 
         (fee, minFee) = _feeManager.tradeSellFee(
             _fakeDVP,
@@ -318,7 +325,7 @@ contract FeeManagerTest is Test {
             6
         );
         assertEq(expectedFee, fee);
-        /* [TODO FIX] assertEq(params.vaultSellMinFee, minFee); */
+        assertEq(vaultMinFee, minFee);
 
         // Check Sell With Profit Maturity Reached (Notional based fee)
         premium = 200e6;
@@ -353,8 +360,8 @@ contract FeeManagerTest is Test {
             initialPaidPremium,
             18
         );
-        /* [TODO FIX] assertEq(params.vaultSellMinFee, fee); */
-        /* [TODO FIX] assertEq(params.vaultSellMinFee, minFee); */
+        assertEq(vaultMinFee, fee);
+        assertEq(vaultMinFee, minFee);
 
         // Check Premium 0 Maturity Reached
 
