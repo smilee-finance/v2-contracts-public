@@ -47,7 +47,7 @@ library FinanceIGDelta {
         uint256 kb;
     }
 
-    int256 internal constant _MAX_EXP = 135305999368893231589;
+    int256 internal constant _MAX_EXP = 133_084258667509499441;
 
     /**
         @notice Computes unitary delta hedge quantity for bull/bear options
@@ -235,7 +235,7 @@ library FinanceIGDelta {
             int256 smz = SignedMath.revabs(mz.unwrap(), (m > 0 && z_ < 0) || (m < 0 && z_ > 0));
             expE = smz + SignedMath.revabs(aq.unwrap(), (a > 0 && q > 0) || (a < 0 && q < 0));
         }
-        if (expE > _MAX_EXP) {
+        if (expE >= _MAX_EXP) {
             return 0;
         }
 
@@ -268,7 +268,7 @@ library FinanceIGDelta {
                 ) +
                 SignedMath.revabs(b.mul(ud(SignedMath.abs(q))).unwrap(), (q > 0));
         }
-        if (expE > _MAX_EXP) {
+        if (expE >= _MAX_EXP) {
             return 0;
         }
 
