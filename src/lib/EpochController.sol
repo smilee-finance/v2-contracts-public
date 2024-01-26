@@ -27,11 +27,6 @@ library EpochController {
     }
 
     function roll(Epoch storage epoch) external {
-        // Ensures that the current epoch is concluded
-        if (!isFinished(epoch)) {
-            revert EpochNotFinished();
-        }
-
         epoch.previous = epoch.current;
         epoch.current = _getNextExpiry(epoch.current, epoch.frequency);
         epoch.numberOfRolledEpochs++;

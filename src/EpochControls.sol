@@ -22,6 +22,8 @@ abstract contract EpochControls is IEpochControls {
 
     /// @inheritdoc IEpochControls
     function rollEpoch() external virtual override {
+        _checkEpochFinished();
+
         _beforeRollEpoch();
         _epoch.roll();
         _afterRollEpoch();
