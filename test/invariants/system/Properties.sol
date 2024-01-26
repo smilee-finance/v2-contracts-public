@@ -61,13 +61,13 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
     bytes32 internal constant _ERR_PRICE_ZERO = keccak256(abi.encodeWithSignature("PriceZero()"));
     bytes32 internal constant _ERR_NOT_ENOUGH_NOTIONAL = keccak256(abi.encodeWithSignature("NotEnoughNotional()"));
 
-    bytes4 internal constant _INSUFFCIENT_LIQUIDITY_SEL = bytes4(keccak256("InsufficientLiquidity(bytes4)"));
-    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_01 = keccak256(abi.encodeWithSelector(_INSUFFCIENT_LIQUIDITY_SEL, bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs"))));
-    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_02 = keccak256(abi.encodeWithSelector(_INSUFFCIENT_LIQUIDITY_SEL, bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0"))));
-    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_03 = keccak256(abi.encodeWithSelector(_INSUFFCIENT_LIQUIDITY_SEL, bytes4(keccak256("_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"))));
+    bytes4 internal constant _INSUFFICIENT_LIQUIDITY_SEL = bytes4(keccak256("InsufficientLiquidity(bytes4)"));
+    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_01 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs"))));
+    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_02 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0"))));
+    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_03 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"))));
 
-    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_EDGE_01 = keccak256(abi.encodeWithSelector(_INSUFFCIENT_LIQUIDITY_SEL, bytes4(keccak256("_sellSideTokens()"))));
-    // bytes32 internal constant _ERR_INSUFF_LIQUIDITY_EDGE_02 = keccak256(abi.encodeWithSelector(_INSUFFCIENT_LIQUIDITY_SEL, bytes4(keccak256("_buySideTokens()")))); // Replace by InsufficientInput()
+    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_EDGE_01 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_sellSideTokens()"))));
+    // bytes32 internal constant _ERR_INSUFF_LIQUIDITY_EDGE_02 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_buySideTokens()")))); // Replace by InsufficientInput()
     bytes32 internal constant _ERR_INSUFFICIENT_INPUT = keccak256(abi.encodeWithSignature("InsufficientInput()")); // see TestnetSwapAdapter
 
     // Accept reverts array
@@ -77,10 +77,10 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         // GENERAL 1 - No reverts allowed
 
         // GENERAL 5
-        _ACCEPTED_REVERTS[_GENERAL_4.code][_ERR_EPOCH_NOT_FINISHED] = true;
-        _ACCEPTED_REVERTS[_GENERAL_5.code][_ERR_INSUFF_LIQUIDITY_ROLL_01] = true;
-        _ACCEPTED_REVERTS[_GENERAL_5.code][_ERR_INSUFF_LIQUIDITY_ROLL_02] = true;
-        _ACCEPTED_REVERTS[_GENERAL_5.code][_ERR_INSUFF_LIQUIDITY_ROLL_03] = true;
+        _ACCEPTED_REVERTS[_GENERAL_4.code][_ERR_INSUFF_LIQUIDITY_ROLL_01] = true;
+        _ACCEPTED_REVERTS[_GENERAL_4.code][_ERR_INSUFF_LIQUIDITY_ROLL_02] = true;
+        _ACCEPTED_REVERTS[_GENERAL_4.code][_ERR_INSUFF_LIQUIDITY_ROLL_03] = true;
+        _ACCEPTED_REVERTS[_GENERAL_5.code][_ERR_EPOCH_NOT_FINISHED] = true;
 
         // GENERAL 6
         _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_NOT_ENOUGH_NOTIONAL] = true; // buy never more than notional available

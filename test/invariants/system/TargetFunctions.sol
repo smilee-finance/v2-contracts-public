@@ -287,9 +287,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         hevm.prank(admin);
         try ig.rollEpoch() {} catch (bytes memory err) {
             if (block.timestamp > currentEpoch) {
-                _shouldNotRevertUnless(err, _GENERAL_5);
+                _shouldNotRevertUnless(err, _GENERAL_4);
             }
-            _shouldNotRevertUnless(err, _GENERAL_4);
+            _shouldNotRevertUnless(err, _GENERAL_5);
         }
 
         epochs.push(EpochInfo(currentEpoch, _endingStrike));
@@ -370,6 +370,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     function _buy(Amount memory amount) internal returns (uint256) {
         uint256 currentStrike = ig.currentStrike();
         (uint256 expectedPremium, uint256 fee) = ig.premium(currentStrike, amount.up, amount.down);
+        precondition(expectedPremium > 100); // Slippage has no influence for value <= 100
         uint256 maxPremium = expectedPremium + (SLIPPAGE * expectedPremium) / 1e18;
 
         _checkFee(fee, _BUY);
