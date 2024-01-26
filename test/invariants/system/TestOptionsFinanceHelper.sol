@@ -25,8 +25,8 @@ library TestOptionsFinanceHelper {
         uint256 n1,
         uint256 n2
     ) private pure returns (uint256) {
-        UD60x18 p = (ud(s).mul(ud(n1))).sub(ud(k).mul(ud(FinanceIGPrice._ert(r, tau))).mul(ud(n2)));
-        return ud(amount).mul(p).div(ud(k)).unwrap();
+        uint256 p = (ud(s).mul(ud(n1))).sub(ud(k).mul(ud(FinanceIGPrice._ert(r, tau))).mul(ud(n2))).unwrap();
+        return (amount * p) / k;
     }
 
     // K * e^(-r tau) * N(-d2) - S * N(-d1)
@@ -39,8 +39,8 @@ library TestOptionsFinanceHelper {
         uint256 n1,
         uint256 n2
     ) private pure returns (uint256) {
-        UD60x18 p = (ud(k).mul(ud(FinanceIGPrice._ert(r, tau))).mul(ud(n2))).sub(ud(s).mul(ud(n1)));
-        return ud(amount).mul(p).div(ud(k)).unwrap();
+        uint256 p = (ud(k).mul(ud(FinanceIGPrice._ert(r, tau))).mul(ud(n2))).sub(ud(s).mul(ud(n1))).unwrap();
+        return (amount * p) / k;
     }
 
     // S * (2 N(d1) - 1) - K * e^(-r tau) * (2 N(d2) - 1)

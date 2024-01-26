@@ -617,8 +617,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
     function _rollepochAssertionAfter() internal {
         if (_endingVaultState.liquidity.lockedInitially > 0) {
-            // uint256 expectedPendingWithdrawals = _endingVaultState.withdrawals.newHeldShares * vault.epochPricePerShare(ig.getEpoch().previous);
-            // eq(_initialVaultState.liquidity.pendingWithdrawals, _endingVaultState.liquidity.pendingWithdrawals + expectedPendingWithdrawals, _VAULT_19.desc);
+            uint256 expectedPendingWithdrawals = (_endingVaultState.withdrawals.newHeldShares * vault.epochPricePerShare(ig.getEpoch().previous)) / 1e18;
+            eq(_initialVaultState.liquidity.pendingWithdrawals, _endingVaultState.liquidity.pendingWithdrawals + expectedPendingWithdrawals, _VAULT_19.desc);
             eq(
                 _initialVaultState.withdrawals.heldShares,
                 _endingVaultState.withdrawals.heldShares + _endingVaultState.withdrawals.newHeldShares,
