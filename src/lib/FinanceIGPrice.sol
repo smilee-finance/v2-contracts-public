@@ -349,7 +349,7 @@ library FinanceIGPrice {
         kA = ud(params.k).mul(sd(SignedMath.neg(mSigmaT)).exp().intoUD60x18()).unwrap();
         kB = ud(params.k).mul(ud(mSigmaT).exp()).unwrap();
 
-        // NOTE: even if almost impossible, protect against crazy volatilities
+        // NOTE: protect against crazy volatilities
         if (kA < 0.0001e18) {
             kA = 0.0001e18;
         }

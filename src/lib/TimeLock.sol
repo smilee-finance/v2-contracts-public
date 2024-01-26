@@ -19,8 +19,13 @@ struct TimeLockedBool {
     uint256 validFrom;
 }
 
-library TimeLock {
+struct TimeLockedBytes {
+    bytes safe;
+    bytes proposed;
+    uint256 validFrom;
+}
 
+library TimeLock {
     //-------------------------------------------------------------------------
     // Address
     //-------------------------------------------------------------------------
@@ -89,6 +94,31 @@ library TimeLock {
     }
 
     function get(TimeLockedBool calldata tl) external view returns (bool) {
+        if (block.timestamp < tl.validFrom) {
+            return tl.safe;
+        } else {
+            return tl.proposed;
+        }
+    }
+
+    //-------------------------------------------------------------------------
+    // Bytes
+    //-------------------------------------------------------------------------
+
+    function set(TimeLockedBytes storage tl, bytes memory value, uint256 delay) external {
+        if (tl.validFrom == 0) {
+            // The very first call is expected to be safe for immediate usage
+            // NOTE: its security is linked to the deployment script
+            tl.safe = value;
+        }
+        if (tl.validFrom > 0 && block.timestamp >= tl.validFrom) {
+            tl.safe = tl.proposed;
+        }
+        tl.proposed = value;
+        tl.validFrom = block.timestamp + delay;
+    }
+
+    function get(TimeLockedBytes calldata tl) external view returns (bytes memory) {
         if (block.timestamp < tl.validFrom) {
             return tl.safe;
         } else {

@@ -8,6 +8,7 @@ import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {ISwapAdapter} from "../interfaces/ISwapAdapter.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {TimeLock, TimeLockedAddress, TimeLockedUInt} from "@project/lib/TimeLock.sol";
 
 /**
     @title A simple contract delegated to exchange selection for token pairs swap
@@ -17,11 +18,14 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
  */
 contract SwapAdapterRouter is IExchange, AccessControl {
     using SafeERC20 for IERC20Metadata;
+    using TimeLock for TimeLockedAddress;
+    using TimeLock for TimeLockedUInt;
 
+    uint256 private _timeLockDelay;
     // mapping from hash(tokenIn.address + tokenOut.address) to the exchange to use
-    mapping(bytes32 => address) private _adapters;
+    mapping(bytes32 => TimeLockedAddress) private _adapters;
     // maximum accepted slippage during a swap for each swap pair, denominated in wad (1e18 = 100%)
-    mapping(bytes32 => uint256) private _slippage;
+    mapping(bytes32 => TimeLockedUInt) private _slippage;
     // address of the Chainlink dollar price oracle
     IAddressProvider private _ap;
 
@@ -32,7 +36,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     error Slippage();
     error SwapZero();
 
-    constructor(address addressProvider) AccessControl() {
+    constructor(address addressProvider, uint256 timeLockDelay) AccessControl() {
         _zeroAddressCheck(addressProvider);
         _ap = IAddressProvider(addressProvider);
 
@@ -40,6 +44,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
         _grantRole(ROLE_GOD, msg.sender);
+        _timeLockDelay = timeLockDelay;
     }
 
     /**
@@ -49,7 +54,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         @return adapter The address of the adapter to use for the swap
      */
     function getAdapter(address tokenIn, address tokenOut) external view returns (address adapter) {
-        return _adapters[_encodePath(tokenIn, tokenOut)];
+        return _adapters[_encodePath(tokenIn, tokenOut)].get();
     }
 
     /**
@@ -59,7 +64,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         @return slippage The maximum accepted slippage for the swap
      */
     function getSlippage(address tokenIn, address tokenOut) external view returns (uint256 slippage) {
-        return _slippage[_encodePath(tokenIn, tokenOut)];
+        return _slippage[_encodePath(tokenIn, tokenOut)].get();
     }
 
     /**
@@ -72,7 +77,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         _checkRole(ROLE_ADMIN);
         _zeroAddressCheck(adapter);
 
-        _adapters[_encodePath(tokenIn, tokenOut)] = adapter;
+        _adapters[_encodePath(tokenIn, tokenOut)].set(adapter, _timeLockDelay);
     }
 
     /**
@@ -84,7 +89,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     function setSlippage(address tokenIn, address tokenOut, uint256 slippage) external {
         _checkRole(ROLE_ADMIN);
 
-        _slippage[_encodePath(tokenIn, tokenOut)] = slippage;
+        _slippage[_encodePath(tokenIn, tokenOut)].set(slippage, _timeLockDelay);
     }
 
     /**
@@ -130,7 +135,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     function swapIn(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 amountOut) {
         _zeroAddressCheck(tokenIn);
         _zeroAddressCheck(tokenOut);
-        address adapter = _adapters[_encodePath(tokenIn, tokenOut)];
+        address adapter = _adapters[_encodePath(tokenIn, tokenOut)].get();
         _zeroAddressCheck(adapter);
 
         (uint256 amountOutMin, uint256 amountOutMax) = _slippedValueOut(tokenIn, tokenOut, amountIn);
@@ -159,7 +164,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     ) external returns (uint256 amountIn) {
         _zeroAddressCheck(tokenIn);
         _zeroAddressCheck(tokenOut);
-        address adapter = _adapters[_encodePath(tokenIn, tokenOut)];
+        address adapter = _adapters[_encodePath(tokenIn, tokenOut)].get();
         _zeroAddressCheck(adapter);
 
         (uint256 amountInMax, uint256 amountInMin) = _slippedValueIn(tokenIn, tokenOut, amountOut);
@@ -250,8 +255,8 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         uint256 amountIn
     ) private view returns (uint256 amountOutMin, uint256 amountOutMax) {
         uint256 amountOut = _valueOut(tokenIn, tokenOut, amountIn);
-        amountOutMin = (amountOut * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
-        amountOutMax = (amountOut * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
+        amountOutMin = (amountOut * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)].get())) / 1e18;
+        amountOutMax = (amountOut * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)].get())) / 1e18;
     }
 
     /**
@@ -268,7 +273,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         uint256 amountOut
     ) private view returns (uint256 amountInMax, uint256 amountInMin) {
         uint256 amountIn = _valueIn(tokenIn, tokenOut, amountOut);
-        amountInMax = (amountIn * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
-        amountInMin = (amountIn * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)])) / 1e18;
+        amountInMax = (amountIn * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)].get())) / 1e18;
+        amountInMin = (amountIn * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)].get())) / 1e18;
     }
 }

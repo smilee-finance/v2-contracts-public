@@ -4,12 +4,13 @@ pragma solidity ^0.8.15;
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
 import {ISwapAdapter} from "../../interfaces/ISwapAdapter.sol";
+import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import {Path} from "./lib/Path.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import {TimeLock, TimeLockedBool, TimeLockedBytes} from "@project/lib/TimeLock.sol";
 
 /**
     @title UniswapAdapter
@@ -21,6 +22,10 @@ import {Path} from "./lib/Path.sol";
  */
 contract UniswapAdapter is ISwapAdapter, AccessControl {
     using Path for bytes;
+    using TimeLock for TimeLockedBool;
+    using TimeLock for TimeLockedBytes;
+
+    uint256 private _timeLockDelay;
 
     uint256 constant _MIN_PATH_LEN = 43; // direct
     uint256 constant _MAX_PATH_LEN = 66; // 1 hop
@@ -37,14 +42,14 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
-    struct SwapPath {
-        bool exists;
-        bytes data; // Bytes of the path, structured in abi.encodePacked(TOKEN1, POOL_FEE, TOKEN2, POOL_FEE_1,....)
-        bytes reverseData; // Bytes of the reverse path for swapOut multihop (https://docs.uniswap.org/contracts/v3/guides/swaps/multihop-swaps)
+    struct TimeLockedSwapPath {
+        TimeLockedBool exists;
+        TimeLockedBytes data; // Bytes of the path, structured in abi.encodePacked(TOKEN1, POOL_FEE, TOKEN2, POOL_FEE_1,....)
+        TimeLockedBytes reverseData; // Bytes of the reverse path for swapOut multihop (https://docs.uniswap.org/contracts/v3/guides/swaps/multihop-swaps)
     }
 
     // bytes32 => Hash of tokenIn and tokenOut concatenated
-    mapping(bytes32 => SwapPath) private _swapPaths;
+    mapping(bytes32 => TimeLockedSwapPath) private _swapPaths;
 
     error AddressZero();
     error InvalidPath();
@@ -52,7 +57,7 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
     error PoolDoesNotExist();
     error NotImplemented();
 
-    constructor(address swapRouter, address factory) AccessControl() {
+    constructor(address swapRouter, address factory, uint256 timeLockDelay) AccessControl() {
         _swapRouter = ISwapRouter(swapRouter);
         _factory = IUniswapV3Factory(factory);
 
@@ -60,6 +65,7 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
         _grantRole(ROLE_GOD, msg.sender);
+        _timeLockDelay = timeLockDelay;
     }
 
     /**
@@ -73,8 +79,10 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
         _checkPath(path, tokenIn, tokenOut);
 
         bytes memory reversePath = _reversePath(path);
-        SwapPath memory swapPath = SwapPath(true, path, reversePath);
-        _swapPaths[_encodePair(tokenIn, tokenOut)] = swapPath;
+
+        _swapPaths[_encodePair(tokenIn, tokenOut)].exists.set(true, _timeLockDelay);
+        _swapPaths[_encodePair(tokenIn, tokenOut)].data.set(path, _timeLockDelay);
+        _swapPaths[_encodePair(tokenIn, tokenOut)].reverseData.set(reversePath, _timeLockDelay);
     }
 
     /**
@@ -97,11 +105,11 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
         @return path The custom path set for the pair or the default path if it exists
      */
     function getPath(address tokenIn, address tokenOut, bool reversed) public view returns (bytes memory path) {
-        if (_swapPaths[_encodePair(tokenIn, tokenOut)].exists) {
+        if (_swapPaths[_encodePair(tokenIn, tokenOut)].exists.get()) {
             if (reversed) {
-                return _swapPaths[_encodePair(tokenIn, tokenOut)].reverseData;
+                return _swapPaths[_encodePair(tokenIn, tokenOut)].reverseData.get();
             }
-            return _swapPaths[_encodePair(tokenIn, tokenOut)].data;
+            return _swapPaths[_encodePair(tokenIn, tokenOut)].data.get();
         } else {
             // return default path
             path = abi.encodePacked(reversed ? tokenOut : tokenIn, _DEFAULT_FEE, reversed ? tokenIn : tokenOut);
@@ -118,8 +126,10 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
         TransferHelper.safeApprove(tokenIn, address(_swapRouter), amountIn);
 
-        SwapPath storage path = _swapPaths[_encodePair(tokenIn, tokenOut)];
-        tokenOutAmount = path.exists ? _swapInPath(path.data, amountIn) : _swapInSingle(tokenIn, tokenOut, amountIn);
+        TimeLockedSwapPath storage path = _swapPaths[_encodePair(tokenIn, tokenOut)];
+        tokenOutAmount = path.exists.get()
+            ? _swapInPath(path.data.get(), amountIn)
+            : _swapInSingle(tokenIn, tokenOut, amountIn);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -135,9 +145,9 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), preApprovedInput);
         TransferHelper.safeApprove(tokenIn, address(_swapRouter), preApprovedInput);
 
-        SwapPath storage path = _swapPaths[_encodePair(tokenIn, tokenOut)];
-        amountIn = path.exists
-            ? _swapOutPath(path.reverseData, amountOut, preApprovedInput)
+        TimeLockedSwapPath storage path = _swapPaths[_encodePair(tokenIn, tokenOut)];
+        amountIn = path.exists.get()
+            ? _swapOutPath(path.reverseData.get(), amountOut, preApprovedInput)
             : _swapOutSingle(tokenIn, tokenOut, amountOut, preApprovedInput);
 
         // refund difference to caller

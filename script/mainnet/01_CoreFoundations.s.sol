@@ -66,15 +66,15 @@ contract DeployCoreFoundations is Script {
         //marketOracle.renounceRole(marketOracle.ROLE_GOD(), _deployerAddress);
         ap.setMarketOracle(address(marketOracle));
 
-        SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(priceOracle));
+        SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(priceOracle), 0);
         ap.setExchangeAdapter(address(swapAdapterRouter));
 
         address uniswapFactoryAddress = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
-        
+
         // Create uniswap adapter
-        new UniswapAdapter(address(swapAdapterRouter), uniswapFactoryAddress);
-        
-        
+        new UniswapAdapter(address(swapAdapterRouter), uniswapFactoryAddress, 0);
+
+
         FeeManager feeManager = new FeeManager();
         feeManager.grantRole(feeManager.ROLE_GOD(), _adminMultiSigAddress);
         feeManager.grantRole(feeManager.ROLE_ADMIN(), _deployerAddress);

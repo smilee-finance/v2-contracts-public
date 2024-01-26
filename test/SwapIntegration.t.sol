@@ -8,6 +8,7 @@ import {ISwapAdapter} from "@project/interfaces/ISwapAdapter.sol";
 import {ChainlinkPriceOracle} from "@project/providers/chainlink/ChainlinkPriceOracle.sol";
 import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
 import {UniswapAdapter} from "@project/providers/uniswap/UniswapAdapter.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
 
 /**
     @title SwapIntegrationTest
@@ -44,13 +45,18 @@ contract SwapIntegrationTest is Test {
         vm.selectFork(forkId);
 
         vm.startPrank(_admin);
+
         _priceOracle = new ChainlinkPriceOracle();
         _priceOracle.grantRole(_priceOracle.ROLE_ADMIN(), _admin);
         _priceOracle.setPriceFeed(_USDC, _USDC_USD);
         _priceOracle.setPriceFeed(_WETH, _ETH_USD);
         _priceOracle.setPriceFeed(_WBTC, _WBTC_USD);
 
-        _swapRouter = new SwapAdapterRouter(address(_priceOracle));
+        AddressProvider ap = new AddressProvider(0);
+        ap.grantRole(ap.ROLE_ADMIN(), _admin);
+        ap.setPriceOracle(address(_priceOracle));
+
+        _swapRouter = new SwapAdapterRouter(address(ap), 0);
         _swapRouter.grantRole(_swapRouter.ROLE_ADMIN(), _admin);
         vm.stopPrank();
         ISwapAdapter uniswap = _uniSetup();
@@ -134,7 +140,7 @@ contract SwapIntegrationTest is Test {
 
     function _uniSetup() private returns (ISwapAdapter) {
         vm.startPrank(_admin);
-        UniswapAdapter _uniswap = new UniswapAdapter(_UNIV3_ROUTER, _UNIV3_FACTORY);
+        UniswapAdapter _uniswap = new UniswapAdapter(_UNIV3_ROUTER, _UNIV3_FACTORY, 0);
         _uniswap.grantRole(_uniswap.ROLE_ADMIN(), _admin);
         vm.stopPrank();
 

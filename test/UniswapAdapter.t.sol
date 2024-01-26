@@ -36,7 +36,7 @@ contract UniswapAdapterTest is Test {
 
         _admin = address(0x1);
         vm.startPrank(_admin);
-        _uniswap = new UniswapAdapter(_UNIV3_ROUTER, _UNIV3_FACTORY);
+        _uniswap = new UniswapAdapter(_UNIV3_ROUTER, _UNIV3_FACTORY, 0);
         _uniswap.grantRole(_uniswap.ROLE_ADMIN(), _admin);
 
         // Set single pool path for <WETH, USDC> to WETH -> USDC [0.3%]

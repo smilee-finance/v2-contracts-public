@@ -39,7 +39,7 @@ contract SwapProviderRouterTest is Test {
         _oracle = new TestnetPriceOracle(address(0x123));
         _swapOracle = new TestnetPriceOracle(address(0x123));
         _swap = new TestnetSwapAdapter(address(_swapOracle));
-        _swapRouter = new SwapAdapterRouter(address(_ap));
+        _swapRouter = new SwapAdapterRouter(address(_ap), 0);
         _swapRouter.grantRole(_swapRouter.ROLE_ADMIN(), _admin);
 
         MockedRegistry r = new MockedRegistry();
