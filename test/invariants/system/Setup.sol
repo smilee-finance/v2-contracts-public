@@ -52,6 +52,8 @@ abstract contract Setup is Parameters {
         address sideToken = vault.sideToken();
 
         ig = MockedIG(EchidnaVaultUtils.igSetup(admin, vault, ap, hevm));
+        hevm.prank(admin);
+        ig.setUseOracleImpliedVolatility(USE_ORACLE_IMPL_VOL);
 
         _impliedVolSetup(address(baseToken), sideToken, ap);
     }
@@ -83,7 +85,7 @@ abstract contract Setup is Parameters {
       uint256 lastUpdate = apMarketOracle.getImpliedVolatilityLastUpdate(baseToken_, sideToken, EpochFrequency.DAILY);
       if (lastUpdate == 0) {
           hevm.prank(admin);
-          apMarketOracle.setImpliedVolatility(baseToken_, sideToken, EpochFrequency.DAILY, _VOLATILITY);
+          apMarketOracle.setImpliedVolatility(baseToken_, sideToken, EpochFrequency.DAILY, VOLATILITY);
       }
     }
 
