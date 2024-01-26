@@ -397,7 +397,8 @@ library FinanceIGPrice {
 
         // igP multiplies a notional computed as follow:
         // V0 * user% = V0 * amount / initial(strategy) = V0 * amount / (V0/2) = amount * 2
-        marketValue_ = convert(2).mul(ud(amountUp).mul(ud(priceUp)).add(ud(amountDown).mul(ud(priceDown)))).unwrap();
+        // (amountUp * (2 priceUp)) + (amountDown * (2 priceDown))
+        marketValue_ = ud(amountUp).mul(ud(priceUp).mul(convert(2))).add(ud(amountDown).mul(ud(priceDown).mul(convert(2)))).unwrap();
         return AmountsMath.unwrapDecimals(marketValue_, decimals);
     }
 }
