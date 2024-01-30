@@ -65,6 +65,11 @@ library FinanceIG {
         yearsToMaturity = WadTime.yearsToTimestamp(maturity);
     }
 
+    // Get real epoch duration
+    function _durationInYears(uint256 t0, uint256 t1) private pure returns (uint256 durationInYears) {
+        durationInYears = WadTime.rangeInYears(t0, t1);
+    }
+
     function getDeltaHedgeAmount(
         FinanceParameters memory params,
         Amount memory amount,
@@ -196,7 +201,7 @@ library FinanceIG {
 
         {
             uint256 sigmaMultiplier = params.timeLocked.sigmaMultiplier.get();
-            uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
+            uint256 yearsToMaturity = _durationInYears(params.internalVolatilityParameters.epochStart, params.maturity);
 
             (params.kA, params.kB) = FinanceIGPrice.liquidityRange(
                 FinanceIGPrice.LiquidityRangeParams(
@@ -235,7 +240,7 @@ library FinanceIG {
                 params.sigmaZero = impliedVolatility;
             } else {
                 VolatilityParameters storage vParams = params.internalVolatilityParameters;
-                UD60x18 maturityWindow = convert(params.maturity - params.internalVolatilityParameters.epochStart);
+                UD60x18 maturityWindow = convert(params.maturity - vParams.epochStart);
                 UD60x18 sharedUpdateFactor = ud(vParams.v_previous).mul(maturityWindow.sub(convert(vParams.t_previous)));
                 vParams.avg_u = ud(vParams.avg_u).add(ud(vParams.v_previous).mul(sharedUpdateFactor).mul(ud(vParams.u_previous))).unwrap();
                 vParams.omega = ud(vParams.omega).add(sharedUpdateFactor).unwrap();
