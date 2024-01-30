@@ -80,6 +80,8 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
      */
     event Burn(address indexed owner);
 
+    event ChangedPauseState(bool paused);
+
     constructor(
         address vault_,
         bool optionType_,
@@ -553,14 +555,20 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
     }
 
-    /// @inheritdoc IDVP
-    function changePauseState() external override {
+    /**
+        @notice Pause/Unpause
+     */
+    function changePauseState() external {
         _checkRole(ROLE_ADMIN);
 
-        if (paused()) {
+        bool paused = paused();
+
+        if (paused) {
             _unpause();
         } else {
             _pause();
         }
+
+        emit ChangedPauseState(!paused);
     }
 }

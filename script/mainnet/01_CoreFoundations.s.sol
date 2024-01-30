@@ -49,7 +49,7 @@ contract DeployCoreFoundations is Script {
         // Address USDC: Is it needed?
         // address stableCoin = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
 
-        AddressProvider ap = new AddressProvider(0);
+        AddressProvider ap = new AddressProvider(2 days);
         ap.grantRole(ap.ROLE_GOD(), _adminMultiSigAddress);
         ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress);
         //ap.renounceRole(ap.ROLE_GOD(), _deployerAddress);
@@ -75,7 +75,7 @@ contract DeployCoreFoundations is Script {
         new UniswapAdapter(address(swapAdapterRouter), uniswapFactoryAddress, 0);
 
 
-        FeeManager feeManager = new FeeManager();
+        FeeManager feeManager = new FeeManager(2 days);
         feeManager.grantRole(feeManager.ROLE_GOD(), _adminMultiSigAddress);
         feeManager.grantRole(feeManager.ROLE_ADMIN(), _deployerAddress);
         //feeManager.renounceRole(feeManager.ROLE_GOD(), _deployerAddress);

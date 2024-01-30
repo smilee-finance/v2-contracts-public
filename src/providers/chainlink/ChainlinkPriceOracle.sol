@@ -5,21 +5,24 @@ import {AggregatorV3Interface} from "@chainlink/interfaces/AggregatorV3Interface
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
 import {AmountsMath} from "../../lib/AmountsMath.sol";
+import {TimeLock, TimeLockedAddress} from "../../lib/TimeLock.sol";
 
 contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
     using AmountsMath for uint256;
+    using TimeLock for TimeLockedAddress;
 
     struct OracleValue {
         uint256 value;
         uint256 lastUpdate;
     }
 
-    /// @dev index is token address
-    mapping(address => AggregatorV3Interface) public feeds;
+    /// @dev index is token address, value is AggregatorV3Interface
+    mapping(address => TimeLockedAddress) public feeds;
     /// @dev index is token address
     mapping(address => uint256) internal _maxDelay;
 
     uint256 internal _defaultMaxDelay;
+    uint256 public timeLockDelay;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -35,6 +38,7 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
 
     constructor() AccessControl() {
         _defaultMaxDelay = 1 days;
+        timeLockDelay = 2 days;
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
@@ -55,14 +59,14 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
             revert AddressZero();
         }
 
-        feeds[token] = AggregatorV3Interface(feed);
+        feeds[token].set(feed, timeLockDelay);
 
         emit ChangedTokenPriceFeed(token, feed);
     }
 
     function setPriceFeedMaxDelay(address token, uint256 delay) external {
         _checkRole(ROLE_ADMIN);
-        if (token == address(0) || address(feeds[token]) == address(0)) {
+        if (token == address(0) || feeds[token].get() == address(0)) {
             revert AddressZero();
         }
 
@@ -88,8 +92,8 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
             revert AddressZero();
         }
 
-        AggregatorV3Interface priceFeed = feeds[token];
-        if (address(priceFeed) == address(0)) {
+        address priceFeed = feeds[token].get();
+        if (priceFeed == address(0)) {
             revert TokenNotSupported();
         }
 
@@ -103,7 +107,8 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
         return price.value;
     }
 
-    function _getFeedValue(AggregatorV3Interface priceFeed) internal view returns (OracleValue memory datum) {
+    function _getFeedValue(address priceFeedAddr) internal view returns (OracleValue memory datum) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeedAddr);
         /*
             latestRoundData SHOULD raise "No data present"
             if they do not have data to report, instead of returning unset values

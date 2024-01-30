@@ -57,6 +57,9 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
     error PoolDoesNotExist();
     error NotImplemented();
 
+    event PathSet(address tokenIn, address tokenOut, bytes path);
+    event PathUnset(address tokenIn, address tokenOut);
+
     constructor(address swapRouter, address factory, uint256 timeLockDelay) AccessControl() {
         _swapRouter = ISwapRouter(swapRouter);
         _factory = IUniswapV3Factory(factory);
@@ -83,6 +86,8 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
         _swapPaths[_encodePair(tokenIn, tokenOut)].exists.set(true, _timeLockDelay);
         _swapPaths[_encodePair(tokenIn, tokenOut)].data.set(path, _timeLockDelay);
         _swapPaths[_encodePair(tokenIn, tokenOut)].reverseData.set(reversePath, _timeLockDelay);
+
+        emit PathSet(tokenIn, tokenOut, path);
     }
 
     /**
@@ -93,7 +98,10 @@ contract UniswapAdapter is ISwapAdapter, AccessControl {
     function unsetPath(address tokenIn, address tokenOut) public {
         _checkRole(ROLE_ADMIN);
 
-        delete _swapPaths[_encodePair(tokenIn, tokenOut)];
+        _swapPaths[_encodePair(tokenIn, tokenOut)].exists.set(false, _timeLockDelay);
+        // delete _swapPaths[_encodePair(tokenIn, tokenOut)];
+
+        emit PathUnset(tokenIn, tokenOut);
     }
 
     /**

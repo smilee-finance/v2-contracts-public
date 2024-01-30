@@ -21,7 +21,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     using TimeLock for TimeLockedAddress;
     using TimeLock for TimeLockedUInt;
 
-    uint256 private _timeLockDelay;
+    uint256 public timeLockDelay;
     // mapping from hash(tokenIn.address + tokenOut.address) to the exchange to use
     mapping(bytes32 => TimeLockedAddress) private _adapters;
     // maximum accepted slippage during a swap for each swap pair, denominated in wad (1e18 = 100%)
@@ -36,7 +36,10 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     error Slippage();
     error SwapZero();
 
-    constructor(address addressProvider, uint256 timeLockDelay) AccessControl() {
+    event ChangedAdapter(address tokenIn, address tokenOut, address adapter);
+    event ChangedSlippage(address tokenIn, address tokenOut, uint256 slippage);
+
+    constructor(address addressProvider, uint256 timeLockDelay_) AccessControl() {
         _zeroAddressCheck(addressProvider);
         _ap = IAddressProvider(addressProvider);
 
@@ -44,7 +47,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
         _grantRole(ROLE_GOD, msg.sender);
-        _timeLockDelay = timeLockDelay;
+        timeLockDelay = timeLockDelay_;
     }
 
     /**
@@ -77,7 +80,9 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         _checkRole(ROLE_ADMIN);
         _zeroAddressCheck(adapter);
 
-        _adapters[_encodePath(tokenIn, tokenOut)].set(adapter, _timeLockDelay);
+        _adapters[_encodePath(tokenIn, tokenOut)].set(adapter, timeLockDelay);
+
+        emit ChangedAdapter(tokenIn, tokenOut, adapter);
     }
 
     /**
@@ -89,7 +94,9 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     function setSlippage(address tokenIn, address tokenOut, uint256 slippage) external {
         _checkRole(ROLE_ADMIN);
 
-        _slippage[_encodePath(tokenIn, tokenOut)].set(slippage, _timeLockDelay);
+        _slippage[_encodePath(tokenIn, tokenOut)].set(slippage, timeLockDelay);
+
+        emit ChangedSlippage(tokenIn, tokenOut, slippage);
     }
 
     /**

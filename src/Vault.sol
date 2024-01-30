@@ -30,6 +30,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
     /// @notice The address of the DVP paired with this vault
     address public dvp; // NOTE: public for frontend purposes
+    bool internal _dvpSet;
 
     /// @notice Maximum threshold for users cumulative deposit (see VaultLib.VaultState.liquidity.totalDeposit)
     uint256 public maxDeposit;
@@ -50,10 +51,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     IAddressProvider internal immutable _addressProvider;
 
     /// @notice Flag to tell if this vault is currently bound to priority access for deposits
-    bool public priorityAccessFlag = false;
+    bool public priorityAccessFlag;
 
     /// @notice Tolerance margin when buying side tokens exceeds the availability (in basis points [0 - 10000])
-    uint256 internal _hedgeMargin = 250; // 2.5 %
+    uint256 internal _hedgeMargin;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -82,6 +83,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     // Used by TheGraph for frontend needs:
     event VaultTVL(uint256 epoch, uint256 value);
     event MissingLiquidity(uint256 missing);
+    event ChangedHedgeMargin(uint256 basisPoints);
+    event Killed();
+    event ChangedPauseState(bool paused);
 
     constructor(
         address baseToken_,
@@ -99,6 +103,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         _addressProvider = IAddressProvider(addressProvider_);
         maxDeposit = 1_000_000_000 * (10 ** _shareDecimals);
+
+        _hedgeMargin = 250; // 2.5 %
+        priorityAccessFlag = false;
+        _dvpSet = false;
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
@@ -126,7 +134,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     }
 
     modifier onlyDVP() {
-        if (dvp == address(0)) {
+        if (!_dvpSet) {
             revert DVPNotSet();
         }
         if (msg.sender != dvp) {
@@ -142,19 +150,33 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     function setAllowedDVP(address dvp_) external {
         _checkRole(ROLE_ADMIN);
 
-        if (dvp != address(0)) {
+        if (_dvpSet) {
             revert DVPAlreadySet();
         }
 
         dvp = dvp_;
+        _dvpSet = true;
+
         _grantRole(ROLE_EPOCH_ROLLER, dvp_);
+    }
+
+    /**
+        @notice Set the tolerated hedge margin
+        @param hedgeMargin The number of basis points (10000 is 100%)
+     */
+    function setHedgeMargin(uint256 hedgeMargin) external {
+        _checkRole(ROLE_ADMIN);
+
+        _hedgeMargin = hedgeMargin;
+
+        emit ChangedHedgeMargin(hedgeMargin);
     }
 
     /**
         @notice Set maximum deposit capacity for the Vault
         @param maxDeposit_ The number of base tokens
      */
-    function setMaxDeposit(uint256 maxDeposit_) public {
+    function setMaxDeposit(uint256 maxDeposit_) external {
         _checkRole(ROLE_ADMIN);
 
         maxDeposit = maxDeposit_;
@@ -164,6 +186,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _checkRole(ROLE_ADMIN);
 
         _state.killed = true;
+
+        emit Killed();
     }
 
     function vaultState()
@@ -261,15 +285,21 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         return _state.killed;
     }
 
-    /// @inheritdoc IVault
-    function changePauseState() external override {
+    /**
+        @notice Pause/Unpause
+     */
+    function changePauseState() external {
         _checkRole(ROLE_ADMIN);
 
-        if (paused()) {
+        bool paused = paused();
+
+        if (paused) {
             _unpause();
         } else {
             _pause();
         }
+
+        emit ChangedPauseState(!paused);
     }
 
     /**

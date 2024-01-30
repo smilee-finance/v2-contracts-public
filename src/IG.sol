@@ -30,6 +30,7 @@ contract IG is DVP {
     // Used by TheGraph for frontend needs:
     event EpochStrike(uint256 epoch, uint256 strike);
     event PausedForFinanceApproximation();
+    event ChangedFinanceParameters();
 
     constructor(address vault_, address addressProvider_) DVP(vault_, false, addressProvider_) {
         _setParameters(
@@ -297,6 +298,8 @@ contract IG is DVP {
     function setParameters(TimeLockedFinanceValues calldata params) external {
         _checkRole(ROLE_ADMIN);
         _setParameters(params);
+
+        emit ChangedFinanceParameters();
     }
 
     /// @dev parameters must be defined in Wad

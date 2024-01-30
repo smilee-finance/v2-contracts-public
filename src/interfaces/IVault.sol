@@ -91,11 +91,6 @@ interface IVault is IVaultParams {
      */
     function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external;
 
-    /**
-        @notice Pause/Unpause
-     */
-    function changePauseState() external;
-
     function vaultState()
         external view
         returns (

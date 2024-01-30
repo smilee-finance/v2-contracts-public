@@ -8,10 +8,12 @@ import {IDVP} from "./interfaces/IDVP.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
 import {AmountsMath} from "./lib/AmountsMath.sol";
+import {TimeLock, TimeLockedUInt} from "./lib/TimeLock.sol";
 
 contract FeeManager is IFeeManager, AccessControl {
     using AmountsMath for uint256;
     using SafeERC20 for IERC20Metadata;
+    using TimeLock for TimeLockedUInt;
 
     struct FeeParams {
         // Seconds remaining until the next epoch to determine which minFee to use.
@@ -32,14 +34,36 @@ contract FeeManager is IFeeManager, AccessControl {
         uint256 maturityCapPercentage;
     }
 
+    struct TimeLockedFeeParams {
+        // Seconds remaining until the next epoch to determine which minFee to use.
+        TimeLockedUInt timeToExpiryThreshold;
+        // Minimum amount of fee paid for any buy trade made before the threshold time (denominated in token decimals of the token used to pay the fee).
+        TimeLockedUInt minFeeBeforeTimeThreshold;
+        // Minimum amount of fee paid for any buy trade made after the threshold time  (denominated in token decimals of the token used to pay the fee).
+        TimeLockedUInt minFeeAfterTimeThreshold;
+        // Percentage to be appied to the PNL of the sell.
+        TimeLockedUInt successFeeTier;
+        // Fee percentage applied for each DVPs in WAD, it's used to calculate fees on notional.
+        TimeLockedUInt feePercentage;
+        // CAP percentage, works like feePercentage in WAD, but it's used to calculate fees on premium.
+        TimeLockedUInt capPercentage;
+        // Fee percentage applied for each DVPs in WAD after maturity, it's used to calculate fees on notional.
+        TimeLockedUInt maturityFeePercentage;
+        // CAP percentage, works like feePercentage in WAD after maturity, but it's used to calculate fees on premium.
+        TimeLockedUInt maturityCapPercentage;
+    }
+
     /// @notice Fee for each dvp
-    mapping(address => FeeParams) public dvpsFeeParams;
+    mapping(address => TimeLockedFeeParams) internal _dvpsFeeParams;
 
     /// @notice Fee account per sender
     mapping(address => uint256) public senders;
 
     /// @notice Fee account per vault
     mapping(address => uint256) public vaultFeeAmounts;
+
+    /// @notice Timelock delay for changing the parameters of a DVP
+    uint256 public immutable timeLockDelay;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -60,11 +84,33 @@ contract FeeManager is IFeeManager, AccessControl {
     error OutOfAllowedRange();
     error WrongVault();
 
-    constructor() AccessControl() {
+    constructor(uint256 timeLockDelay_) AccessControl() {
+        timeLockDelay = timeLockDelay_;
+
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
         _grantRole(ROLE_GOD, msg.sender);
+    }
+
+    function dvpsFeeParams(address dvp) external view returns (
+        uint256 timeToExpiryThreshold,
+        uint256 minFeeBeforeTimeThreshold,
+        uint256 minFeeAfterTimeThreshold,
+        uint256 successFeeTier,
+        uint256 feePercentage,
+        uint256 capPercentage,
+        uint256 maturityFeePercentage,
+        uint256 maturityCapPercentage
+    ) {
+        timeToExpiryThreshold = _dvpsFeeParams[dvp].timeToExpiryThreshold.get();
+        minFeeBeforeTimeThreshold = _dvpsFeeParams[dvp].minFeeBeforeTimeThreshold.get();
+        minFeeAfterTimeThreshold = _dvpsFeeParams[dvp].minFeeAfterTimeThreshold.get();
+        successFeeTier = _dvpsFeeParams[dvp].successFeeTier.get();
+        feePercentage = _dvpsFeeParams[dvp].feePercentage.get();
+        capPercentage = _dvpsFeeParams[dvp].capPercentage.get();
+        maturityFeePercentage = _dvpsFeeParams[dvp].maturityFeePercentage.get();
+        maturityCapPercentage = _dvpsFeeParams[dvp].maturityCapPercentage.get();
     }
 
     /**
@@ -111,7 +157,7 @@ contract FeeManager is IFeeManager, AccessControl {
         if (currPremium > entryPremium) {
             uint256 pnl = currPremium - entryPremium;
             pnl = AmountsMath.wrapDecimals(pnl, tokenDecimals);
-            uint256 successFee = pnl.wmul(dvpsFeeParams[dvp].successFeeTier);
+            uint256 successFee = pnl.wmul(_dvpsFeeParams[dvp].successFeeTier.get());
             successFee = AmountsMath.unwrapDecimals(successFee, tokenDecimals);
 
             fee += successFee;
@@ -131,9 +177,9 @@ contract FeeManager is IFeeManager, AccessControl {
             return 0;
         }
         return
-            expiry - block.timestamp > dvpsFeeParams[dvp].timeToExpiryThreshold
-                ? dvpsFeeParams[dvp].minFeeBeforeTimeThreshold
-                : dvpsFeeParams[dvp].minFeeAfterTimeThreshold;
+            expiry - block.timestamp > _dvpsFeeParams[dvp].timeToExpiryThreshold.get()
+                ? _dvpsFeeParams[dvp].minFeeBeforeTimeThreshold.get()
+                : _dvpsFeeParams[dvp].minFeeAfterTimeThreshold.get();
     }
 
     function _getFeeFromNotionalAndPremium(
@@ -149,11 +195,11 @@ contract FeeManager is IFeeManager, AccessControl {
         premium = AmountsMath.wrapDecimals(premium, tokenDecimals);
 
         if (expired) {
-            feeFromNotional = notional.wmul(dvpsFeeParams[dvp].maturityFeePercentage);
-            feeFromPremiumCap = premium.wmul(dvpsFeeParams[dvp].maturityCapPercentage);
+            feeFromNotional = notional.wmul(_dvpsFeeParams[dvp].maturityFeePercentage.get());
+            feeFromPremiumCap = premium.wmul(_dvpsFeeParams[dvp].maturityCapPercentage.get());
         } else {
-            feeFromNotional = notional.wmul(dvpsFeeParams[dvp].feePercentage);
-            feeFromPremiumCap = premium.wmul(dvpsFeeParams[dvp].capPercentage);
+            feeFromNotional = notional.wmul(_dvpsFeeParams[dvp].feePercentage.get());
+            feeFromPremiumCap = premium.wmul(_dvpsFeeParams[dvp].capPercentage.get());
         }
 
         fee = (feeFromNotional < feeFromPremiumCap) ? feeFromNotional : feeFromPremiumCap;
@@ -201,8 +247,8 @@ contract FeeManager is IFeeManager, AccessControl {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousTimeToExpiryThreshold = dvpsFeeParams[dvp].timeToExpiryThreshold;
-        dvpsFeeParams[dvp].timeToExpiryThreshold = timeToExpiryThreshold;
+        uint256 previousTimeToExpiryThreshold = _dvpsFeeParams[dvp].timeToExpiryThreshold.proposed;
+        _dvpsFeeParams[dvp].timeToExpiryThreshold.set(timeToExpiryThreshold, timeLockDelay);
 
         emit UpdateTimeToExpiryThreshold(dvp, timeToExpiryThreshold, previousTimeToExpiryThreshold);
     }
@@ -214,8 +260,8 @@ contract FeeManager is IFeeManager, AccessControl {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousMinFee = dvpsFeeParams[dvp].minFeeBeforeTimeThreshold;
-        dvpsFeeParams[dvp].minFeeBeforeTimeThreshold = minFee;
+        uint256 previousMinFee = _dvpsFeeParams[dvp].minFeeBeforeTimeThreshold.proposed;
+        _dvpsFeeParams[dvp].minFeeBeforeTimeThreshold.set(minFee, timeLockDelay);
 
         emit UpdateMinFeeBeforeTimeThreshold(dvp, minFee, previousMinFee);
     }
@@ -227,8 +273,8 @@ contract FeeManager is IFeeManager, AccessControl {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousMinFee = dvpsFeeParams[dvp].minFeeAfterTimeThreshold;
-        dvpsFeeParams[dvp].minFeeAfterTimeThreshold = minFee;
+        uint256 previousMinFee = _dvpsFeeParams[dvp].minFeeAfterTimeThreshold.proposed;
+        _dvpsFeeParams[dvp].minFeeAfterTimeThreshold.set(minFee, timeLockDelay);
 
         emit UpdateMinFeeAfterTimeThreshold(dvp, minFee, previousMinFee);
     }
@@ -239,8 +285,8 @@ contract FeeManager is IFeeManager, AccessControl {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousSuccessFeeTier = dvpsFeeParams[dvp].successFeeTier;
-        dvpsFeeParams[dvp].successFeeTier = successFeeTier;
+        uint256 previousSuccessFeeTier = _dvpsFeeParams[dvp].successFeeTier.proposed;
+        _dvpsFeeParams[dvp].successFeeTier.set(successFeeTier, timeLockDelay);
 
         emit UpdateSuccessFeeTier(dvp, successFeeTier, previousSuccessFeeTier);
     }
@@ -251,8 +297,8 @@ contract FeeManager is IFeeManager, AccessControl {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousFeePercentage = dvpsFeeParams[dvp].feePercentage;
-        dvpsFeeParams[dvp].feePercentage = feePercentage_;
+        uint256 previousFeePercentage = _dvpsFeeParams[dvp].feePercentage.proposed;
+        _dvpsFeeParams[dvp].feePercentage.set(feePercentage_, timeLockDelay);
 
         emit UpdateFeePercentage(dvp, feePercentage_, previousFeePercentage);
     }
@@ -263,8 +309,8 @@ contract FeeManager is IFeeManager, AccessControl {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousCapPercentage = dvpsFeeParams[dvp].capPercentage;
-        dvpsFeeParams[dvp].capPercentage = capPercentage_;
+        uint256 previousCapPercentage = _dvpsFeeParams[dvp].capPercentage.proposed;
+        _dvpsFeeParams[dvp].capPercentage.set(capPercentage_, timeLockDelay);
 
         emit UpdateCapPercentage(dvp, capPercentage_, previousCapPercentage);
     }
@@ -275,8 +321,8 @@ contract FeeManager is IFeeManager, AccessControl {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousMaturityFeePercentage = dvpsFeeParams[dvp].maturityFeePercentage;
-        dvpsFeeParams[dvp].maturityFeePercentage = maturityFeePercentage_;
+        uint256 previousMaturityFeePercentage = _dvpsFeeParams[dvp].maturityFeePercentage.proposed;
+        _dvpsFeeParams[dvp].maturityFeePercentage.set(maturityFeePercentage_, timeLockDelay);
 
         emit UpdateMaturityFeePercentage(dvp, maturityFeePercentage_, previousMaturityFeePercentage);
     }
@@ -287,8 +333,8 @@ contract FeeManager is IFeeManager, AccessControl {
             revert OutOfAllowedRange();
         }
 
-        uint256 previousMaturityCapPercentage = dvpsFeeParams[dvp].maturityCapPercentage;
-        dvpsFeeParams[dvp].maturityCapPercentage = maturityCapPercentage_;
+        uint256 previousMaturityCapPercentage = _dvpsFeeParams[dvp].maturityCapPercentage.proposed;
+        _dvpsFeeParams[dvp].maturityCapPercentage.set(maturityCapPercentage_, timeLockDelay);
 
         emit UpdateMaturityCapPercentage(dvp, maturityCapPercentage_, previousMaturityCapPercentage);
     }

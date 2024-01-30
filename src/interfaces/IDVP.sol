@@ -102,8 +102,4 @@ interface IDVP is IDVPImmutables, IEpochControls {
         uint256 maxSlippage
     ) external returns (uint256 paidPayoff);
 
-    /**
-        @notice Pause/Unpause
-     */
-    function changePauseState() external;
 }

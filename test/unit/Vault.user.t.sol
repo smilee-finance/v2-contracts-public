@@ -61,7 +61,7 @@ contract VaultUserTest is Test {
         addressProvider.setExchangeAdapter(address(exchange));
 
         // No fees by default:
-        FeeManager feeManager = new FeeManager();
+        FeeManager feeManager = new FeeManager(0);
         feeManager.grantRole(feeManager.ROLE_ADMIN(), admin);
         addressProvider.setFeeManager(address(feeManager));
 

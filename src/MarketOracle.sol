@@ -43,6 +43,8 @@ contract MarketOracle is IMarketOracle, AccessControl {
         bool disabled
     );
     event ChangedRFR(address indexed token, uint256 value, uint256 oldValue);
+    event ChangedDefaultMaxDelay(uint256 value);
+    event ChangedMaxDelay(uint256 value);
 
     constructor() AccessControl() {
         defaultMaxDelayFromLastUpdate = 1 hours;
@@ -58,7 +60,11 @@ contract MarketOracle is IMarketOracle, AccessControl {
     }
 
     function setMaxDefaultDelay(uint256 defaultMaxDelay) external {
+        _checkRole(ROLE_ADMIN);
+
         defaultMaxDelayFromLastUpdate = defaultMaxDelay;
+
+        emit ChangedDefaultMaxDelay(defaultMaxDelay);
     }
 
     function setDelay(
