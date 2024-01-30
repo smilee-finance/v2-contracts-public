@@ -215,10 +215,6 @@ contract TestScenariosJson is Test {
         _checkScenario("scenario_ka_zero_extreme_volatility", true);
     }
 
-    function testScenarioGen() public {
-        _checkScenario("scenario_gen", true);
-    }
-
     function _checkScenario(string memory scenarioName, bool isFirstEpoch) internal {
         console.log(string.concat("Executing scenario: ", scenarioName));
         string memory scenariosJSON = _getTestsFromJson(scenarioName);

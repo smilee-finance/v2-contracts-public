@@ -355,7 +355,7 @@ library FinanceIGPrice {
         kA = ud(params.k).mul(sd(SignedMath.neg(mSigmaT)).exp().intoUD60x18()).unwrap();
         kB = ud(params.k).mul(ud(mSigmaT).exp()).unwrap();
 
-        if(kA == 0) {
+        if (kA == 0) {
             kA = 1;
         }
     }
@@ -407,7 +407,10 @@ library FinanceIGPrice {
         // igP multiplies a notional computed as follow:
         // V0 * user% = V0 * amount / initial(strategy) = V0 * amount / (V0/2) = amount * 2
         // (amountUp * (2 priceUp)) + (amountDown * (2 priceDown))
-        marketValue_ = ud(amountUp).mul(ud(priceUp).mul(convert(2))).add(ud(amountDown).mul(ud(priceDown).mul(convert(2)))).unwrap();
+        marketValue_ = ud(amountUp)
+            .mul(ud(priceUp).mul(convert(2)))
+            .add(ud(amountDown).mul(ud(priceDown).mul(convert(2))))
+            .unwrap();
         return AmountsMath.unwrapDecimals(marketValue_, decimals);
     }
 }

@@ -176,9 +176,11 @@ library FinanceIG {
     }
 
     /**
-     * 
+       @notice Checks if there was approximation during the calculation of the finance parameters
+       @param params The finance parameters of the rolled epoch
+       @return isFinanceApproximated True if the finance has been approximated during the rollEpoch.
      */
-    function checkFinanceApprox(FinanceParameters storage params) public view returns(bool){
+    function checkFinanceApprox(FinanceParameters storage params) public view returns(bool isFinanceApproximated){
         uint256 resTetaKKartd = FinanceIGPrice._tetakkrtd(params.theta, params.currentStrike, params.kA);
         uint256 resTetaKKbrtd = FinanceIGPrice._tetakkrtd(params.theta, params.currentStrike, params.kB);
 
