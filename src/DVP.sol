@@ -255,6 +255,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         if (amount.up > position.amountUp || amount.down > position.amountDown) {
             revert CantBurnMoreThanMinted();
         }
+        if ((amount.up > 0 && amount.down > 0) && (amount.up != amount.down)) {
+            // If amount is an unbalanced smile, only the position manager is allowed to proceed:
+            if (msg.sender != _addressProvider.dvpPositionManager()) {
+                revert OnlyPositionManager();
+            }
+        }
 
         bool expired = expiry != getEpoch().current;
         if (!expired) {

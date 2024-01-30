@@ -225,6 +225,11 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             revert CantBurnMoreThanMinted();
         }
 
+        if ((notionalUp > 0 && notionalDown > 0) && (notionalUp != notionalDown)) {
+            // If amount is a smile, it must be balanced:
+            revert AsymmetricAmount();
+        }
+
         // NOTE: the DVP already checks that the burned notional is lesser or equal to the position notional.
         // NOTE: the payoff is transferred directly from the DVP
         payoff_ = IDVP(position.dvpAddr).burn(

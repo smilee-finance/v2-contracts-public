@@ -16,6 +16,11 @@ library Utils {
         vm.warp(block.timestamp + 7 days + secondToAdd);
     }
 
+    // Bound a fuzzed value to a given range of values without losing impacting the limited iterations of vm.assume
+    function boundFuzzedValueToRange(uint256 fuzzedValue, uint256 lower, uint256 upper) external pure returns (uint256) {
+        return lower + (fuzzedValue % (upper - lower + 1));
+    }
+
     /**
      * Function used to skip coverage on this file
      */

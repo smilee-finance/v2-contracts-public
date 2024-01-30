@@ -6,6 +6,7 @@ import {Epoch} from "@project/lib/EpochController.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {VaultLib} from "@project/lib/VaultLib.sol";
 import {TokenUtils} from "../utils/TokenUtils.sol";
+import {Utils} from "../utils/Utils.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {Vault} from "@project/Vault.sol";
@@ -19,6 +20,7 @@ contract VaultUserTest is Test {
     TestnetToken baseToken;
     TestnetToken sideToken;
     AddressProvider addressProvider;
+    TestnetPriceOracle priceOracle;
 
     Vault vault;
 
@@ -51,7 +53,7 @@ contract VaultUserTest is Test {
         sideToken.setTransferRestriction(false);
 
         // Needed by the exchange adapter:
-        TestnetPriceOracle priceOracle = new TestnetPriceOracle(address(baseToken));
+        priceOracle = new TestnetPriceOracle(address(baseToken));
         priceOracle.setTokenPrice(address(sideToken), 1e18);
         addressProvider.setPriceOracle(address(priceOracle));
 
@@ -921,7 +923,7 @@ contract VaultUserTest is Test {
     }
 
     /**
-     * 
+     *
      */
     function testInitiateWithdraw(uint256 shares) public {
         vm.assume(shares > 0);
@@ -1282,6 +1284,152 @@ contract VaultUserTest is Test {
         (, , , cumulativeAmount) = vault.depositReceipts(user);
         assertEq(secondDeposit, cumulativeAmount);
     }
+
+    function testInitiateWithdrawWhenDead(uint256 shares) public {
+        vm.assume(shares > 0);
+        vm.assume(shares <= vault.maxDeposit());
+
+        vm.prank(admin);
+        baseToken.mint(user, shares);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), shares);
+        vault.deposit(shares, user, 0);
+        vm.stopPrank();
+
+        vm.prank(admin);
+        vault.killVault();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        assertEq(true, vault.dead());
+
+        vm.prank(user);
+        vault.redeem(shares);
+
+        (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(shares, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(shares, vault.balanceOf(user));
+        assertEq(0, vault.balanceOf(address(vault)));
+
+        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
+        assertEq(shares, totalDeposit);
+        assertEq(0, newHeldShares);
+
+        (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
+        assertEq(0, epoch);
+        assertEq(0, withdrawalShares);
+
+        (, , , uint256 cumulativeAmount) = vault.depositReceipts(user);
+        assertEq(shares, cumulativeAmount);
+
+        vm.prank(user);
+        vm.expectRevert(ERR_VAULT_DEAD);
+        vault.initiateWithdraw(shares);
+    }
+
+    // Test complete withdraw (requested in the previous epoch) without removing all the liquidity
+    function testCompleteWithdraw(uint256 totalDeposit, uint256 sharesToWithdraw, uint256 sideTokenPrice) public {
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 2, vault.maxDeposit());
+        sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, totalDeposit);
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
+        vm.assume(sharesToWithdraw < totalDeposit);
+
+        // User deposit (and later withdraw) a given amount
+        vm.prank(admin);
+        baseToken.mint(user, sharesToWithdraw);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), sharesToWithdraw);
+        vault.deposit(sharesToWithdraw, user, 0);
+        vm.stopPrank();
+
+        // Another user deposit another amount so that the main one doesn't withdraw everything
+        address other_user = address(2);
+        uint256 other_user_deposit = totalDeposit - sharesToWithdraw;
+        vm.prank(admin);
+        baseToken.mint(other_user, other_user_deposit);
+        vm.startPrank(other_user);
+        baseToken.approve(address(vault), other_user_deposit);
+        vault.deposit(other_user_deposit, other_user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        // The test user initiate a withdraw of all of its shares
+
+        vm.prank(user);
+        vault.redeem(sharesToWithdraw);
+
+        vm.prank(user);
+        vault.initiateWithdraw(sharesToWithdraw);
+
+        // The side token price is moved in order to also move the price per share
+
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: pre-computed for the current epoch
+        uint256 expectedSharePrice = vault.notional() * 10**baseToken.decimals() / vault.totalSupply();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        uint256 sharePrice = vault.epochPricePerShare(vault.getEpoch().previous);
+        assertEq(sharePrice, expectedSharePrice);
+
+        (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(0, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(0, vault.balanceOf(user));
+
+        assertEq(totalDeposit, vault.balanceOf(address(vault)));
+        (, , uint256 pendingWithdrawals, , uint256 totalVaultDeposit, uint256 heldShares, uint256 newHeldShares, , ) = vault.vaultState();
+        uint256 expectedAmount = (sharesToWithdraw * sharePrice) / (10 ** baseToken.decimals());
+        assertEq(pendingWithdrawals, expectedAmount);
+        assertEq(other_user_deposit, totalVaultDeposit);
+        assertEq(sharesToWithdraw, heldShares);
+        assertEq(0, newHeldShares);
+
+        (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
+        assertEq(vault.getEpoch().previous, epoch);
+        assertEq(sharesToWithdraw, withdrawalShares);
+
+        assertEq(0, baseToken.balanceOf(user));
+
+        vm.prank(user);
+        vault.completeWithdraw();
+
+        (, , , , , heldShares, , , ) = vault.vaultState();
+        assertEq(0, heldShares);
+        assertEq(other_user_deposit, vault.balanceOf(address(vault)));
+
+        (, withdrawalShares) = vault.withdrawals(user);
+        assertEq(0, withdrawalShares);
+
+        (, , pendingWithdrawals, , , , , , ) = vault.vaultState();
+        assertEq(0, pendingWithdrawals);
+
+        assertEq(expectedAmount, baseToken.balanceOf(user));
+    }
+
+    // - [TODO] test complete withdraw where the user do not withdraw all of its shares (check data)
+    // - [TODO] test complete withdraw (requested more than one epoch ago) without removing all the liquidity
+    // - [TODO] test complete withdraw with all the liquidity withdrawed
+    // - [TODO] test complete withdraw when the vault dies (after the request)
+    // - [TODO] test complete withdraw when the vault is paused (revert)
+    // - [TODO] test complete withdraw when not initiated (revert)
+    // - [TODO] test complete withdraw when its epoch is not passed (revert)
+    // - [TODO] test complete withdraw when already completed (revert)
+
+    // ------------------------------------------------------------------------
+    // [TODO]: review and/or move the test below to another file
 
     // Test 100% Initiate Withdraw with pendingDeposit
     function testInitiateWithdrawWhenDepositedInCurrentEpochWithCompleteWithdrawInTheNextEpoch() public {

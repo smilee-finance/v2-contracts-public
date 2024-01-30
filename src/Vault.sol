@@ -411,7 +411,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     }
 
     /// @inheritdoc IVault
-    function initiateWithdraw(uint256 shares) external whenNotPaused {
+    function initiateWithdraw(uint256 shares) external whenNotPaused isNotDead {
         _checkEpochNotFinished();
 
         _initiateWithdraw(shares, false);
@@ -486,41 +486,30 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
      */
     function completeWithdraw() external whenNotPaused {
+        VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
+
+        // Checks if there is an initiated withdrawal request
+        if (withdrawal.shares == 0) {
+            revert WithdrawNotInitiated();
+        }
+
+        // At least one epoch must have passed since the start of the withdrawal
+        if (withdrawal.epoch == getEpoch().current) {
+            revert WithdrawTooEarly();
+        }
+
         _completeWithdraw();
     }
 
     function _completeWithdraw() internal {
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
 
-        // Checks if there is an initiated withdrawal
-        if (withdrawal.shares == 0) {
-            revert WithdrawNotInitiated();
-        }
-
-        Epoch memory epoch = getEpoch();
-        uint256 pricePerShare = 0;
-        if (withdrawal.epoch == epoch.current) {
-            if (!_state.dead) {
-                // At least one epoch must have passed since the start of the withdrawal
-                revert WithdrawTooEarly();
-            }
-            // NOTE: epoch.previous is when the vault died, while the (rescued) withdrawal.epoch is the epoch.current one.
-            pricePerShare = epochPricePerShare[epoch.previous];
-        } else {
-            pricePerShare = epochPricePerShare[withdrawal.epoch];
-        }
-
+        uint256 pricePerShare = epochPricePerShare[withdrawal.epoch];
         uint256 amountToWithdraw = VaultLib.sharesToAsset(withdrawal.shares, pricePerShare, _shareDecimals);
 
-        // NOTE: the user transferred the required shares to the vault when he initiated the withdraw
-        if (!_state.dead) {
-            // NOTE: when the vault is dead (rescue shares flow), the newHeldShares are not accounted as held.
-            //       The newHeldShares change is not performed here as the user may have an already initiated withdrawal request which will [...]
-            _state.withdrawals.heldShares -= withdrawal.shares;
-            // NOTE: when the vault is dead (rescue shares flow), the pendingWithdrawals
-            //       counter has not been increased for such shares in the roll-epoch phase.
-            _state.liquidity.pendingWithdrawals -= amountToWithdraw;
-        }
+        // NOTE: the user transferred the required shares to the vault when (s)he initiated the withdraw
+        _state.withdrawals.heldShares -= withdrawal.shares;
+        _state.liquidity.pendingWithdrawals -= amountToWithdraw;
 
         uint256 sharesToWithdraw = withdrawal.shares;
         withdrawal.shares = 0;
@@ -532,16 +521,27 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
     function rescueShares() external isDead whenNotPaused {
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];
-        // If an uncompleted withdraw exists, complete this one before to start with new one.
+        // If an uncompleted withdraw exists, complete it before starting a new one.
         if (withdrawal.shares > 0) {
             _completeWithdraw();
         }
 
+        // NOTE: it will revert if there are no shares to further withdraw.
         _initiateWithdraw(0, true);
-        // NOTE: due to the missing roll-epoch between the initiate withdraw
-        //       flow and the complete one, the withdrawed shares are not
-        //       accounted as held, but newHeld.
+
+        // NOTE: due to the missing roll-epoch between the two withdraw phases, we have to:
+        //       - account the withdrawed shares as held.
+        //       - account the new pendingWithdrawals; due to the dead vault, we have to use the last price per share.
         _state.withdrawals.newHeldShares -= withdrawal.shares;
+        _state.withdrawals.heldShares += withdrawal.shares;
+        Epoch memory epoch = getEpoch();
+        uint256 pricePerShare = epochPricePerShare[epoch.previous];
+        uint256 newPendingWithdrawals = VaultLib.sharesToAsset(withdrawal.shares, pricePerShare, _shareDecimals);
+        _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
+
+        // NOTE: as the withdrawal.epoch is the epoch.current one, we also have to fake it in order to use the right price per share.
+        withdrawal.epoch = epoch.previous;
+
         _completeWithdraw();
     }
 
