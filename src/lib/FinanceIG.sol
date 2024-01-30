@@ -239,12 +239,12 @@ library FinanceIG {
                 UD60x18 factor_2 = ud(vParams.avg_u).add(convert(1).sub(ud(theta)).mul(convert(1).sub(ud(vParams.avg_u))));
                 params.sigmaZero = ud(params.sigmaZero).mul(factor_1).mul(factor_2).unwrap();
             }
-            params.internalVolatilityParameters.avg_u = 0;
-            params.internalVolatilityParameters.omega = 0;
-            params.internalVolatilityParameters.t_previous = 0;
-            params.internalVolatilityParameters.u_previous = 0;
-            params.internalVolatilityParameters.v_previous = 1e18;
         }
+        params.internalVolatilityParameters.avg_u = 0;
+        params.internalVolatilityParameters.omega = 0;
+        params.internalVolatilityParameters.t_previous = 0;
+        params.internalVolatilityParameters.u_previous = 0;
+        params.internalVolatilityParameters.v_previous = 1e18;
     }
 
     function updateTimeLockedParameters(
