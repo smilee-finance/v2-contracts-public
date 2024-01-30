@@ -176,4 +176,15 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         // 2000
         sellSmilee(143007476252246688414549877331616418671945481376698222);
     }
+
+    /**
+        Strange break IG_11
+     */
+    function test_12() public {
+        deposit(2378619670875673844525681700791729113511730506061670233);
+        vm.warp(block.timestamp + 87759);
+        callAdminFunction(11009053483262904587257392965333658718023140353785640310911127486,31494680133468960006);
+        buySmilee(3681438805190737524140869650039550087253049645098);
+        sellSmilee(532532592);
+    }
 }

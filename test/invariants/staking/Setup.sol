@@ -42,7 +42,7 @@ abstract contract Setup is Parameters{
         hevm.prank(admin);
         baseToken.setAddressProvider(address(ap));
 
-        AddressProviderUtils.initialize(admin, ap, address(baseToken), hevm);
+        AddressProviderUtils.initialize(admin, ap, address(baseToken), false, hevm);
         vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, ap, EpochFrequency.DAILY, hevm));
 
         EchidnaVaultUtils.grantAdminRole(admin, address(vault));

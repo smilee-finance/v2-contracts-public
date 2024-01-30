@@ -199,7 +199,6 @@ library FinanceIG {
         {
             // Multiply baselineVolatility for a safety margin after the computation of kA and kB:
             uint256 volatilityPriceDiscountFactor = params.timeLocked.volatilityPriceDiscountFactor.get();
-
             params.sigmaZero = params.sigmaZero.wmul(volatilityPriceDiscountFactor);
         }
 
@@ -235,8 +234,11 @@ library FinanceIG {
                 }
                 uint256 n = params.timeLocked.tradeVolatilityUtilizationRateFactor.get();
                 uint256 theta = params.timeLocked.tradeVolatilityTimeDecay.get();
+                // F1 = 1 + (n - 1) * (avg_u ^ 3)
                 UD60x18 factor_1 = convert(1).add(ud(n).sub(convert(1)).mul(ud(vParams.avg_u).powu(3)));
+                // F2 = avg_u + (1 - θ) * (1 - avg_u)
                 UD60x18 factor_2 = ud(vParams.avg_u).add(convert(1).sub(ud(theta)).mul(convert(1).sub(ud(vParams.avg_u))));
+                // σ0 * F1 * F2
                 params.sigmaZero = ud(params.sigmaZero).mul(factor_1).mul(factor_2).unwrap();
             }
         }

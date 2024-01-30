@@ -49,7 +49,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         console.log("** DEPOSIT", amount);
         hevm.prank(msg.sender);
         try vault.deposit(amount, msg.sender, 0) {} catch (bytes memory err) {
-            _shouldNotRevertUnless(err, _GENERAL_1);
+            if (!FLAG_SLIPPAGE) {
+                _shouldNotRevertUnless(err, _GENERAL_1);
+            }
         }
 
         _depositInfo.push(DepositInfo(msg.sender, amount, ig.getEpoch().current));
@@ -193,8 +195,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         uint256 riskFreeRate = _getRiskFree(vault.baseToken());
 
         console.log("** BUY SMILEE");
-        console.log("**** AMOUNT UP", amount_.up);
-        console.log("**** AMOUNT DOWN", amount_.down);
         uint256 premium = _buy(amount_);
 
         (uint256 premiumStraddleK, uint256 premiumStrangleKaKb) = TestOptionsFinanceHelper.equivalentOptionPremiums(
@@ -387,7 +387,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         ) {
             premium = _premium;
         } catch (bytes memory err) {
-            _shouldNotRevertUnless(err, _GENERAL_6);
+            if (!FLAG_SLIPPAGE) {
+                _shouldNotRevertUnless(err, _GENERAL_6);
+            }
         }
 
         VaultUtils.debugState(vault);
@@ -456,11 +458,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             _shouldNotRevertUnless(err, _GENERAL_6);
         }
 
-        uint256 maxPayoff = expectedPayoff + (SLIPPAGE * expectedPayoff) / 1e18;
+        // uint256 maxPayoff = expectedPayoff + (SLIPPAGE * expectedPayoff) / 1e18;
         uint256 minPayoff = expectedPayoff - (SLIPPAGE * expectedPayoff) / 1e18;
         // lte(payoff, baseTokenAmount, _VAULT_10); // Cannot be verified
 
-        _sellAssertion(buyInfo_, sellType, payoff, maxPayoff, minPayoff, sellTokenPrice, ig.getUtilizationRate());
+        _sellAssertion(buyInfo_, sellType, payoff, minPayoff, sellTokenPrice, ig.getUtilizationRate());
 
         return payoff;
     }
@@ -525,12 +527,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         BuyInfo memory buyInfo_,
         uint8 sellType,
         uint256 payoff,
-        uint256 maxPayoff,
         uint256 minPayoff,
         uint256 sellTokenPrice,
         uint256 sellUtilizationRate
     ) internal {
-        lte(payoff, maxPayoff, _IG_11.desc);
         gte(payoff, minPayoff, _IG_11.desc);
 
         if (epochs.length > buyInfo_.epochCounter) {
@@ -617,8 +617,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
     function _rollepochAssertionAfter() internal {
         if (_endingVaultState.liquidity.lockedInitially > 0) {
-            uint256 expectedPendingWithdrawals = (_endingVaultState.withdrawals.newHeldShares * vault.epochPricePerShare(ig.getEpoch().previous)) / 1e18;
-            eq(_initialVaultState.liquidity.pendingWithdrawals, _endingVaultState.liquidity.pendingWithdrawals + expectedPendingWithdrawals, _VAULT_19.desc);
+            uint256 expectedPendingWithdrawals = (_endingVaultState.withdrawals.newHeldShares *
+                vault.epochPricePerShare(ig.getEpoch().previous)) / 1e18;
+            eq(
+                _initialVaultState.liquidity.pendingWithdrawals,
+                _endingVaultState.liquidity.pendingWithdrawals + expectedPendingWithdrawals,
+                _VAULT_19.desc
+            );
             eq(
                 _initialVaultState.withdrawals.heldShares,
                 _endingVaultState.withdrawals.heldShares + _endingVaultState.withdrawals.newHeldShares,

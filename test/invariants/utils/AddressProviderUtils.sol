@@ -11,7 +11,13 @@ import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {MockedRegistry} from "../../mock/MockedRegistry.sol";
 
 library AddressProviderUtils {
-    function initialize(address admin, AddressProvider addressProvider, address baseToken, IHevm vm) public {
+    function initialize(
+        address admin,
+        AddressProvider addressProvider,
+        address baseToken,
+        bool dexHasSlippage,
+        IHevm vm
+    ) public {
         address registryAddress = addressProvider.registry();
         if (registryAddress == address(0)) {
             MockedRegistry registry = new MockedRegistry();
@@ -53,6 +59,11 @@ library AddressProviderUtils {
             TestnetSwapAdapter exchange = new TestnetSwapAdapter(priceOracleAddress);
             exchange.transferOwnership(admin);
             dexAddress = address(exchange);
+            if (dexHasSlippage) {
+                vm.prank(admin);
+                // set random slippage between [-1, 3] %
+                exchange.setSlippage(0, -0.01e18, 0.03e18);
+            }
             vm.prank(admin);
             addressProvider.setExchangeAdapter(dexAddress);
         }

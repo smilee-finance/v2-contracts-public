@@ -272,8 +272,11 @@ contract TestnetSwapAdapterTest is Test {
         assertEq(uint256(int(amount) + expectedSlip), slippedAmount);
     }
 
-    function testRandomSlip() public {
+    function testRandomSlip(uint256 delay) public {
         vm.prank(admin);
+        vm.assume(delay < type(uint128).max);
+        vm.warp(block.timestamp + delay);
+
         dex.setSlippage(0, -0.03e18, 0); // -3%
         uint256 slippedAmount = dex.slipped(100);
         assert(slippedAmount >= 97);

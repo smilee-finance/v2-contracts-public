@@ -9,7 +9,6 @@ import {SignedMath} from "./SignedMath.sol";
 
 /// @title Implementation of core financial computations for Smilee protocol
 library FinanceIGPrice {
-
     error PriceZero();
     error OutOfRange(string varname, uint256 value);
     error NegativePriceDetected();
@@ -326,16 +325,16 @@ library FinanceIGPrice {
     //////  OTHER //////
 
     struct LiquidityRangeParams {
+        // The reference strike
         uint256 k;
+        // The token's pair volatility; symbolic values in [0, 1] ?
         uint256 sigma;
+        // A multiplier for the token's pair volatility
         uint256 sigmaMultiplier;
-        uint256 yearsOfMaturity;
+        // Number of years from now to expiry
+        uint256 yearsToMaturity;
     }
 
-    // @param k The reference strike.
-    // @param sigma The token's pair volatility; symbolic values in [0, 1] ?
-    // @param sigmaMultiplier A multiplier for the token's pair volatility.
-    // @param yearsOfMaturity Number of years for the maturity.
     /**
         @notice Computes the range (kA, kB)
         @param params The parameters.
@@ -344,7 +343,10 @@ library FinanceIGPrice {
         @dev All the values are expressed in Wad.
      */
     function liquidityRange(LiquidityRangeParams calldata params) public pure returns (uint256 kA, uint256 kB) {
-        uint256 mSigmaT = ud(params.sigma).mul(ud(params.sigmaMultiplier)).mul(ud(params.yearsOfMaturity).sqrt()).unwrap();
+        uint256 mSigmaT = ud(params.sigma)
+            .mul(ud(params.sigmaMultiplier))
+            .mul(ud(params.yearsToMaturity).sqrt())
+            .unwrap();
 
         kA = ud(params.k).mul(sd(SignedMath.neg(mSigmaT)).exp().intoUD60x18()).unwrap();
         kB = ud(params.k).mul(ud(mSigmaT).exp()).unwrap();
@@ -378,9 +380,13 @@ library FinanceIGPrice {
      */
     function tradeVolatility(TradeVolatilityParams calldata params) public view returns (uint256 sigma_hat) {
         uint256 ur_qubic = uint256(SignedMath.pow3(int256(params.utilizationRate)));
-        UD60x18 baselineVolatilityFactor = convert(1).add(ud(ur_qubic).mul(ud(params.utilizationRateFactor).sub(convert(1))));
+        UD60x18 baselineVolatilityFactor = convert(1).add(
+            ud(ur_qubic).mul(ud(params.utilizationRateFactor).sub(convert(1)))
+        );
         UD60x18 timeDelta = convert(block.timestamp - params.initialTime);
-        UD60x18 timeFactor = convert(params.duration).sub(ud(params.timeDecay).mul(timeDelta)).div(convert(params.duration));
+        UD60x18 timeFactor = convert(params.duration).sub(ud(params.timeDecay).mul(timeDelta)).div(
+            convert(params.duration)
+        );
 
         return ud(params.sigma0).mul(baselineVolatilityFactor).mul(timeFactor).unwrap();
     }

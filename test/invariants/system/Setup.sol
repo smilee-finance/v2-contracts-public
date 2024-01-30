@@ -44,7 +44,7 @@ abstract contract Setup is Parameters {
         hevm.prank(admin);
         baseToken.setAddressProvider(address(ap));
 
-        AddressProviderUtils.initialize(admin, ap, address(baseToken), hevm);
+        AddressProviderUtils.initialize(admin, ap, address(baseToken), FLAG_SLIPPAGE, hevm);
         vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, ap, EpochFrequency.DAILY, hevm));
 
         EchidnaVaultUtils.grantAdminRole(admin, address(vault));
@@ -81,13 +81,11 @@ abstract contract Setup is Parameters {
     }
 
     function _impliedVolSetup(address baseToken_, address sideToken, AddressProvider _ap) internal {
-      MarketOracle apMarketOracle = MarketOracle(_ap.marketOracle());
-      uint256 lastUpdate = apMarketOracle.getImpliedVolatilityLastUpdate(baseToken_, sideToken, EpochFrequency.DAILY);
-      if (lastUpdate == 0) {
-          hevm.prank(admin);
-          apMarketOracle.setImpliedVolatility(baseToken_, sideToken, EpochFrequency.DAILY, VOLATILITY);
-      }
+        MarketOracle apMarketOracle = MarketOracle(_ap.marketOracle());
+        uint256 lastUpdate = apMarketOracle.getImpliedVolatilityLastUpdate(baseToken_, sideToken, EpochFrequency.DAILY);
+        if (lastUpdate == 0) {
+            hevm.prank(admin);
+            apMarketOracle.setImpliedVolatility(baseToken_, sideToken, EpochFrequency.DAILY, VOLATILITY);
+        }
     }
-
-
 }
