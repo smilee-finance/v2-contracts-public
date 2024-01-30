@@ -294,7 +294,11 @@ library FinanceIGPrice {
         UD60x18 krangex18 = ud(krange);
 
         UD60x18 res = tetax18.mul((kx18.mul(krangex18)).sqrt());
-        return res.unwrap();
+        uint256 resUnwrapped = res.unwrap();
+        if (resUnwrapped == 0) {
+            return 1;
+        }
+        return resUnwrapped;
     }
 
     /// @dev 1/θ * √(K_<a|b> / K)
@@ -351,9 +355,8 @@ library FinanceIGPrice {
         kA = ud(params.k).mul(sd(SignedMath.neg(mSigmaT)).exp().intoUD60x18()).unwrap();
         kB = ud(params.k).mul(ud(mSigmaT).exp()).unwrap();
 
-        // NOTE: protect against crazy volatilities
-        if (kA < 0.0001e18) {
-            kA = 0.0001e18;
+        if(kA == 0) {
+            kA = 1;
         }
     }
 

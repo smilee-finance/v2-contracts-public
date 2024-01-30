@@ -9,6 +9,7 @@ import {IMarketOracle} from "@project/interfaces/IMarketOracle.sol";
 import {State} from "./State.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
+import {DVPUtils} from "../../utils/DVPUtils.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {TestOptionsFinanceHelper} from "./TestOptionsFinanceHelper.sol";
@@ -134,7 +135,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         precondition(block.timestamp < ig.getEpoch().current);
 
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
-        VaultUtils.debugStateIG(ig);
+        DVPUtils.debugStateIG(ig);
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
@@ -161,7 +162,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         precondition(block.timestamp < ig.getEpoch().current);
 
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
-        VaultUtils.debugStateIG(ig);
+        DVPUtils.debugStateIG(ig);
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
@@ -188,7 +189,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         precondition(block.timestamp < ig.getEpoch().current);
 
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
-        VaultUtils.debugStateIG(ig);
+        DVPUtils.debugStateIG(ig);
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
@@ -275,7 +276,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     function _rollEpoch() internal {
         console.log("** STATES PRE ROLLEPOCH");
         VaultUtils.debugState(vault);
-        VaultUtils.debugStateIG(ig);
+        DVPUtils.debugStateIG(ig);
 
         uint256 currentEpoch = ig.getEpoch().current;
 
@@ -311,7 +312,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         console.log("** STATES AFTER ROLLEPOCH");
         VaultUtils.debugState(vault);
-        VaultUtils.debugStateIG(ig);
+        DVPUtils.debugStateIG(ig);
     }
 
     function _getTokenPrice(address tokenAddress) internal view returns (uint256 tokenPrice) {

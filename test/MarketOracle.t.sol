@@ -29,17 +29,50 @@ contract MarketOracleTest is Test {
         uint256 newDelay = 2 hours;
 
         vm.prank(admin);
-        marketOracle.setMaxDelay(baseToken, sideToken, timeWindow, newDelay);
+        marketOracle.setDelay(baseToken, sideToken, timeWindow, newDelay, false);
 
-        uint256 delay = marketOracle.getMaxDelay(baseToken, sideToken, timeWindow);
+        (uint256 delay,) = marketOracle.getMaxDelay(baseToken, sideToken, timeWindow);
         assertEq(newDelay, delay);
+    }
+
+    function testGetImpliedVolatilityOfTokenWithNoDelayEnabled() public {
+        uint256 timeWindow = 86400;
+        uint256 newDelay = 0;
+
+        vm.prank(admin);
+        marketOracle.setDelay(baseToken, sideToken, timeWindow, newDelay, true);
+
+        (, bool disabled) = marketOracle.getMaxDelay(baseToken, sideToken, timeWindow);
+        assertEq(true, disabled);
+
+
+        uint256 iv = marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
+        assertEq(1e18, iv);
+
+        vm.warp(block.timestamp + 10 days);
+        iv = marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
+        assertEq(1e18, iv);
+
+        uint256 newIvValue = 5e18;
+
+        vm.prank(admin);
+        marketOracle.setImpliedVolatility(baseToken, sideToken, timeWindow, newIvValue);
+
+        iv = marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
+        assertEq(newIvValue, iv);
+
+        vm.warp(block.timestamp + 10 days);
+        iv = marketOracle.getImpliedVolatility(baseToken, sideToken, 0, timeWindow);
+        assertEq(newIvValue, iv);
+
+
     }
 
     function getDefaultMaxDelay() public {
         uint256 timeWindow = 86400;
 
-        uint256 delay = marketOracle.getMaxDelay(baseToken, sideToken, timeWindow);
-        assertEq(4 hours, delay);
+        (uint256 delay,) = marketOracle.getMaxDelay(baseToken, sideToken, timeWindow);
+        assertEq(1 hours, delay);
     }
 
     function testSetImpliedVolatility() public {
@@ -67,7 +100,7 @@ contract MarketOracleTest is Test {
 
     function testSetImpliedVolatilityOutOfAllowedRange() public {
         uint256 timeWindow = 86400;
-        uint256 newIvValue = 11e18;
+        uint256 newIvValue = 1001e18;
 
 
         vm.prank(admin);
@@ -84,13 +117,12 @@ contract MarketOracleTest is Test {
     }
 
     /**
-     * Test Get Implied volatility with daily frequency of update.
-     * The value's keeped before 1 day plus the max_delay set for the given tokens (default 4 hours)
+     * Test Get Implied volatility frequency of update.
      */
     function testGetImpliedVolatilityBeforeAndAfterDelay() public {
         uint256 timeWindow = 86400;
         uint256 newIvValue = 5e18;
-        uint256 maxTollerableDelay = marketOracle.maxDelayFromLastUpdate();
+        uint256 maxTollerableDelay = marketOracle.defaultMaxDelayFromLastUpdate();
 
         vm.prank(admin);
         marketOracle.setImpliedVolatility(baseToken, sideToken, timeWindow, newIvValue);

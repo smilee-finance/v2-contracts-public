@@ -175,6 +175,16 @@ library FinanceIG {
             );
     }
 
+    /**
+     * 
+     */
+    function checkFinanceApprox(FinanceParameters storage params) public view returns(bool){
+        uint256 resTetaKKartd = FinanceIGPrice._tetakkrtd(params.theta, params.currentStrike, params.kA);
+        uint256 resTetaKKbrtd = FinanceIGPrice._tetakkrtd(params.theta, params.currentStrike, params.kB);
+
+        return resTetaKKartd == 1 || resTetaKKbrtd == 1;
+    }
+
     function updateParameters(
         FinanceParameters storage params,
         uint256 impliedVolatility,

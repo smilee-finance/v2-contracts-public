@@ -29,6 +29,7 @@ contract IG is DVP {
 
     // Used by TheGraph for frontend needs:
     event EpochStrike(uint256 epoch, uint256 strike);
+    event PausedForFinanceApproximation();
 
     constructor(address vault_, address addressProvider_) DVP(vault_, false, addressProvider_) {
         _setParameters(
@@ -195,11 +196,7 @@ contract IG is DVP {
             tradeIsBuy,
             _baseTokenDecimals
         );
-        FinanceIG.updateVolatilityOnTrade(
-            financeParameters,
-            oraclePrice,
-            ur
-        );
+        FinanceIG.updateVolatilityOnTrade(financeParameters, oraclePrice, ur);
 
         Amount memory availableLiquidity = liquidity.available(strike);
         (, uint256 sideTokensAmount) = IVault(vault).balances();
@@ -271,6 +268,12 @@ contract IG is DVP {
         }
 
         super._afterRollEpoch();
+
+        bool isFinanceApprox = FinanceIG.checkFinanceApprox(financeParameters);
+        if (isFinanceApprox) {
+            _pause();
+            emit PausedForFinanceApproximation();
+        }
 
         // NOTE: initial liquidity is allocated by the DVP call
         Notional.Info storage liquidity = _liquidity[financeParameters.maturity];

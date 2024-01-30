@@ -11,6 +11,7 @@ import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
+import {MarketOracle} from "@project/MarketOracle.sol";
 import {Epoch, EpochController} from "@project/lib/EpochController.sol";
 
 contract RegistryTest is Test {
@@ -186,9 +187,16 @@ contract RegistryTest is Test {
         dvp2.grantRole(dvp2.ROLE_EPOCH_ROLLER(), admin);
         vm.stopPrank();
 
+        MarketOracle mo = MarketOracle(ap.marketOracle());
+
+
         TestnetPriceOracle po = TestnetPriceOracle(ap.priceOracle());
 
         vm.startPrank(admin);
+
+        mo.setDelay(dvp.baseToken(), dvp.sideToken(), dvp.getEpoch().frequency, 0, true);
+        mo.setDelay(dvp2.baseToken(), dvp2.sideToken(), dvp2.getEpoch().frequency, 0, true);
+
         registry.register(address(dvp));
         registry.register(address(dvp2));
         vault2.setAllowedDVP(address(dvp2));

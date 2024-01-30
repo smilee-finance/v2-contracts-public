@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {console} from "forge-std/console.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 
@@ -11,8 +12,14 @@ contract MarketOracle is IMarketOracle, AccessControl {
         uint256 lastUpdate;
     }
 
+    struct DelayParameters {
+        uint256 delay;
+        // Disable the check of the delay.
+        bool disabled;
+    }
+
     // Default maximum elapsed time used to check the value as old.
-    uint256 public maxDelayFromLastUpdate;
+    uint256 public defaultMaxDelayFromLastUpdate;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -22,7 +29,7 @@ contract MarketOracle is IMarketOracle, AccessControl {
     /// @dev index is the base token address
     mapping(address => OracleValue) internal _riskFreeRate;
     /// @dev max delay from last update for each token and frequency
-    mapping(bytes32 => uint256) internal _maxDelay;
+    mapping(bytes32 => DelayParameters) internal _maxDelay;
 
     error OutOfAllowedRange();
     error AddressZero();
@@ -33,12 +40,13 @@ contract MarketOracle is IMarketOracle, AccessControl {
         address indexed token0,
         address indexed token1,
         uint256 timeWindows,
-        uint256 value
+        uint256 value,
+        bool disabled
     );
     event ChangedRFR(address indexed token, uint256 value, uint256 oldValue);
 
     constructor() AccessControl() {
-        maxDelayFromLastUpdate = 10000 days;
+        defaultMaxDelayFromLastUpdate = 1 hours;
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
@@ -50,27 +58,42 @@ contract MarketOracle is IMarketOracle, AccessControl {
         return keccak256(abi.encodePacked(token0, token1, timeWindow));
     }
 
-    function setMaxDefaultDelay(uint256 maxDefaultDelay) external {
-        maxDelayFromLastUpdate = maxDefaultDelay;
+    function setMaxDefaultDelay(uint256 defaultMaxDelay) external {
+        defaultMaxDelayFromLastUpdate = defaultMaxDelay;
     }
 
-    function setMaxDelay(address token0, address token1, uint256 timeWindow, uint256 delay) external {
+    function setDelay(
+        address token0,
+        address token1,
+        uint256 timeWindow,
+        uint256 delay,
+        bool disabled
+    ) external {
         _checkRole(ROLE_ADMIN);
         if (token0 == address(0) || token1 == address(0)) {
             revert AddressZero();
         }
         bytes32 index = _getIndex(token0, token1, timeWindow);
-        _maxDelay[index] = delay;
+        DelayParameters storage delayParameters = _maxDelay[index];
 
-        emit ChangedTokenPriceFeedMaxDelay(token0, token1, timeWindow, delay);
+        delayParameters.delay = delay;
+        delayParameters.disabled = disabled;
+
+        emit ChangedTokenPriceFeedMaxDelay(token0, token1, timeWindow, delay, disabled);
     }
 
-    function getMaxDelay(address token0, address token1, uint256 timeWindow) public view returns (uint256 maxDelay_) {
-        bytes32 index = _getIndex(token0, token1, timeWindow);
-        maxDelay_ = _maxDelay[index];
+    function getMaxDelay(address token0, address token1, uint256 timeWindow) external view returns (uint256 maxDelay_, bool disabled) {
+        DelayParameters memory delayParameters = _getDelay(token0, token1, timeWindow);
 
-        if (_maxDelay[index] == 0) {
-            maxDelay_ = maxDelayFromLastUpdate;
+        return (delayParameters.delay, delayParameters.disabled);
+    }
+
+    function _getDelay(address token0, address token1, uint256 timeWindow) internal view returns(DelayParameters memory _delayParameters) {
+        bytes32 index = _getIndex(token0, token1, timeWindow);
+        _delayParameters = _maxDelay[index];
+
+        if (_delayParameters.delay == 0) {
+            _delayParameters.delay = defaultMaxDelayFromLastUpdate;
         }
     }
 
@@ -100,10 +123,12 @@ contract MarketOracle is IMarketOracle, AccessControl {
             return 1e18;
         }
 
-        uint256 maxDelayForTriple = getMaxDelay(token0, token1, frequency);
-    
-        if (iv_.lastUpdate + maxDelayForTriple < block.timestamp ) {
-            revert StaleOracleValue(token0, token1, frequency);
+        DelayParameters memory delayParameters = _getDelay(token0, token1, frequency);
+
+        if (!delayParameters.disabled) {
+            if (iv_.lastUpdate + delayParameters.delay < block.timestamp) {
+                revert StaleOracleValue(token0, token1, frequency);
+            }
         }
 
         iv = iv_.value;
@@ -111,7 +136,7 @@ contract MarketOracle is IMarketOracle, AccessControl {
 
     function setImpliedVolatility(address token0, address token1, uint256 frequency, uint256 value) public {
         _checkRole(ROLE_ADMIN);
-        if (value < 0.01e18 || value > 10e18) {
+        if (value < 0.01e18 || value > 1000e18) {
             revert OutOfAllowedRange();
         }
 

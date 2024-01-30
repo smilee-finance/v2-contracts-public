@@ -119,36 +119,6 @@ library VaultUtils {
         console.log("-------------------------------");
     }
 
-    function debugStateIG(IG ig) public view {
-        (
-            uint256 maturity,
-            uint256 currentStrike,
-            , /* Amount initialLiquidity */ 
-            uint256 kA,
-            uint256 kB,
-            uint256 theta,
-            int256 limSup,
-            int256 limInf,
-            , /* TimeLockedFinanceParameters timeLocked */
-            uint256 sigmaZero,
-            /* internalVolatilityParameters */
-        ) = ig.financeParameters();
-        console.log("----------IG STATE----------");
-        console.log("maturity", maturity);
-        console.log("currentStrike", currentStrike);
-        // console.log("initialLiquidity", initialLiquidity);
-        console.log("kA", kA);
-        console.log("kB", kB);
-        console.log("theta", theta);
-        console.log("limSup");
-        console.logInt(limSup);
-        console.log("limInf");
-        console.logInt(limInf);
-        // console.log("timeLocked", timeLocked);
-        console.log("sigmaZero", sigmaZero);
-        console.log("----------------------------");
-    }
-
     /**
         @notice Computes the amount of recoverable tokens when the vault die.
      */

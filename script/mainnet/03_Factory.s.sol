@@ -84,18 +84,13 @@ contract DeployDVP is EnhancedScript {
 
         Vault(vault).setAllowedDVP(dvp);
 
-        /**
-         * START: It is needed?
-         */
         string memory sideTokenSymbol = IERC20Metadata(Vault(vault).sideToken()).symbol();
 
-        if (!_stringEquals(sideTokenSymbol, "ETH") && !_stringEquals(sideTokenSymbol, "BTC")) {
+        bool deribitToken = _stringEquals(sideTokenSymbol, "ETH") || _stringEquals(sideTokenSymbol, "BTC");
+
+        if (!deribitToken) {
             _setTimeLockedParameters(dvp);
         }
-
-        /**
-         * STOP
-         */
 
         _registry.register(dvp);
 

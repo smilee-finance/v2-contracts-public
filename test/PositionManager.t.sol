@@ -13,6 +13,7 @@ import {VaultUtils} from "./utils/VaultUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
+import {MarketOracle} from "@project/MarketOracle.sol";
 import {IG} from "@project/IG.sol";
 import {PositionManager} from "@project/periphery/PositionManager.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
@@ -72,6 +73,10 @@ contract PositionManagerTest is Test {
         ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
         vault.grantRole(vault.ROLE_ADMIN(), admin);
         vault.setAllowedDVP(address(ig));
+
+        MarketOracle mo = MarketOracle(ap.marketOracle());
+
+        mo.setDelay(ig.baseToken(), ig.sideToken(), ig.getEpoch().frequency, 0, true);
 
         Utils.skipDay(true, vm);
         ig.rollEpoch();

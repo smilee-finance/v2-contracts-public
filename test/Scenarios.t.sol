@@ -138,7 +138,7 @@ contract TestScenariosJson is Test {
 
         vm.prank(_admin);
         _ap = new AddressProvider(0);
-
+        
         _vault = MockedVault(VaultUtils.createVault(EpochFrequency.WEEKLY, _ap, _admin, vm));
 
         _oracle = TestnetPriceOracle(_ap.priceOracle());
@@ -152,6 +152,8 @@ contract TestScenariosJson is Test {
         _dvp.grantRole(_dvp.ROLE_ADMIN(), _admin);
         _dvp.grantRole(_dvp.ROLE_EPOCH_ROLLER(), _admin);
         _vault.grantRole(_vault.ROLE_ADMIN(), _admin);
+
+        _marketOracle.setDelay(_dvp.baseToken(), _dvp.sideToken(), _dvp.getEpoch().frequency, 0, true);
 
         MockedRegistry(_ap.registry()).registerDVP(address(_dvp));
         MockedVault(_vault).setAllowedDVP(address(_dvp));
@@ -203,6 +205,18 @@ contract TestScenariosJson is Test {
         // Controls the behavior of all components over multiple epochs.
         _checkScenario("scenario_multi_1_e1", true);
         _checkScenario("scenario_multi_1_e2", false);
+    }
+
+    function testScenarioLowKAHighVolatility() public {
+        _checkScenario("scenario_low_ka_high_volatility", true);
+    }
+
+    function testScenarioKAHZeroExtremeVolatility() public {
+        _checkScenario("scenario_ka_zero_extreme_volatility", true);
+    }
+
+    function testScenarioGen() public {
+        _checkScenario("scenario_gen", true);
     }
 
     function _checkScenario(string memory scenarioName, bool isFirstEpoch) internal {

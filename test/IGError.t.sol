@@ -73,11 +73,13 @@ contract IGErrorTest is Test {
         po = TestnetPriceOracle(ap.priceOracle());
         MarketOracle ocl = MarketOracle(ap.marketOracle());
 
+
         vm.startPrank(admin);
         ig.setTradeVolatilityUtilizationRateFactor(2e18);
         ig.setTradeVolatilityTimeDecay(0.25e18);
         ig.setSigmaMultiplier(3e18);
         ocl.setImpliedVolatility(address(baseToken), address(sideToken), EpochFrequency.DAILY, 50e17);
+        ocl.setDelay(ig.baseToken(), ig.sideToken(), ig.getEpoch().frequency, 0, true);
 
         po.setTokenPrice(address(sideToken), 2000e18);
         vm.stopPrank();

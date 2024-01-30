@@ -7,6 +7,7 @@ import {IVault} from "@project/interfaces/IVault.sol";
 import {IDVPAccessNFT} from "@project/interfaces/IDVPAccessNFT.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
+import {MarketOracle} from "@project/MarketOracle.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {Vault} from "@project/Vault.sol";
 import {IGAccessNFT} from "@project/periphery/IGAccessNFT.sol";
@@ -58,6 +59,9 @@ contract IGNFTAccessTest is Test {
         _ig = new MockedIG(address(vault), address(ap));
         _ig.grantRole(_ig.ROLE_ADMIN(), _admin);
         _ig.grantRole(_ig.ROLE_EPOCH_ROLLER(), _admin);
+
+        MarketOracle mo = MarketOracle(ap.marketOracle());
+        mo.setDelay(_ig.baseToken(), _ig.sideToken(), _ig.getEpoch().frequency, 0, true);
 
         registry.register(address(_ig));
         vault.setAllowedDVP(address(_ig));

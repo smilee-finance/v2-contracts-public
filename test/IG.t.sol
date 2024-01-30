@@ -11,12 +11,13 @@ import {TimeLock, TimeLockedBool, TimeLockedUInt} from "@project/lib/TimeLock.so
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {Utils} from "./utils/Utils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
-import {IGUtils} from "./utils/IGUtils.sol";
+import {DVPUtils} from "./utils/DVPUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
+import {MarketOracle} from "@project/MarketOracle.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 
 contract IGTest is Test {
@@ -79,7 +80,12 @@ contract IGTest is Test {
         // Suppose Vault has already liquidity
         VaultUtils.addVaultDeposit(alice, 100 ether, admin, address(vault), vm);
 
-        IGUtils.rollEpoch(ap, ig, admin, true, vm);
+        DVPUtils.disableOracleDelayForIG(ap, ig, admin, vm);
+
+        Utils.skipDay(true, vm);
+
+        vm.prank(admin);
+        ig.rollEpoch();
     }
 
     // ToDo: review with a different vault
@@ -247,6 +253,11 @@ contract IGTest is Test {
     }
 
     function testIGPaused() public {
+        MarketOracle mo = MarketOracle(ap.marketOracle());
+        vm.startPrank(admin);
+        mo.setDelay(ig.baseToken(), ig.sideToken(), ig.getEpoch().frequency, 0, true);
+        vm.stopPrank();
+
         uint256 inputAmount = 1 ether;
         TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
 
@@ -292,7 +303,10 @@ contract IGTest is Test {
         ig.changePauseState();
         assertEq(ig.paused(), false);
 
-        IGUtils.rollEpoch(ap, ig, admin, true, vm);
+        Utils.skipDay(true, vm);
+
+        vm.prank(admin);
+        ig.rollEpoch();
 
         epoch = ig.currentEpoch();
         strike = ig.currentStrike();
@@ -307,18 +321,25 @@ contract IGTest is Test {
     }
 
     function testRollEpochWhenDVPHasJumpedSomeRolls() public {
+        MarketOracle mo = MarketOracle(ap.marketOracle());
+        vm.startPrank(admin);
+        mo.setDelay(ig.baseToken(), ig.sideToken(), ig.getEpoch().frequency, 0, true);
+        vm.stopPrank();
+
         uint256 previousEpoch = ig.currentEpoch();
         uint256 firstExpiry = EpochFrequency.nextExpiry(previousEpoch, EpochFrequency.DAILY);
         uint256 secondExpiry = EpochFrequency.nextExpiry(firstExpiry, EpochFrequency.DAILY);
         uint256 thirdExpiry = EpochFrequency.nextExpiry(secondExpiry, EpochFrequency.DAILY);
         Utils.skipDay(true, vm);
         Utils.skipDay(true, vm);
-        
 
         uint256 epochNumbers = ig.getNumberOfEpochs();
         assertEq(epochNumbers, 1);
 
-        IGUtils.rollEpoch(ap, ig, admin, true, vm);
+        Utils.skipDay(true, vm);
+
+        vm.prank(admin);
+        ig.rollEpoch();
 
         uint256 nextEpoch = ig.currentEpoch();
         uint256 lastEpoch = ig.lastRolledEpoch();
@@ -406,7 +427,10 @@ contract IGTest is Test {
         assertEq(0.9e18, currentValues.volatilityPriceDiscountFactor);
         assertEq(true, currentValues.useOracleImpliedVolatility);
 
-        IGUtils.rollEpoch(ap, ig, admin, true, vm);
+        Utils.skipDay(true, vm);
+
+        vm.prank(admin);
+        ig.rollEpoch();
 
         currentValues = _getTimeLockedFinanceParameters();
         assertEq(3e18, currentValues.sigmaMultiplier);

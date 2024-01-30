@@ -10,36 +10,30 @@ import {TokenUtils} from "./TokenUtils.sol";
 import {Utils} from "./Utils.sol";
 import {FinanceParameters} from "../../src/lib/FinanceIG.sol";
 
-library IGUtils {
-    // ToDo: Add createIg
+library DVPUtils {
 
-    function rollEpoch(AddressProvider ap, IG ig, address admin, bool additionalSecond, Vm vm) external{
+    function disableOracleDelayForIG(AddressProvider ap, IG ig, address admin, Vm vm) public {
         MarketOracle marketOracle = MarketOracle(ap.marketOracle());
-        uint256 iv = marketOracle.getImpliedVolatility(ig.baseToken(), ig.sideToken(), 0, ig.getEpoch().frequency);
-
-        Utils.skipDay(additionalSecond, vm);
-
         vm.startPrank(admin);
-        marketOracle.setImpliedVolatility(ig.baseToken(), ig.sideToken(), ig.getEpoch().frequency, iv);
-        ig.rollEpoch();
+        marketOracle.setDelay(ig.baseToken(), ig.sideToken(), ig.getEpoch().frequency, 0, true);
         vm.stopPrank();
     }
-
 
     function debugStateIG(IG ig) public view {
         (
             uint256 maturity,
-            uint256 currentStrike,
-            , /* Amount initialLiquidity */ 
+            uint256 currentStrike /* Amount initialLiquidity */,
+            ,
             uint256 kA,
             uint256 kB,
             uint256 theta,
             int256 limSup,
-            int256 limInf,
-            , /* TimeLockedFinanceParameters timeLocked */
+            int256 limInf /* TimeLockedFinanceParameters timeLocked */,
+            ,
             uint256 sigmaZero,
-            /* internalVolatilityParameters */
-        ) = ig.financeParameters();
+
+        ) = /* internalVolatilityParameters */
+            ig.financeParameters();
         console.log("----------IG STATE----------");
         console.log("maturity", maturity);
         console.log("currentStrike", currentStrike);
