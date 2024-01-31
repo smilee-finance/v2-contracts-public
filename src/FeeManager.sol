@@ -256,7 +256,7 @@ contract FeeManager is IFeeManager, AccessControl {
     /// @notice Update fee percentage value
     function _setMinFeeBeforeTimeThreshold(address dvp, uint256 minFee) internal {
         uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals();
-        if (minFee > 5 * 10 ** tokenDecimals) {
+        if (minFee > 100 * 10 ** tokenDecimals) {
             revert OutOfAllowedRange();
         }
 
@@ -269,7 +269,7 @@ contract FeeManager is IFeeManager, AccessControl {
     /// @notice Update fee percentage value
     function _setMinFeeAfterTimeThreshold(address dvp, uint256 minFee) internal {
         uint8 tokenDecimals = _getBaseTokenInfo(dvp).decimals();
-        if (minFee > 5 * 10 ** tokenDecimals) {
+        if (minFee > 100 * 10 ** tokenDecimals) {
             revert OutOfAllowedRange();
         }
 
@@ -293,7 +293,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value
     function _setFeePercentage(address dvp, uint256 feePercentage_) internal {
-        if (feePercentage_ > 50_000e18) {
+        if (feePercentage_ > 0.5e18) {
             revert OutOfAllowedRange();
         }
 
@@ -305,7 +305,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update cap percentage value
     function _setCapPercentage(address dvp, uint256 capPercentage_) internal {
-        if (capPercentage_ > 50_000e18) {
+        if (capPercentage_ > 0.5e18) {
             revert OutOfAllowedRange();
         }
 
@@ -317,7 +317,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update fee percentage value at maturity
     function _setMaturityFeePercentage(address dvp, uint256 maturityFeePercentage_) internal {
-        if (maturityFeePercentage_ > 50_000e18) {
+        if (maturityFeePercentage_ > 0.5e18) {
             revert OutOfAllowedRange();
         }
 
@@ -329,7 +329,7 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @notice Update cap percentage value at maturity
     function _setMaturityCapPercentage(address dvp, uint256 maturityCapPercentage_) internal {
-        if (maturityCapPercentage_ > 50_000e18) {
+        if (maturityCapPercentage_ > 0.5e18) {
             revert OutOfAllowedRange();
         }
 

@@ -86,6 +86,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     event ChangedHedgeMargin(uint256 basisPoints);
     event Killed();
     event ChangedPauseState(bool paused);
+    error OutOfAllowedRange();
 
     constructor(
         address baseToken_,
@@ -166,6 +167,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
      */
     function setHedgeMargin(uint256 hedgeMargin) external {
         _checkRole(ROLE_ADMIN);
+        // Cap is 10%
+        if (hedgeMargin > 1000) {
+            revert OutOfAllowedRange();
+        }
 
         _hedgeMargin = hedgeMargin;
 

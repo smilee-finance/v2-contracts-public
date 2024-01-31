@@ -49,7 +49,7 @@ contract DeployCoreFoundations is Script {
         // Address USDC: Is it needed?
         // address stableCoin = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
 
-        AddressProvider ap = new AddressProvider(2 days);
+        AddressProvider ap = new AddressProvider(1 days);
         ap.grantRole(ap.ROLE_GOD(), _adminMultiSigAddress);
         ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress);
         //ap.renounceRole(ap.ROLE_GOD(), _deployerAddress);
@@ -66,16 +66,17 @@ contract DeployCoreFoundations is Script {
         //marketOracle.renounceRole(marketOracle.ROLE_GOD(), _deployerAddress);
         ap.setMarketOracle(address(marketOracle));
 
-        SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(priceOracle), 0);
+        SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(priceOracle), 6 hours);
         ap.setExchangeAdapter(address(swapAdapterRouter));
 
         address uniswapFactoryAddress = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
         // Create uniswap adapter
-        new UniswapAdapter(address(swapAdapterRouter), uniswapFactoryAddress, 0);
+        new UniswapAdapter(address(swapAdapterRouter), uniswapFactoryAddress, 6 hours);
+        // TBD: print address of adapter
 
 
-        FeeManager feeManager = new FeeManager(2 days);
+        FeeManager feeManager = new FeeManager(6 hours);
         feeManager.grantRole(feeManager.ROLE_GOD(), _adminMultiSigAddress);
         feeManager.grantRole(feeManager.ROLE_ADMIN(), _deployerAddress);
         //feeManager.renounceRole(feeManager.ROLE_GOD(), _deployerAddress);

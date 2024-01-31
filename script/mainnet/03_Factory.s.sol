@@ -94,17 +94,17 @@ contract DeployDVP is EnhancedScript {
 
         _registry.register(dvp);
 
-        // ToDo: Choose initial feeParams
-        FeeManager.FeeParams memory feeParams = FeeManager.FeeParams(
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-        );
+        uint8 decimals = IERC20Metadata(baseToken).decimals();
+        FeeManager.FeeParams memory feeParams = FeeManager.FeeParams({
+            timeToExpiryThreshold: 3600,
+            minFeeBeforeTimeThreshold: (10 ** decimals) / 100, // 0.1
+            minFeeAfterTimeThreshold: (10 ** decimals) / 100, // 0.1
+            successFeeTier: 0.02e18,
+            feePercentage: 0.0015e18,
+            capPercentage: 0.125e18,
+            maturityFeePercentage: 0.0015e18,
+            maturityCapPercentage: 0.125e18
+        });
 
         _setDVPFee(dvp, feeParams);
 

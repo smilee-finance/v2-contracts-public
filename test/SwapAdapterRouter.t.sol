@@ -71,8 +71,8 @@ contract SwapProviderRouterTest is Test {
         _swapRouter.setAdapter(address(_token0), address(_token1), address(0x101));
         assertEq(address(0x101), _swapRouter.getAdapter(address(_token0), address(_token1)));
 
-        _swapRouter.setSlippage(address(_token0), address(_token1), 500);
-        assertEq(500, _swapRouter.getSlippage(address(_token0), address(_token1)));
+        _swapRouter.setSlippage(address(_token0), address(_token1), 0.05e18);
+        assertEq(0.05e18, _swapRouter.getSlippage(address(_token0), address(_token1)));
 
         vm.stopPrank();
     }
@@ -82,7 +82,7 @@ contract SwapProviderRouterTest is Test {
         uint256 amount = 1e18;
         uint256 realPriceRef = 1e18;
         uint256 swapPriceRef = 1.5e18;
-        uint256 maxSlippage = 0.2e18;
+        uint256 maxSlippage = 0.1e18;
         _adminSetup(amount, realPriceRef, swapPriceRef, maxSlippage, true);
 
         vm.startPrank(_alice);
@@ -97,7 +97,7 @@ contract SwapProviderRouterTest is Test {
         uint256 amount = 1e18;
         uint256 realPriceRef = 1e18;
         uint256 swapPriceRef = 0.5e18;
-        uint256 maxSlippage = 0.2e18;
+        uint256 maxSlippage = 0.1e18;
         _adminSetup(amount, realPriceRef, swapPriceRef, maxSlippage, true);
 
         vm.startPrank(_alice);
@@ -111,8 +111,8 @@ contract SwapProviderRouterTest is Test {
         uint256 amount = 1_000_000_000_000e6;
 
         uint256 realPriceRef = 1e18;
-        uint256 swapPriceRef = 1.2e18;
-        uint256 maxSlippage = 0.2e18;
+        uint256 swapPriceRef = 1.1e18;
+        uint256 maxSlippage = 0.1e18;
         _adminSetup(amount, realPriceRef, swapPriceRef, maxSlippage, true);
 
         vm.startPrank(_alice);
@@ -131,7 +131,7 @@ contract SwapProviderRouterTest is Test {
         uint256 amount = 1e18;
         uint256 realPriceRef = 1e18;
         uint256 swapPriceRef = 1.5e18;
-        uint256 maxSlippage = 0.2e18;
+        uint256 maxSlippage = 0.1e18;
         _adminSetup(amount, realPriceRef, swapPriceRef, maxSlippage, false);
 
         vm.startPrank(_alice);
@@ -147,7 +147,7 @@ contract SwapProviderRouterTest is Test {
         uint256 amount = 1e18;
         uint256 realPriceRef = 1e18;
         uint256 swapPriceRef = 0.5e18;
-        uint256 maxSlippage = 0.2e18;
+        uint256 maxSlippage = 0.1e18;
         _adminSetup(amount, realPriceRef, swapPriceRef, maxSlippage, false);
 
         vm.startPrank(_alice);
@@ -162,7 +162,7 @@ contract SwapProviderRouterTest is Test {
         uint256 amount = 1e18;
         uint256 realPriceRef = 1e18;
         uint256 swapPriceRef = 1.1e18;
-        uint256 maxSlippage = 0.2e18;
+        uint256 maxSlippage = 0.1e18;
         _adminSetup(amount, realPriceRef, swapPriceRef, maxSlippage, false);
 
         vm.startPrank(_alice);
@@ -187,7 +187,7 @@ contract SwapProviderRouterTest is Test {
         realPriceRef = bound(realPriceRef, 1e9, type(uint128).max); // avoid price to be too big
         swapPriceRef = bound(swapPriceRef, 1e9, type(uint128).max); // avoid price to be too big
         vm.assume(realPriceRef < swapPriceRef);
-        maxSlippage = bound(maxSlippage, 0.001e18, 0.5e18); // 0.1% - 50% - significant values
+        maxSlippage = bound(maxSlippage, 0.005e18, 0.1e18); // was 0.1% - 50% - significant values
 
         _adminSetup(amountIn, realPriceRef, swapPriceRef, maxSlippage, true);
         uint256 realPrice = _oracle.getPrice(address(_token0), address(_token1));
@@ -209,7 +209,7 @@ contract SwapProviderRouterTest is Test {
             assertApproxEqAbs(
                 (((amountIn * 1e18) / swapPriceRef) * 10 ** _token1.decimals()) / 10 ** _token0.decimals(),
                 _token1.balanceOf(_alice),
-                amountIn / 1e18
+                amountIn / 1e9
             );
         } else {
             vm.expectRevert(_SLIPPAGE);

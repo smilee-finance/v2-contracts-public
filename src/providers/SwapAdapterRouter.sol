@@ -35,6 +35,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     error AddressZero();
     error Slippage();
     error SwapZero();
+    error OutOfAllowedRange();
 
     event ChangedAdapter(address tokenIn, address tokenOut, address adapter);
     event ChangedSlippage(address tokenIn, address tokenOut, uint256 slippage);
@@ -67,7 +68,12 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         @return slippage The maximum accepted slippage for the swap
      */
     function getSlippage(address tokenIn, address tokenOut) external view returns (uint256 slippage) {
-        return _slippage[_encodePath(tokenIn, tokenOut)].get();
+        slippage = _slippage[_encodePath(tokenIn, tokenOut)].get();
+
+        // Default baseline value:
+        if (slippage == 0) {
+            return 0.02e18;
+        }
     }
 
     /**
@@ -93,6 +99,10 @@ contract SwapAdapterRouter is IExchange, AccessControl {
      */
     function setSlippage(address tokenIn, address tokenOut, uint256 slippage) external {
         _checkRole(ROLE_ADMIN);
+
+        if (slippage < 0.005e18 || slippage > 0.1e18) {
+            revert OutOfAllowedRange();
+        }
 
         _slippage[_encodePath(tokenIn, tokenOut)].set(slippage, timeLockDelay);
 
