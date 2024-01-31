@@ -105,18 +105,16 @@ library VaultUtils {
         VaultLib.VaultState memory state = vaultState(vault);
         uint256 baseBalance = IERC20(vault.baseToken()).balanceOf(address(vault));
         uint256 sideBalance = IERC20(vault.sideToken()).balanceOf(address(vault));
-        console.log("----------VAULT STATE----------");
-        console.log("lockedInitially", state.liquidity.lockedInitially);
-        console.log("pendingDeposits", state.liquidity.pendingDeposits);
-        console.log("pendingWithdrawals", state.liquidity.pendingWithdrawals);
-        console.log("pendingPayoffs", state.liquidity.pendingPayoffs);
-        console.log("newPendingPayoffs", state.liquidity.newPendingPayoffs);
-        console.log("totalDeposit", state.liquidity.totalDeposit);
-        console.log("heldShares", state.withdrawals.heldShares);
-        console.log("newHeldShares", state.withdrawals.newHeldShares);
-        console.log("baseBalance", baseBalance);
-        console.log("sideBalance", sideBalance);
-        console.log("-------------------------------");
+        console.log("VAULT STATE ---------- lockedInitially", state.liquidity.lockedInitially);
+        console.log("VAULT STATE ---------- pendingDeposits", state.liquidity.pendingDeposits);
+        console.log("VAULT STATE ---------- pendingWithdrawals", state.liquidity.pendingWithdrawals);
+        console.log("VAULT STATE ---------- pendingPayoffs", state.liquidity.pendingPayoffs);
+        console.log("VAULT STATE ---------- newPendingPayoffs", state.liquidity.newPendingPayoffs);
+        console.log("VAULT STATE ---------- totalDeposit", state.liquidity.totalDeposit);
+        console.log("VAULT STATE ---------- heldShares", state.withdrawals.heldShares);
+        console.log("VAULT STATE ---------- newHeldShares", state.withdrawals.newHeldShares);
+        console.log("VAULT STATE ---------- baseBalance", baseBalance);
+        console.log("VAULT STATE ---------- sideBalance", sideBalance);
     }
 
     /**

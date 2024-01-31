@@ -8,10 +8,10 @@ import {MarketOracle} from "../../src/MarketOracle.sol";
 import {IG} from "../../src/IG.sol";
 import {TokenUtils} from "./TokenUtils.sol";
 import {Utils} from "./Utils.sol";
+import {Amount} from "../../src/lib/Amount.sol";
 import {FinanceParameters} from "../../src/lib/FinanceIG.sol";
 
 library DVPUtils {
-
     function disableOracleDelayForIG(AddressProvider ap, IG ig, address admin, Vm vm) public {
         MarketOracle marketOracle = MarketOracle(ap.marketOracle());
         vm.startPrank(admin);
@@ -19,35 +19,27 @@ library DVPUtils {
         vm.stopPrank();
     }
 
-    function debugStateIG(IG ig) public view {
+    function debugState(IG ig) public view {
         (
             uint256 maturity,
-            uint256 currentStrike /* Amount initialLiquidity */,
-            ,
+            uint256 currentStrike,
+            Amount memory initialLiquidity,
             uint256 kA,
             uint256 kB,
             uint256 theta,
-            int256 limSup,
-            int256 limInf /* TimeLockedFinanceParameters timeLocked */,
-            ,
+            /* TimeLockedFinanceParameters timeLocked */,
             uint256 sigmaZero,
-
-        ) = /* internalVolatilityParameters */
-            ig.financeParameters();
-        console.log("----------IG STATE----------");
-        console.log("maturity", maturity);
-        console.log("currentStrike", currentStrike);
-        // console.log("initialLiquidity", initialLiquidity);
-        console.log("kA", kA);
-        console.log("kB", kB);
-        console.log("theta", theta);
-        console.log("limSup");
-        console.logInt(limSup);
-        console.log("limInf");
-        console.logInt(limInf);
+            /* internalVolatilityParameters */
+        ) = ig.financeParameters();
+        console.log("IG STATE ---------- maturity", maturity);
+        console.log("IG STATE ---------- strike", currentStrike);
+        console.log("IG STATE ---------- v0 up", initialLiquidity.up);
+        console.log("IG STATE ---------- v0 down", initialLiquidity.down);
+        console.log("IG STATE ---------- kA", kA);
+        console.log("IG STATE ---------- kB", kB);
+        console.log("IG STATE ---------- theta", theta);
         // console.log("timeLocked", timeLocked);
-        console.log("sigmaZero", sigmaZero);
-        console.log("----------------------------");
+        console.log("IG STATE ---------- sigmaZero", sigmaZero);
     }
 
     /// @dev Function used to skip coverage on this file

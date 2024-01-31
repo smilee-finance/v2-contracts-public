@@ -156,7 +156,7 @@ contract DeployDVP is EnhancedScript {
     function _getTimeLockedFinanceParameters(
         IG ig
     ) private view returns (TimeLockedFinanceValues memory currentValues) {
-        (, , , , , , , , TimeLockedFinanceParameters memory igParams, , ) = ig.financeParameters();
+        (, , , , , , TimeLockedFinanceParameters memory igParams, , ) = ig.financeParameters();
         currentValues = TimeLockedFinanceValues({
             sigmaMultiplier: igParams.sigmaMultiplier.get(),
             tradeVolatilityUtilizationRateFactor: igParams.tradeVolatilityUtilizationRateFactor.get(),

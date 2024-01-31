@@ -63,18 +63,18 @@ contract LibraryDeployer {
         TimeLockedBool memory tmlb = TimeLockedBool(true, true, 1);
         tfp = TimeLockedFinanceParameters(tlui, tlui, tlui, tlui, tmlb);
         tvp = VolatilityParameters(1, 1, 1, 1, 1, 1);
-        FinanceParameters memory fp = FinanceParameters(12, 13, amountOne, 123, 124, 1, 1, 2, tfp, 1, tvp);
+        FinanceParameters memory fp = FinanceParameters(12, 13, amountOne, 123, 124, 2, tfp, 1, tvp);
         FinanceIG.getPayoffPercentages(fp, 1);
-        FinanceIGDelta.mqParams(2);
-        FinanceIGPayoff.igPayoffInRange(100000,2);
-        FinanceIGPrice.d1Parts(1,2,3);
+        FinanceIGDelta.deltaTrade(0, 0, 0, 0, 0);
+        FinanceIGPayoff.igPayoffInRange(100000, 2);
+        FinanceIGPrice.d1Parts(1, 2, 3);
         notionalInfo.setInitial(123, amountOne);
         Position.getID(address(this), 1);
         SignedMath.castInt(1);
         tfp.sigmaMultiplier.set(1, 2);
         TokensPair.Pair memory pair = TokensPair.Pair(address(this), address(this));
         TokensPair.getDecimals(pair);
-        VaultLib.assetToShares(0,0,18);
+        VaultLib.assetToShares(0, 0, 18);
         WadTime.nYears(2);
     }
 }

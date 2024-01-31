@@ -65,13 +65,6 @@ contract FinanceLibJsonTest is Test {
         uint256 tau;
     }
 
-    struct ExpectedValue {
-        int256 alfa1;
-        int256 alfa2;
-        int256 limInf;
-        int256 limSup;
-    }
-
     struct LiquidityRange {
         // inputs
         uint256 strike;
@@ -106,7 +99,6 @@ contract FinanceLibJsonTest is Test {
 
     struct Scenario {
         Constants constants;
-        ExpectedValue expected;
         TestCaseJson[] testCases;
     }
 
@@ -129,46 +121,14 @@ contract FinanceLibJsonTest is Test {
         uint256 counter = 0;
         for (uint i = 0; i < scenarios_.length; i++) {
             Scenario memory scenario = scenarios_[i];
-            uint256 teta = FinanceIGPrice._teta(scenario.constants.k, scenario.constants.ka, scenario.constants.kb);
-            (int256 limSup, int256 limInf) = FinanceIGDelta.lims(
-                scenario.constants.k,
-                scenario.constants.ka,
-                scenario.constants.kb,
-                teta,
-                scenario.constants.v0
-            );
-            {
-                assertApproxEqAbs(scenario.expected.limInf, limInf, ERR);
-                assertApproxEqAbs(scenario.expected.limSup, limSup, ERR);
-            }
-            int256 alfa1;
-            int256 alfa2;
+            uint256 theta = FinanceIGPrice._teta(scenario.constants.k, scenario.constants.ka, scenario.constants.kb);
             for (uint j = 0; j < scenario.testCases.length; j++) {
                 // Avoid stack too deep;
                 uint256 counterStack = counter++;
                 TestCaseJson memory t = scenario.testCases[j];
                 uint256 tau = WadTime.nYears(t.tau); // ToDo: review
-                (alfa1, alfa2) = FinanceIGDelta.alfas(scenario.constants.k, scenario.constants.ka, scenario.constants.kb, scenario.constants.sigma, tau);
-                FinanceIGDelta.Parameters memory deltaParams = FinanceIGDelta.Parameters(
-                    scenario.constants.sigma,
-                    scenario.constants.k,
-                    t.priceToken,
-                    tau,
-                    limSup,
-                    limInf,
-                    alfa1,
-                    alfa2
-                );
-                FinanceIGPrice.Parameters memory priceParams = FinanceIGPrice.Parameters(
-                    scenario.constants.r,
-                    scenario.constants.sigma,
-                    scenario.constants.k,
-                    t.priceToken,
-                    tau,
-                    scenario.constants.ka,
-                    scenario.constants.kb,
-                    teta
-                );
+                FinanceIGDelta.Parameters memory deltaParams = FinanceIGDelta.Parameters(scenario.constants.k, scenario.constants.ka, scenario.constants.kb, t.priceToken, theta);
+                FinanceIGPrice.Parameters memory priceParams = FinanceIGPrice.Parameters(scenario.constants.r, scenario.constants.sigma, scenario.constants.k, t.priceToken, tau, scenario.constants.ka, scenario.constants.kb, theta);
                 testCases[counterStack] = TestCase(t.delta, deltaParams, t.payoff, t.price, priceParams, t.priceToken, tau, scenario.constants.v0);
             }
             indexes[i] = counter;
@@ -183,8 +143,8 @@ contract FinanceLibJsonTest is Test {
             for (uint256 i = index; i < indexScenarioMax; i++) {
                 (int256 igDBull, int256 igDBear) = FinanceIGDelta.deltaHedgePercentages(testCases[i].deltaParams);
 
-                assertApproxEqAbs(testCases[i].delta.igDBull, igDBull, D_ERR);
-                assertApproxEqAbs(testCases[i].delta.igDBear, igDBear, D_ERR);
+                assertApproxEqAbs(testCases[i].delta.igDBull, (int256(testCases[i].v0) * igDBull) / 1e18, D_ERR);
+                assertApproxEqAbs(testCases[i].delta.igDBear, (int256(testCases[i].v0) * igDBear) / 1e18, D_ERR);
             }
             index = indexScenarioMax;
         }
@@ -195,9 +155,7 @@ contract FinanceLibJsonTest is Test {
         for (uint s = 0; s < scenariosNumber; s++) {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
-                (FinanceIGPrice.DTerms memory ds, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(
-                    testCases[i].priceParams
-                );
+                (FinanceIGPrice.DTerms memory ds, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(testCases[i].priceParams);
 
                 assertApproxEqAbs(testCases[i].price.ds.d1, ds.d1, ERR);
                 assertApproxEqAbs(testCases[i].price.ds.d2, ds.d2, ERR);
@@ -220,9 +178,7 @@ contract FinanceLibJsonTest is Test {
         for (uint s = 0; s < scenariosNumber; s++) {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
-                (FinanceIGPrice.DTerms memory ds, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(
-                    testCases[i].priceParams
-                );
+                (FinanceIGPrice.DTerms memory ds, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(testCases[i].priceParams);
                 FinanceIGPrice.NTerms memory ns = FinanceIGPrice.nTerms(ds);
                 FinanceIGPrice.NTerms memory nas = FinanceIGPrice.nTerms(das);
                 FinanceIGPrice.NTerms memory nbs = FinanceIGPrice.nTerms(dbs);
@@ -270,13 +226,7 @@ contract FinanceLibJsonTest is Test {
         for (uint s = 0; s < scenariosNumber; s++) {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
-                (uint256 poBull, uint256 poBear) = FinanceIGPayoff.igPayoffPerc(
-                    testCases[i].priceParams.s,
-                    testCases[i].priceParams.k,
-                    testCases[i].priceParams.ka,
-                    testCases[i].priceParams.kb,
-                    testCases[i].priceParams.teta
-                );
+                (uint256 poBull, uint256 poBear) = FinanceIGPayoff.igPayoffPerc(testCases[i].priceParams.s, testCases[i].priceParams.k, testCases[i].priceParams.ka, testCases[i].priceParams.kb, testCases[i].priceParams.teta);
                 assertApproxEqAbs(testCases[i].payoff.igBull, testCases[i].v0.wmul(poBull), ERR);
                 assertApproxEqAbs(testCases[i].payoff.igBear, testCases[i].v0.wmul(poBear), ERR);
             }
@@ -305,9 +255,7 @@ contract FinanceLibJsonTest is Test {
     }
 
     function _checkLiquidityRange(LiquidityRange memory params) private {
-        (uint256 kA, uint256 kB) = FinanceIGPrice.liquidityRange(
-            FinanceIGPrice.LiquidityRangeParams(params.strike, params.volatility, params.volatilityMultiplier, params.yearsOfMaturity)
-        );
+        (uint256 kA, uint256 kB) = FinanceIGPrice.liquidityRange(FinanceIGPrice.LiquidityRangeParams(params.strike, params.volatility, params.volatilityMultiplier, params.yearsOfMaturity));
         uint256 maxError = 1e9;
         assertApproxEqAbs(params.kA, kA, maxError);
         assertApproxEqAbs(params.kB, kB, maxError);
@@ -341,52 +289,6 @@ contract FinanceLibJsonTest is Test {
         // ToDo: check corner cases
     }
 
-    function _checkTradeVolatility(TradeVolatility memory params) private {
-        uint256 volatility = FinanceIGPrice.tradeVolatility(
-            FinanceIGPrice.TradeVolatilityParams(
-                params.baselineVolatility,
-                params.utilizationRateFactor,
-                params.timeDecay,
-                params.utilizationRate,
-                params.maturity,
-                params.initialTime
-            )
-        );
-        uint256 maxError = 1e11;
-        assertApproxEqAbs(params.volatility, volatility, maxError);
-    }
-
-    function _readJson(string memory filename) private view returns (string memory) {
-        string memory directory = string.concat(vm.projectRoot(), "/test/resources/");
-        string memory file = string.concat(filename, ".json");
-        string memory path = string.concat(directory, file);
-
-        return vm.readFile(path);
-    }
-
-    function _readScenariosFromJson(string memory json) private returns (Scenario[] memory scenarios_) {
-        scenariosNumber = json.readUint("$.scenariosNum");
-        scenarios_ = new Scenario[](scenariosNumber);
-        bytes memory elBytes;
-        for (uint i = 0; i < scenariosNumber; i++) {
-            string memory scenarioJsonPath = string.concat("$.scenarios[", Strings.toString(i), "]");
-            elBytes = json.parseRaw(string.concat(scenarioJsonPath, ".constants"));
-            Constants memory c = abi.decode(elBytes, (Constants));
-            elBytes = json.parseRaw(string.concat(scenarioJsonPath, ".expected"));
-            ExpectedValue memory ex = abi.decode(elBytes, (ExpectedValue));
-            uint256 testCasesNumber = json.readUint(string.concat(scenarioJsonPath, ".testCasesNumber"));
-            TestCaseJson[] memory testCasesObj = new TestCaseJson[](testCasesNumber);
-            for (uint j = 0; j < testCasesNumber; j++) {
-                string memory testCasesJsonPath = string.concat(scenarioJsonPath, ".testCases[", Strings.toString(j), "]");
-                elBytes = json.parseRaw(testCasesJsonPath);
-                TestCaseJson memory t = abi.decode(elBytes, (TestCaseJson));
-                testCasesObj[j] = t;
-            }
-            Scenario memory s = Scenario(c, ex, testCasesObj);
-            scenarios_[i] = s;
-        }
-    }
-
     function testDeltaHedgeAmount() public {
         FinanceIGDelta.DeltaHedgeParameters memory input = FinanceIGDelta.DeltaHedgeParameters({
             igDBull: 3.491417164804690e18,
@@ -409,7 +311,39 @@ contract FinanceLibJsonTest is Test {
         assertApproxEqAbs(-0.37595523471614e18, output, 0.001e18);
     }
 
-    function testFoo() public {
-        //
+    function _checkTradeVolatility(TradeVolatility memory params) private {
+        uint256 volatility = FinanceIGPrice.tradeVolatility(FinanceIGPrice.TradeVolatilityParams(params.baselineVolatility, params.utilizationRateFactor, params.timeDecay, params.utilizationRate, params.maturity, params.initialTime));
+        uint256 maxError = 1e11;
+        assertApproxEqAbs(params.volatility, volatility, maxError);
+    }
+
+    function _readJson(string memory filename) private view returns (string memory) {
+        string memory directory = string.concat(vm.projectRoot(), "/test/resources/");
+        string memory file = string.concat(filename, ".json");
+        string memory path = string.concat(directory, file);
+
+        return vm.readFile(path);
+    }
+
+    function _readScenariosFromJson(string memory json) private returns (Scenario[] memory scenarios_) {
+        scenariosNumber = json.readUint("$.scenariosNum");
+        scenarios_ = new Scenario[](scenariosNumber);
+        bytes memory elBytes;
+        for (uint i = 0; i < scenariosNumber; i++) {
+            string memory scenarioJsonPath = string.concat("$.scenarios[", Strings.toString(i), "]");
+            elBytes = json.parseRaw(string.concat(scenarioJsonPath, ".constants"));
+            Constants memory c = abi.decode(elBytes, (Constants));
+            elBytes = json.parseRaw(string.concat(scenarioJsonPath, ".expected"));
+            uint256 testCasesNumber = json.readUint(string.concat(scenarioJsonPath, ".testCasesNumber"));
+            TestCaseJson[] memory testCasesObj = new TestCaseJson[](testCasesNumber);
+            for (uint j = 0; j < testCasesNumber; j++) {
+                string memory testCasesJsonPath = string.concat(scenarioJsonPath, ".testCases[", Strings.toString(j), "]");
+                elBytes = json.parseRaw(testCasesJsonPath);
+                TestCaseJson memory t = abi.decode(elBytes, (TestCaseJson));
+                testCasesObj[j] = t;
+            }
+            Scenario memory s = Scenario(c, testCasesObj);
+            scenarios_[i] = s;
+        }
     }
 }

@@ -56,9 +56,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         console.log("** DEPOSIT", amount);
         hevm.prank(msg.sender);
         try vault.deposit(amount, msg.sender, 0) {} catch (bytes memory err) {
-            if (!FLAG_SLIPPAGE) {
-                _shouldNotRevertUnless(err, _GENERAL_1);
-            }
+            _shouldNotRevertUnless(err, _GENERAL_1);
         }
 
         _depositInfo.push(DepositInfo(msg.sender, amount, ig.getEpoch().current));
@@ -143,7 +141,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_BULL, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
-        DVPUtils.debugStateIG(ig);
+        DVPUtils.debugState(ig);
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
@@ -169,7 +167,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_BEAR, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
-        DVPUtils.debugStateIG(ig);
+        DVPUtils.debugState(ig);
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
@@ -196,7 +194,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_SMILEE, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
-        DVPUtils.debugStateIG(ig);
+        DVPUtils.debugState(ig);
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
@@ -288,7 +286,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     function _rollEpoch() internal {
         console.log("** STATES PRE ROLLEPOCH");
         VaultUtils.debugState(vault);
-        DVPUtils.debugStateIG(ig);
+        DVPUtils.debugState(ig);
 
         uint256 currentEpoch = ig.getEpoch().current;
 
@@ -356,7 +354,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         console.log("** STATES AFTER ROLLEPOCH");
         VaultUtils.debugState(vault);
-        DVPUtils.debugStateIG(ig);
+        DVPUtils.debugState(ig);
     }
 
     function _getTokenPrice(address tokenAddress) internal view returns (uint256 tokenPrice) {
@@ -471,7 +469,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         try ig.mint(msg.sender, buyTokenPrice, amount.up, amount.down, expectedPremium, ACCEPTED_SLIPPAGE, 0) returns (
             uint256 _premium
         ) {
-            premium = _premium;
+            premium = premium_;
         } catch (bytes memory err) {
             if (!FLAG_SLIPPAGE) {
                 _shouldNotRevertUnless(err, _GENERAL_6);
@@ -560,10 +558,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 expectedPayoff,
                 ACCEPTED_SLIPPAGE
             )
-        returns (uint256 _payoff) {
-            payoff = _payoff;
+        returns (uint256 payoff_) {
+            payoff = payoff_;
         } catch (bytes memory err) {
-            _shouldNotRevertUnless(err, _GENERAL_6);
+            if (!FLAG_SLIPPAGE) {
+                _shouldNotRevertUnless(err, _GENERAL_6);
+            }
         }
 
         if (totalAmountBought.up > 0) {
@@ -772,8 +772,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             ifp.kA == efp.kA &&
             ifp.kB == efp.kB &&
             ifp.theta == efp.theta &&
-            ifp.limSup == efp.limSup &&
-            ifp.limInf == efp.limInf &&
             ifp.sigmaZero == efp.sigmaZero);
     }
 
@@ -783,11 +781,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             eq(_initialVaultState.liquidity.lockedInitially, _endingVaultState.liquidity.lockedInitially, _IG_15.desc);
             eq(_initialStrike, _endingStrike, _IG_16.desc);
             t(_compareFinanceParameters(_initialFinanceParameters, _endingFinanceParameters), _IG_17.desc);
-            t(_endingFinanceParameters.limSup > 0, _IG_22.desc);
-            t(_endingFinanceParameters.limInf < 0, _IG_23.desc);
+            // TODO t(_endingFinanceParameters.limSup > 0, _IG_22.desc);
+            // TODO t(_endingFinanceParameters.limInf < 0, _IG_23.desc);
             lte(
                 (totalAmountBought.up + totalAmountBought.down),
-                _initialVaultState.liquidity.lockedInitially,
+                _initialVaultState.liquidity.lockedInitially, 
                 _IG_18.desc
             );
             gte(

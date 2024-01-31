@@ -19,8 +19,6 @@ struct FinanceParameters {
     uint256 kA;
     uint256 kB;
     uint256 theta;
-    int256 limSup;
-    int256 limInf;
     TimeLockedFinanceParameters timeLocked;
     uint256 sigmaZero;
     VolatilityParameters internalVolatilityParameters;
@@ -74,7 +72,6 @@ library FinanceIG {
         FinanceParameters memory params,
         Amount memory amount,
         bool tradeIsBuy,
-        uint256 postTradeVolatility,
         uint256 oraclePrice,
         uint256 sideTokensAmount,
         Amount memory availableLiquidity,
@@ -88,7 +85,6 @@ library FinanceIG {
 
         (deltaHedgeParams.igDBull, deltaHedgeParams.igDBear) = _getDeltaHedgePercentages(
             params,
-            postTradeVolatility,
             oraclePrice
         );
 
@@ -115,27 +111,14 @@ library FinanceIG {
 
     function _getDeltaHedgePercentages(
         FinanceParameters memory params,
-        uint256 postTradeVolatility,
         uint256 oraclePrice
     ) private view returns (int256 igDBull, int256 igDBear) {
         FinanceIGDelta.Parameters memory deltaParams;
-
-        uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
-
-        (deltaParams.alfa1, deltaParams.alfa2) = FinanceIGDelta.alfas(
-            params.currentStrike,
-            params.kA,
-            params.kB,
-            postTradeVolatility,
-            yearsToMaturity
-        );
-
-        deltaParams.sigma = postTradeVolatility;
         deltaParams.k = params.currentStrike;
         deltaParams.s = oraclePrice;
-        deltaParams.tau = yearsToMaturity;
-        deltaParams.limSup = params.limSup;
-        deltaParams.limInf = params.limInf;
+        deltaParams.kA = params.kA;
+        deltaParams.kB = params.kB;
+        deltaParams.theta = params.theta;
 
         (igDBull, igDBear) = FinanceIGDelta.deltaHedgePercentages(deltaParams);
     }
@@ -192,8 +175,7 @@ library FinanceIG {
 
     function updateParameters(
         FinanceParameters storage params,
-        uint256 impliedVolatility,
-        uint256 v0
+        uint256 impliedVolatility
     ) public {
         _updateSigmaZero(params, impliedVolatility);
 
@@ -218,14 +200,6 @@ library FinanceIG {
         }
 
         params.theta = FinanceIGPrice._teta(params.currentStrike, params.kA, params.kB);
-
-        (params.limSup, params.limInf) = FinanceIGDelta.lims(
-            params.currentStrike,
-            params.kA,
-            params.kB,
-            params.theta,
-            v0
-        );
     }
 
     function _updateSigmaZero(FinanceParameters storage params, uint256 impliedVolatility) private {

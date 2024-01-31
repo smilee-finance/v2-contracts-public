@@ -5,10 +5,10 @@
     "overrides": [
         {
             "files": [
-                "test/FinanceLib.t.sol",
                 "test/UniswapAdapter.t.sol",
                 "test/invariants/system/Properties.sol",
-                "test/invariants/system/PropertiesDescriptions.sol"
+                "test/invariants/system/PropertiesDescriptions.sol",
+                "test/unit/libraries/FinanceLib.t.sol"
             ],
             "options": {
                 "printWidth": 260

@@ -186,7 +186,6 @@ contract IG is DVP {
         bool tradeIsBuy
     ) internal virtual override returns (uint256 swapPrice, int256 deltaTrade) {
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-        uint256 postTradeVol = getPostTradeVolatility(strike, amount, tradeIsBuy);
 
         Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
@@ -207,7 +206,6 @@ contract IG is DVP {
             financeParameters,
             amount,
             tradeIsBuy,
-            postTradeVol,
             oraclePrice,
             sideTokensAmount,
             availableLiquidity,
@@ -264,8 +262,7 @@ contract IG is DVP {
                 financeParameters.currentStrike,
                 epoch.frequency
             );
-            uint256 v0 = IVault(vault).v0();
-            FinanceIG.updateParameters(financeParameters, iv, v0);
+            FinanceIG.updateParameters(financeParameters, iv);
         }
 
         super._afterRollEpoch();

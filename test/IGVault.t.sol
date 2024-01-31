@@ -688,7 +688,7 @@ contract IGVaultTest is Test {
     }
     /**
      * With the initial vol of 0.5, the sigmaZero should revert by division or modulo by 0 after 97 epochs.
-     * We test 50 epochs for convention. 
+     * We test 50 epochs for convention.
      */
     function testRollEpochWithoutTradesForLongPeriod() public {
         uint256 epochToRoll = 50;
@@ -706,7 +706,7 @@ contract IGVaultTest is Test {
             vm.prank(admin);
             ig.rollEpoch();
 
-            (, , , , , , , , , uint256 sigmaZero, ) = ig.financeParameters();
+            (, , , , , , , uint256 sigmaZero, ) = ig.financeParameters();
 
             if (lastSigmaZero != 0) {
                 assertEq(ud(lastSigmaZero).mul(ud(0.75e18)).mul(ud(0.9e18)).unwrap(), sigmaZero);

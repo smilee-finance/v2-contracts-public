@@ -223,8 +223,6 @@ library TestOptionsFinanceHelper {
             uint256 kA,
             uint256 kB,
             uint256 theta,
-            int256 limSup,
-            int256 limInf,
             TimeLockedFinanceParameters memory timeLocked,
             uint256 sigmaZero,
             VolatilityParameters memory internalVolatilityParameters
@@ -236,8 +234,6 @@ library TestOptionsFinanceHelper {
             kA,
             kB,
             theta,
-            limSup,
-            limInf,
             timeLocked,
             sigmaZero,
             internalVolatilityParameters

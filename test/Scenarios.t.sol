@@ -266,7 +266,7 @@ contract TestScenariosJson is Test {
             _dvp.rollEpoch();
         }
 
-        (, , , , , , , , , uint256 sigmaZero, ) = _dvp.financeParameters();
+        (, , , , , , , uint256 sigmaZero, ) = _dvp.financeParameters();
         assertApproxEqAbs(t0.post.impliedVolatility, sigmaZero, _tolerance(t0.post.impliedVolatility));
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
@@ -279,8 +279,8 @@ contract TestScenariosJson is Test {
         assertApproxEqAbs(t0.post.kA, financeParams.kA, _tolerance(t0.post.kA));
         assertApproxEqAbs(t0.post.kB, financeParams.kB, _tolerance(t0.post.kB));
         assertApproxEqAbs(t0.post.theta, financeParams.theta, _tolerance(t0.post.theta));
-        assertApproxEqAbs(t0.post.limInf, financeParams.limInf, _tolerance(t0.post.limInf));
-        assertApproxEqAbs(t0.post.limSup, financeParams.limSup, _tolerance(t0.post.limSup));
+        // assertApproxEqAbs(t0.post.limInf, financeParams.limInf, _tolerance(t0.post.limInf));
+        // assertApproxEqAbs(t0.post.limSup, financeParams.limSup, _tolerance(t0.post.limSup));
         // ToDo: add alphas
     }
 
@@ -392,7 +392,7 @@ contract TestScenariosJson is Test {
         _dvp.rollEpoch();
         vm.stopPrank();
 
-        (, , , , , , , , , uint256 sigmaZero, ) = _dvp.financeParameters();
+        (, , , , , , , uint256 sigmaZero, ) = _dvp.financeParameters();
         // NOTE: the value of sigmaZero must be divided by rho (0.9) in order to be checked
         sigmaZero = (sigmaZero * 10**18) / 0.9e18;
         assertApproxEqAbs(endEpoch.impliedVolatility, sigmaZero, _tolerance(endEpoch.impliedVolatility));
