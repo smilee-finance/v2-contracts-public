@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IHevm} from "./IHevm.sol";
+import {IHevm} from "../utils/IHevm.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";

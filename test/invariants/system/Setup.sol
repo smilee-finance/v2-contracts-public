@@ -7,8 +7,8 @@ import {IHevm} from "../utils/IHevm.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {MarketOracle} from "@project/MarketOracle.sol";
-import {AddressProviderUtils} from "../utils/AddressProviderUtils.sol";
-import {EchidnaVaultUtils} from "../utils/EchidnaVaultUtils.sol";
+import {AddressProviderUtils} from "../lib/AddressProviderUtils.sol";
+import {EchidnaVaultUtils} from "../lib/EchidnaVaultUtils.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedIG} from "../../mock/MockedIG.sol";
 import {Parameters} from "../utils/Parameters.sol";
@@ -54,6 +54,11 @@ abstract contract Setup is Parameters {
         ig = MockedIG(EchidnaVaultUtils.igSetup(admin, vault, ap, hevm));
         hevm.prank(admin);
         ig.setUseOracleImpliedVolatility(USE_ORACLE_IMPL_VOL);
+
+        MarketOracle marketOracle = MarketOracle(ap.marketOracle());
+        uint256 frequency = ig.getEpoch().frequency;
+        hevm.prank(admin);
+        marketOracle.setDelay(address(baseToken), sideToken, frequency, 0, true);
 
         _impliedVolSetup(address(baseToken), sideToken, ap);
     }

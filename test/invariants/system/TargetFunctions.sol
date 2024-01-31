@@ -1,21 +1,25 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console} from "forge-std/console.sol";
 import {Setup} from "./Setup.sol";
 import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {IMarketOracle} from "@project/interfaces/IMarketOracle.sol";
+import {IPriceOracle} from "@project/interfaces/IPriceOracle.sol";
 import {State} from "./State.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
 import {DVPUtils} from "../../utils/DVPUtils.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {FeeManager} from "@project/FeeManager.sol";
-import {TestOptionsFinanceHelper} from "./TestOptionsFinanceHelper.sol";
-import {console} from "forge-std/console.sol";
-import {FinanceParameters, VolatilityParameters, TimeLockedFinanceParameters} from "@project/lib/FinanceIG.sol";
+import {TestOptionsFinanceHelper} from "../lib/TestOptionsFinanceHelper.sol";
+import {FinanceIG, FinanceParameters, VolatilityParameters, TimeLockedFinanceParameters} from "@project/lib/FinanceIG.sol";
 import {Amount} from "@project/lib/Amount.sol";
+import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
+import {EchidnaVaultUtils} from "../lib/EchidnaVaultUtils.sol";
 
 /**
  * medusa fuzz --no-color
@@ -139,7 +143,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
-        uint256 riskFreeRate = _getRiskFree(vault.baseToken());
+        uint256 riskFreeRate = _getRiskFreeRate(vault.baseToken());
 
         console.log("** BUY BULL", amount_.up);
         uint256 premium = _buy(amount_);
@@ -166,7 +170,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
-        uint256 riskFreeRate = _getRiskFree(vault.baseToken());
+        uint256 riskFreeRate = _getRiskFreeRate(vault.baseToken());
 
         console.log("** BUY BEAR", amount_.down);
         uint256 premium = _buy(amount_);
@@ -180,6 +184,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             _initialFinanceParameters
         );
 
+        lte(premium, amount_.down, _IG_06.desc);
         lte(premium, premiumPutK, _IG_07_1.desc);
         gte(premium, premiumPutKa, _IG_07_2.desc);
     }
@@ -193,7 +198,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
-        uint256 riskFreeRate = _getRiskFree(vault.baseToken());
+        uint256 riskFreeRate = _getRiskFreeRate(vault.baseToken());
 
         console.log("** BUY SMILEE");
         uint256 premium = _buy(amount_);
@@ -233,6 +238,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         console.log("** SELL BEAR", buyInfo_.amountDown);
         uint256 payoff = _sell(buyInfo_, _BEAR);
 
+        lte(payoff, buyInfo_.amountDown, _IG_06.desc);
         gte(baseToken.balanceOf(buyInfo_.recipient), initialUserBalance + payoff, _IG_09.desc);
         _popTrades(index, buyInfo_);
     }
@@ -301,13 +307,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         totalAmountBought = 0;
 
-        // (uint256 baseTokenAmount, uint256 sideTokenAmount) = vault.balances();
         // gte(
-        //     baseTokenAmount + sideTokenAmount,
+        //     vault.notional(),
         //     _initialVaultState.liquidity.pendingWithdrawals +
         //         _initialVaultState.liquidity.pendingPayoffs +
         //         (vault.totalSupply() * vault.epochPricePerShare(ig.getEpoch().previous)),
-        //     _VAULT_3
+        //     _VAULT_03.desc
         // );
 
         console.log("** STATES AFTER ROLLEPOCH");
@@ -316,8 +321,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     }
 
     function _getTokenPrice(address tokenAddress) internal view returns (uint256 tokenPrice) {
-        TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
-        tokenPrice = apPriceOracle.getTokenPrice(tokenAddress);
+        IPriceOracle apPriceOracle = IPriceOracle(ap.priceOracle());
+        tokenPrice = apPriceOracle.getPrice(tokenAddress, vault.baseToken());
     }
 
     function _setTokenPrice(uint256 price) internal {
@@ -338,7 +343,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         feeManager.setDVPFee(address(ig), FEE_PARAMS);
     }
 
-    function _getRiskFree(address tokenAddress) internal view returns (uint256 riskFreeRate) {
+    function _getRiskFreeRate(address tokenAddress) internal view returns (uint256 riskFreeRate) {
         IMarketOracle marketOracle = IMarketOracle(ap.marketOracle());
         riskFreeRate = marketOracle.getRiskFreeRate(tokenAddress);
     }
@@ -369,10 +374,21 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     //----------------------------------------------
 
     function _buy(Amount memory amount) internal returns (uint256) {
+        console.log("*** AMOUNT UP", amount.up);
+        console.log("*** AMOUNT DOWN", amount.down);
         uint256 currentStrike = ig.currentStrike();
+        uint256 buyTokenPrice = _getTokenPrice(vault.sideToken());
+
         (uint256 expectedPremium, uint256 fee) = ig.premium(currentStrike, amount.up, amount.down);
         precondition(expectedPremium > 100); // Slippage has no influence for value <= 100
         uint256 maxPremium = expectedPremium + (SLIPPAGE * expectedPremium) / 1e18;
+        {
+            (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(DURATION_SEC);
+            uint256 premiumMaxIV = _getMarketValueWithCustomIV(ivMax, amount, address(baseToken), buyTokenPrice);
+            uint256 premiumMinIV = _getMarketValueWithCustomIV(ivMin, amount, address(baseToken), buyTokenPrice);
+            lte(expectedPremium, premiumMaxIV, _IG_03_1.desc);
+            gte(expectedPremium, premiumMinIV, _IG_03_2.desc);
+        }
 
         _checkFee(fee, _BUY);
 
@@ -381,9 +397,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         uint256 premium;
 
-        uint256 buyTokenPrice = _getTokenPrice(vault.sideToken());
         hevm.prank(msg.sender);
-        try ig.mint(msg.sender, currentStrike, amount.up, amount.down, expectedPremium, SLIPPAGE, 0) returns (
+        try ig.mint(msg.sender, buyTokenPrice, amount.up, amount.down, expectedPremium, SLIPPAGE, 0) returns (
             uint256 _premium
         ) {
             premium = _premium;
@@ -396,9 +411,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         VaultUtils.debugState(vault);
 
         totalAmountBought += amount.up + amount.down;
-
         gte(baseToken.balanceOf(msg.sender), initialUserBalance - premium, _IG_10.desc);
         lte(premium, maxPremium, _IG_11.desc);
+        gte(premium, expectedPremium, _IG_03_3.desc);
 
         uint256 utilizationRate = ig.getUtilizationRate();
         BuyInfo memory buyInfo = BuyInfo(
@@ -440,6 +455,21 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             buyInfo_.amountDown
         );
 
+        {
+            // valid only if buy epoch is not finished yet
+            if (epochs.length == buyInfo_.epochCounter) {
+                (uint256 expectedPremium, ) = ig.premium(buyInfo_.strike, buyInfo_.amountUp, buyInfo_.amountDown);
+                gte(expectedPremium, expectedPayoff, _IG_14.desc);
+
+                (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(DURATION_SEC);
+                Amount memory amount = Amount(buyInfo_.amountUp, buyInfo_.amountDown);
+                uint256 payoffMaxIV = _getMarketValueWithCustomIV(ivMax, amount, address(baseToken), sellTokenPrice);
+                uint256 payoffMinIV = _getMarketValueWithCustomIV(ivMin, amount, address(baseToken), sellTokenPrice);
+                lte(expectedPayoff, payoffMaxIV, _IG_03_1.desc);
+                gte(expectedPayoff, payoffMinIV, _IG_03_2.desc);
+            }
+        }
+
         _checkFee(fee, _SELL);
         uint256 payoff;
         hevm.prank(buyInfo_.recipient);
@@ -461,11 +491,38 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         // uint256 maxPayoff = expectedPayoff + (SLIPPAGE * expectedPayoff) / 1e18;
         uint256 minPayoff = expectedPayoff - (SLIPPAGE * expectedPayoff) / 1e18;
-        // lte(payoff, baseTokenAmount, _VAULT_10); // Cannot be verified
 
         _sellAssertion(buyInfo_, sellType, payoff, minPayoff, sellTokenPrice, ig.getUtilizationRate());
+        lte(payoff, expectedPayoff, _IG_03_4.desc);
 
         return payoff;
+    }
+
+    function _getMarketValueWithCustomIV(
+        uint256 iv,
+        Amount memory amount,
+        address baseToken,
+        uint256 swapPrice
+    ) internal view returns (uint256) {
+        return
+            FinanceIG.getMarketValue(
+                TestOptionsFinanceHelper.getFinanceParameters(ig),
+                amount,
+                iv,
+                swapPrice,
+                _getRiskFreeRate(address(baseToken)),
+                IERC20Metadata(address(baseToken)).decimals()
+            );
+    }
+
+    function _getIVMaxMin(uint256 duration) internal view returns (uint256, uint256) {
+        // iv_min =  sigma0 * 0.9 * (T - 0.25 * t) / T
+        // iv_max = 2 iv_min
+        FinanceParameters memory fp = TestOptionsFinanceHelper.getFinanceParameters(ig);
+        uint256 timeElapsed = block.timestamp - (ig.getEpoch().current - duration);
+        UD60x18 timeFactor = (convert(duration).sub(convert(timeElapsed).div(convert(4)))).div(convert(duration));
+        uint256 ivMin = ud(fp.sigmaZero).mul(timeFactor).unwrap();
+        return (2 * ivMin, ivMin);
     }
 
     //----------------------------------------------
@@ -613,13 +670,30 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
             lte(_endingVaultState.withdrawals.heldShares, _initialVaultState.withdrawals.heldShares, _VAULT_13.desc); // shares are minted at roll epoch
             lte(_endingVaultTotalSupply, _initialVaultTotalSupply, _VAULT_13.desc); // shares are minted at roll epoch
+            eq(_intialSharePrice, _endingSharePrice, _VAULT_08.desc);
         }
     }
 
     function _rollepochAssertionAfter() internal {
         if (_endingVaultState.liquidity.lockedInitially > 0) {
+            uint256 baseTokenDecimals = IERC20Metadata(baseToken).decimals();
+
+            uint256 baseTokenBalance = IERC20(baseToken).balanceOf(address(vault));
+            gte(
+                baseTokenBalance,
+                _endingVaultState.liquidity.pendingWithdrawals +
+                    _endingVaultState.liquidity.pendingPayoffs +
+                    _endingVaultState.liquidity.pendingDeposits,
+                _VAULT_04.desc
+            );
+
+            (uint256 vaultBaseTokens, ) = vault.balances();
+            (uint256 minStv, uint256 maxStv) = _ewSideTokenMinMax();
+            gte(vaultBaseTokens, minStv, _VAULT_06.desc);
+            lte(vaultBaseTokens, maxStv, _VAULT_06.desc);
+
             uint256 expectedPendingWithdrawals = (_endingVaultState.withdrawals.newHeldShares *
-                vault.epochPricePerShare(ig.getEpoch().previous)) / 1e18;
+                vault.epochPricePerShare(ig.getEpoch().previous)) / (10 ** baseTokenDecimals);
             eq(
                 _initialVaultState.liquidity.pendingWithdrawals,
                 _endingVaultState.liquidity.pendingWithdrawals + expectedPendingWithdrawals,
@@ -630,6 +704,26 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 _endingVaultState.withdrawals.heldShares + _endingVaultState.withdrawals.newHeldShares,
                 _VAULT_23.desc
             );
+
+            eq(
+                (_endingVaultState.liquidity.pendingDeposits * (10 ** baseTokenDecimals)) /
+                    vault.epochPricePerShare(ig.getEpoch().previous),
+                _initialVaultTotalSupply - _endingVaultTotalSupply,
+                _VAULT_15.desc
+            );
         }
+    }
+
+    // Returns min and max of sideToken value to have an acceptable equal weight portfolio
+    function _ewSideTokenMinMax() internal view returns (uint256 min, uint256 max) {
+        uint256 baseTokenDecimals = IERC20Metadata(baseToken).decimals();
+        uint256 sideTokenValue = EchidnaVaultUtils.getSideTokenValue(vault, ap);
+        uint256 sideTokenPrice = _getTokenPrice(vault.sideToken());
+        uint256 ewTolerance1 = sideTokenPrice > 10 ** baseTokenDecimals ? sideTokenPrice / 10 ** baseTokenDecimals : 1; //sideTokenPrice * (vaultBaseTokens / 1e4) / 10 ** baseTokenDecimals; // TODO: check if margin is too high
+        uint256 ewTolerance2 = sideTokenValue / 1e9;
+        // For really small deposit ewTolerance1 should be > ewTolerance2.
+        uint256 ewTolerance = ewTolerance1 > ewTolerance2 ? ewTolerance1 : ewTolerance2;
+        min = sideTokenValue < (2 * ewTolerance) ? 0 : sideTokenValue - (2 * ewTolerance);
+        max = sideTokenValue + (2 * ewTolerance);
     }
 }

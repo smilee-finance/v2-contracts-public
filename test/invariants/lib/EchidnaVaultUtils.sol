@@ -9,6 +9,10 @@ import {AddressProviderUtils} from "./AddressProviderUtils.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedRegistry} from "../../mock/MockedRegistry.sol";
 import {MockedIG} from "../../mock/MockedIG.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IVault} from "@project/interfaces/IVault.sol";
+import {IPriceOracle} from "@project/interfaces/IPriceOracle.sol";
 
 library EchidnaVaultUtils {
     function createVault(
@@ -78,5 +82,12 @@ library EchidnaVaultUtils {
         vault.setAllowedDVP(address(ig));
 
         return address(ig);
+    }
+
+    function getSideTokenValue(IVault vault, AddressProvider addressProvider) internal view returns (uint256 sideTokenValue) {
+        uint256 sideTokenAmount = IERC20(vault.sideToken()).balanceOf(address(vault));
+        uint256 sideTokenDecimals = IERC20Metadata(vault.sideToken()).decimals();
+        uint256 price = IPriceOracle(addressProvider.priceOracle()).getPrice(vault.sideToken(), vault.baseToken());
+        sideTokenValue = sideTokenAmount * price / 10 ** sideTokenDecimals;
     }
 }
