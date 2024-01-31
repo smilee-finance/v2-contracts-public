@@ -382,6 +382,7 @@ library FinanceIGPrice {
         @dev All the non-timestamp values are expressed in Wad.
      */
     function tradeVolatility(TradeVolatilityParams calldata params) public view returns (uint256 sigma_hat) {
+        // sigma0 * (1 + ur^3 * (n - 1)) * (T - (0.25 * t)) / T
         uint256 ur_qubic = uint256(SignedMath.pow3(int256(params.utilizationRate)));
         UD60x18 baselineVolatilityFactor = convert(1).add(
             ud(ur_qubic).mul(ud(params.utilizationRateFactor).sub(convert(1)))

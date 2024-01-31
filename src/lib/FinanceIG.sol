@@ -150,13 +150,11 @@ library FinanceIG {
     ) public view returns (uint256 marketValue) {
         FinanceIGPrice.Parameters memory priceParams;
         {
-            uint256 yearsToMaturity = _yearsToMaturity(params.maturity);
-
             priceParams.r = riskFreeRate;
             priceParams.sigma = postTradeVolatility;
             priceParams.k = params.currentStrike;
             priceParams.s = swapPrice;
-            priceParams.tau = yearsToMaturity;
+            priceParams.tau = _yearsToMaturity(params.maturity);
             priceParams.ka = params.kA;
             priceParams.kb = params.kB;
             priceParams.teta = params.theta;

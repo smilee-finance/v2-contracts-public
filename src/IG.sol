@@ -174,7 +174,7 @@ contract IG is DVP {
             tradeIsBuy,
             _baseTokenDecimals
         );
-        uint256 t0 = getEpoch().previous;
+        uint256 t0 = getEpoch().current - getEpoch().frequency;
 
         return FinanceIG.getPostTradeVolatility(financeParameters, ur, t0);
     }
