@@ -55,7 +55,8 @@ contract TestScenariosJson is Test {
         uint256 capFeeMaturity;
         uint256 fee;
         uint256 feeMaturity;
-        uint256 vaultFee;
+        uint256 minFeeBeforeTimeThreshold;
+        uint256 minFeeAfterTimeThreshold;
         uint256 successFee;
     }
 
@@ -67,8 +68,6 @@ contract TestScenariosJson is Test {
         uint256 kA;
         uint256 kB;
         uint256 theta;
-        int256 limInf;
-        int256 limSup;
     }
 
     struct StartEpoch {
@@ -240,17 +239,16 @@ contract TestScenariosJson is Test {
         _marketOracle.setImpliedVolatility(_dvp.baseToken(), _dvp.sideToken(), EpochFrequency.WEEKLY, t0.pre.impliedVolatility);
         _marketOracle.setRiskFreeRate(_dvp.baseToken(), t0.pre.riskFreeRate);
 
-        FeeManager.FeeParams memory params = FeeManager.FeeParams(
-            3600,
-            t0.pre.vaultFee,
-            t0.pre.vaultFee,
-            t0.pre.successFee,
-            /* [TODO FIX] t0.pre.vaultFee, */
-            t0.pre.fee,
-            t0.pre.capFee,
-            t0.pre.feeMaturity,
-            t0.pre.capFeeMaturity
-        );
+        FeeManager.FeeParams memory params = FeeManager.FeeParams({
+            timeToExpiryThreshold: 3600,
+            minFeeBeforeTimeThreshold: t0.pre.minFeeBeforeTimeThreshold,
+            minFeeAfterTimeThreshold: t0.pre.minFeeAfterTimeThreshold,
+            successFeeTier: t0.pre.successFee,
+            feePercentage: t0.pre.fee,
+            capPercentage: t0.pre.capFee,
+            maturityFeePercentage: t0.pre.feeMaturity,
+            maturityCapPercentage: t0.pre.capFeeMaturity
+        });
         _feeManager.setDVPFee(address(_dvp), params);
 
         _dvp.setTradeVolatilityUtilizationRateFactor(t0.pre.tradeVolatilityUtilizationRateFactor);
@@ -279,9 +277,6 @@ contract TestScenariosJson is Test {
         assertApproxEqAbs(t0.post.kA, financeParams.kA, _tolerance(t0.post.kA));
         assertApproxEqAbs(t0.post.kB, financeParams.kB, _tolerance(t0.post.kB));
         assertApproxEqAbs(t0.post.theta, financeParams.theta, _tolerance(t0.post.theta));
-        // assertApproxEqAbs(t0.post.limInf, financeParams.limInf, _tolerance(t0.post.limInf));
-        // assertApproxEqAbs(t0.post.limSup, financeParams.limSup, _tolerance(t0.post.limSup));
-        // ToDo: add alphas
     }
 
     function _checkTrade(Trade memory t) internal {
@@ -455,7 +450,7 @@ contract TestScenariosJson is Test {
     }
 
     function _getStartEpochFromJson(string memory json) private returns (StartEpoch memory) {
-        string[22] memory paths = [
+        string[21] memory paths = [
             "pre.sideTokenPrice",
             "pre.impliedVolatility",
             "pre.riskFreeRate",
@@ -466,7 +461,8 @@ contract TestScenariosJson is Test {
             "pre.capFeeMaturity",
             "pre.fee",
             "pre.feeMaturity",
-            "pre.vaultFee",
+            "pre.minFeeBeforeTimeThreshold",
+            "pre.minFeeAfterTimeThreshold",
             "pre.successFee",
             "v0",
             "post.baseTokenAmount",
@@ -475,21 +471,20 @@ contract TestScenariosJson is Test {
             "post.strike",
             "post.kA",
             "post.kB",
-            "post.theta",
-            "post.limInf",
-            "post.limSup"
+            "post.theta"
         ];
-        uint256[22] memory vars;
+        uint256[21] memory vars;
 
         string memory fixedJsonPath = "$.startEpoch";
         for (uint256 i = 0; i < paths.length; i++) {
             string memory path = paths[i];
-            bytes32 pathE = keccak256(abi.encodePacked(path));
-            if (pathE == keccak256(abi.encodePacked("post.limInf"))) {
-                vars[i] = SignedMath.abs(_getIntJsonFromPath(json, fixedJsonPath, path));
-            } else {
-                vars[i] = _getUintJsonFromPath(json, fixedJsonPath, path);
-            }
+            // bytes32 pathE = keccak256(abi.encodePacked(path));
+            // if (pathE == keccak256(abi.encodePacked("post.limInf"))) {
+            //     vars[i] = SignedMath.abs(_getIntJsonFromPath(json, fixedJsonPath, path));
+            // } else {
+            //     vars[i] = _getUintJsonFromPath(json, fixedJsonPath, path);
+            // }
+            vars[i] = _getUintJsonFromPath(json, fixedJsonPath, path);
         }
         uint256 counter = 0;
         StartEpoch memory startEpoch = StartEpoch({
@@ -504,7 +499,8 @@ contract TestScenariosJson is Test {
                 capFeeMaturity: vars[counter++],
                 fee: vars[counter++],
                 feeMaturity: vars[counter++],
-                vaultFee: vars[counter++],
+                minFeeBeforeTimeThreshold: vars[counter++],
+                minFeeAfterTimeThreshold: vars[counter++],
                 successFee: vars[counter++]
             }),
             v0: vars[counter++],
@@ -515,9 +511,7 @@ contract TestScenariosJson is Test {
                 strike: vars[counter++],
                 kA: vars[counter++],
                 kB: vars[counter++],
-                theta: vars[counter++],
-                limInf: -int256(vars[counter++]),
-                limSup: int256(vars[counter++])
+                theta: vars[counter++]
             })
         });
         return startEpoch;
