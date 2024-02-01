@@ -34,6 +34,9 @@ abstract contract PropertiesDescriptions {
     InvariantInfo internal _IG_21       =   InvariantInfo("IG_21",      "IG_21: Fee always >= MIN fee");
     InvariantInfo internal _IG_22       =   InvariantInfo("IG_22",      "IG_22: IG bull delta is always positive -> control that limsup > 0 after every rollEpoch");
     InvariantInfo internal _IG_23       =   InvariantInfo("IG_23",      "IG_23: IG bear delta is always negative -> control that liminf < 0 after every rollEpoch");
+    InvariantInfo internal _IG_24_1     =   InvariantInfo("IG_24_1",    "IG_24_1: If price goes up, IG bull premium goes up, IG bear premium goes down, and viceversa");
+    InvariantInfo internal _IG_24_2     =   InvariantInfo("IG_24_2",    "IG_24_2: If IV goes up, all premium goes up, if IV goes down,  all premium goes down");
+    InvariantInfo internal _IG_24_3     =   InvariantInfo("IG_24_3",    "IG_24_3: The more time passes the more the premiums drop");
     InvariantInfo internal _IG_27       =   InvariantInfo("IG_27",      "IG_27: IG smilee payoff is always positive if the strike price change & zero the strike price doesn't change");
 
     InvariantInfo internal _GENERAL_1 = InvariantInfo("GENERAL_1", "GENERAL_1: This should never revert");

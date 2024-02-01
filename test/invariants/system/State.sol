@@ -12,16 +12,7 @@ abstract contract State is Properties {
     WithdrawInfo[] internal withdrawals;
     DepositInfo[] internal _depositInfo;
 
-    struct BuyState {
-        bytes8 buyType;
-        uint256 amount;
-        uint256 tokenPrice;
-        uint256 premium;
-        uint256 strike;
-        uint256 riskFreeRate;
-        uint256 premiumOperationK;
-        uint256 premiumOperationKaKb;
-    }
+    BuyInfo internal lastBuy;
 
     function _pushTrades(BuyInfo memory buyInfo) internal {
         if (buyInfo.amountUp > 0 && buyInfo.amountDown == 0) {

@@ -32,6 +32,10 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         uint256 premium;
         uint256 utilizationRate;
         uint256 buyTokenPrice;
+        uint256 expectedPremium;
+        uint8 buyType;
+        uint256 sigma;
+        uint256 timestamp;
     }
 
     struct WithdrawInfo {

@@ -22,6 +22,8 @@ abstract contract Parameters {
     uint256 internal DURATION = 1 days;
     uint256 internal DURATION_SEC = 86400;
 
+    uint256 internal MIN_TIME_WARP = 1000; // Related to invariant IG_24_3
+
     // FEE MANAGER
     FeeManager.FeeParams internal FEE_PARAMS =
         FeeManager.FeeParams({
