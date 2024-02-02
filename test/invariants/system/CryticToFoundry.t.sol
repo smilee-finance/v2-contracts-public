@@ -114,7 +114,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     /**
-        FINANCE_IG:253 t_previous non veniva dentro resettato alla rollEpoch -> FIX: setter fuori dall'IF
+        FINANCE_IG:253 tPrevious non veniva dentro resettato alla rollEpoch -> FIX: setter fuori dall'IF
      */
     function test_7() public {
         deposit(33386845615680520816062583326021756675779207876119476425502802489475652); // 122_673_539.22654901

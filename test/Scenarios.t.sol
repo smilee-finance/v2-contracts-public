@@ -13,6 +13,7 @@ import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {MarketOracle} from "@project/MarketOracle.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
+import {TestnetSwapAdapter} from "@project/testnet/TestnetSwapAdapter.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
 import {MockedVault} from "./mock/MockedVault.sol";
@@ -31,6 +32,7 @@ contract TestScenariosJson is Test {
     MockedVault internal _vault;
     MockedIG internal _dvp;
     TestnetPriceOracle internal _oracle;
+    TestnetSwapAdapter internal _exchange;
     MarketOracle internal _marketOracle;
     uint256 internal _toleranceOnPercentage;
     uint256 internal _tolerancePercentage;
@@ -57,6 +59,8 @@ contract TestScenariosJson is Test {
         uint256 feeMaturity;
         uint256 minFeeBeforeTimeThreshold;
         uint256 minFeeAfterTimeThreshold;
+        uint256 exchangeSlippage;
+        uint256 exchangeFeeTier;
         uint256 successFee;
     }
 
@@ -72,7 +76,7 @@ contract TestScenariosJson is Test {
 
     struct StartEpoch {
         StartEpochPreConditions pre;
-        uint256 v0;
+        uint256 deposit;
         StartEpochPostConditions post;
     }
 
@@ -137,17 +141,17 @@ contract TestScenariosJson is Test {
 
         vm.prank(_admin);
         _ap = new AddressProvider(0);
-        
+
+        // also creates exchange
         _vault = MockedVault(VaultUtils.createVault(EpochFrequency.WEEKLY, _ap, _admin, vm));
 
+        _exchange = TestnetSwapAdapter(_ap.exchangeAdapter());
         _oracle = TestnetPriceOracle(_ap.priceOracle());
         _marketOracle = MarketOracle(_ap.marketOracle());
-
         _feeManager = FeeManager(_ap.feeManager());
 
         vm.startPrank(_admin);
         _dvp = new MockedIG(address(_vault), address(_ap));
-
         _dvp.grantRole(_dvp.ROLE_ADMIN(), _admin);
         _dvp.grantRole(_dvp.ROLE_EPOCH_ROLLER(), _admin);
         _vault.grantRole(_vault.ROLE_ADMIN(), _admin);
@@ -210,8 +214,12 @@ contract TestScenariosJson is Test {
         _checkScenario("scenario_low_ka_high_volatility", true);
     }
 
-    function testScenarioKAHZeroExtremeVolatility() public {
+    function testScenarioKAZeroExtremeVolatility() public {
         _checkScenario("scenario_ka_zero_extreme_volatility", true);
+    }
+
+    function testScenarioSlippage1() public {
+        _checkScenario("scenario_slip_1", true);
     }
 
     function _checkScenario(string memory scenarioName, bool isFirstEpoch) internal {
@@ -235,8 +243,14 @@ contract TestScenariosJson is Test {
     function _checkStartEpoch(StartEpoch memory t0, bool isFirstEpoch) internal {
         vm.startPrank(_admin);
         _oracle.setTokenPrice(_vault.sideToken(), t0.pre.sideTokenPrice);
+        _exchange.setSlippage(int256(t0.pre.exchangeSlippage + t0.pre.exchangeFeeTier), 0, 0);
 
-        _marketOracle.setImpliedVolatility(_dvp.baseToken(), _dvp.sideToken(), EpochFrequency.WEEKLY, t0.pre.impliedVolatility);
+        _marketOracle.setImpliedVolatility(
+            _dvp.baseToken(),
+            _dvp.sideToken(),
+            EpochFrequency.WEEKLY,
+            t0.pre.impliedVolatility
+        );
         _marketOracle.setRiskFreeRate(_dvp.baseToken(), t0.pre.riskFreeRate);
 
         FeeManager.FeeParams memory params = FeeManager.FeeParams({
@@ -258,7 +272,7 @@ contract TestScenariosJson is Test {
         vm.stopPrank();
 
         if (isFirstEpoch) {
-            VaultUtils.addVaultDeposit(_liquidityProvider, t0.v0, _admin, address(_vault), vm);
+            VaultUtils.addVaultDeposit(_liquidityProvider, t0.deposit, _admin, address(_vault), vm);
             Utils.skipWeek(true, vm);
             vm.prank(_admin);
             _dvp.rollEpoch();
@@ -293,6 +307,7 @@ contract TestScenariosJson is Test {
 
         assertApproxEqAbs(t.pre.utilizationRate, _dvp.getUtilizationRate(), _toleranceOnPercentage);
         (, , uint256 availableBearNotional, uint256 availableBullNotional) = _dvp.notional();
+
         assertApproxEqAbs(t.pre.availableNotionalBear, availableBearNotional, _tolerance(t.pre.availableNotionalBear));
         assertApproxEqAbs(t.pre.availableNotionalBull, availableBullNotional, _tolerance(t.pre.availableNotionalBull));
         uint256 strike = _dvp.currentStrike();
@@ -308,7 +323,7 @@ contract TestScenariosJson is Test {
         if (t.isMint) {
             _traderResidualAmount.increase(Amount(t.amountUp, t.amountDown));
             (marketValue, fee) = _dvp.premium(strike, t.amountUp, t.amountDown);
-            TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue, vm);
+            TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue + fee, vm);
             vm.prank(_trader);
             marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue, 0.1e18, 0);
 
@@ -351,7 +366,6 @@ contract TestScenariosJson is Test {
         );
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
-
         assertApproxEqAbs(t.post.baseTokenAmount, baseTokenAmount, _tolerance(t.post.baseTokenAmount));
         assertApproxEqAbs(t.post.sideTokenAmount, sideTokenAmount, _tolerance(t.post.sideTokenAmount));
     }
@@ -389,14 +403,13 @@ contract TestScenariosJson is Test {
 
         (, , , , , , , uint256 sigmaZero, ) = _dvp.financeParameters();
         // NOTE: the value of sigmaZero must be divided by rho (0.9) in order to be checked
-        sigmaZero = (sigmaZero * 10**18) / 0.9e18;
+        sigmaZero = (sigmaZero * 10 ** 18) / 0.9e18;
         assertApproxEqAbs(endEpoch.impliedVolatility, sigmaZero, _tolerance(endEpoch.impliedVolatility));
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
 
         assertApproxEqAbs(endEpoch.baseTokenAmount, baseTokenAmount, _tolerance(endEpoch.baseTokenAmount));
         assertApproxEqAbs(endEpoch.sideTokenAmount, sideTokenAmount, _tolerance(endEpoch.sideTokenAmount));
-
         assertApproxEqAbs(endEpoch.v0, _vault.v0(), _tolerance(endEpoch.v0));
 
         // Checking user payoff for matured positions
@@ -450,7 +463,7 @@ contract TestScenariosJson is Test {
     }
 
     function _getStartEpochFromJson(string memory json) private returns (StartEpoch memory) {
-        string[21] memory paths = [
+        string[23] memory paths = [
             "pre.sideTokenPrice",
             "pre.impliedVolatility",
             "pre.riskFreeRate",
@@ -463,8 +476,10 @@ contract TestScenariosJson is Test {
             "pre.feeMaturity",
             "pre.minFeeBeforeTimeThreshold",
             "pre.minFeeAfterTimeThreshold",
+            "pre.exchangeSlippage",
+            "pre.exchangeFeeTier",
             "pre.successFee",
-            "v0",
+            "deposit",
             "post.baseTokenAmount",
             "post.sideTokenAmount",
             "post.impliedVolatility",
@@ -473,17 +488,11 @@ contract TestScenariosJson is Test {
             "post.kB",
             "post.theta"
         ];
-        uint256[21] memory vars;
+        uint256[23] memory vars;
 
         string memory fixedJsonPath = "$.startEpoch";
         for (uint256 i = 0; i < paths.length; i++) {
             string memory path = paths[i];
-            // bytes32 pathE = keccak256(abi.encodePacked(path));
-            // if (pathE == keccak256(abi.encodePacked("post.limInf"))) {
-            //     vars[i] = SignedMath.abs(_getIntJsonFromPath(json, fixedJsonPath, path));
-            // } else {
-            //     vars[i] = _getUintJsonFromPath(json, fixedJsonPath, path);
-            // }
             vars[i] = _getUintJsonFromPath(json, fixedJsonPath, path);
         }
         uint256 counter = 0;
@@ -501,9 +510,11 @@ contract TestScenariosJson is Test {
                 feeMaturity: vars[counter++],
                 minFeeBeforeTimeThreshold: vars[counter++],
                 minFeeAfterTimeThreshold: vars[counter++],
+                exchangeSlippage: vars[counter++],
+                exchangeFeeTier: vars[counter++],
                 successFee: vars[counter++]
             }),
-            v0: vars[counter++],
+            deposit: vars[counter++],
             post: StartEpochPostConditions({
                 baseTokenAmount: vars[counter++],
                 sideTokenAmount: vars[counter++],

@@ -7,10 +7,12 @@ import {console} from "forge-std/console.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {Gaussian} from "@solstat/Gaussian.sol";
 import {AmountsMath} from "@project/lib/AmountsMath.sol";
+import {FinanceIG} from "@project/lib/FinanceIG.sol";
 import {FinanceIGDelta} from "@project/lib/FinanceIGDelta.sol";
 import {FinanceIGPayoff} from "@project/lib/FinanceIGPayoff.sol";
 import {FinanceIGPrice} from "@project/lib/FinanceIGPrice.sol";
 import {WadTime} from "@project/lib/WadTime.sol";
+import {ud} from "@prb/math/UD60x18.sol";
 
 contract FinanceLibJsonTest is Test {
     using AmountsMath for uint256;
@@ -309,6 +311,21 @@ contract FinanceLibJsonTest is Test {
         int256 output = FinanceIGDelta.deltaHedgeAmount(input); // -0.375779679505776274
         // NOTE: I assume that the lower precision is due to the sqrt implementation...
         assertApproxEqAbs(-0.37595523471614e18, output, 0.001e18);
+    }
+
+    function testSigmaZero() public {
+        uint256 n = 2e18;
+        uint256 theta = 0.25e18;
+        uint256 sigmaZero_ = 0.5e18;
+
+        assertApproxEqAbs(0.66650391e18, FinanceIG.sigmaZero(ud(3e18).div(ud(4e18)).unwrap(), n, theta, sigmaZero_), 1e10);
+        assertApproxEqAbs(0.94711697e18, FinanceIG.sigmaZero(ud(3.1e18).div(ud(3.2e18)).unwrap(), n, theta, sigmaZero_), 1e10);
+        assertApproxEqAbs(0.86323124e18, FinanceIG.sigmaZero(ud(3.2e18).div(ud(3.5e18)).unwrap(), n, theta, sigmaZero_), 1e10);
+        assertApproxEqAbs(0.71322389e18, FinanceIG.sigmaZero(ud(3.5e18).div(ud(4.4e18)).unwrap(), n, theta, sigmaZero_), 1e10);
+        assertApproxEqAbs(0.75646219e18, FinanceIG.sigmaZero(ud(4e18).div(ud(4.8e18)).unwrap(), n, theta, sigmaZero_), 1e10);
+        assertApproxEqAbs(0.81866836e18, FinanceIG.sigmaZero(ud(4.5e18).div(ud(5.1e18)).unwrap(), n, theta, sigmaZero_), 1e10);
+        assertApproxEqAbs(208.64574907e18, FinanceIG.sigmaZero(ud(5e18).div(ud(0.87e18)).unwrap(), n, theta, sigmaZero_), 1e10);
+        assertApproxEqAbs(359.23302469e18, FinanceIG.sigmaZero(ud(6e18).div(ud(0.9e18)).unwrap(), n, theta, sigmaZero_), 1e10);
     }
 
     function _checkTradeVolatility(TradeVolatility memory params) private {

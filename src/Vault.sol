@@ -664,12 +664,13 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             return;
         }
 
+        _adjustBalances();
+        _state.liquidity.lockedInitially = notional();
+
         // NOTE: leave only an even number of base tokens for the DVP epoch
         if (lockedLiquidity % 2 != 0) {
             _state.liquidity.lockedInitially -= 1;
         }
-
-        _adjustBalances();
 
         (uint256 baseTokens, ) = _tokenBalances();
 
@@ -694,11 +695,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         if (baseTokens < pendings) {
             // We must cover the missing base tokens by selling an amount of side tokens:
             uint256 missingBaseTokens = pendings - baseTokens;
-            uint256 sideTokensForMissingBaseTokens = exchange.getInputAmount(
-                sideToken,
-                baseToken,
-                missingBaseTokens
-            );
+            uint256 sideTokensForMissingBaseTokens = exchange.getInputAmount(sideToken, baseToken, missingBaseTokens);
 
             // see [IL-NOTE]
             if (sideTokensForMissingBaseTokens > sideTokens) {

@@ -26,11 +26,11 @@ struct FinanceParameters {
 
 struct VolatilityParameters {
     uint256 epochStart;
-    uint256 v_previous;
-    uint256 t_previous;
-    uint256 u_previous;
-    uint256 avg_u;
-    uint256 omega;
+    uint256 vegaAdj; // vega adjusted
+    uint256 tPrev; // previous trade timestamp
+    uint256 uPrev; // previous trade utilization rate (post trade)
+    uint256 tvwUr; // time-vega weighted utilization rate
+    uint256 omega; // total weight
 }
 
 struct TimeLockedFinanceParameters {
@@ -77,16 +77,13 @@ library FinanceIG {
         Amount memory availableLiquidity,
         uint8 baseTokenDecimals,
         uint8 sideTokenDecimals
-    ) public view returns (int256 tokensToSwap, int256 deltaTrade) {
+    ) public pure returns (int256 tokensToSwap, int256 deltaTrade) {
         FinanceIGDelta.DeltaHedgeParameters memory deltaHedgeParams;
 
         deltaHedgeParams.notionalUp = SignedMath.revabs(amount.up, tradeIsBuy);
         deltaHedgeParams.notionalDown = SignedMath.revabs(amount.down, tradeIsBuy);
 
-        (deltaHedgeParams.igDBull, deltaHedgeParams.igDBear) = _getDeltaHedgePercentages(
-            params,
-            oraclePrice
-        );
+        (deltaHedgeParams.igDBull, deltaHedgeParams.igDBear) = _getDeltaHedgePercentages(params, oraclePrice);
 
         deltaHedgeParams.strike = params.currentStrike;
         deltaHedgeParams.sideTokensAmount = sideTokensAmount;
@@ -112,7 +109,7 @@ library FinanceIG {
     function _getDeltaHedgePercentages(
         FinanceParameters memory params,
         uint256 oraclePrice
-    ) private view returns (int256 igDBull, int256 igDBear) {
+    ) private pure returns (int256 igDBull, int256 igDBear) {
         FinanceIGDelta.Parameters memory deltaParams;
         deltaParams.k = params.currentStrike;
         deltaParams.s = oraclePrice;
@@ -151,14 +148,7 @@ library FinanceIG {
         FinanceParameters memory params,
         uint256 oraclePrice
     ) public pure returns (uint256, uint256) {
-        return
-            FinanceIGPayoff.igPayoffPerc(
-                oraclePrice,
-                params.currentStrike,
-                params.kA,
-                params.kB,
-                params.theta
-            );
+        return FinanceIGPayoff.igPayoffPerc(oraclePrice, params.currentStrike, params.kA, params.kB, params.theta);
     }
 
     /**
@@ -166,17 +156,14 @@ library FinanceIG {
        @param params The finance parameters of the rolled epoch
        @return isFinanceApproximated True if the finance has been approximated during the rollEpoch.
      */
-    function checkFinanceApprox(FinanceParameters storage params) public view returns(bool isFinanceApproximated){
+    function checkFinanceApprox(FinanceParameters storage params) public view returns (bool isFinanceApproximated) {
         uint256 resTetaKKartd = FinanceIGPrice._tetakkrtd(params.theta, params.currentStrike, params.kA);
         uint256 resTetaKKbrtd = FinanceIGPrice._tetakkrtd(params.theta, params.currentStrike, params.kB);
 
         return resTetaKKartd == 1 || resTetaKKbrtd == 1;
     }
 
-    function updateParameters(
-        FinanceParameters storage params,
-        uint256 impliedVolatility
-    ) public {
+    function updateParameters(FinanceParameters storage params, uint256 impliedVolatility) public {
         _updateSigmaZero(params, impliedVolatility);
 
         {
@@ -211,31 +198,50 @@ library FinanceIG {
                 // if it was never set, take the one from the oracle:
                 params.sigmaZero = impliedVolatility;
             } else {
-                VolatilityParameters storage vParams = params.internalVolatilityParameters;
-                UD60x18 maturityWindow = convert(params.maturity - vParams.epochStart);
-                UD60x18 sharedUpdateFactor = ud(vParams.v_previous).mul(maturityWindow.sub(convert(vParams.t_previous)));
-                vParams.avg_u = ud(vParams.avg_u).add(ud(vParams.v_previous).mul(sharedUpdateFactor).mul(ud(vParams.u_previous))).unwrap();
-                vParams.omega = ud(vParams.omega).add(sharedUpdateFactor).unwrap();
-                if (vParams.omega == 0) {
-                    vParams.avg_u = 0;
+                updateVparamsStep(
+                    params.internalVolatilityParameters,
+                    params.maturity - params.internalVolatilityParameters.epochStart
+                );
+
+                if (params.internalVolatilityParameters.omega == 0) {
+                    params.internalVolatilityParameters.tvwUr = 0;
                 } else {
-                    vParams.avg_u = ud(vParams.avg_u).div(ud(vParams.omega)).unwrap();
+                    params.internalVolatilityParameters.tvwUr = ud(params.internalVolatilityParameters.tvwUr)
+                        .div(ud(params.internalVolatilityParameters.omega))
+                        .unwrap();
                 }
-                uint256 n = params.timeLocked.tradeVolatilityUtilizationRateFactor.get();
-                uint256 theta = params.timeLocked.tradeVolatilityTimeDecay.get();
-                // F1 = 1 + (n - 1) * (avg_u ^ 3)
-                UD60x18 factor_1 = convert(1).add(ud(n).sub(convert(1)).mul(ud(vParams.avg_u).powu(3)));
-                // F2 = avg_u + (1 - θ) * (1 - avg_u)
-                UD60x18 factor_2 = ud(vParams.avg_u).add(convert(1).sub(ud(theta)).mul(convert(1).sub(ud(vParams.avg_u))));
-                // σ0 * F1 * F2
-                params.sigmaZero = ud(params.sigmaZero).mul(factor_1).mul(factor_2).unwrap();
+
+                params.sigmaZero = sigmaZero(
+                    params.internalVolatilityParameters.tvwUr,
+                    params.timeLocked.tradeVolatilityUtilizationRateFactor.get(),
+                    params.timeLocked.tradeVolatilityTimeDecay.get(),
+                    params.sigmaZero
+                );
             }
         }
-        params.internalVolatilityParameters.avg_u = 0;
+        params.internalVolatilityParameters.tvwUr = 0;
         params.internalVolatilityParameters.omega = 0;
-        params.internalVolatilityParameters.t_previous = 0;
-        params.internalVolatilityParameters.u_previous = 0;
-        params.internalVolatilityParameters.v_previous = 1e18;
+        params.internalVolatilityParameters.tPrev = 0;
+        params.internalVolatilityParameters.uPrev = 0;
+        params.internalVolatilityParameters.vegaAdj = 1e18;
+    }
+
+    function sigmaZero(uint256 avgU, uint256 n, uint256 theta, uint256 sigmaZero_) public pure returns (uint256) {
+        // F1 = 1 + (n - 1) * (avgU ^ 3)
+        UD60x18 f1 = convert(1).add(ud(n).sub(convert(1)).mul(ud(avgU).powu(3)));
+        // F2 = avgU + (1 - θ) * (1 - avgU)
+        UD60x18 f2 = ud(avgU).add(convert(1).sub(ud(theta)).mul(convert(1).sub(ud(avgU))));
+        // σ0 * F1 * F2
+        return ud(sigmaZero_).mul(f1).mul(f2).unwrap();
+    }
+
+    function updateVparamsStep(VolatilityParameters storage vParams, uint256 duration) public {
+        // s = v0 * (T - t0)
+        UD60x18 sharedUpdateFactor = ud(vParams.vegaAdj).mul((convert(duration).sub(convert(vParams.tPrev))));
+        // u = u + s * u0
+        vParams.tvwUr = ud(vParams.tvwUr).add(sharedUpdateFactor.mul(ud(vParams.uPrev))).unwrap();
+        // ω = ω + s
+        vParams.omega = ud(vParams.omega).add(sharedUpdateFactor).unwrap();
     }
 
     function updateTimeLockedParameters(
@@ -243,7 +249,9 @@ library FinanceIG {
         TimeLockedFinanceValues memory proposed,
         uint256 timeToValidity
     ) public {
-        if (proposed.tradeVolatilityUtilizationRateFactor < 1e18 || proposed.tradeVolatilityUtilizationRateFactor > 5e18) {
+        if (
+            proposed.tradeVolatilityUtilizationRateFactor < 1e18 || proposed.tradeVolatilityUtilizationRateFactor > 5e18
+        ) {
             revert OutOfAllowedRange();
         }
         if (proposed.tradeVolatilityTimeDecay > 0.5e18) {
@@ -257,7 +265,10 @@ library FinanceIG {
         }
 
         timeLockedParams.sigmaMultiplier.set(proposed.sigmaMultiplier, timeToValidity);
-        timeLockedParams.tradeVolatilityUtilizationRateFactor.set(proposed.tradeVolatilityUtilizationRateFactor, timeToValidity);
+        timeLockedParams.tradeVolatilityUtilizationRateFactor.set(
+            proposed.tradeVolatilityUtilizationRateFactor,
+            timeToValidity
+        );
         timeLockedParams.tradeVolatilityTimeDecay.set(proposed.tradeVolatilityTimeDecay, timeToValidity);
         timeLockedParams.volatilityPriceDiscountFactor.set(proposed.volatilityPriceDiscountFactor, timeToValidity);
         timeLockedParams.useOracleImpliedVolatility.set(proposed.useOracleImpliedVolatility, timeToValidity);
@@ -310,7 +321,10 @@ library FinanceIG {
                 uint256 tau = WadTime.rangeInYears(params.internalVolatilityParameters.epochStart, params.maturity);
                 uint256 volatilityPriceDiscountFactor = params.timeLocked.volatilityPriceDiscountFactor.get();
                 // NOTE: sigma zero must be the original one, without the discount factor, hence the division.
-                SD59x18 z_denominator = ud(params.sigmaZero).div(ud(volatilityPriceDiscountFactor)).mul(ud(tau).sqrt()).intoSD59x18();
+                SD59x18 z_denominator = ud(params.sigmaZero)
+                    .div(ud(volatilityPriceDiscountFactor))
+                    .mul(ud(tau).sqrt())
+                    .intoSD59x18();
 
                 z_abs = z_numerator.div(z_denominator).abs().intoUD60x18();
             }
@@ -321,14 +335,9 @@ library FinanceIG {
             v_i = numerator.div(denominator).unwrap();
         }
 
-        {
-            UD60x18 sharedUpdateFactor = ud(params.internalVolatilityParameters.v_previous).mul(convert(timeElapsed).sub(convert(params.internalVolatilityParameters.t_previous)));
-            params.internalVolatilityParameters.avg_u = ud(params.internalVolatilityParameters.avg_u).add(sharedUpdateFactor.mul(ud(params.internalVolatilityParameters.u_previous))).unwrap();
-            params.internalVolatilityParameters.omega = ud(params.internalVolatilityParameters.omega).add(sharedUpdateFactor).unwrap();
-        }
-
-        params.internalVolatilityParameters.t_previous = timeElapsed;
-        params.internalVolatilityParameters.u_previous = postTradeUtilizationRate;
-        params.internalVolatilityParameters.v_previous = v_i;
+        updateVparamsStep(params.internalVolatilityParameters, timeElapsed);
+        params.internalVolatilityParameters.tPrev = timeElapsed;
+        params.internalVolatilityParameters.uPrev = postTradeUtilizationRate;
+        params.internalVolatilityParameters.vegaAdj = v_i;
     }
 }
