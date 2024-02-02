@@ -263,22 +263,23 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     function callAdminFunction(uint256 perc, uint256 input) public {
         perc = _between(perc, 0, 100);
 
-        if (perc < 10) {
-            console.log("SKIP");
-            // DO NOTHING
+        if (perc < 5) {
+            // 5% - Do nothing
+            console.log("Do nothing");
             emit Debug("Do nothing");
             return;
+        } else if (perc < 10) {
+            // 5% - Test invariant IG_24_3
+            emit Debug("_skipTime()");
+            _skipTime(input);
         } else if (perc < 30) {
             // 20% - RollEpoch
             emit Debug("_rollEpoch()");
             _rollEpoch();
-        } else if (perc < 80) {
-            // 50% - SetTokenPrice
+        } else {
+            // 70% - SetTokenPrice
             emit Debug("_setTokenPrice()");
             _setTokenPrice(input);
-        } else {
-            emit Debug("_skipTime()");
-            _skipTime(input);
         }
     }
 
@@ -312,13 +313,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         gte(
             vault.notional() + _initialVaultTotalSupply,
-            _initialVaultState.liquidity.pendingWithdrawals +
                 _initialVaultState.liquidity.pendingPayoffs +
                 _initialVaultState.liquidity.pendingDeposits +
                 _endingVaultTotalSupply +
-                (_endingVaultState.liquidity.pendingDeposits * vault.epochPricePerShare(ig.getEpoch().previous)) / 1e18,
+                (_endingVaultState.liquidity.pendingDeposits * vault.epochPricePerShare(ig.getEpoch().previous)) / 10**IERC20Metadata(vault).decimals(),
             _VAULT_03.desc
-        ); // TODO: FIX
+        );
 
         console.log("** STATES AFTER ROLLEPOCH");
         VaultUtils.debugState(vault);
@@ -344,6 +344,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
     function _skipTime(uint256 input) internal {
         precondition(ig.getEpoch().current - block.timestamp > MIN_TIME_WARP);
+        console.log("** FORCE SKIP TIME");
 
         uint256 currentStrike = ig.currentStrike();
         Amount memory amountBull = _boundBuyInput(_BULL, input);
@@ -354,10 +355,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         (uint256 bearEP, ) = ig.premium(currentStrike, amountBear.up, amountBear.down);
         (uint256 smileeEP, ) = ig.premium(currentStrike, amountSmilee.up, amountSmilee.down);
 
-        console.log("** FORCE SKIP TIME");
         // force a time warp between the current timestamp and the end of the epoch
         uint256 timeToSkip = _between(input, MIN_TIME_WARP, ig.getEpoch().current - block.timestamp);
-        hevm.warp(timeToSkip);
+        uint256 currentTimestamp = block.timestamp;
+        hevm.warp(currentTimestamp + timeToSkip);
 
         (uint256 bullEPAfter, ) = ig.premium(currentStrike, amountBull.up, amountBull.down);
         (uint256 bearEPAfter, ) = ig.premium(currentStrike, amountBear.up, amountBear.down);
@@ -366,6 +367,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         lt(bullEPAfter, bullEP, _IG_24_3.desc);
         lt(bearEPAfter, bearEP, _IG_24_3.desc);
         lt(smileeEPAfter, smileeEP, _IG_24_3.desc);
+
+        // reset time
+        hevm.warp(currentTimestamp);
     }
 
     function _setFeePrice() internal {
@@ -414,8 +418,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _buyAssertion(buyTokenPrice);
 
         (uint256 expectedPremium, uint256 fee) = ig.premium(currentStrike, amount.up, amount.down);
-        uint256 sigma = ig.getPostTradeVolatility(currentStrike, amount, true);
         precondition(expectedPremium > 100); // Slippage has no influence for value <= 100
+        uint256 sigma = ig.getPostTradeVolatility(currentStrike, amount, true);
         uint256 maxPremium = expectedPremium + (SLIPPAGE * expectedPremium) / 1e18;
 
         {
