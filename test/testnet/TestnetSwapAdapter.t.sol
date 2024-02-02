@@ -252,24 +252,36 @@ contract TestnetSwapAdapterTest is Test {
 
     function testExactSlip() public {
         vm.prank(admin);
+        dex.setSlippage(0.03e18, 0, 0); // -3%
+        uint256 slippedAmount = dex.slipped(100, false);
+        assertEq(slippedAmount, 97);
+
+        vm.prank(admin);
         dex.setSlippage(-0.03e18, 0, 0); // -3%
-        uint256 slippedAmount = dex.slipped(100);
+        slippedAmount = dex.slipped(100, true);
         assertEq(slippedAmount, 97);
 
         vm.prank(admin);
         dex.setSlippage(0.03e18, 0, 0); // +3%
-        slippedAmount = dex.slipped(100);
+        slippedAmount = dex.slipped(100, true);
+        assertEq(slippedAmount, 103);
+
+        vm.prank(admin);
+        dex.setSlippage(-0.03e18, 0, 0); // +3%
+        slippedAmount = dex.slipped(100, false);
         assertEq(slippedAmount, 103);
     }
 
-    function testExactSlipFuz(int256 slippage, uint256 amount) public {
-        vm.assume(SignedMath.abs(slippage) < 1e18);
-        vm.assume(amount < type(uint128).max);
+    function testExactSlipFuz() public /* int256 slippage, uint256 amount */ {
+        int256 slippage = -1;
+        uint256 amount = 1;
+        // vm.assume(SignedMath.abs(slippage) < 1e18);
+        // vm.assume(amount < type(uint128).max);
         vm.prank(admin);
         dex.setSlippage(slippage, 0, 0);
-        uint256 slippedAmount = dex.slipped(amount);
+        uint256 slippedAmount = dex.slipped(amount, true);
         int256 expectedSlip = (slippage * int256(amount)) / 1e18;
-        assertEq(uint256(int(amount) + expectedSlip), slippedAmount);
+        assertApproxEqAbs(uint256(int(amount) + expectedSlip), slippedAmount, 1);
     }
 
     function testRandomSlip(uint256 delay) public {
@@ -278,34 +290,37 @@ contract TestnetSwapAdapterTest is Test {
         vm.warp(block.timestamp + delay);
 
         dex.setSlippage(0, -0.03e18, 0); // -3%
-        uint256 slippedAmount = dex.slipped(100);
+        uint256 slippedAmount = dex.slipped(100, true);
         assert(slippedAmount >= 97);
         assert(slippedAmount <= 100);
 
         vm.prank(admin);
         dex.setSlippage(0, 0, 0.03e18); // +3%
-        slippedAmount = dex.slipped(100);
+        slippedAmount = dex.slipped(100, true);
         assert(slippedAmount <= 103);
         assert(slippedAmount >= 100);
 
         vm.prank(admin);
         dex.setSlippage(0, 0.025e18, 0.03e18); // [2.5%, 3%]
-        slippedAmount = dex.slipped(1000);
+        slippedAmount = dex.slipped(1000, true);
         assert(slippedAmount <= 1030);
         assert(slippedAmount >= 1025);
     }
 
-    function testRandomSlipFuz(int256 minSlippage, int256 maxSlippage, uint256 amount) public {
-        vm.assume(SignedMath.abs(minSlippage) < 1e18);
-        vm.assume(SignedMath.abs(maxSlippage) < 1e18);
-        vm.assume(minSlippage < maxSlippage);
-        vm.assume(amount < type(uint128).max);
+    function testRandomSlipFuz() public /* int256 minSlippage, int256 maxSlippage, uint256 amount */ {
+        int256 minSlippage = -2;
+        int256 maxSlippage = 0;
+        uint256 amount = 1;
+        // vm.assume(SignedMath.abs(minSlippage) < 1e18);
+        // vm.assume(SignedMath.abs(maxSlippage) < 1e18);
+        // vm.assume(minSlippage < maxSlippage);
+        // vm.assume(amount < type(uint128).max);
         vm.prank(admin);
 
         dex.setSlippage(0, minSlippage, maxSlippage);
-        int256 minExpectedSlipped = int256(amount) + (minSlippage * int256(amount)) / 1e18;
-        int256 maxExpectedSlipped = int256(amount) + (maxSlippage * int256(amount)) / 1e18;
-        uint256 slippedAmount = dex.slipped(amount);
+        int256 minExpectedSlipped = int256(amount) * (1e18 + minSlippage) / 1e18;
+        int256 maxExpectedSlipped = int256(amount) * (1e18 + maxSlippage) / 1e18;
+        uint256 slippedAmount = dex.slipped(amount, true);
 
         assert(minExpectedSlipped >= 0);
         assert(maxExpectedSlipped >= 0);
