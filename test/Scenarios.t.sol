@@ -423,8 +423,8 @@ contract TestScenariosJson is Test {
             _traderResidualAmount.down
         );
 
-        assertApproxEqAbs(endEpoch.payoffTotal, vaultPendingPayoff, _tolerance(endEpoch.payoffTotal));
-        assertApproxEqAbs(endEpoch.payoffTotal, traderPayoffNet + fees, _tolerance(endEpoch.payoffTotal));
+        assertApproxEqAbs(endEpoch.payoffNet, vaultPendingPayoff, _tolerance(endEpoch.payoffNet));
+        assertApproxEqAbs(endEpoch.payoffNet, traderPayoffNet + fees, _tolerance(endEpoch.payoffNet));
 
         if (_traderResidualAmount.getTotal() > 0) {
             uint256 netPaid = _dvp.burn(
@@ -437,7 +437,8 @@ contract TestScenariosJson is Test {
                 0
             );
 
-            assertApproxEqAbs(endEpoch.payoffNet, netPaid, _tolerance(endEpoch.payoffNet));
+            // Right now it makes sense only becasue there is only one trader
+            assertApproxEqAbs(endEpoch.payoffTotal, netPaid, _tolerance(endEpoch.payoffTotal));
         }
 
         _traderResidualAmount.setRaw(0, 0);

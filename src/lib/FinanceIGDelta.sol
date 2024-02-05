@@ -83,13 +83,11 @@ library FinanceIGDelta {
             ? ud(params.availableLiquidityBear).sub(ud(notionalBear)).unwrap()
             : ud(params.availableLiquidityBear).add(ud(notionalBear)).unwrap();
 
-        uint256 protoDBull = ud(SignedMath.abs(params.igDBull))
+        uint256 protoDBull = 2 * ud(SignedMath.abs(params.igDBull))
             .mul(ud(protoNotionalBull))
-            .div(ud(params.initialLiquidityBull))
             .unwrap();
-        uint256 protoDBear = ud(SignedMath.abs(params.igDBear))
+        uint256 protoDBear = 2 * ud(SignedMath.abs(params.igDBear))
             .mul(ud(protoNotionalBear))
-            .div(ud(params.initialLiquidityBear))
             .unwrap();
 
         uint256 deltaLimit;
