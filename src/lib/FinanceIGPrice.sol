@@ -139,7 +139,7 @@ library FinanceIGPrice {
 
     /// @dev σ√τ AND ( r + σ^2 / 2 ) τ
     function d1Parts(uint256 r, uint256 sigma, uint256 tau) public pure returns (uint256 sigmaTaurtd, uint256 q1) {
-        q1 = ud(r).add(ud(sigma).mul(ud(sigma)).div(convert(2))).mul(ud(tau)).unwrap();
+        q1 = ud(r).add(ud((sigma * sigma) / 2e18)).mul(ud(tau)).unwrap();
         sigmaTaurtd = _sigmaTaurtd(sigma, tau);
     }
 
@@ -246,7 +246,7 @@ library FinanceIGPrice {
 
     /// @dev S/θK * N(d1)
     function pbull2(uint256 sdivk, uint256 teta, uint256 n1) public pure returns (uint256) {
-        return ud(sdivk).div(ud(teta)).mul(ud(n1)).unwrap();
+        return sdivk * n1 / teta;
     }
 
     /// @dev [ 2/θ * √(S / K) e^-(r / 2 + σ^2 / 8)τ ] * [ N(d3) - N(d3b) ]
@@ -259,15 +259,15 @@ library FinanceIGPrice {
         uint256 n3,
         uint256 n3b
     ) public pure returns (uint256) {
-        UD60x18 sdivk_radix = ud(sdivk).sqrt();
+        UD60x18 sdivkRtd = ud(sdivk).sqrt();
         UD60x18 e1 = sd(SignedMath.neg(_boexp(r, sigma, tau))).exp().intoUD60x18();
-        UD60x18 coeff = sdivk_radix.mul(e1).mul(convert(2)).div(ud(teta));
+        UD60x18 coeff = sdivkRtd.mul(ud(e1.unwrap() * 2e18 / teta));
         return coeff.mul(ud(n3).sub(ud(n3b))).unwrap();
     }
 
     /// @dev [ s / θ√(K K_b) ] * N(d1b)
     function pbull4(uint256 s, uint256 tetakkbrtd, uint256 n1b) public pure returns (uint256) {
-        return ud(s).div(ud(tetakkbrtd)).mul(ud(n1b)).unwrap();
+        return s * n1b / tetakkbrtd;
     }
 
     /// @dev 1/θ * √(K_b / K) * N(d2b)
@@ -383,12 +383,14 @@ library FinanceIGPrice {
      */
     function tradeVolatility(TradeVolatilityParams calldata params) public view returns (uint256 sigma_hat) {
         // sigma0 * (1 + ur^3 * (n - 1)) * (T - (0.25 * t)) / T
-        uint256 ur_qubic = uint256(SignedMath.pow3(int256(params.utilizationRate)));
+        uint256 urQubic = uint256(SignedMath.pow3(int256(params.utilizationRate)));
+        // bvf = 1 + ur^3 * (n - 1)
         UD60x18 baselineVolatilityFactor = convert(1).add(
-            ud(ur_qubic).mul(ud(params.utilizationRateFactor).sub(convert(1)))
+            ud(urQubic).mul(ud(params.utilizationRateFactor).sub(convert(1)))
         );
-        UD60x18 timeDelta = convert(block.timestamp - params.initialTime);
-        UD60x18 timeFactor = convert(params.duration).sub(ud(params.timeDecay).mul(timeDelta)).div(
+        UD60x18 timeElapsed = convert(block.timestamp - params.initialTime);
+        // tf = (T - (decay * Δt)) / T
+        UD60x18 timeFactor = (convert(params.duration).sub(ud(params.timeDecay).mul(timeElapsed))).div(
             convert(params.duration)
         );
 
