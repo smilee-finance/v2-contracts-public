@@ -92,6 +92,7 @@ contract TestScenariosJson is Test {
     }
 
     struct TradePostConditions {
+        uint256 acceptedPremiumSlippage;
         uint256 availableNotionalBear;
         uint256 availableNotionalBull;
         uint256 baseTokenAmount;
@@ -218,9 +219,18 @@ contract TestScenariosJson is Test {
         _checkScenario("scenario_ka_zero_extreme_volatility", true);
     }
 
-    function testScenarioSlippage1() public {
-        _checkScenario("scenario_slip_1", true);
-    }
+    function testScenarioSlippage01() public { _checkScenario("slip_001_01", true); }
+    function testScenarioSlippage02() public { _checkScenario("slip_001_02", true); }
+    function testScenarioSlippage03() public { _checkScenario("slip_001_03", true); }
+    function testScenarioSlippage04() public { _checkScenario("slip_001_04", true); }
+    function testScenarioSlippage05() public { _checkScenario("slip_001_05", true); }
+    function testScenarioSlippage06() public { _checkScenario("slip_001_06", true); }
+    function testScenarioSlippage07() public { _checkScenario("slip_001_07", true); }
+    function testScenarioSlippage08() public { _checkScenario("slip_001_08", true); }
+    function testScenarioSlippage09() public { _checkScenario("slip_001_09", true); }
+    function testScenarioSlippage10() public { _checkScenario("slip_001_10", true); }
+    function testScenarioSlippage11() public { _checkScenario("slip_001_11", true); }
+
 
     function _checkScenario(string memory scenarioName, bool isFirstEpoch) internal {
         console.log(string.concat("Executing scenario: ", scenarioName));
@@ -325,8 +335,7 @@ contract TestScenariosJson is Test {
             (marketValue, fee) = _dvp.premium(strike, t.amountUp, t.amountDown);
             TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue + fee, vm);
             vm.prank(_trader);
-            marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue, 0.1e18, 0);
-
+            marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue, t.post.acceptedPremiumSlippage, 0);
             // TBD: check slippage on market value
         } else {
             _traderResidualAmount.decrease(Amount(t.amountUp, t.amountDown));
@@ -339,8 +348,9 @@ contract TestScenariosJson is Test {
                 t.amountUp,
                 t.amountDown,
                 marketValue,
-                0.1e18
+                t.post.acceptedPremiumSlippage
             );
+
             vm.stopPrank();
         }
         //fee = _feeManager.calculateTradeFee(t.amountUp + t.amountDown, marketValue, IToken(_vault.baseToken()).decimals(), false);
@@ -448,6 +458,9 @@ contract TestScenariosJson is Test {
     }
 
     function _tolerance(uint256 value) private view returns (uint256) {
+        if (value < 1e8) {
+            return 1e8;
+        }
         return (value * _tolerancePercentage) / 1e18;
     }
 
