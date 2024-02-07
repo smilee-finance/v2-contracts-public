@@ -267,8 +267,7 @@ contract IG is DVP {
 
         super._afterRollEpoch();
 
-        bool isFinanceApprox = FinanceIG.checkFinanceApprox(financeParameters);
-        if (isFinanceApprox) {
+        if (FinanceIG.checkFinanceApprox(financeParameters)) {
             _pause();
             emit PausedForFinanceApproximation();
         }

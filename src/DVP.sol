@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -153,7 +154,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             int256 deltaTrade;
             (swapPrice, deltaTrade) = _deltaHedgePosition(strike, amount, true);
             bool isSmileTrade = amount.up > 0 && amount.down > 0;
-            swapPrice = _getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade, true);
+            swapPrice = _getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade);
         }
 
         premium_ = _getMarketValue(strike, amount, true, swapPrice);
@@ -274,7 +275,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
                 int256 deltaTrade;
                 (swapPrice, deltaTrade) = _deltaHedgePosition(strike, amount, false);
                 bool isSmileTrade = amount.up > 0 && amount.down > 0;
-                swapPrice = _getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade, false);
+                swapPrice = _getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade);
             }
 
             // Compute the payoff to be paid:
@@ -341,19 +342,17 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     }
 
     /**
-        @dev Calculate the worst of price between swapPrice and oraclePrice for the given inputs.
+        @dev Calculate the worst of price between swapPrice and oraclePrice for the given inputs
         @param swapPrice The price returned by deltaHedgeAmount
         @param deltaTrade The delta of the current trade
         @param strike The strike
-        @param isSmileTrade Positive if the trade is a Smile Trade, false otherwise.
-        @param isBuying Positive if buyed by a user, negative otherwise.
+        @param isSmileTrade Positive if the trade is a Smile Trade, false otherwise
      */
     function _getWorstOfPrice(
         uint256 swapPrice,
         int256 deltaTrade,
         uint256 strike,
-        bool isSmileTrade,
-        bool isBuying
+        bool isSmileTrade
     ) internal view returns (uint256 worstPrice) {
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
@@ -363,19 +362,9 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         ) {
             worstPrice = oraclePrice;
         } else {
-            bool isDeltaPositive = deltaTrade > 0;
-            bool isSwapPriceHigher = swapPrice > oraclePrice;
-            bool isSwapPriceLower = swapPrice < oraclePrice;
-
-            if (isBuying) {
-                worstPrice = isDeltaPositive
-                    ? (isSwapPriceHigher ? swapPrice : oraclePrice)
-                    : (isSwapPriceLower ? swapPrice : oraclePrice);
-            } else {
-                worstPrice = isDeltaPositive
-                    ? (isSwapPriceLower ? swapPrice : oraclePrice)
-                    : (isSwapPriceHigher ? swapPrice : oraclePrice);
-            }
+            uint256 maxPrice = swapPrice > oraclePrice ? swapPrice : oraclePrice;
+            uint256 minPrice = swapPrice <= oraclePrice ? swapPrice : oraclePrice;
+            worstPrice = deltaTrade > 0 ? maxPrice : minPrice;
         }
     }
 

@@ -65,7 +65,7 @@ contract LibraryDeployer {
         tvp = VolatilityParameters(1, 1, 1, 1, 1, 1);
         FinanceParameters memory fp = FinanceParameters(12, 13, amountOne, 123, 124, 2, tfp, 1, tvp);
         FinanceIG.getPayoffPercentages(fp, 1);
-        FinanceIGDelta.deltaTrade(0, 0, 0, 0, 0);
+        FinanceIGDelta.deltaTrade(true, 0, 0, 0, 0, 0);
         FinanceIGPayoff.igPayoffInRange(100000, 2);
         FinanceIGPrice.d1Parts(1, 2, 3);
         notionalInfo.setInitial(123, amountOne);

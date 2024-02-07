@@ -98,6 +98,7 @@ library FinanceIG {
 
         tokensToSwap = FinanceIGDelta.deltaHedgeAmount(deltaHedgeParams);
         deltaTrade = FinanceIGDelta.deltaTrade(
+            tradeIsBuy,
             amount.up,
             amount.down,
             deltaHedgeParams.igDBull,
@@ -140,8 +141,7 @@ library FinanceIG {
             priceParams.teta = params.theta;
         }
         (uint256 igPBull, uint256 igPBear) = FinanceIGPrice.igPrices(priceParams);
-
-        marketValue = FinanceIGPrice.getMarketValue(amount.up, igPBull, amount.down, igPBear, baseTokenDecimals);
+        marketValue = FinanceIGPrice.getMarketValue(params.theta, amount.up, igPBull, amount.down, igPBear, baseTokenDecimals);
     }
 
     function getPayoffPercentages(
@@ -157,10 +157,9 @@ library FinanceIG {
        @return isFinanceApproximated True if the finance has been approximated during the rollEpoch.
      */
     function checkFinanceApprox(FinanceParameters storage params) public view returns (bool isFinanceApproximated) {
-        uint256 resTetaKKartd = FinanceIGPrice._tetakkrtd(params.theta, params.currentStrike, params.kA);
-        uint256 resTetaKKbrtd = FinanceIGPrice._tetakkrtd(params.theta, params.currentStrike, params.kB);
-
-        return resTetaKKartd == 1 || resTetaKKbrtd == 1;
+        uint256 resKKartd = FinanceIGPrice._kkrtd(params.currentStrike, params.kA);
+        uint256 resKKbrtd = FinanceIGPrice._kkrtd(params.currentStrike, params.kB);
+        return resKKartd == 1 || resKKbrtd == 1;
     }
 
     function updateParameters(FinanceParameters storage params, uint256 impliedVolatility) public {

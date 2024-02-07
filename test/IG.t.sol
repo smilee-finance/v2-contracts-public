@@ -453,21 +453,19 @@ contract IGTest is Test {
 
         for (uint256 i = 0; i < swapPrices.length; i++) {
             for (uint256 j = 0; j < deltaTrades.length; j++) {
-                uint256 smileTradePriceResult = ig.getWorstOfPrice(swapPrices[i], deltaTrades[j], strike, true, true);
+                uint256 smileTradePriceResult = ig.getWorstOfPrice(swapPrices[i], deltaTrades[j], strike, true);
 
                 uint256 buyingNoSmileTradePriceResult = ig.getWorstOfPrice(
                     swapPrices[i],
                     deltaTrades[j],
                     strike,
-                    false,
-                    true
+                    false
                 );
 
                 uint256 sellNoSmileTradePriceResult = ig.getWorstOfPrice(
                     swapPrices[i],
                     deltaTrades[j],
                     strike,
-                    false,
                     false
                 );
 

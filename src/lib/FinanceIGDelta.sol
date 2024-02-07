@@ -126,6 +126,7 @@ library FinanceIGDelta {
         @return deltaTrade_ := amountUp * igDBull + amountDown * igDBear
      */
     function deltaTrade(
+        bool tradeIsBuy,
         uint256 amountUp,
         uint256 amountDown,
         int256 igDBull,
@@ -134,15 +135,10 @@ library FinanceIGDelta {
     ) public pure returns (int256 deltaTrade_) {
         amountUp = AmountsMath.wrapDecimals(amountUp, baseTokenDecimals);
         amountDown = AmountsMath.wrapDecimals(amountDown, baseTokenDecimals);
-
-        UD60x18 udAmountUp = ud(amountUp);
-        UD60x18 udAmountDown = ud(amountDown);
-        UD60x18 udIgDBull = ud(SignedMath.abs(igDBull));
-        UD60x18 udIgDBear = ud(SignedMath.abs(igDBear));
-
-        deltaTrade_ =
-            SignedMath.revabs(udAmountUp.mul(udIgDBull).unwrap(), igDBull > 0) +
-            SignedMath.revabs(udAmountDown.mul(udIgDBear).unwrap(), igDBear > 0);
+        deltaTrade_ = 2 * (
+            sd(tradeIsBuy ? int256(amountUp) : -int256(amountUp)).mul(sd(igDBull)).unwrap() +
+            sd(tradeIsBuy ? int256(amountDown) : -int256(amountDown)).mul(sd(igDBear)).unwrap()
+        );
     }
 
     ////// HELPERS //////

@@ -170,10 +170,9 @@ contract MockedIG is IG {
         uint256 swapPrice,
         int256 deltaTrade,
         uint256 strike,
-        bool isSmileTrade,
-        bool isBuying
+        bool isSmileTrade
     ) public view returns (uint256) {
-        return super._getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade, isBuying);
+        return super._getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade);
     }
 
     /// @dev must be defined in Wad

@@ -228,6 +228,7 @@ contract TestScenariosJson is Test {
     function testScenarioSlippage07() public { _checkScenario("slip_001_07", true); }
     function testScenarioSlippage08() public { _checkScenario("slip_001_08", true); }
     function testScenarioSlippage09() public { _checkScenario("slip_001_09", true); }
+    function testScenarioSlippage09bis() public { _checkScenario("slip_001_09bis", true); }
     function testScenarioSlippage10() public { _checkScenario("slip_001_10", true); }
     function testScenarioSlippage11() public { _checkScenario("slip_001_11", true); }
 
@@ -333,7 +334,7 @@ contract TestScenariosJson is Test {
         if (t.isMint) {
             _traderResidualAmount.increase(Amount(t.amountUp, t.amountDown));
             (marketValue, fee) = _dvp.premium(strike, t.amountUp, t.amountDown);
-            TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), marketValue + fee, vm);
+            TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), (marketValue * (1e18 + t.post.acceptedPremiumSlippage) / 1e18) + fee, vm);
             vm.prank(_trader);
             marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue, t.post.acceptedPremiumSlippage, 0);
             // TBD: check slippage on market value
@@ -458,7 +459,7 @@ contract TestScenariosJson is Test {
     }
 
     function _tolerance(uint256 value) private view returns (uint256) {
-        if (value < 1e8) {
+        if (value == 0) {
             return 1e8;
         }
         return (value * _tolerancePercentage) / 1e18;
