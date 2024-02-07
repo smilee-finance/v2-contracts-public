@@ -422,7 +422,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         uint256 maxPremium = expectedPremium + (ACCEPTED_SLIPPAGE * expectedPremium) / 1e18;
 
         {
-            (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(DURATION_SEC);
+            (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(EPOCH_FREQUENCY);
             uint256 premiumMaxIV = _getMarketValueWithCustomIV(ivMax, amount, address(baseToken), buyTokenPrice);
             uint256 premiumMinIV = _getMarketValueWithCustomIV(ivMin, amount, address(baseToken), buyTokenPrice);
             lte(expectedPremium, (premiumMaxIV * 1.0000000000000001e18) / 1e18, _IG_03_1.desc); // See test_16 in CryticToFoundry.sol
@@ -505,7 +505,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 (uint256 expectedPremium, ) = ig.premium(buyInfo_.strike, buyInfo_.amountUp, buyInfo_.amountDown);
                 gte(expectedPremium, expectedPayoff, _IG_14.desc);
 
-                (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(DURATION_SEC);
+                (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(EPOCH_FREQUENCY);
                 Amount memory amount = Amount(buyInfo_.amountUp, buyInfo_.amountDown);
                 uint256 payoffMaxIV = _getMarketValueWithCustomIV(ivMax, amount, address(baseToken), sellTokenPrice);
                 uint256 payoffMinIV = _getMarketValueWithCustomIV(ivMin, amount, address(baseToken), sellTokenPrice);

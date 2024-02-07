@@ -32,6 +32,12 @@ abstract contract Setup is Parameters {
 
     constructor() {
         hevm = IHevm(VM_ADDRESS_SETUP);
+
+        BASE_TOKEN_DECIMALS = 18;
+        SIDE_TOKEN_DECIMALS = 18;
+        EPOCH_FREQUENCY = EpochFrequency.DAILY;
+        USE_ORACLE_IMPL_VOL = false;
+        FLAG_SLIPPAGE = false;
     }
 
     function deploy() internal {
@@ -40,13 +46,14 @@ abstract contract Setup is Parameters {
 
         ap.grantRole(ap.ROLE_ADMIN(), admin);
         baseToken = new TestnetToken("BaseTestToken", "BTT");
+        baseToken.setDecimals(BASE_TOKEN_DECIMALS);
         baseToken.transferOwnership(admin);
         hevm.prank(admin);
         baseToken.setAddressProvider(address(ap));
 
         AddressProviderUtils.initialize(admin, ap, address(baseToken), FLAG_SLIPPAGE, hevm);
         EPOCH_FREQUENCY = EpochFrequency.DAILY;
-        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, ap, EPOCH_FREQUENCY, hevm));
+        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, SIDE_TOKEN_DECIMALS, ap, EPOCH_FREQUENCY, hevm));
 
         EchidnaVaultUtils.grantAdminRole(admin, address(vault));
         EchidnaVaultUtils.registerVault(admin, address(vault), ap, hevm);

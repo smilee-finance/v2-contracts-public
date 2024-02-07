@@ -18,11 +18,13 @@ library EchidnaVaultUtils {
     function createVault(
         address baseToken,
         address tokenAdmin,
+        uint8 sideTokenDecimals,
         AddressProvider addressProvider,
         uint256 epochFrequency,
         IHevm vm
     ) public returns (address) {
         TestnetToken sideToken = new TestnetToken("SideTestToken", "STT");
+        sideToken.setDecimals(sideTokenDecimals);
         sideToken.setAddressProvider(address(addressProvider));
         TestnetPriceOracle apPriceOracle = TestnetPriceOracle(addressProvider.priceOracle());
 
