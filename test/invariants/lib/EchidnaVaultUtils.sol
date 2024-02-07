@@ -90,4 +90,10 @@ library EchidnaVaultUtils {
         uint256 price = IPriceOracle(addressProvider.priceOracle()).getPrice(vault.sideToken(), vault.baseToken());
         sideTokenValue = sideTokenAmount * price / 10 ** sideTokenDecimals;
     }
+
+    function getAssetsValue(IVault vault, AddressProvider addressProvider) internal view returns (uint256) {
+        uint256 baseTokens = IERC20(vault.baseToken()).balanceOf(address(vault));
+        uint256 sideTokenValue = getSideTokenValue(vault, addressProvider);
+        return baseTokens + sideTokenValue;
+    }
 }

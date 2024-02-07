@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {FeeManager} from "@project/FeeManager.sol";
+import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 
 abstract contract Parameters {
     bool internal FLAG_SLIPPAGE = false;
@@ -17,12 +18,14 @@ abstract contract Parameters {
     uint256 internal MIN_OPTION_BUY = 10_000; // MAX is bullAvailNotional or bearAvailNotional
 
     uint256 internal VOLATILITY = 0.5e18;
-    uint256 internal SLIPPAGE = 0.03e18;
+    uint256 internal ACCEPTED_SLIPPAGE = 0.03e18;
 
     uint256 internal DURATION = 1 days;
     uint256 internal DURATION_SEC = 86400;
 
     uint256 internal MIN_TIME_WARP = 1000; // Related to invariant IG_24_3
+
+    uint256 internal EPOCH_FREQUENCY = EpochFrequency.DAILY;
 
     // FEE MANAGER
     FeeManager.FeeParams internal FEE_PARAMS =

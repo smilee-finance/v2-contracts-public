@@ -20,7 +20,7 @@ abstract contract BeforeAfter is Setup {
     uint256 internal _initialVaultTotalSupply;
     uint256 internal _endingVaultTotalSupply;
 
-    uint256 internal _intialSharePrice;
+    uint256 internal _initialSharePrice;
     uint256 internal _endingSharePrice;
 
     function _before() internal {
@@ -28,7 +28,7 @@ abstract contract BeforeAfter is Setup {
     }
 
     function _after() internal {
-        (_initialStrike, _initialVaultState, _initialFinanceParameters, _initialVaultTotalSupply, _intialSharePrice) = _collectData();
+        (_initialStrike, _initialVaultState, _initialFinanceParameters, _initialVaultTotalSupply, _initialSharePrice) = _collectData();
     }
 
     function _collectData()

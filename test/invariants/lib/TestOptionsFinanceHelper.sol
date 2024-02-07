@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import {FinanceParameters, VolatilityParameters, TimeLockedFinanceParameters} from "@project/lib/FinanceIG.sol";
+import {FinanceParameters, VolatilityParameters, TimeLockedFinanceParameters, TimeLockedFinanceValues} from "@project/lib/FinanceIG.sol";
+import {TimeLock, TimeLockedBool, TimeLockedUInt} from "@project/lib/TimeLock.sol";
 import {WadTime} from "@project/lib/WadTime.sol";
 import {FinanceIGPrice} from "@project/lib/FinanceIGPrice.sol";
 import {UD60x18, ud} from "@prb/math/UD60x18.sol";
@@ -11,6 +12,9 @@ import {Amount} from "@project/lib/Amount.sol";
 import {console} from "forge-std/console.sol";
 
 library TestOptionsFinanceHelper {
+    using TimeLock for TimeLockedBool;
+    using TimeLock for TimeLockedUInt;
+
     uint8 internal constant _BULL = 0;
     uint8 internal constant _BEAR = 1;
     uint8 internal constant _SMILE = 2;
@@ -238,5 +242,18 @@ library TestOptionsFinanceHelper {
             sigmaZero,
             internalVolatilityParameters
         );
+    }
+
+    function getTimeLockedFinanceParameters(
+        MockedIG ig
+    ) internal view returns (TimeLockedFinanceValues memory currentValues) {
+        (, , , , , , , ,TimeLockedFinanceParameters memory igParams, , ) = ig.financeParameters();
+        currentValues = TimeLockedFinanceValues({
+            sigmaMultiplier: igParams.sigmaMultiplier.get(),
+            tradeVolatilityUtilizationRateFactor: igParams.tradeVolatilityUtilizationRateFactor.get(),
+            tradeVolatilityTimeDecay: igParams.tradeVolatilityTimeDecay.get(),
+            volatilityPriceDiscountFactor: igParams.volatilityPriceDiscountFactor.get(),
+            useOracleImpliedVolatility: igParams.useOracleImpliedVolatility.get()
+        });
     }
 }

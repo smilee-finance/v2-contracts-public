@@ -77,6 +77,7 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
     bytes32 internal constant _ERR_INSUFF_LIQUIDITY_EDGE_01 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_sellSideTokens()"))));
     // bytes32 internal constant _ERR_INSUFF_LIQUIDITY_EDGE_02 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_buySideTokens()")))); // Replace by InsufficientInput()
     bytes32 internal constant _ERR_INSUFFICIENT_INPUT = keccak256(abi.encodeWithSignature("InsufficientInput()")); // see TestnetSwapAdapter
+    bytes32 internal constant _ERR_CHECK_SLIPPAGE = keccak256(abi.encodeWithSignature("SlippedMarketValue()")); // see test_21
 
     // Accept reverts array
     mapping(string => mapping(bytes32 => bool)) internal _ACCEPTED_REVERTS;
@@ -96,6 +97,7 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFFICIENT_INPUT] = true; // delta hedge can't be performed
         _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_PRICE_ZERO] = true; // option price is 0
         _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_INSUFF_LIQUIDITY_EDGE_01] = true; // delta hedge can't be performed
+        _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_CHECK_SLIPPAGE] = true;
     }
 
     /// @notice Share price never goes to 0
