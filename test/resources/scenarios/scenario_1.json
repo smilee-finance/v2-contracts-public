@@ -35,7 +35,7 @@
     "trades": [
         {
             "pre": {
-                "volatility": 449832589285713750,
+                "volatility": 449832589285713749,
                 "baseTokenAmount": 400000000000000000000000,
                 "sideTokenAmount": 200000000000000000000,
                 "utilizationRate": 0,
@@ -45,13 +45,14 @@
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 450282421874999462,
+                "volatility": 450282421874999463,
                 "baseTokenAmount": 400400138613544108000000,
                 "sideTokenAmount": 200000000000000000000,
                 "utilizationRate": 100000000000000000,
                 "availableNotionalBear": 400000000000000000000000,
                 "availableNotionalBull": 320000000000000000000000,
-                "marketValue": 424138613544108631000
+                "marketValue": 424138613544108631000,
+                "acceptedPremiumSlippage": 1000000000000000
             },
             "elapsedTimeSeconds": 900,
             "amountUp": 80000000000000000000000,
