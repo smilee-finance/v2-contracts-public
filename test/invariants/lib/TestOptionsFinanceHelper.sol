@@ -256,4 +256,38 @@ library TestOptionsFinanceHelper {
             useOracleImpliedVolatility: igParams.useOracleImpliedVolatility.get()
         });
     }
+
+    /**
+        P = V0 / θ * F
+        F = {
+            S / √(K Ka) - S / √(K Kb)             if (S < Ka)
+            2 √(S / K) - √(Ka / K) - S / √(K Kb)  if (Ka < S < Kb)
+            √(Kb / K) - √(Ka / K)                 if (S > Kb)
+        }
+     */
+    function vaultPayoff(
+        uint256 s,
+        uint256 k,
+        uint256 kA,
+        uint256 kB,
+        uint256 v0,
+        uint256 theta
+    ) public pure returns (uint256) {
+        uint256 f;
+        if (s < kA) {
+            UD60x18 kkartd = (ud(k).mul(ud(kA))).sqrt();
+            UD60x18 kkbrtd = (ud(k).mul(ud(kB))).sqrt();
+            f = ud(s).div(kkartd).sub(ud(s).div(kkbrtd)).unwrap();
+        } else if (s > kB) {
+            UD60x18 sdivkrtd = (ud(s).div(ud(k))).sqrt();
+            UD60x18 kadivkrtd = (ud(kA).div(ud(k))).sqrt();
+            UD60x18 kkbrtd = (ud(k).mul(ud(kB))).sqrt();
+            f = ud(2e18).mul(sdivkrtd).sub(kadivkrtd).sub(ud(s).div(kkbrtd)).unwrap();
+        } else {
+            UD60x18 kadivkrtd = (ud(kA).div(ud(k))).sqrt();
+            UD60x18 kbdivkrtd = (ud(kB).div(ud(k))).sqrt();
+            f = kbdivkrtd.sub(kadivkrtd).unwrap();
+        }
+        return v0 * f / theta;
+    }
 }
