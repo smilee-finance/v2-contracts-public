@@ -53,20 +53,30 @@ library FinanceIGPrice {
         // Assume the price (up and down) is always >= 0
         {
             PriceParts memory ps = pBullParts(params, ert, sdivk, ns, nbs);
-            igPBull = ps.p1 + ps.p2 - ps.p3 - ps.p4 - ps.p5;
+            uint256 pos = ps.p1 + ps.p2;
+            uint256 neg = ps.p3 + ps.p4 + ps.p5;
+            if (pos < neg) {
+                // NOTE: rounding errors may yields a slightly negative number
+                if (neg - pos >= 1e9) {
+                    revert NegativePriceDetected();
+                }
+                igPBull = 0;
+            } else {
+                igPBull = pos - neg;
+            }
         }
         {
             PriceParts memory ps = pBearParts(params, ert, sdivk, ns, nas);
-            uint256 tmp_1 = ps.p1 + ps.p2;
-            uint256 tmp_2 = ps.p3 + ps.p4 + ps.p5;
-            if (tmp_1 < tmp_2) {
+            uint256 pos = ps.p1 + ps.p2;
+            uint256 neg = ps.p3 + ps.p4 + ps.p5;
+            if (pos < neg) {
                 // NOTE: rounding errors may yields a slightly negative number
-                if (tmp_2 - tmp_1 >= 0.1e18) {
+                if (neg - pos >= 1e9) {
                     revert NegativePriceDetected();
                 }
                 igPBear = 0;
             } else {
-                igPBear = tmp_1 - tmp_2;
+                igPBear = pos - neg;
             }
         }
     }
