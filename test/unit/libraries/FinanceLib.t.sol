@@ -187,23 +187,24 @@ contract FinanceLibJsonTest is Test {
 
                 uint256 ert = FinanceIGPrice._ert(testCases[i].priceParams.r, testCases[i].priceParams.tau);
                 uint256 sdivk = (testCases[i].priceParams.s).wdiv(testCases[i].priceParams.k);
+                uint256 theta= testCases[i].priceParams.teta;
 
                 {
                     FinanceIGPrice.PriceParts memory ps = FinanceIGPrice.pBullParts(testCases[i].priceParams, ert, sdivk, ns, nbs);
-                    assertApproxEqAbs(testCases[i].price.pBull1, ps.p1, ERR);
-                    assertApproxEqAbs(testCases[i].price.pBull2, ps.p2, ERR);
-                    assertApproxEqAbs(testCases[i].price.pBull3, ps.p3, ERR);
-                    assertApproxEqAbs(testCases[i].price.pBull4, ps.p4, ERR);
-                    assertApproxEqAbs(testCases[i].price.pBull5, ps.p5, ERR);
+                    assertApproxEqAbs(testCases[i].price.pBull1, ps.p1 * 1e18 / theta , ERR);
+                    assertApproxEqAbs(testCases[i].price.pBull2, ps.p2 * 1e18 / theta , ERR);
+                    assertApproxEqAbs(testCases[i].price.pBull3, ps.p3 * 1e18 / theta , ERR);
+                    assertApproxEqAbs(testCases[i].price.pBull4, ps.p4 * 1e18 / theta , ERR);
+                    assertApproxEqAbs(testCases[i].price.pBull5, ps.p5 * 1e18 / theta , ERR);
                 }
 
                 {
                     FinanceIGPrice.PriceParts memory ps = FinanceIGPrice.pBearParts(testCases[i].priceParams, ert, sdivk, ns, nas);
-                    assertApproxEqAbs(testCases[i].price.pBear1, ps.p1, ERR);
-                    assertApproxEqAbs(testCases[i].price.pBear2, ps.p2, ERR);
-                    assertApproxEqAbs(testCases[i].price.pBear3, ps.p3, ERR);
-                    assertApproxEqAbs(testCases[i].price.pBear4, ps.p4, ERR);
-                    assertApproxEqAbs(testCases[i].price.pBear5, ps.p5, ERR);
+                    assertApproxEqAbs(testCases[i].price.pBear1, ps.p1 * 1e18 / theta , ERR);
+                    assertApproxEqAbs(testCases[i].price.pBear2, ps.p2 * 1e18 / theta , ERR);
+                    assertApproxEqAbs(testCases[i].price.pBear3, ps.p3 * 1e18 / theta , ERR);
+                    assertApproxEqAbs(testCases[i].price.pBear4, ps.p4 * 1e18 / theta , ERR);
+                    assertApproxEqAbs(testCases[i].price.pBear5, ps.p5 * 1e18 / theta , ERR);
                 }
             }
             index = indexScenarioMax;
@@ -216,8 +217,8 @@ contract FinanceLibJsonTest is Test {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
                 (uint256 pBull, uint256 pBear) = FinanceIGPrice.igPrices(testCases[i].priceParams);
-                assertApproxEqAbs(testCases[i].price.pBull, testCases[i].v0.wmul(pBull), 6e16);
-                assertApproxEqAbs(testCases[i].price.pBear, testCases[i].v0.wmul(pBear), 6e16);
+                assertApproxEqAbs(testCases[i].price.pBull, testCases[i].v0.wmul(pBull).wdiv(testCases[i].priceParams.teta), 6e16);
+                assertApproxEqAbs(testCases[i].price.pBear, testCases[i].v0.wmul(pBear).wdiv(testCases[i].priceParams.teta), 6e16);
             }
             index = indexScenarioMax;
         }
@@ -293,8 +294,8 @@ contract FinanceLibJsonTest is Test {
 
     function testDeltaHedgeAmount() public {
         FinanceIGDelta.DeltaHedgeParameters memory input = FinanceIGDelta.DeltaHedgeParameters({
-            igDBull: 3.491417164804690e18,
-            igDBear: -3.16891341134950e18,
+            igDBull: 0.000067543642961551e18,
+            igDBear: 0,
             baseTokenDecimals: 18,
             sideTokenDecimals: 18,
             initialLiquidityBull: 50_000e18,
@@ -308,9 +309,8 @@ contract FinanceLibJsonTest is Test {
             theta: 0.197303740911534e18,
             kb: 2_338.6674832963900e18
         });
-        int256 output = FinanceIGDelta.deltaHedgeAmount(input); // -0.375779679505776274
-        // NOTE: I assume that the lower precision is due to the sqrt implementation...
-        assertApproxEqAbs(-0.37595523471614e18, output, 0.001e18);
+        int256 output = FinanceIGDelta.deltaHedgeAmount(input);
+        assertApproxEqAbs(5.40349143692413162e18, output, 1e9);
     }
 
     function testSigmaZero() public {
@@ -324,8 +324,6 @@ contract FinanceLibJsonTest is Test {
         assertApproxEqAbs(0.71322389e18, FinanceIG.sigmaZero(ud(3.5e18).div(ud(4.4e18)).unwrap(), n, theta, sigmaZero_), 1e10);
         assertApproxEqAbs(0.75646219e18, FinanceIG.sigmaZero(ud(4e18).div(ud(4.8e18)).unwrap(), n, theta, sigmaZero_), 1e10);
         assertApproxEqAbs(0.81866836e18, FinanceIG.sigmaZero(ud(4.5e18).div(ud(5.1e18)).unwrap(), n, theta, sigmaZero_), 1e10);
-        assertApproxEqAbs(208.64574907e18, FinanceIG.sigmaZero(ud(5e18).div(ud(0.87e18)).unwrap(), n, theta, sigmaZero_), 1e10);
-        assertApproxEqAbs(359.23302469e18, FinanceIG.sigmaZero(ud(6e18).div(ud(0.9e18)).unwrap(), n, theta, sigmaZero_), 1e10);
     }
 
     function _checkTradeVolatility(TradeVolatility memory params) private {

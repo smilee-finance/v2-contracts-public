@@ -41,7 +41,7 @@ library FinanceIGPrice {
         @return igPBull The unitary price for an up position
         @return igPBear The unitary price for a down position
      */
-    function igPrices(Parameters calldata params) external view returns (uint256 igPBull, uint256 igPBear) {
+    function igPrices(Parameters calldata params) external pure returns (uint256 igPBull, uint256 igPBear) {
         (DTerms memory ds, DTerms memory das, DTerms memory dbs) = dTerms(params);
         NTerms memory ns = nTerms(ds);
         NTerms memory nas = nTerms(das);
