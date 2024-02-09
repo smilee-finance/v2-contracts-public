@@ -115,10 +115,10 @@ contract MockedIG is IG {
         uint256 strike,
         Amount memory amount,
         bool tradeIsBuy
-    ) internal override returns (uint256 swapPrice, int256 deltaTrade) {
+    ) internal override returns (uint256 swapPrice) {
         if (_fakeDeltaHedge) {
             IVault(vault).deltaHedge(-int256((amount.up + amount.down) / 4));
-            return (1e18, 0);
+            return 1e18;
         }
         (swapPrice, deltaTrade) = super._deltaHedgePosition(strike, amount, tradeIsBuy);
         swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
@@ -164,15 +164,6 @@ contract MockedIG is IG {
 
         // TBD: review
         financeParameters.timeLocked.sigmaMultiplier.set(value, 0);
-    }
-
-    function getWorstOfPrice(
-        uint256 swapPrice,
-        int256 deltaTrade,
-        uint256 strike,
-        bool isSmileTrade
-    ) public view returns (uint256) {
-        return super._getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade);
     }
 
     /// @dev must be defined in Wad

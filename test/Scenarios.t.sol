@@ -352,7 +352,6 @@ contract TestScenariosJson is Test {
                 marketValue,
                 t.post.acceptedPremiumSlippage
             );
-
             vm.stopPrank();
         }
         //fee = _feeManager.calculateTradeFee(t.amountUp + t.amountDown, marketValue, IToken(_vault.baseToken()).decimals(), false);

@@ -77,7 +77,7 @@ library FinanceIG {
         Amount memory availableLiquidity,
         uint8 baseTokenDecimals,
         uint8 sideTokenDecimals
-    ) public pure returns (int256 tokensToSwap, int256 deltaTrade) {
+    ) public pure returns (int256 tokensToSwap) {
         FinanceIGDelta.DeltaHedgeParameters memory deltaHedgeParams;
 
         deltaHedgeParams.notionalUp = SignedMath.revabs(amount.up, tradeIsBuy);
@@ -97,14 +97,6 @@ library FinanceIG {
         deltaHedgeParams.kb = params.kB;
 
         tokensToSwap = FinanceIGDelta.deltaHedgeAmount(deltaHedgeParams);
-        deltaTrade = FinanceIGDelta.deltaTrade(
-            tradeIsBuy,
-            amount.up,
-            amount.down,
-            deltaHedgeParams.igDBull,
-            deltaHedgeParams.igDBear,
-            baseTokenDecimals
-        );
     }
 
     function _getDeltaHedgePercentages(

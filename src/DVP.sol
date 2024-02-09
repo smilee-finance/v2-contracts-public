@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -149,15 +148,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             revert NotEnoughNotional();
         }
 
-        uint256 swapPrice;
         {
-            int256 deltaTrade;
-            (swapPrice, deltaTrade) = _deltaHedgePosition(strike, amount, true);
-            bool isSmileTrade = amount.up > 0 && amount.down > 0;
-            swapPrice = _getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade);
+            uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
+            uint256 premiumOrac = _getMarketValue(strike, amount, true, IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken));
+            uint256 premiumSwap = _getMarketValue(strike, amount, true, swapPrice);
+            premium_ = premiumSwap > premiumOrac ? premiumSwap : premiumOrac;
         }
-
-        premium_ = _getMarketValue(strike, amount, true, swapPrice);
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
         (uint256 fee, uint256 vaultFee) = feeManager.tradeBuyFee(
@@ -220,7 +216,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 strike,
         Amount memory amount,
         bool tradeIsBuy
-    ) internal virtual returns (uint256 swapPrice, int256 deltaTrade);
+    ) internal virtual returns (uint256 swapPrice);
 
     /**
         @notice Burn or decrease a position.
@@ -270,16 +266,10 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             // NOTE: checked only here as expired positions needs to be burned even if the vault was killed.
             _checkEpochNotFinished();
 
-            uint256 swapPrice;
-            {
-                int256 deltaTrade;
-                (swapPrice, deltaTrade) = _deltaHedgePosition(strike, amount, false);
-                bool isSmileTrade = amount.up > 0 && amount.down > 0;
-                swapPrice = _getWorstOfPrice(swapPrice, deltaTrade, strike, isSmileTrade);
-            }
-
-            // Compute the payoff to be paid:
-            paidPayoff = _getMarketValue(strike, amount, false, swapPrice);
+            uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
+            uint256 payoffOrac = _getMarketValue(strike, amount, false, IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken));
+            uint256 payoffSwap = _getMarketValue(strike, amount, false, swapPrice);
+            paidPayoff = payoffSwap < payoffOrac ? payoffSwap : payoffOrac;
             _checkSlippage(paidPayoff, expectedMarketValue, maxSlippage, false);
         } else {
             // Compute the payoff to be paid:
@@ -339,33 +329,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         feeManager.trackVaultFee(address(vault), vaultFee);
 
         emit Burn(msg.sender);
-    }
-
-    /**
-        @dev Calculate the worst of price between swapPrice and oraclePrice for the given inputs
-        @param swapPrice The price returned by deltaHedgeAmount
-        @param deltaTrade The delta of the current trade
-        @param strike The strike
-        @param isSmileTrade Positive if the trade is a Smile Trade, false otherwise
-     */
-    function _getWorstOfPrice(
-        uint256 swapPrice,
-        int256 deltaTrade,
-        uint256 strike,
-        bool isSmileTrade
-    ) internal view returns (uint256 worstPrice) {
-        uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-
-        if (
-            isSmileTrade &&
-            ((swapPrice < strike && oraclePrice > strike) || (swapPrice > strike && oraclePrice < strike))
-        ) {
-            worstPrice = oraclePrice;
-        } else {
-            uint256 maxPrice = swapPrice > oraclePrice ? swapPrice : oraclePrice;
-            uint256 minPrice = swapPrice <= oraclePrice ? swapPrice : oraclePrice;
-            worstPrice = deltaTrade > 0 ? maxPrice : minPrice;
-        }
     }
 
     /// @inheritdoc EpochControls

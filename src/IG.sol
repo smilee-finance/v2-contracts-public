@@ -184,7 +184,7 @@ contract IG is DVP {
         uint256 strike,
         Amount memory amount,
         bool tradeIsBuy
-    ) internal virtual override returns (uint256 swapPrice, int256 deltaTrade) {
+    ) internal virtual override returns (uint256 swapPrice) {
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
 
         Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
@@ -202,7 +202,7 @@ contract IG is DVP {
         (, uint256 sideTokensAmount) = IVault(vault).balances();
 
         int256 tokensToSwap;
-        (tokensToSwap, deltaTrade) = FinanceIG.getDeltaHedgeAmount(
+        tokensToSwap = FinanceIG.getDeltaHedgeAmount(
             financeParameters,
             amount,
             tradeIsBuy,
@@ -214,13 +214,12 @@ contract IG is DVP {
         );
 
         if (tokensToSwap == 0) {
-            return (oraclePrice, 0);
+            return oraclePrice;
         }
 
         // NOTE: We negate the value because the protocol will sell side tokens when `h` is positive.
         uint256 exchangedBaseTokens = IVault(vault).deltaHedge(-tokensToSwap);
 
-        // Compute swap price:
         swapPrice = Finance.getSwapPrice(tokensToSwap, exchangedBaseTokens, _sideTokenDecimals, _baseTokenDecimals);
     }
 
