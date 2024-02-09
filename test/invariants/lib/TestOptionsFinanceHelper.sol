@@ -290,4 +290,60 @@ library TestOptionsFinanceHelper {
         }
         return v0 * f / theta;
     }
+
+    /**
+        LP token value formulas
+     */
+    function vaultLPValue(FinanceIGPrice.Parameters memory params) public pure returns (uint256) {
+        (, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(params);
+        FinanceIGPrice.NTerms memory nas = FinanceIGPrice.nTerms(das);
+        FinanceIGPrice.NTerms memory nbs = FinanceIGPrice.nTerms(dbs);
+
+        uint256 ert = FinanceIGPrice._ert(params.r, params.tau); // e^-(r τ)
+        UD60x18 v1 = _lpV1(params, nas.n1);
+        UD60x18 v5 = _lpV5(params, nbs.n2, ert);
+        UD60x18 v2 = _lpV2(params, nas.n2, ert);
+        UD60x18 v3 = _lpV3(params, nas.n3, nbs.n3);
+        UD60x18 v4 = _lpV4(params, nbs.n1);
+
+        return v1.add(v5).sub(v2).sub(v3).sub(v4).unwrap();
+    }
+
+    // S / √(K Ka) * (1 - N(d1a))
+    function _lpV1(FinanceIGPrice.Parameters memory params, uint256 n1) private pure returns (UD60x18) {
+        // S / √(K Ka)
+        UD60x18 sDivKkartd = ud(params.s).div((ud(params.k).mul(ud(params.ka))).sqrt());
+        return sDivKkartd.mul(ud(1e18).sub(ud(n1)));
+    }
+
+    // S / √(K Kb) * (1 - N(d1b))
+    function _lpV4(FinanceIGPrice.Parameters memory params, uint256 n1) private pure returns (UD60x18) {
+        // S / √(K Kb)
+        UD60x18 sDivKkbrtd = ud(params.s).div((ud(params.k).mul(ud(params.kb))).sqrt());
+        return sDivKkbrtd.mul(ud(1e18).sub(ud(n1)));
+    }
+
+    // √(Ka / K) * erτ * (N(d2a))
+    function _lpV2(FinanceIGPrice.Parameters memory params, uint256 n2, uint256 ert) private pure returns (UD60x18) {
+        // √(Ka / K)
+        UD60x18 kadivkRtd = (ud(params.ka).div(ud(params.k))).sqrt();
+        return kadivkRtd.mul(ud(ert)).mul(ud(n2));
+    }
+
+    // √(Kb / K) * erτ * (N(d2b))
+    function _lpV5(FinanceIGPrice.Parameters memory params, uint256 n2, uint256 ert) private pure returns (UD60x18) {
+        // √(Kb / K)
+        UD60x18 kbdivkRtd = (ud(params.kb).div(ud(params.k))).sqrt();
+        return kbdivkRtd.mul(ud(ert)).mul(ud(n2));
+    }
+
+    // 2 √(S / K) * e^-(r / 2 + σ^2 / 8)τ * (N(d3b) - N(d3a))
+    function _lpV3(FinanceIGPrice.Parameters memory params, uint256 n3a, uint256 n3b) private pure returns (UD60x18) {
+        // e^-(r / 2 + σ^2 / 8)τ
+        UD60x18 er2sig8 = ud(FinanceIGPrice.er2sig8(params.r, params.sigma, params.tau));
+        // √(S / K)
+        UD60x18 sdivkRtd = (ud(params.s).div(ud(params.k))).sqrt();
+        return ud(2e18).mul(sdivkRtd).mul(er2sig8).mul(ud(n3b).sub(ud(n3a)));
+    }
+
 }

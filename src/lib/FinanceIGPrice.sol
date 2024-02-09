@@ -287,6 +287,12 @@ library FinanceIGPrice {
         return sd(SignedMath.neg(ud(r).mul(ud(tau)).unwrap())).exp().intoUD60x18().unwrap();
     }
 
+    /// @dev e^-(r / 2 + σ^2 / 8)τ
+    function er2sig8(uint256 r, uint256 sigma, uint256 tau) public pure returns (uint256) {
+        UD60x18 exp = ud(tau).mul(ud(r / 2 + SignedMath.pow2(int256(sigma)) / 8));
+        return sd(SignedMath.neg(exp.unwrap())).exp().intoUD60x18().unwrap();
+    }
+
     /// @dev θ * √(K K_<a|b>)
     function _tetakkrtd(uint256 teta, uint256 k, uint256 krange) public pure returns (uint256) {
         UD60x18 tetax18 = ud(teta);
