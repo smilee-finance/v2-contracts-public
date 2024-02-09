@@ -14,6 +14,7 @@ import {SignedMath} from "../../src/lib/SignedMath.sol";
 import {TimeLock, TimeLockedUInt, TimeLockedBool} from "../../src/lib/TimeLock.sol";
 import {IG} from "../../src/IG.sol";
 import {Epoch, EpochController} from "../../src/lib/EpochController.sol";
+import {IPriceOracle} from "../../src/interfaces/IPriceOracle.sol";
 
 //ToDo: Add comments
 contract MockedIG is IG {
@@ -119,7 +120,8 @@ contract MockedIG is IG {
             IVault(vault).deltaHedge(-int256((amount.up + amount.down) / 4));
             return (1e18, 0);
         }
-        return super._deltaHedgePosition(strike, amount, tradeIsBuy);
+        (swapPrice, deltaTrade) = super._deltaHedgePosition(strike, amount, tradeIsBuy);
+        swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
     }
 
     // ToDo: review usage

@@ -22,7 +22,7 @@ abstract contract PropertiesDescriptions {
     InvariantInfo internal _IG_08_2     =   InvariantInfo("IG_08_2",    "IG_08_2: A IG Smile premium is always >= than that of a strangle with the strike in ka and kb and notional");
     InvariantInfo internal _IG_09       =   InvariantInfo("IG_09",      "IG_09: The option seller never gains more than the payoff");
     InvariantInfo internal _IG_10       =   InvariantInfo("IG_10",      "IG_10: The option buyer never loses more than the premium");
-    InvariantInfo internal _IG_11       =   InvariantInfo("IG_11",      "IG_11: Payoff never exeed slippage");
+    InvariantInfo internal _IG_11       =   InvariantInfo("IG_11",      "IG_11: Payoff never exeed accepted slippage");
     InvariantInfo internal _IG_12       =   InvariantInfo("IG_12",      "IG_12: A IG bull payoff is always positive above the strike price & zero at or below the strike price");
     InvariantInfo internal _IG_13       =   InvariantInfo("IG_13",      "IG_13: A IG bear payoff is always positive under the strike price & zero at or above the strike price");
     InvariantInfo internal _IG_14       =   InvariantInfo("IG_14",      "IG_14: For each buy / sell, IG premium >= IG payoff for a given price; Both calculated with price oracle");
@@ -36,7 +36,7 @@ abstract contract PropertiesDescriptions {
     InvariantInfo internal _IG_23       =   InvariantInfo("IG_23",      "IG_23: IG bear delta is always negative -> control that liminf < 0 after every rollEpoch");
     InvariantInfo internal _IG_24_1     =   InvariantInfo("IG_24_1",    "IG_24_1: If price goes up, IG bull premium goes up, IG bear premium goes down, and viceversa");
     InvariantInfo internal _IG_24_2     =   InvariantInfo("IG_24_2",    "IG_24_2: If IV goes up, all premium goes up, if IV goes down,  all premium goes down");
-    InvariantInfo internal _IG_24_3     =   InvariantInfo("IG_24_3",    "IG_24_3: The more time passes the more the premiums drop");
+    InvariantInfo internal _IG_24_3     =   InvariantInfo("IG_24_3",    "IG_24_3: For IG bull the more time passes the more the premiums drop");
     InvariantInfo internal _IG_27       =   InvariantInfo("IG_27",      "IG_27: IG smilee payoff is always positive if the strike price change & zero the strike price doesn't change");
 
     InvariantInfo internal _GENERAL_1 = InvariantInfo("GENERAL_1", "GENERAL_1: This should never revert");
@@ -44,6 +44,7 @@ abstract contract PropertiesDescriptions {
     InvariantInfo internal _GENERAL_5 = InvariantInfo("GENERAL_5", "GENERAL_5: Can't revert before timestamp");
     InvariantInfo internal _GENERAL_6 = InvariantInfo("GENERAL_6", "GENERAL_6: Buy and sell should not revert");
 
+    InvariantInfo internal _VAULT_01    =   InvariantInfo("VAULT_01",     "VAULT_01: Vault payoff at roll-epoch >= DEX LP payoff");
     InvariantInfo internal _VAULT_03    =   InvariantInfo("VAULT_03",     "VAULT_03: Vault balances = (or >=) PendingWithdraw + PendingPayoff + PendingDeposit + (vault share * sharePrice)");
     InvariantInfo internal _VAULT_04    =   InvariantInfo("VAULT_04",     "VAULT_04: Vault base tokens = (or >=) PendingWithdraw + PendingPayoff + PendingDeposit");
     InvariantInfo internal _VAULT_06    =   InvariantInfo("VAULT_06",     "VAULT_06: Vault balances minus PendingWithdraw and PendingPayoff are equal to an Equal Weight portfolio after roll-epoch");
@@ -56,5 +57,6 @@ abstract contract PropertiesDescriptions {
     InvariantInfo internal _VAULT_17    =   InvariantInfo("VAULT_17",     "VAULT_17: PendingWithdraw & PendingPayoff does not change during epoch");
     InvariantInfo internal _VAULT_18    =   InvariantInfo("VAULT_18",     "VAULT_18: NewPendingWithdraw & NewPendingPayoff are zero during epoch");
     InvariantInfo internal _VAULT_19    =   InvariantInfo("VAULT_19",     "VAULT_19: Withdrawal Share are converted at SharePrice (aka the fair price). Withdraw = withdrawal Share * Share Price");
+    InvariantInfo internal _VAULT_20    =   InvariantInfo("VAULT_20",     "VAULT_20: Vault balances >= PendingWithdraw + PendingPayoff + PendingDeposit + LP value + IG minted value");
     InvariantInfo internal _VAULT_23    =   InvariantInfo("VAULT_23",     "VAULT_23: OutstandingShare_epoch_t = OutstandingShare_epoch_t-1 + NewShare_at_roll_epoch - WithdrawalShare_at_roll_epoch");
 }

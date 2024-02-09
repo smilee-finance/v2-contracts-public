@@ -13,6 +13,7 @@ abstract contract State is Properties {
     DepositInfo[] internal _depositInfo;
 
     BuyInfo internal lastBuy;
+    int256 firstDepositEpoch = -1;
 
     function _pushTrades(BuyInfo memory buyInfo) internal {
         if (buyInfo.amountUp > 0 && buyInfo.amountDown == 0) {

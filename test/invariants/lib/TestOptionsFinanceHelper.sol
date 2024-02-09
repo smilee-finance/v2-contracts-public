@@ -266,35 +266,45 @@ library TestOptionsFinanceHelper {
         }
      */
     function vaultPayoff(
-        uint256 s,
-        uint256 k,
+        uint256 k1,
+        uint256 k0,
         uint256 kA,
         uint256 kB,
-        uint256 v0,
         uint256 theta
-    ) public pure returns (uint256) {
-        uint256 f;
-        if (s < kA) {
-            UD60x18 kkartd = (ud(k).mul(ud(kA))).sqrt();
-            UD60x18 kkbrtd = (ud(k).mul(ud(kB))).sqrt();
-            f = ud(s).div(kkartd).sub(ud(s).div(kkbrtd)).unwrap();
-        } else if (s > kB) {
-            UD60x18 sdivkrtd = (ud(s).div(ud(k))).sqrt();
-            UD60x18 kadivkrtd = (ud(kA).div(ud(k))).sqrt();
-            UD60x18 kkbrtd = (ud(k).mul(ud(kB))).sqrt();
-            f = ud(2e18).mul(sdivkrtd).sub(kadivkrtd).sub(ud(s).div(kkbrtd)).unwrap();
+    ) public view returns (uint256) {
+
+        console.log("***************** k1", k1);
+        console.log("***************** k0", k0);
+        console.log("***************** kA", kA);
+        console.log("***************** kB", kB);
+        console.log("***************** theta", theta);
+
+        UD60x18 f;
+        if (k1 < kA) {
+            console.log("k1 < kA");
+            UD60x18 k0kartd = (ud(k0).mul(ud(kA))).sqrt();
+            UD60x18 k0kbrtd = (ud(k0).mul(ud(kB))).sqrt();
+            f = ud(k1).div(k0kartd).sub(ud(k1).div(k0kbrtd));
+        } else if (k1 > kB) {
+            console.log("k1 > kB");
+            UD60x18 kadivk0rtd = (ud(kA).div(ud(k0))).sqrt();
+            UD60x18 kbdivk0rtd = (ud(kB).div(ud(k0))).sqrt();
+            f = kbdivk0rtd.sub(kadivk0rtd);
         } else {
-            UD60x18 kadivkrtd = (ud(kA).div(ud(k))).sqrt();
-            UD60x18 kbdivkrtd = (ud(kB).div(ud(k))).sqrt();
-            f = kbdivkrtd.sub(kadivkrtd).unwrap();
+            console.log("else");
+            UD60x18 k1divk0rtd = (ud(k1).div(ud(k0))).sqrt();
+            UD60x18 kadivk0rtd = (ud(kA).div(ud(k0))).sqrt();
+            UD60x18 k0kbrtd = (ud(k0).mul(ud(kB))).sqrt();
+            f = ud(2e18).mul(k1divk0rtd).sub(kadivk0rtd).sub(ud(k1).div(k0kbrtd));
         }
-        return v0 * f / theta;
+        console.log("************** f", f.unwrap());
+        return  f.div(ud(theta)).unwrap();
     }
 
     /**
         LP token value formulas
      */
-    function vaultLPValue(FinanceIGPrice.Parameters memory params) public pure returns (uint256) {
+    function lpValue(FinanceIGPrice.Parameters memory params) public pure returns (uint256) {
         (, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(params);
         FinanceIGPrice.NTerms memory nas = FinanceIGPrice.nTerms(das);
         FinanceIGPrice.NTerms memory nbs = FinanceIGPrice.nTerms(dbs);
@@ -306,7 +316,7 @@ library TestOptionsFinanceHelper {
         UD60x18 v3 = _lpV3(params, nas.n3, nbs.n3);
         UD60x18 v4 = _lpV4(params, nbs.n1);
 
-        return v1.add(v5).sub(v2).sub(v3).sub(v4).unwrap();
+        return (v1.add(v5).sub(v2).sub(v3).sub(v4)).div(ud(params.teta)).unwrap();
     }
 
     // S / √(K Ka) * (1 - N(d1a))
