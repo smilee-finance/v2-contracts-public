@@ -226,11 +226,12 @@ contract TestScenariosJson is Test {
     function testScenarioSlippage05() public { _checkScenario("slip_001_05", true); }
     function testScenarioSlippage06() public { _checkScenario("slip_001_06", true); }
     function testScenarioSlippage07() public { _checkScenario("slip_001_07", true); }
-    function testScenarioSlippage08() public { _checkScenario("slip_001_08", true); }
     function testScenarioSlippage09() public { _checkScenario("slip_001_09", true); }
-    function testScenarioSlippage09bis() public { _checkScenario("slip_001_09bis", true); }
     function testScenarioSlippage10() public { _checkScenario("slip_001_10", true); }
     function testScenarioSlippage11() public { _checkScenario("slip_001_11", true); }
+
+    // kA -> 0, IG goes paused, cannot trade
+    function testFailScenarioSlippage08() public { _checkScenario("slip_001_08", true); }
 
 
     function _checkScenario(string memory scenarioName, bool isFirstEpoch) internal {

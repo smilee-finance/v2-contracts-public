@@ -157,9 +157,9 @@ library FinanceIG {
        @return isFinanceApproximated True if the finance has been approximated during the rollEpoch.
      */
     function checkFinanceApprox(FinanceParameters storage params) public view returns (bool isFinanceApproximated) {
-        uint256 resKKartd = FinanceIGPrice._kkrtd(params.currentStrike, params.kA);
-        uint256 resKKbrtd = FinanceIGPrice._kkrtd(params.currentStrike, params.kB);
-        return resKKartd == 1 || resKKbrtd == 1;
+        uint256 kkartd = FinanceIGPrice._kkrtd(params.currentStrike, params.kA);
+        uint256 kkbrtd = FinanceIGPrice._kkrtd(params.currentStrike, params.kB);
+        return kkartd == 1 || kkbrtd == 1;
     }
 
     function updateParameters(FinanceParameters storage params, uint256 impliedVolatility) public {

@@ -119,7 +119,6 @@ library FinanceIGPrice {
         uint256 ra = ud(params.s).div(ud(params.ka)).unwrap(); // S / Ka
         uint256 rb = ud(params.s).div(ud(params.kb)).unwrap(); // S / Kb
 
-
         (uint256 sigmaTaurtd, uint256 q1) = d1Parts(params.r, params.sigma, params.tau);
 
         {
@@ -145,7 +144,11 @@ library FinanceIGPrice {
     }
 
     function nTerms(DTerms memory ds) public pure returns (NTerms memory) {
-        return NTerms(uint256(Gaussian.cdf(ds.d1)), uint256(Gaussian.cdf(ds.d2)), uint256(Gaussian.cdf(ds.d3)));
+        return NTerms(
+            ds.d1 < -type(int256).max / 1e18 ? 0 : uint256(Gaussian.cdf(ds.d1)),
+            ds.d2 < -type(int256).max / 1e18 ? 0 : uint256(Gaussian.cdf(ds.d2)),
+            ds.d3 < -type(int256).max / 1e18 ? 0 : uint256(Gaussian.cdf(ds.d3))
+        );
     }
 
     /// @dev σ√τ AND ( r + σ^2 / 2 ) τ
@@ -156,6 +159,9 @@ library FinanceIGPrice {
 
     /// @dev [ ln(S / K) + ( r + σ^2 / 2 ) τ ] / σ√τ
     function d1(uint256 priceStrikeRt, uint256 q1, uint256 sigmaTaurtd) public pure returns (int256 d1_) {
+        if (priceStrikeRt == 0) {
+            return -type(int256).max;
+        }
         int256 q0 = ud(priceStrikeRt).intoSD59x18().ln().unwrap();
         (uint256 sumQty, bool sumPos) = SignedMath.sum(q0, q1);
         uint256 res = ud(sumQty).div(ud(sigmaTaurtd)).unwrap();
@@ -165,6 +171,9 @@ library FinanceIGPrice {
 
     /// @dev d1 - σ√τ
     function d2(int256 d1_, uint256 sigmaTaurtd) public pure returns (int256) {
+        if (d1_ <= -(type(int256).max - SignedMath.castInt(sigmaTaurtd))) {
+            return -type(int256).max;
+        }
         return d1_ - SignedMath.castInt(sigmaTaurtd);
     }
 
