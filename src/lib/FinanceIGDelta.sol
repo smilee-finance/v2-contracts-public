@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.19;
 
 import {SD59x18, sd, convert as convertint} from "@prb/math/SD59x18.sol";
