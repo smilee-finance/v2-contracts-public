@@ -259,9 +259,9 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         Compra bear
         Rolla epoca
         Vende bear (payoff > premium)
-        TODO: check after fix
+        FIXED after new delta
      */
-    function testFail_18() public {
+    function test_18() public {
         deposit(93);
         callAdminFunction(2377155786571951189298921622007369147648652565535159623,11174772035670605948504275428392330951138012204890085482);
         vm.warp(block.timestamp + 96786);
@@ -290,7 +290,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     /**
         like test_18
     */
-    function testFail_20() public {
+    function test_20() public {
         deposit(800580301567623717261402377857319139000999309591385992805756654676);
         vm.warp(block.timestamp + 147673);
         callAdminFunction(10,2944901718733);
@@ -307,7 +307,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     /**
         revert SlippedMarketValue()
     */
-    function test_21() public {
+    function testFail_21() public {
         deposit(210); // 200210
         vm.warp(block.timestamp + 86911);
         // token price 977438559572558438478 977.4385
