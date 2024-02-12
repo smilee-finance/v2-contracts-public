@@ -243,7 +243,7 @@ library TestOptionsFinanceHelper {
     function getTimeLockedFinanceParameters(
         MockedIG ig
     ) internal view returns (TimeLockedFinanceValues memory currentValues) {
-        (, , , , , , , ,TimeLockedFinanceParameters memory igParams, , ) = ig.financeParameters();
+        (, , , , , , TimeLockedFinanceParameters memory igParams, , ) = ig.financeParameters();
         currentValues = TimeLockedFinanceValues({
             sigmaMultiplier: igParams.sigmaMultiplier.get(),
             tradeVolatilityUtilizationRateFactor: igParams.tradeVolatilityUtilizationRateFactor.get(),

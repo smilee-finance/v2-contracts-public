@@ -120,8 +120,7 @@ contract MockedIG is IG {
             IVault(vault).deltaHedge(-int256((amount.up + amount.down) / 4));
             return 1e18;
         }
-        (swapPrice, deltaTrade) = super._deltaHedgePosition(strike, amount, tradeIsBuy);
-        swapPrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+        swapPrice = super._deltaHedgePosition(strike, amount, tradeIsBuy);
     }
 
     // ToDo: review usage

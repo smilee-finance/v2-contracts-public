@@ -469,7 +469,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         try ig.mint(msg.sender, buyTokenPrice, amount.up, amount.down, expectedPremium, ACCEPTED_SLIPPAGE, 0) returns (
             uint256 _premium
         ) {
-            premium = premium_;
+            premium = _premium;
         } catch (bytes memory err) {
             if (!FLAG_SLIPPAGE) {
                 _shouldNotRevertUnless(err, _GENERAL_6);

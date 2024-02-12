@@ -182,6 +182,7 @@ contract VaultStateTest is Test {
         Check state of the vault after `deltaHedge()` call
      */
       function testDeltaHedge(uint128 amountToDeposit, int128 amountToHedge, uint32 sideTokenPrice) public {
+        // TODO: review as it reverts with InsufficientInput() when [1.455e22, 1.694e30, 4.294e9]
         // An amount should be always deposited
         // TBD: what if depositAmount < 1 ether ?
 
