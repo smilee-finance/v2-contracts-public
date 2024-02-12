@@ -10,6 +10,10 @@ This repository contains the source code for the v2 of Smilee.
 
 You have to create and fill a `.env` file from the `.env.template` one.
 
+== Licensing
+
+The primary license for this repository is the Business Source License 1.1 (`BUSL-1.1`), see link:./LICENSE.adoc[LICENSE.adoc]. However, some files may also be licensed under different licenses (as indicated in their SPDX headers) or remain unlicensed.
+
 == Deployment
 
 === Local testnet
