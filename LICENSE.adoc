@@ -9,7 +9,7 @@ Parameters
 
 Licensor:             Smilee Labs Ltd
 
-Licensed Work:        Smilee smart contracts.
+Licensed Work:        Software components available at https://github.com/dverso/smilee-v2-contracts (as indicated in the header of each piece of software) 
                       The Licensed Work is (c) 2024 Smilee Labs Ltd
 
 Additional Use Grant: None
