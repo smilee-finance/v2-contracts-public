@@ -9,15 +9,15 @@ Parameters
 
 Licensor:             Smilee Labs Ltd
 
-Licensed Work:        Smilee smart-contracts
+Licensed Work:        Smilee smart contracts.
                       The Licensed Work is (c) 2024 Smilee Labs Ltd
 
-Additional Use Grant: Any uses listed and defined on the official website.
+Additional Use Grant: None
 
-Change Date:          The earlier of 2028-02-12 or a date specified on the
-                      official website.
+Change Date:          Four years from the date the Licensed Work is published
 
-Change License:       GNU General Public License v2.0 or later
+Change License:       GNU General Public License v2.0 or later compatible
+                      version
 
 -----------------------------------------------------------------------------
 
