@@ -52,3 +52,46 @@ The primary license for this repository is the Business Source License 1.1 (`BUS
 +
 `forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'mint(address,address,uint256)' <TOKEN_ADDRESS> <RECIPIENT_ADDRESS> <AMOUNT>`
 . `exit`
+
+=== Mainnet
+
+See link:./reference_addresses.adoc[reference_addresses.adoc] for reference addresses.
+
+. Fill in a `.env` file from the `.env.template` one.
+. `source .env`
+. Compile in an optimized way:
++
+`export FOUNDRY_PROFILE="deployment"`
+. Deploy libraries:
++
+`forge script script/mainnet/00_Libraries.s.sol:DeployLibraries --rpc-url $RPC_MAINNET --broadcast -vv`
+. Deploy core contracts:
++
+`forge script script/mainnet/01_CoreFoundations.s.sol:DeployCoreFoundations --rpc-url $RPC_MAINNET --broadcast -vv`
+. For each token of interest:
+.. Set Chainlink price feed:
++
+`forge script script/mainnet/02_Token.s.sol:TokenOps --rpc-url $RPC_MAINNET --broadcast -vv --sig 'setChainlinkPriceFeedForToken(address, address)' <TOKEN> <FEED>`
+. For each pair of tokens of interest:
+.. Configure the router to use Uniswap:
++
+`forge script script/mainnet/02_Token.s.sol:TokenOps --rpc-url $RPC_MAINNET --broadcast -vv --sig 'useUniswapAdapterWithTokens(address, address)' <TOKEN_1> <TOKEN_2>`
+.. Configure the Uniswap paths (mind the direction!):
++
+`forge script script/mainnet/02_Token.s.sol:TokenOps --rpc-url $RPC_MAINNET --broadcast -vv --sig 'setUniswapPath(address,address,bytes memory)' <TOKEN_IN> <TOKEN_OUT> <PATH>`
+. Create an Impermanent Gain DVP and its Vault:
++
+`forge script script/mainnet/03_Factory.s.sol:DeployDVP --rpc-url $RPC_MAINNET --broadcast -vv --sig 'createIGMarket(address,address,uint256,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS> <FIRST_EPOCH_DURATION_IN_SECONDS>`
+
+=== Common issues:
+
+* If you get `Failed to get EIP-1559 fees`, append `--legacy` to the script.
+
+=== Estimated costs:
+
+* `00_Libraries`: 0.015440960753608698 ETH
+* `01_CoreFoundations`: 0.023188371928870066 ETH
+* `02_Token:setChainlinkPriceFeedForToken`: 0.000097779147085143 ETH
+* `02_Token:useUniswapAdapterWithTokens`: 0.00019751379515465 ETH
+* `02_Token:setUniswapPath`: 0.000272809126037758 ETH
+* `03_Factory:createIGMarket`: 0.021753528050732995 ETH

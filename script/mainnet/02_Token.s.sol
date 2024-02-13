@@ -19,7 +19,7 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
         # To deploy [and verify] the contracts
         # - On a real network:
         #   ToDo: see https://book.getfoundry.sh/reference/forge/forge-script#wallet-options---raw
-        forge script script/testnet/02_Token.s.sol:TokenOps --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv --sig 'deployToken(string memory)' <SYMBOL>
+        forge script script/mainnet/02_Token.s.sol:TokenOps --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv --sig 'deployToken(string memory)' <SYMBOL>
  */
 contract TokenOps is EnhancedScript {
 
@@ -88,6 +88,30 @@ contract TokenOps is EnhancedScript {
 
         vm.startBroadcast(_adminPrivateKey);
         uniswapAdapter.setPath(path, tokenIn, tokenOut);
+        vm.stopBroadcast();
+    }
+
+    function printUniswapPath(address tokenIn, address tokenOut, uint24 fee) public {
+        // 10000 is 1%
+        //  3000 is 0.3%
+        //   500 is 0.05%
+        bytes memory path = abi.encodePacked(tokenIn, fee, tokenOut);
+
+        vm.startBroadcast(_adminPrivateKey);
+        console.log("path is");
+        console.logBytes(path);
+        vm.stopBroadcast();
+    }
+
+    function printUniswapPathWithHop(address tokenIn, uint24 feeMiddleIn, address tokenMiddle, uint24 feeMiddleOut, address tokenOut) public {
+        // 10000 is 1%
+        //  3000 is 0.3%
+        //   500 is 0.05%
+        bytes memory path = abi.encodePacked(tokenIn, feeMiddleIn, tokenMiddle, feeMiddleOut, tokenOut);
+
+        vm.startBroadcast(_adminPrivateKey);
+        console.log("path is");
+        console.logBytes(path);
         vm.stopBroadcast();
     }
 

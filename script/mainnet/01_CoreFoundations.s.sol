@@ -75,7 +75,7 @@ contract DeployCoreFoundations is Script {
         AddressProvider ap = new AddressProvider(1 days);
         ap.grantRole(ap.ROLE_GOD(), _godAddress);
         ap.grantRole(ap.ROLE_ADMIN(), _adminAddress);
-        ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress);
+        ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress); // TMP
         if (!_deployerIsGod) {
             ap.renounceRole(ap.ROLE_GOD(), _deployerAddress);
         }

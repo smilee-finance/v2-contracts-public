@@ -67,7 +67,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         @param tokenOut The address of the output token of the swap
         @return slippage The maximum accepted slippage for the swap
      */
-    function getSlippage(address tokenIn, address tokenOut) external view returns (uint256 slippage) {
+    function getSlippage(address tokenIn, address tokenOut) public view returns (uint256 slippage) {
         slippage = _slippage[_encodePath(tokenIn, tokenOut)].get();
 
         // Default baseline value:
@@ -272,8 +272,8 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         uint256 amountIn
     ) private view returns (uint256 amountOutMin, uint256 amountOutMax) {
         uint256 amountOut = _valueOut(tokenIn, tokenOut, amountIn);
-        amountOutMin = (amountOut * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)].get())) / 1e18;
-        amountOutMax = (amountOut * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)].get())) / 1e18;
+        amountOutMin = (amountOut * (1e18 - getSlippage(tokenIn, tokenOut))) / 1e18;
+        amountOutMax = (amountOut * (1e18 + getSlippage(tokenIn, tokenOut))) / 1e18;
     }
 
     /**
@@ -290,7 +290,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         uint256 amountOut
     ) private view returns (uint256 amountInMax, uint256 amountInMin) {
         uint256 amountIn = _valueIn(tokenIn, tokenOut, amountOut);
-        amountInMax = (amountIn * (1e18 + _slippage[_encodePath(tokenIn, tokenOut)].get())) / 1e18;
-        amountInMin = (amountIn * (1e18 - _slippage[_encodePath(tokenIn, tokenOut)].get())) / 1e18;
+        amountInMax = (amountIn * (1e18 + getSlippage(tokenIn, tokenOut))) / 1e18;
+        amountInMin = (amountIn * (1e18 - getSlippage(tokenIn, tokenOut))) / 1e18;
     }
 }
