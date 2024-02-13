@@ -317,25 +317,21 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         {
             uint256 epochsCount = epochs.length;
             if (firstDepositEpoch >= 0 && int256(epochsCount) >= firstDepositEpoch + 2) {
-                EpochInfo memory epochInfok0 = epochs[epochsCount - 2]; // previous
+                EpochInfo memory epochInfok0 = epochs[epochsCount - 2]; // previous - 1
                 uint256 epochPriceT0 = vault.epochPricePerShare(epochInfok0.epochTimestamp);
-                EpochInfo memory epochInfok1 = epochs[epochsCount - 1]; // previous - 1
+                EpochInfo memory epochInfok1 = epochs[epochsCount - 1]; // previous
                 uint256 epochPriceT1 = vault.epochPricePerShare(epochInfok1.epochTimestamp);
                 int256 payoffPerc = int256((epochPriceT1 * 1e18) / epochPriceT0) - 1e18;
 
-                // _endingFinanceParameters -> ka, kb
                 uint256 vaultPayoff = TestOptionsFinanceHelper.vaultPayoff(
                     ig.currentStrike(),
                     epochInfok1.epochStrike,
-                    _initialFinanceParameters.kA,
-                    _initialFinanceParameters.kB,
-                    _initialFinanceParameters.theta
+                    _endingFinanceParameters.kA,
+                    _endingFinanceParameters.kB,
+                    _endingFinanceParameters.theta
                 );
                 int256 vaultPnL = int256(vaultPayoff) - 1e18;
-                console.log("*********** PAYOFF PERC");
-                console.logInt(payoffPerc);
-                console.log("*********** VAULT PNL");
-                console.logInt(vaultPnL);
+
                 t(payoffPerc >= vaultPnL, _VAULT_01.desc);
             }
         }
@@ -625,6 +621,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     //----------------------------------------------
 
     function _shouldNotRevertUnless(bytes memory err, InvariantInfo memory _invariant) internal {
+        console.logBytes(err);
         if (!_ACCEPTED_REVERTS[_invariant.code][keccak256(err)]) {
             emit DebugBool(_invariant.code, _ACCEPTED_REVERTS[_invariant.code][keccak256(err)]);
             t(false, _invariant.desc);
@@ -785,7 +782,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             // TODO t(_endingFinanceParameters.limInf < 0, _IG_23.desc);
             lte(
                 (totalAmountBought.up + totalAmountBought.down),
-                _initialVaultState.liquidity.lockedInitially, 
+                _initialVaultState.liquidity.lockedInitially,
                 _IG_18.desc
             );
             gte(

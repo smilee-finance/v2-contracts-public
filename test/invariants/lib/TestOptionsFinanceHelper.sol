@@ -262,38 +262,28 @@ library TestOptionsFinanceHelper {
         }
      */
     function vaultPayoff(
-        uint256 k1,
-        uint256 k0,
+        uint256 k1, // final price
+        uint256 k0, // starting price
         uint256 kA,
         uint256 kB,
         uint256 theta
-    ) public view returns (uint256) {
-
-        console.log("***************** k1", k1);
-        console.log("***************** k0", k0);
-        console.log("***************** kA", kA);
-        console.log("***************** kB", kB);
-        console.log("***************** theta", theta);
+    ) public pure returns (uint256) {
 
         UD60x18 f;
         if (k1 < kA) {
-            console.log("k1 < kA");
             UD60x18 k0kartd = (ud(k0).mul(ud(kA))).sqrt();
             UD60x18 k0kbrtd = (ud(k0).mul(ud(kB))).sqrt();
             f = ud(k1).div(k0kartd).sub(ud(k1).div(k0kbrtd));
         } else if (k1 > kB) {
-            console.log("k1 > kB");
             UD60x18 kadivk0rtd = (ud(kA).div(ud(k0))).sqrt();
             UD60x18 kbdivk0rtd = (ud(kB).div(ud(k0))).sqrt();
             f = kbdivk0rtd.sub(kadivk0rtd);
         } else {
-            console.log("else");
             UD60x18 k1divk0rtd = (ud(k1).div(ud(k0))).sqrt();
             UD60x18 kadivk0rtd = (ud(kA).div(ud(k0))).sqrt();
             UD60x18 k0kbrtd = (ud(k0).mul(ud(kB))).sqrt();
             f = ud(2e18).mul(k1divk0rtd).sub(kadivk0rtd).sub(ud(k1).div(k0kbrtd));
         }
-        console.log("************** f", f.unwrap());
         return  f.div(ud(theta)).unwrap();
     }
 
