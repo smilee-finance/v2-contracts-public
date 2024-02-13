@@ -36,7 +36,7 @@ contract TokenOps is EnhancedScript {
         _uniswapAdapter = UniswapAdapter(_readAddress(txLogs, "UniswapAdapter"));
     }
 
-    function run() external {
+    function run() external view {
         console.log("Please run a specific task");
     }
 
@@ -52,7 +52,7 @@ contract TokenOps is EnhancedScript {
         ChainlinkPriceOracle priceOracle = ChainlinkPriceOracle(_ap.priceOracle());
 
         vm.startBroadcast(_adminPrivateKey);
-        priceOracle.setPriceFeedMaxDelay(token, chainlinkFeedAddress);
+        priceOracle.setPriceFeedMaxDelay(token, maxDelay);
         vm.stopBroadcast();
     }
 
@@ -74,7 +74,7 @@ contract TokenOps is EnhancedScript {
         vm.stopBroadcast();
     }
 
-    function setSwapAcceptedSlippageForTokens(address tokenIn, address tokenOut, address value) public {
+    function setSwapAcceptedSlippageForTokens(address tokenIn, address tokenOut, uint256 value) public {
         SwapAdapterRouter swapAdapterRouter = SwapAdapterRouter(_ap.exchangeAdapter());
 
         vm.startBroadcast(_adminPrivateKey);

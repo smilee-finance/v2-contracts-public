@@ -36,7 +36,7 @@ contract DeployCoreFoundations is Script {
     bool internal _deployerIsAdmin;
     address internal _uniswapFactoryAddress;
 
-    error ZeroAddress(string memory name);
+    error ZeroAddress(string name);
 
     constructor() {
         // Load the private key that will be used for signing the transactions:
@@ -54,17 +54,17 @@ contract DeployCoreFoundations is Script {
 
     // NOTE: this is the script entrypoint
     function run() external {
-        _checkZeroAddress(_deployerAddress, "DEPLOYER_ADDRESS")
-        _checkZeroAddress(_godAddress, "GOD_ADDRESS")
-        _checkZeroAddress(_adminAddress, "ADMIN_ADDRESS")
-        _checkZeroAddress(_uniswapFactoryAddress, "UNISWAP_FACTORY_ADDRESS")
+        _checkZeroAddress(_deployerAddress, "DEPLOYER_ADDRESS");
+        _checkZeroAddress(_godAddress, "GOD_ADDRESS");
+        _checkZeroAddress(_adminAddress, "ADMIN_ADDRESS");
+        _checkZeroAddress(_uniswapFactoryAddress, "UNISWAP_FACTORY_ADDRESS");
 
         vm.startBroadcast(_deployerPrivateKey);
         _deployMainContracts();
         vm.stopBroadcast();
     }
 
-    function _checkZeroAddress(address addr, string memory name) internal {
+    function _checkZeroAddress(address addr, string memory name) internal pure {
         if (addr == address(0)) {
             revert ZeroAddress(name);
         }
