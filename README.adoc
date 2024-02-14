@@ -82,6 +82,11 @@ See link:./reference_addresses.adoc[reference_addresses.adoc] for reference addr
 . Create an Impermanent Gain DVP and its Vault:
 +
 `forge script script/mainnet/03_Factory.s.sol:DeployDVP --rpc-url $RPC_MAINNET --broadcast -vv --sig 'createIGMarket(address,address,uint256,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS> <FIRST_EPOCH_DURATION_IN_SECONDS>`
+. Grant access to ALL the DVPs and their Vaults to a user:
++
+`forge script script/mainnet/07_Access.s.sol:AccessTokenOps --rpc-url $RPC_MAINNET --broadcast -vv --sig 'grantVaultAccess(address)' <WALLET>`
++
+`forge script script/mainnet/07_Access.s.sol:AccessTokenOps --rpc-url $RPC_MAINNET --broadcast -vv --sig 'grantIGAccess(address)' <WALLET>`
 
 === Common issues:
 

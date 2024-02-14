@@ -39,7 +39,7 @@ contract DeployDVP is EnhancedScript {
     uint256 internal _adminPrivateKey;
 
     address internal _godAddress;
-    address internal _epochRollerAddress;
+    address internal _scheduler;
 
     bool internal _deployerIsGod;
     bool internal _deployerIsAdmin;
@@ -57,7 +57,7 @@ contract DeployDVP is EnhancedScript {
         _adminPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
 
         _godAddress = vm.envAddress("GOD_ADDRESS");
-        _epochRollerAddress = vm.envAddress("EPOCH_ROLLER_ADDRESS");
+        _scheduler = vm.envAddress("EPOCH_ROLLER_ADDRESS");
 
         _deployerIsGod = (_deployerAddress == _godAddress);
         _deployerIsAdmin = (_deployerAddress == _adminAddress);
@@ -92,7 +92,7 @@ contract DeployDVP is EnhancedScript {
         _checkZeroAddress(_deployerAddress, "DEPLOYER_ADDRESS");
         _checkZeroAddress(_godAddress, "GOD_ADDRESS");
         _checkZeroAddress(_adminAddress, "ADMIN_ADDRESS");
-        _checkZeroAddress(_epochRollerAddress, "EPOCH_ROLLER_ADDRESS");
+        _checkZeroAddress(_scheduler, "EPOCH_ROLLER_ADDRESS");
 
         // Check if exists a record for the given tokens
         priceOracle.getPrice(baseToken, sideToken);
@@ -111,6 +111,7 @@ contract DeployDVP is EnhancedScript {
         Vault vault = Vault(vaultAddr);
 
         vault.setAllowedDVP(dvpAddr);
+        vault.setPriorityAccessFlag(true);
         if (!_deployerIsAdmin) {
             vault.renounceRole(vault.ROLE_ADMIN(), _deployerAddress);
         }
@@ -121,6 +122,7 @@ contract DeployDVP is EnhancedScript {
         if (!deribitToken) {
             _useOnchainImpliedVolatility(dvpAddr);
         }
+        IG(dvpAddr).setNftAccessFlag(true);
         if (!_deployerIsAdmin) {
             IG dvp = IG(dvpAddr);
             dvp.renounceRole(dvp.ROLE_ADMIN(), _deployerAddress);
@@ -138,12 +140,12 @@ contract DeployDVP is EnhancedScript {
         uint8 decimals = IERC20Metadata(baseToken).decimals();
         FeeManager.FeeParams memory feeParams = FeeManager.FeeParams({
             timeToExpiryThreshold: 3600,
-            minFeeBeforeTimeThreshold: (10 ** decimals) / 100, // 0.1
-            minFeeAfterTimeThreshold: (10 ** decimals) / 100, // 0.1
+            minFeeBeforeTimeThreshold: (10 ** decimals) / 100, // 0.01
+            minFeeAfterTimeThreshold: (10 ** decimals) / 100, // 0.01
             successFeeTier: 0.02e18,
-            feePercentage: 0.0015e18,
+            feePercentage: 0.003e18,
             capPercentage: 0.125e18,
-            maturityFeePercentage: 0.0015e18,
+            maturityFeePercentage: 0.003e18,
             maturityCapPercentage: 0.125e18
         });
         _feeManager.setDVPFee(dvpAddr, feeParams);
@@ -209,7 +211,7 @@ contract DeployDVP is EnhancedScript {
         dvp.grantRole(dvp.ROLE_GOD(), _godAddress);
         dvp.grantRole(dvp.ROLE_ADMIN(), _adminAddress);
         dvp.grantRole(dvp.ROLE_ADMIN(), _deployerAddress); // TMP
-        dvp.grantRole(dvp.ROLE_EPOCH_ROLLER(), _epochRollerAddress);
+        dvp.grantRole(dvp.ROLE_EPOCH_ROLLER(), _scheduler);
         if (!_deployerIsGod) {
             dvp.renounceRole(dvp.ROLE_GOD(), _deployerAddress);
         }

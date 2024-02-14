@@ -32,6 +32,7 @@ contract DeployCoreFoundations is Script {
     address internal _deployerAddress;
     address internal _godAddress;
     address internal _adminAddress;
+    address internal _scheduler;
     bool internal _deployerIsGod;
     bool internal _deployerIsAdmin;
     address internal _uniswapFactoryAddress;
@@ -45,6 +46,7 @@ contract DeployCoreFoundations is Script {
 
         _godAddress = vm.envAddress("GOD_ADDRESS");
         _adminAddress = vm.envAddress("ADMIN_ADDRESS");
+        _scheduler = vm.envAddress("EPOCH_ROLLER_ADDRESS");
 
         _deployerIsGod = (_deployerAddress == _godAddress);
         _deployerIsAdmin = (_deployerAddress == _adminAddress);
@@ -57,6 +59,7 @@ contract DeployCoreFoundations is Script {
         _checkZeroAddress(_deployerAddress, "DEPLOYER_ADDRESS");
         _checkZeroAddress(_godAddress, "GOD_ADDRESS");
         _checkZeroAddress(_adminAddress, "ADMIN_ADDRESS");
+        _checkZeroAddress(_scheduler, "SCHEDULER");
         _checkZeroAddress(_uniswapFactoryAddress, "UNISWAP_FACTORY_ADDRESS");
 
         vm.startBroadcast(_deployerPrivateKey);
@@ -97,6 +100,7 @@ contract DeployCoreFoundations is Script {
         MarketOracle marketOracle = new MarketOracle();
         marketOracle.grantRole(marketOracle.ROLE_GOD(), _godAddress);
         marketOracle.grantRole(marketOracle.ROLE_ADMIN(), _adminAddress);
+        marketOracle.grantRole(marketOracle.ROLE_ADMIN(), _scheduler);
         if (!_deployerIsGod) {
             marketOracle.renounceRole(marketOracle.ROLE_GOD(), _deployerAddress);
         }

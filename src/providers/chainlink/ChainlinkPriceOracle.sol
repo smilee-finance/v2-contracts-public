@@ -37,7 +37,7 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
     event ChangedTokenPriceFeedMaxDelay(address token, uint256 delay);
 
     constructor() AccessControl() {
-        _defaultMaxDelay = 1 days;
+        _defaultMaxDelay = 2 days;
         timeLockDelay = 6 hours;
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);

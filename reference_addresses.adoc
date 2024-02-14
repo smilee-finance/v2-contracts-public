@@ -16,6 +16,7 @@ Data source: link:https://docs.chain.link/data-feeds/price-feeds/addresses?netwo
 
 * `USDC/USD`: `0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3`
 * `ETH/USD`: `0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612`
+* `ARB/USD`: `0xb2A824043730FE05F3DA2efaFa1CBbe83fa548D6`
 
 === Uniswap
 
