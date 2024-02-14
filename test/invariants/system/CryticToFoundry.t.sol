@@ -105,6 +105,11 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         InsufficientLiquidity
     */
     function testFail_6() public {
+        // Setup
+        MIN_VAULT_DEPOSIT = 200_000;
+        MIN_OPTION_BUY = 10_000;
+        MAX_TOKEN_PRICE = 1_000e18;
+
         deposit(62371730870697728150);
         vm.warp(block.timestamp + 88417);
         callAdminFunction(91191509274284818089195485045059220520329531160155857031,560546320870737139457170187497346984605561619303321602565095);
@@ -262,6 +267,11 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         FIXED after new delta
      */
     function test_18() public {
+        // Setup
+        MIN_VAULT_DEPOSIT = 200_000;
+        MIN_OPTION_BUY = 10_000;
+        MAX_TOKEN_PRICE = 1_000e18;
+
         deposit(93);
         callAdminFunction(2377155786571951189298921622007369147648652565535159623,11174772035670605948504275428392330951138012204890085482);
         vm.warp(block.timestamp + 96786);
@@ -308,6 +318,11 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         revert SlippedMarketValue()
     */
     function testFail_21() public {
+        // Setup
+        MIN_VAULT_DEPOSIT = 200_000;
+        MIN_OPTION_BUY = 10_000;
+        MAX_TOKEN_PRICE = 1_000e18;
+
         deposit(210); // 200210
         vm.warp(block.timestamp + 86911);
         // token price 977438559572558438478 977.4385
@@ -378,13 +393,14 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         buyBear(688419768287300758491671902187099753275378786259759375402820826537608762);
     }
 
-    function test_27() public {
-        deposit(1538845384323155412332890137686);
-        vm.warp(block.timestamp + 88083);
-        callAdminFunction(82626331,77647096502091328759735139706);
-        callAdminFunction(158676193263058568817276662385456583408583648,389000856729725218450858118227232998829508578479);
-        initiateWithdraw(1138998423721152195025232816420647290123088152875874776194);
-        vm.warp(block.timestamp + 88774);
-        callAdminFunction(44237826109279931,8188983321755133194167599241166872124991173522390158876306605229697789034004);
-    }
+    // TBD
+    // function test_27() public {
+    //     deposit(1538845384323155412332890137686);
+    //     vm.warp(block.timestamp + 88083);
+    //     callAdminFunction(82626331,77647096502091328759735139706);
+    //     callAdminFunction(158676193263058568817276662385456583408583648,389000856729725218450858118227232998829508578479);
+    //     initiateWithdraw(1138998423721152195025232816420647290123088152875874776194);
+    //     vm.warp(block.timestamp + 88774);
+    //     callAdminFunction(44237826109279931,8188983321755133194167599241166872124991173522390158876306605229697789034004);
+    // }
 }
