@@ -27,7 +27,7 @@ The primary license for this repository is the Business Source License 1.1 (`BUS
 . Deploy core contracts, libraries and base token:
 +
 `forge script script/testnet/00_Libraries.s.sol:LibraryDeployer --fork-url $RPC_LOCALNET --broadcast -vvvv`
-. Deploy all libraries (copy deployed libraries's addres from run-latest into .toml in order di link):
+. Deploy all libraries (copy deployed libraries's addresses from run-latest into foundry.toml in order to link):
 +
 `forge script script/testnet/01_CoreFoundations.s.sol:DeployCoreFoundations --fork-url $RPC_LOCALNET --broadcast -vvvv`
 . Deploy a new `<SYMBOL>` token (e.g. "ETH" for "sETH"):

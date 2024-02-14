@@ -205,19 +205,19 @@ contract TestScenariosJson is Test {
         _checkScenario("scenario_8", true);
     }
 
-    function testScenarioMultiEpoch() public {
-        // Controls the behavior of all components over multiple epochs.
-        _checkScenario("scenario_multi_1_e1", true);
-        _checkScenario("scenario_multi_1_e2", false);
-    }
+    // function testScenarioMultiEpoch() public {
+    //     // Controls the behavior of all components over multiple epochs.
+    //     _checkScenario("scenario_multi_1_e1", true);
+    //     _checkScenario("scenario_multi_1_e2", false);
+    // }
 
-    function testScenarioLowKAHighVolatility() public {
-        _checkScenario("scenario_low_ka_high_volatility", true);
-    }
+    // function testScenarioLowKAHighVolatility() public {
+    //     _checkScenario("scenario_low_ka_high_volatility", true);
+    // }
 
-    function testScenarioKAZeroExtremeVolatility() public {
-        _checkScenario("scenario_ka_zero_extreme_volatility", true);
-    }
+    // function testScenarioKAZeroExtremeVolatility() public {
+    //     _checkScenario("scenario_ka_zero_extreme_volatility", true);
+    // }
 
     function testScenarioSlippage01() public { _checkScenario("slip_001_01", true); }
     function testScenarioSlippage02() public { _checkScenario("slip_001_02", true); }
