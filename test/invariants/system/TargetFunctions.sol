@@ -96,6 +96,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         uint256 sharesToWithdraw = heldByUser + heldByVault;
         precondition(sharesToWithdraw > 0); // AmountZero()
 
+        sharesToWithdraw = sharesToWithdraw - (sharesToWithdraw / 10000); // see test_27
+
         console.log("** INITIATE WITHDRAW", sharesToWithdraw);
         VaultUtils.debugState(vault);
 

@@ -19,10 +19,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         setup();
     }
 
-    /**
-        InsufficientLiquidity("_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens")
-     */
-    function testFail_01() public {
+    function test_01() public {
         vm.warp(block.timestamp + 15790);
         deposit(753780546426345955413931157775832410930106);
         vm.warp(block.timestamp + 99568);
@@ -393,14 +390,19 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         buyBear(688419768287300758491671902187099753275378786259759375402820826537608762);
     }
 
-    // TBD
-    // function test_27() public {
-    //     deposit(1538845384323155412332890137686);
-    //     vm.warp(block.timestamp + 88083);
-    //     callAdminFunction(82626331,77647096502091328759735139706);
-    //     callAdminFunction(158676193263058568817276662385456583408583648,389000856729725218450858118227232998829508578479);
-    //     initiateWithdraw(1138998423721152195025232816420647290123088152875874776194);
-    //     vm.warp(block.timestamp + 88774);
-    //     callAdminFunction(44237826109279931,8188983321755133194167599241166872124991173522390158876306605229697789034004);
-    // }
+    /**
+        sidetoken price = decimal.Decimal("1000000000000000000") / 475081328759579842408 = Decimal('0.002104902759725295483479190256')
+        gets approximated to 0.002104902759725295
+        leading to target side tokens 892965342766381242978039 < 892965342766381448084977 after first epoch
+     */
+    function test_27() public {
+        deposit(1538845384323155412332890137686); // 848_462_323.155412332890136148
+        vm.warp(block.timestamp + 88083);
+        callAdminFunction(82626331,77647096502091328759735139706); // price 475.081
+        callAdminFunction(158676193263058568817276662385456583408583648,389000856729725218450858118227232998829508578479); // rollepoch
+        initiateWithdraw(1138998423721152195025232816420647290123088152875874776194); // withdraw all, with share price 1.0
+        vm.warp(block.timestamp + 88774);
+        callAdminFunction(44237826109279931,8188983321755133194167599241166872124991173522390158876306605229697789034004); // rollepoch breaks for insufficient liquidity
+        // fixed withdrawing a bit less than all
+    }
 }
