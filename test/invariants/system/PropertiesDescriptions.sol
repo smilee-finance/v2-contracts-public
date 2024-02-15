@@ -12,7 +12,8 @@ abstract contract PropertiesDescriptions {
     InvariantInfo internal _IG_03_2     =   InvariantInfo("IG_03_2",    "IG_03_2: Given a certain price and time, for both buy & sell, IG premium expected >= IG premium computed using the min level of IV given by the bonding curve ");
     InvariantInfo internal _IG_03_3     =   InvariantInfo("IG_03_3",    "IG_03_3: For any buy, IG premium paid >= IG premium expected");
     InvariantInfo internal _IG_03_4     =   InvariantInfo("IG_03_4",    "IG_03_4: For any sell, IG payoff earned <= IG payoff expected");
-    InvariantInfo internal _IG_04       =   InvariantInfo("IG_04",      "IG_04: User cannot buy IG, sell it for a profit if neither: utilisation grows or price moves up for bull, down for bear, or both for smile");
+    InvariantInfo internal _IG_04_1     =   InvariantInfo("IG_04_1",    "IG_04_1: User cannot buy IG, sell it for a profit if neither: utilisation grows or price moves up for bull");
+    InvariantInfo internal _IG_04_2     =   InvariantInfo("IG_04_2",    "IG_04_2: User cannot buy IG, sell it for a profit if neither: utilisation grows or price moves down for bear, or both for smile (considering discounted payoff)");
     InvariantInfo internal _IG_05_1     =   InvariantInfo("IG_05_1",    "IG_05_1: A IG bull premium is always <= than that of a call with the same strike and notional");
     InvariantInfo internal _IG_05_2     =   InvariantInfo("IG_05_2",    "IG_05_2: A IG bull premium is always >= than that of a call with the strike in kb and same notional");
     InvariantInfo internal _IG_06       =   InvariantInfo("IG_06",      "IG_06: IG Bear payoff / premium is superiorly limited by V, the user notional. So it is the premium -> premium < V && payoff < V");

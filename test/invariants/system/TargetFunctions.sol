@@ -497,7 +497,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             expectedPremium,
             buyType,
             sigma,
-            block.timestamp
+            block.timestamp,
+            _getRiskFreeRate(address(baseToken)),
+            WadTime.yearsToTimestamp(ig.getEpoch().current)
         );
 
         _pushTrades(buyInfo);
@@ -639,15 +641,23 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         uint256 sellTokenPrice,
         uint256 buyTokenPrice,
         uint256 sellUtilizationRate,
-        uint256 buyUtilizationRate
+        uint256 buyUtilizationRate,
+        uint256 buyRiskFreeRate,
+        uint256 buyTau
     ) internal {
-        if (sellType == _BULL && payoff > premium) {
-            bool checkTokenPrice = (sellType == _BULL && sellTokenPrice > buyTokenPrice) ||
-                (sellType == _BEAR && sellTokenPrice < buyTokenPrice) ||
-                (sellType == _SMILEE && sellTokenPrice != buyTokenPrice);
-            t(checkTokenPrice && (isEpochRolled || sellUtilizationRate > buyUtilizationRate), _IG_04.desc);
+        // For BEAR and SMILE payoff => payoff * discount
+        if (sellType == _BULL && sellTokenPrice <= buyTokenPrice && (isEpochRolled || sellUtilizationRate <= buyUtilizationRate)) {
+            t(!(payoff > premium), _IG_04_1.desc);
         } else {
-            t(true, _IG_04.desc); // TODO: implement invariants
+            uint256 ert = FinanceIGPrice._ert(buyRiskFreeRate, buyTau);
+            uint256 discountedPayoff = ((payoff * ert) * 999) / (1e18 * 1000); // discount + approx
+
+            if (sellType == _BEAR && sellTokenPrice >= buyTokenPrice && (isEpochRolled || sellUtilizationRate <= buyUtilizationRate)) {
+                t(!(discountedPayoff > premium), _IG_04_2.desc);
+            }
+            if (sellType == _SMILEE && sellTokenPrice == buyTokenPrice && (isEpochRolled || sellUtilizationRate <= buyUtilizationRate)) {
+                t(!(discountedPayoff > premium), _IG_04_2.desc);
+            }
         }
     }
 
@@ -733,7 +743,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 sellTokenPrice,
                 buyInfo_.buyTokenPrice,
                 sellUtilizationRate,
-                buyInfo_.utilizationRate
+                buyInfo_.utilizationRate,
+                buyInfo_.riskFreeRate,
+                buyInfo_.tau
             );
 
             if (sellType == _BULL) {
