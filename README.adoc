@@ -90,7 +90,7 @@ See link:./reference_addresses.adoc[reference_addresses.adoc] for reference addr
 
 === Common issues:
 
-* If you get `Failed to get EIP-1559 fees`, append `--legacy` to the script.
+* If you get `Failed to get EIP-1559 fees`, append `--legacy` to the script; it may also help with "Failed to estimate gas for transaction".
 
 === Estimated costs:
 

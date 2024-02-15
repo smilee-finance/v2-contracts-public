@@ -27,7 +27,7 @@ import {SwapAdapterRouter} from "../../src/providers/SwapAdapterRouter.sol";
         forge script script/mainnet/03_Factory.s.sol:DeployDVP --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv
 
         # NOTE: add the following to customize
-        #       --sig 'createIGMarket(address,address,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS> <FIRST_EPOCH_DURATION_IN_SECONDS>
+        #       --sig 'createIGMarket(address,address,uint256,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS> <FIRST_EPOCH_DURATION_IN_SECONDS>
  */
 contract DeployDVP is EnhancedScript {
     using TimeLock for TimeLockedBool;
@@ -111,7 +111,7 @@ contract DeployDVP is EnhancedScript {
         Vault vault = Vault(vaultAddr);
 
         vault.setAllowedDVP(dvpAddr);
-        vault.setPriorityAccessFlag(true);
+        // vault.setPriorityAccessFlag(true);
         if (!_deployerIsAdmin) {
             vault.renounceRole(vault.ROLE_ADMIN(), _deployerAddress);
         }
@@ -122,7 +122,7 @@ contract DeployDVP is EnhancedScript {
         if (!deribitToken) {
             _useOnchainImpliedVolatility(dvpAddr);
         }
-        IG(dvpAddr).setNftAccessFlag(true);
+        // IG(dvpAddr).setNftAccessFlag(true);
         if (!_deployerIsAdmin) {
             IG dvp = IG(dvpAddr);
             dvp.renounceRole(dvp.ROLE_ADMIN(), _deployerAddress);

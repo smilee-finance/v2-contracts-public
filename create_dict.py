@@ -7,7 +7,7 @@ import sys
 
 scripts = {
     "01_CoreFoundations.s.sol": ["run"],
-    "02_Token.s.sol": ["deployToken"],
+    # "02_Token.s.sol": ["deployToken"],
     "03_Factory.s.sol": ["createIGMarket"]
 }
 

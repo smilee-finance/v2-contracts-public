@@ -107,7 +107,7 @@ contract DeployCoreFoundations is Script {
         ap.setMarketOracle(address(marketOracle));
 
         // Swap router:
-        SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(priceOracle), 6 hours);
+        SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(ap), 6 hours);
         swapAdapterRouter.grantRole(swapAdapterRouter.ROLE_GOD(), _godAddress);
         swapAdapterRouter.grantRole(swapAdapterRouter.ROLE_ADMIN(), _adminAddress);
         if (!_deployerIsGod) {

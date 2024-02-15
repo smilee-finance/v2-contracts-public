@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
-import {Vault} from "../../src/Vault.sol";
-import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+import {Vault} from "@project/Vault.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
 
 /*
@@ -15,16 +14,16 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
         # To deploy [and verify] the contracts
         # - On a real network:
         #   ToDo: see https://book.getfoundry.sh/reference/forge/forge-script#wallet-options---raw
-        forge script script/testnet/05_Vault.s.sol:VaultOps --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv --sig 'fillVault(address,uint256)' <VAULT_ADDRESS> <AMOUNT>
+        forge script script/mainnet/05_Vault.s.sol:VaultOps --rpc-url $RPC_MAINNET --broadcast -vv --sig 'pauseVault(address)' <VAULT_ADDRESS>
  */
 contract VaultOps is EnhancedScript {
-    uint256 internal _deployerPrivateKey;
-    address internal _deployerAddress;
+    uint256 internal _adminPrivateKey;
+    address internal _adminAddress;
 
     constructor() {
         // Load the private key that will be used for signing the transactions:
-        _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        _deployerAddress = vm.envAddress("DEPLOYER_ADDRESS");
+        _adminPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
+        _adminAddress = vm.envAddress("ADMIN_ADDRESS");
     }
 
     function run() external {}
@@ -32,7 +31,7 @@ contract VaultOps is EnhancedScript {
    function pauseVault(address vaultAddr) public {
          Vault vault = Vault(vaultAddr);
 
-        vm.startBroadcast(_deployerPrivateKey);
+        vm.startBroadcast(_adminPrivateKey);
         vault.changePauseState();
         vm.stopBroadcast();
     }
@@ -40,7 +39,7 @@ contract VaultOps is EnhancedScript {
     function killVault(address vaultAddr) public {
         Vault vault = Vault(vaultAddr);
 
-        vm.startBroadcast(_deployerPrivateKey);
+        vm.startBroadcast(_adminPrivateKey);
         vault.killVault();
         vm.stopBroadcast();
     }

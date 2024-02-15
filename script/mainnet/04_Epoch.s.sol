@@ -17,20 +17,19 @@ import {DVP} from "../../src/DVP.sol";
         source .env
         # - On a real network:
         #   ToDo: see https://book.getfoundry.sh/reference/forge/forge-script#wallet-options---raw
-        forge script script/testnet/04_Epoch.s.sol:RollEpoch --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv
+        forge script script/mainnet/04_Epoch.s.sol:RollEpoch --rpc-url $RPC_MAINNET --broadcast -vv
 
         # NOTE: add the following to customize
         #       --sig 'rollEpoch(address)' <DVP_ADDRESS>
  */
 contract RollEpoch is EnhancedScript {
-    uint256 internal _deployerPrivateKey;
+    uint256 internal _adminPrivateKey;
     uint256 internal _epochRollerPrivateKey;
-    address internal _epochRollerAddress;
     Registry internal _registry;
 
     constructor() {
-        _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         // Load the private key that will be used for signing the transactions:
+        _adminPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
         _epochRollerPrivateKey = vm.envUint("EPOCH_ROLLER_PRIVATE_KEY");
 
         string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
@@ -55,8 +54,16 @@ contract RollEpoch is EnhancedScript {
     function grantRoller(address dvpAddr, address account) public {
         DVP dvp = DVP(dvpAddr);
 
-        vm.startBroadcast(_deployerPrivateKey);
+        vm.startBroadcast(_adminPrivateKey);
         dvp.grantRole(dvp.ROLE_EPOCH_ROLLER(), account);
+        vm.stopBroadcast();
+    }
+
+    function revokeRoller(address dvpAddr, address account) public {
+        DVP dvp = DVP(dvpAddr);
+
+        vm.startBroadcast(_adminPrivateKey);
+        dvp.revokeRole(dvp.ROLE_EPOCH_ROLLER(), account);
         vm.stopBroadcast();
     }
 }
