@@ -146,6 +146,11 @@ contract TestScenariosJson is Test {
         // also creates exchange
         _vault = MockedVault(VaultUtils.createVault(EpochFrequency.WEEKLY, _ap, _admin, vm));
 
+        vm.startPrank(_admin);
+        _vault.grantRole(_vault.ROLE_ADMIN(), _admin);
+        _vault.setMaxDeposit(1_000_000_000 * 1e18);
+        vm.stopPrank();
+
         _exchange = TestnetSwapAdapter(_ap.exchangeAdapter());
         _oracle = TestnetPriceOracle(_ap.priceOracle());
         _marketOracle = MarketOracle(_ap.marketOracle());
@@ -205,11 +210,11 @@ contract TestScenariosJson is Test {
         _checkScenario("scenario_8", true);
     }
 
-    // function testScenarioMultiEpoch() public {
-    //     // Controls the behavior of all components over multiple epochs.
-    //     _checkScenario("scenario_multi_1_e1", true);
-    //     _checkScenario("scenario_multi_1_e2", false);
-    // }
+    function testScenarioMultiEpoch() public {
+        // Controls the behavior of all components over multiple epochs.
+        _checkScenario("scenario_multi_1_e1", true);
+        _checkScenario("scenario_multi_1_e2", false);
+    }
 
     // function testScenarioLowKAHighVolatility() public {
     //     _checkScenario("scenario_low_ka_high_volatility", true);
