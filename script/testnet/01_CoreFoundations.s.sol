@@ -83,7 +83,9 @@ contract DeployCoreFoundations is Script {
         ap.setRegistry(address(registry));
 
         sUSD.setAddressProvider(address(ap));
-        PositionManager pm = new PositionManager();
+        PositionManager pm = new PositionManager(address(ap));
+        pm.grantRole(pm.ROLE_GOD(), _adminMultiSigAddress);
+        pm.grantRole(pm.ROLE_ADMIN(), _deployerAddress);
         ap.setDvpPositionManager(address(pm));
 
         // ap.renounceRole(ap.ROLE_ADMIN(), _deployerAddress);

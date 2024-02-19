@@ -39,7 +39,7 @@ contract IGNFTAccessTest is Test {
         MockedRegistry registry = new MockedRegistry();
         registry.grantRole(registry.ROLE_ADMIN(), _admin);
         ap.grantRole(ap.ROLE_ADMIN(), _admin);
-        _nft = new IGAccessNFT(address(ap));
+        _nft = new IGAccessNFT();
         _nft.grantRole(_nft.ROLE_ADMIN(), _admin);
         ap.setDVPAccessNFT(address(_nft));
         ap.setRegistry(address(registry));

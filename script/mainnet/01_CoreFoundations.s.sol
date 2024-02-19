@@ -36,6 +36,7 @@ contract DeployCoreFoundations is Script {
     bool internal _deployerIsGod;
     bool internal _deployerIsAdmin;
     address internal _uniswapFactoryAddress;
+    address internal _uniswapRouterAddress;
 
     error ZeroAddress(string name);
 
@@ -52,6 +53,7 @@ contract DeployCoreFoundations is Script {
         _deployerIsAdmin = (_deployerAddress == _adminAddress);
 
         _uniswapFactoryAddress = vm.envAddress("UNISWAP_FACTORY_ADDRESS");
+        _uniswapRouterAddress = vm.envAddress("UNISWAP_ROUTER_ADDRESS");
     }
 
     // NOTE: this is the script entrypoint
@@ -61,6 +63,7 @@ contract DeployCoreFoundations is Script {
         _checkZeroAddress(_adminAddress, "ADMIN_ADDRESS");
         _checkZeroAddress(_scheduler, "SCHEDULER");
         _checkZeroAddress(_uniswapFactoryAddress, "UNISWAP_FACTORY_ADDRESS");
+        _checkZeroAddress(_uniswapRouterAddress, "UNISWAP_ROUTER_ADDRESS");
 
         vm.startBroadcast(_deployerPrivateKey);
         _deployMainContracts();
@@ -116,7 +119,7 @@ contract DeployCoreFoundations is Script {
         ap.setExchangeAdapter(address(swapAdapterRouter));
 
         // Uniswap adapter:
-        UniswapAdapter uniswapAdapter = new UniswapAdapter(address(swapAdapterRouter), _uniswapFactoryAddress, 6 hours);
+        UniswapAdapter uniswapAdapter = new UniswapAdapter(_uniswapRouterAddress, _uniswapFactoryAddress, 6 hours);
         uniswapAdapter.grantRole(uniswapAdapter.ROLE_GOD(), _godAddress);
         uniswapAdapter.grantRole(uniswapAdapter.ROLE_ADMIN(), _adminAddress);
         if (!_deployerIsGod) {
@@ -143,7 +146,12 @@ contract DeployCoreFoundations is Script {
         ap.setRegistry(address(registry));
 
         // DVP positions manager:
-        PositionManager pm = new PositionManager();
+        PositionManager pm = new PositionManager(address(ap));
+        pm.grantRole(pm.ROLE_GOD(), _godAddress);
+        pm.grantRole(pm.ROLE_ADMIN(), _adminAddress);
+        if (!_deployerIsGod) {
+            pm.renounceRole(pm.ROLE_GOD(), _deployerAddress);
+        }
         ap.setDvpPositionManager(address(pm));
 
         // Vault access NFT:
@@ -156,7 +164,7 @@ contract DeployCoreFoundations is Script {
         ap.setVaultAccessNFT(address(vaultAccess));
 
         // DVP access NFT:
-        IGAccessNFT igAccess = new IGAccessNFT(address(ap));
+        IGAccessNFT igAccess = new IGAccessNFT();
         igAccess.grantRole(igAccess.ROLE_GOD(), _godAddress);
         igAccess.grantRole(igAccess.ROLE_ADMIN(), _adminAddress);
         if (!_deployerIsGod) {

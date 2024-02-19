@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
-import {IRegistry} from "../interfaces/IRegistry.sol";
+import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {IDVPAccessNFT} from "../interfaces/IDVPAccessNFT.sol";
 
 /**
     @title Simple implementation of IDVPAccessNFT
 
-    An example implementation of the priority access tokens for Smilee vaults.
+    An example implementation of the priority access tokens for Smilee DVPs.
  */
-contract IGAccessNFT is IDVPAccessNFT, ERC721, AccessControl {
+contract IGAccessNFT is IDVPAccessNFT, ERC721Enumerable, AccessControl {
     uint256 private _currentId = 0;
-    IAddressProvider private immutable _ap;
     mapping(uint256 => uint256) private _capAmount;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
@@ -23,9 +21,7 @@ contract IGAccessNFT is IDVPAccessNFT, ERC721, AccessControl {
 
     error NotionalCapExceeded();
 
-    constructor(address addressProvider) ERC721("Smilee Trade Priority Access Token", "STPT") AccessControl() {
-        _ap = IAddressProvider(addressProvider);
-
+    constructor() ERC721Enumerable() ERC721("Smilee Trade Priority Access Token", "STPT") AccessControl() {
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
 
@@ -35,8 +31,8 @@ contract IGAccessNFT is IDVPAccessNFT, ERC721, AccessControl {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC721, IERC165) returns (bool) {
-        return ERC721.supportsInterface(interfaceId) && AccessControl.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC721Enumerable, IERC165) returns (bool) {
+        return ERC721Enumerable.supportsInterface(interfaceId) || AccessControl.supportsInterface(interfaceId);
     }
 
     /**
@@ -45,13 +41,24 @@ contract IGAccessNFT is IDVPAccessNFT, ERC721, AccessControl {
         @param capAmount_ The amount of notional `receiver` will be allowed to trade in DVP.
         @return tokenId The numerical ID of the minted token
      */
-    function createToken(address receiver, uint256 capAmount_) public returns (uint tokenId) {
+    function createToken(address receiver, uint256 capAmount_) external returns (uint tokenId) {
         _checkRole(ROLE_ADMIN);
 
         tokenId = ++_currentId;
         _capAmount[tokenId] = capAmount_;
 
         _mint(receiver, tokenId);
+    }
+
+    /**
+        @notice Destroy a token
+        @param tokenId The numerical ID of the token to burn
+     */
+    function destroyToken(uint256 tokenId) external {
+        _checkRole(ROLE_ADMIN);
+        _requireMinted(tokenId);
+
+        _burn(tokenId);
     }
 
     /// @inheritdoc IDVPAccessNFT
@@ -61,8 +68,11 @@ contract IGAccessNFT is IDVPAccessNFT, ERC721, AccessControl {
         return _capAmount[tokenId];
     }
 
+    /// @inheritdoc IDVPAccessNFT
     function checkCap(uint256 tokenId, uint256 amount) external view {
-        if(amount > _capAmount[tokenId]) {
+        _requireMinted(tokenId);
+
+        if (amount > _capAmount[tokenId]) {
             revert NotionalCapExceeded();
         }
     }

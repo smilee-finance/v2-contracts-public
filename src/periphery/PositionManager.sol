@@ -2,16 +2,18 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IDVP} from "../interfaces/IDVP.sol";
-import {IPositionManager} from "../interfaces/IPositionManager.sol";
-import {Position} from "../lib/Position.sol";
-import {Epoch} from "../lib/EpochController.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
+import {IDVP} from "../interfaces/IDVP.sol";
+import {IDVPAccessNFT} from "../interfaces/IDVPAccessNFT.sol";
+import {IPositionManager} from "../interfaces/IPositionManager.sol";
+import {Epoch} from "../lib/EpochController.sol";
 
-contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
+contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
     using SafeERC20 for IERC20;
 
     struct ManagedPosition {
@@ -31,6 +33,15 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     /// @dev The ID of the next token that will be minted. Skips 0
     uint256 private _nextId;
 
+    /// @notice A flag to tell if this DVP is currently bound to check access for trade
+    bool public nftAccessFlag;
+    uint256 public accessTokenId;
+
+    IAddressProvider internal immutable _addressProvider;
+
+    bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+
     // Used by TheGraph for frontend needs:
     event Buy(address dvp, uint256 epoch, uint256 premium, address creditor);
     event Sell(address dvp, uint256 epoch, uint256 payoff);
@@ -40,9 +51,19 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     error NotOwner();
     error PositionExpired();
     error AsymmetricAmount();
+    error MissingAccessToken();
+    error NFTAccessDenied();
 
-    constructor() ERC721Enumerable() ERC721("Smilee V0 Trade Positions", "SMIL-V0-TRAD") Ownable() {
+    constructor(address addressProvider) ERC721Enumerable() ERC721("Smilee DVP Position", "SMIL-DVP-POS") AccessControl() {
         _nextId = 1;
+        nftAccessFlag = false;
+        accessTokenId = 0;
+        _addressProvider = IAddressProvider(addressProvider);
+
+        _setRoleAdmin(ROLE_GOD, ROLE_GOD);
+        _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);
+
+        _grantRole(ROLE_GOD, msg.sender);
     }
 
     modifier isOwner(uint256 tokenId) {
@@ -58,6 +79,32 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
     //     }
     //     _;
     // }
+
+    /**
+        @notice Allows the contract's admin to enable or disable the nft-based priority access to trade operations
+     */
+    function setNftAccessFlag(bool flag) external {
+        _checkRole(ROLE_ADMIN);
+
+        if (flag && accessTokenId == 0) {
+            revert MissingAccessToken();
+        }
+
+        nftAccessFlag = flag;
+    }
+
+    /**
+        @notice Allows the contract's admin to set the internal nft for trading
+     */
+    function setNftAccessToken(uint256 tokenId) external {
+        _checkRole(ROLE_ADMIN);
+
+        if (tokenId == 0) {
+            revert MissingAccessToken();
+        }
+
+        accessTokenId = tokenId;
+    }
 
     /// @inheritdoc IPositionManager
     function positionDetail(uint256 tokenId) external view override returns (IPositionManager.PositionDetail memory) {
@@ -87,11 +134,26 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             });
     }
 
+    /// @dev Checks if given trade is allowed to be made
+    function _checkNFTAccess(uint256 tokenId, address receiver, uint256 notionalAmount) internal {
+        if (!nftAccessFlag) {
+            return;
+        }
+
+        IDVPAccessNFT nft = IDVPAccessNFT(_addressProvider.dvpAccessNFT());
+        if (tokenId == 0 || nft.ownerOf(tokenId) != receiver) {
+            revert NFTAccessDenied();
+        }
+        nft.checkCap(tokenId, notionalAmount);
+    }
+
     /// @inheritdoc IPositionManager
     function mint(
         IPositionManager.MintParams calldata params
     ) external override returns (uint256 tokenId, uint256 premium) {
         IDVP dvp = IDVP(params.dvpAddr);
+
+        _checkNFTAccess(params.nftAccessTokenId, msg.sender, params.notionalUp + params.notionalDown);
 
         if (params.tokenId != 0) {
             tokenId = params.tokenId;
@@ -133,7 +195,7 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
             params.notionalDown,
             params.expectedPremium,
             params.maxSlippage,
-            params.nftAccessTokenId
+            accessTokenId
         );
 
         if (obtainedPremium > premium) {
@@ -258,5 +320,12 @@ contract PositionManager is ERC721Enumerable, Ownable, IPositionManager {
 
         emit SellDVP(tokenId, (notionalUp + notionalDown), payoff_);
         emit Sell(position.dvpAddr, position.expiry, payoff_);
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC721Enumerable, IERC165) returns (bool) {
+        return ERC721Enumerable.supportsInterface(interfaceId) || AccessControl.supportsInterface(interfaceId);
     }
 }
