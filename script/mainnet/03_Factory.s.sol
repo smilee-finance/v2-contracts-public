@@ -3,16 +3,16 @@ pragma solidity ^0.8.15;
 
 import {console} from "forge-std/console.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IRegistry} from "@project/interfaces/IRegistry.sol";
+import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "@project/lib/FinanceIG.sol";
+import {TimeLock, TimeLockedBool, TimeLockedUInt} from "@project/lib/TimeLock.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {FeeManager} from "@project/FeeManager.sol";
+import {IG} from "@project/IG.sol";
+import {Vault} from "@project/Vault.sol";
+import {ChainlinkPriceOracle} from "@project/providers/chainlink/ChainlinkPriceOracle.sol";
+import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
-import {IRegistry} from "../../src/interfaces/IRegistry.sol";
-import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "../../src/lib/FinanceIG.sol";
-import {TimeLock, TimeLockedBool, TimeLockedUInt} from "../../src/lib/TimeLock.sol";
-import {AddressProvider} from "../../src/AddressProvider.sol";
-import {FeeManager} from "../../src/FeeManager.sol";
-import {IG} from "../../src/IG.sol";
-import {Vault} from "../../src/Vault.sol";
-import {ChainlinkPriceOracle} from "../../src/providers/chainlink/ChainlinkPriceOracle.sol";
-import {SwapAdapterRouter} from "../../src/providers/SwapAdapterRouter.sol";
 
 /*
     Reference: https://book.getfoundry.sh/tutorials/solidity-scripting

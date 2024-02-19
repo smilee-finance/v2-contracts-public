@@ -3,7 +3,7 @@
 solc_version = "0.8.21"
 evm_version = "paris" # Arbitrum limit
 src = "src"
-out = "out"
+out = "out/default"
 libs = ["lib"]
 revert_strings = "debug"
 fs_permissions = [{ access = "read", path = "./broadcast/"}, { access = "read", path = "./test/"}]
@@ -17,6 +17,7 @@ arbitrum_mainnet = "${RPC_MAINNET}"
 
 [profile.deployment]
 cache_path = "cache/deployment"
+out = "out/deployment"
 via_ir = true
 # verbosity = 1 # To be tested: should avoid issues with trace calls on the RPC endpoints
 # revert_strings = "strip"

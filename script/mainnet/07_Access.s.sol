@@ -3,7 +3,10 @@ pragma solidity ^0.8.15;
 
 import {console} from "forge-std/console.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
+import {IG} from "@project/IG.sol";
+import {Vault} from "@project/Vault.sol";
 import {IGAccessNFT} from "@project/periphery/IGAccessNFT.sol";
+import {PositionManager} from "@project/periphery/PositionManager.sol";
 import {VaultAccessNFT} from "@project/periphery/VaultAccessNFT.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
 
@@ -44,11 +47,53 @@ contract AccessTokenOps is EnhancedScript {
         vm.stopBroadcast();
     }
 
+    function revokeVaultAccess(uint256 tokenId) public {
+        VaultAccessNFT vaultAccessNFT = VaultAccessNFT(_ap.vaultAccessNFT());
+
+        vm.startBroadcast(_adminPrivateKey);
+        vaultAccessNFT.destroyToken(tokenId);
+        vm.stopBroadcast();
+    }
+
     function grantIGAccess(address user) public {
         IGAccessNFT igAccessNFT = IGAccessNFT(_ap.dvpAccessNFT());
 
         vm.startBroadcast(_adminPrivateKey);
         igAccessNFT.createToken(user, type(uint256).max);
+        vm.stopBroadcast();
+    }
+
+    function revokeIGAccess(uint256 tokenId) public {
+        IGAccessNFT igAccessNFT = IGAccessNFT(_ap.dvpAccessNFT());
+
+        vm.startBroadcast(_adminPrivateKey);
+        igAccessNFT.destroyToken(tokenId);
+        vm.stopBroadcast();
+    }
+
+    function setDvpAccess(address dvpAddr, bool value) public {
+        vm.startBroadcast(_adminPrivateKey);
+        IG(dvpAddr).setNftAccessFlag(value);
+        vm.stopBroadcast();
+    }
+
+    function setVaultAccess(address vaultAddr, bool value) public {
+        vm.startBroadcast(_adminPrivateKey);
+        Vault(vaultAddr).setPriorityAccessFlag(value);
+        vm.stopBroadcast();
+    }
+
+    function setPositionManagerAccess(bool value) public {
+        vm.startBroadcast(_adminPrivateKey);
+        PositionManager pm = PositionManager(_ap.dvpPositionManager());
+        pm.setNftAccessFlag(value);
+        vm.stopBroadcast();
+    }
+
+    function setPositionManagerAccessToken(uint256 tokenId) public {
+        vm.startBroadcast(_adminPrivateKey);
+        PositionManager pm = PositionManager(_ap.dvpPositionManager());
+        pm.setNftAccessToken(tokenId);
         vm.stopBroadcast();
     }
 
