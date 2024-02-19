@@ -1420,8 +1420,188 @@ contract VaultUserTest is Test {
         assertEq(expectedAmount, baseToken.balanceOf(user));
     }
 
-    // - [TODO] test complete withdraw where the user do not withdraw all of its shares (check data)
-    // - [TODO] test complete withdraw (requested more than one epoch ago) without removing all the liquidity
+    // Test complete withdraw where the user do not withdraw all of its shares
+    function testCompleteWithdrawPartialBalance(uint256 totalDeposit, uint256 sharesToWithdraw, uint256 sideTokenPrice) public {
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 2, vault.maxDeposit());
+        sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, totalDeposit);
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
+        vm.assume(sharesToWithdraw < totalDeposit);
+
+        // User deposit (and later withdraw) a given amount
+        vm.prank(admin);
+        baseToken.mint(user, totalDeposit);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), totalDeposit);
+        vault.deposit(totalDeposit, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        // The user initiate a withdraw
+        vm.prank(user);
+        vault.redeem(sharesToWithdraw);
+
+        vm.prank(user);
+        vault.initiateWithdraw(sharesToWithdraw);
+
+        // The side token price is moved in order to also move the price per share
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: pre-computed for the current epoch
+        uint256 expectedSharePrice = vault.notional() * 10**baseToken.decimals() / vault.totalSupply();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        uint256 sharePrice = vault.epochPricePerShare(vault.getEpoch().previous);
+        assertEq(sharePrice, expectedSharePrice);
+
+        (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(totalDeposit - sharesToWithdraw, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(totalDeposit - sharesToWithdraw, vault.balanceOf(user));
+
+        assertEq(sharesToWithdraw, vault.balanceOf(address(vault)));
+        (, , uint256 pendingWithdrawals, , uint256 totalVaultDeposit, uint256 heldShares, uint256 newHeldShares, , ) = vault.vaultState();
+        uint256 expectedAmount = (sharesToWithdraw * sharePrice) / (10 ** baseToken.decimals());
+        assertEq(pendingWithdrawals, expectedAmount);
+        assertEq(totalDeposit - sharesToWithdraw, totalVaultDeposit);
+        assertEq(sharesToWithdraw, heldShares);
+        assertEq(0, newHeldShares);
+
+        (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
+        assertEq(vault.getEpoch().previous, epoch);
+        assertEq(sharesToWithdraw, withdrawalShares);
+
+        assertEq(0, baseToken.balanceOf(user));
+
+        vm.prank(user);
+        vault.completeWithdraw();
+
+        (, , , , , heldShares, , , ) = vault.vaultState();
+        assertEq(0, heldShares);
+        assertEq(0, vault.balanceOf(address(vault)));
+
+        (, withdrawalShares) = vault.withdrawals(user);
+        assertEq(0, withdrawalShares);
+
+        (, , pendingWithdrawals, , , , , , ) = vault.vaultState();
+        assertEq(0, pendingWithdrawals);
+
+        (userShares, userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(totalDeposit - sharesToWithdraw, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(totalDeposit - sharesToWithdraw, vault.balanceOf(user));
+
+        assertEq(expectedAmount, baseToken.balanceOf(user));
+    }
+
+    // Test complete withdraw (requested more than one epoch ago) without removing all the liquidity
+    function testCompleteWithdrawAfterMoreThanOneEpoch(uint256 totalDeposit, uint256 sharesToWithdraw, uint256 sideTokenPrice) public {
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 2, vault.maxDeposit());
+        sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, totalDeposit);
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
+        vm.assume(sharesToWithdraw < totalDeposit);
+
+        // User deposit (and later withdraw) a given amount
+        vm.prank(admin);
+        baseToken.mint(user, totalDeposit);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), totalDeposit);
+        vault.deposit(totalDeposit, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        // The user initiate a withdraw
+        vm.prank(user);
+        vault.redeem(sharesToWithdraw);
+
+        vm.prank(user);
+        vault.initiateWithdraw(sharesToWithdraw);
+
+        // The side token price is moved in order to also move the price per share
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: pre-computed for the current epoch
+        uint256 expectedSharePrice = vault.notional() * 10**baseToken.decimals() / vault.totalSupply();
+
+        uint256 maturityAtWithdraw = vault.getEpoch().current;
+
+        vm.warp(maturityAtWithdraw + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        uint256 sharePrice = vault.epochPricePerShare(maturityAtWithdraw);
+        assertEq(sharePrice, expectedSharePrice);
+
+        // NOTE: nothing needs to happens in between
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        // NOTE: avoid stack too deep
+        {
+            (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+            assertEq(totalDeposit - sharesToWithdraw, userShares);
+            assertEq(0, userUnredeemedShares);
+            assertEq(totalDeposit - sharesToWithdraw, vault.balanceOf(user));
+        }
+
+        uint256 expectedAmount = (sharesToWithdraw * sharePrice) / (10 ** baseToken.decimals());
+        // NOTE: avoid stack too deep
+        {
+            assertEq(sharesToWithdraw, vault.balanceOf(address(vault)));
+            (, , uint256 pendingWithdrawals, , uint256 totalVaultDeposit, uint256 heldShares, uint256 newHeldShares, , ) = vault.vaultState();
+            assertEq(pendingWithdrawals, expectedAmount);
+            assertEq(totalDeposit - sharesToWithdraw, totalVaultDeposit);
+            assertEq(sharesToWithdraw, heldShares);
+            assertEq(0, newHeldShares);
+
+            (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
+            assertEq(maturityAtWithdraw, epoch);
+            assertEq(sharesToWithdraw, withdrawalShares);
+
+            assertEq(0, baseToken.balanceOf(user));
+        }
+
+        vm.prank(user);
+        vault.completeWithdraw();
+
+        // NOTE: avoid stack too deep
+        {
+            (, , , , , uint256 heldShares, , , ) = vault.vaultState();
+            assertEq(0, heldShares);
+            assertEq(0, vault.balanceOf(address(vault)));
+
+            (, uint256 withdrawalShares) = vault.withdrawals(user);
+            assertEq(0, withdrawalShares);
+
+            (, , uint256 pendingWithdrawals, , , , , , ) = vault.vaultState();
+            assertEq(0, pendingWithdrawals);
+        }
+
+        // NOTE: avoid stack too deep
+        {
+            (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+            assertEq(totalDeposit - sharesToWithdraw, userShares);
+            assertEq(0, userUnredeemedShares);
+            assertEq(totalDeposit - sharesToWithdraw, vault.balanceOf(user));
+        }
+
+        assertEq(expectedAmount, baseToken.balanceOf(user));
+    }
+
     // - [TODO] test complete withdraw with all the liquidity withdrawed
     // - [TODO] test complete withdraw when the vault dies (after the request)
     // - [TODO] test complete withdraw when the vault is paused (revert)
