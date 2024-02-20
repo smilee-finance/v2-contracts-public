@@ -46,6 +46,7 @@ abstract contract PropertiesDescriptions {
     InvariantInfo internal _GENERAL_6 = InvariantInfo("GENERAL_6", "GENERAL_6: Buy and sell should not revert");
 
     InvariantInfo internal _VAULT_01    =   InvariantInfo("VAULT_01",     "VAULT_01: Vault payoff at roll-epoch >= DEX LP payoff");
+    InvariantInfo internal _VAULT_02    =   InvariantInfo("VAULT_02",     "VAULT_02: Vault PnL mark-to-market >= 0 between pre and post trade");
     InvariantInfo internal _VAULT_03    =   InvariantInfo("VAULT_03",     "VAULT_03: Vault balances = (or >=) PendingWithdraw + PendingPayoff + PendingDeposit + (vault share * sharePrice)");
     InvariantInfo internal _VAULT_04    =   InvariantInfo("VAULT_04",     "VAULT_04: Vault base tokens = (or >=) PendingWithdraw + PendingPayoff + PendingDeposit");
     InvariantInfo internal _VAULT_06    =   InvariantInfo("VAULT_06",     "VAULT_06: Vault balances minus PendingWithdraw and PendingPayoff are equal to an Equal Weight portfolio after roll-epoch");
@@ -60,4 +61,5 @@ abstract contract PropertiesDescriptions {
     InvariantInfo internal _VAULT_19    =   InvariantInfo("VAULT_19",     "VAULT_19: Withdrawal Share are converted at SharePrice (aka the fair price). Withdraw = withdrawal Share * Share Price");
     InvariantInfo internal _VAULT_20    =   InvariantInfo("VAULT_20",     "VAULT_20: Vault balances >= PendingWithdraw + PendingPayoff + PendingDeposit + LP value + IG minted value");
     InvariantInfo internal _VAULT_23    =   InvariantInfo("VAULT_23",     "VAULT_23: OutstandingShare_epoch_t = OutstandingShare_epoch_t-1 + NewShare_at_roll_epoch - WithdrawalShare_at_roll_epoch");
+    InvariantInfo internal _VAULT_25    =   InvariantInfo("VAULT_25",     "VAULT_25: Vault PnL mark-to-market >= Smilee IL PnL between two consecutive trade (first post trade and second pre trade), valid unless rollepoch");
 }

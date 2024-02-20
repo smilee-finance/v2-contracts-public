@@ -261,7 +261,7 @@ library TestOptionsFinanceHelper {
             √(Kb / K) - √(Ka / K)                 if (S > Kb)
         }
      */
-    function vaultPayoff(
+    function lpPayoff(
         uint256 k1, // final price
         uint256 k0, // starting price
         uint256 kA,
@@ -290,7 +290,7 @@ library TestOptionsFinanceHelper {
     /**
         LP token value formulas
      */
-    function lpValue(FinanceIGPrice.Parameters memory params) public pure returns (uint256) {
+    function lpPrice(FinanceIGPrice.Parameters memory params) public pure returns (uint256) {
         (, FinanceIGPrice.DTerms memory das, FinanceIGPrice.DTerms memory dbs) = FinanceIGPrice.dTerms(params);
         FinanceIGPrice.NTerms memory nas = FinanceIGPrice.nTerms(das);
         FinanceIGPrice.NTerms memory nbs = FinanceIGPrice.nTerms(dbs);

@@ -29,6 +29,7 @@ import {FinanceIGPrice} from "@project/lib/FinanceIGPrice.sol";
  */
 abstract contract TargetFunctions is BaseTargetFunctions, State {
     mapping(address => bool) internal _pendingWithdraw;
+    mapping(bytes32 => uint256) public calls;
 
     Amount totalAmountBought; // intra epoch
 
@@ -37,10 +38,15 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _initializeProperties();
     }
 
+    modifier countCall(bytes32 key) {
+        calls[key]++;
+        _;
+    }
+
     //----------------------------------------------
     // VAULT
     //----------------------------------------------
-    function deposit(uint256 amount) public {
+    function deposit(uint256 amount) countCall("deposit") public {
         // precondition revert ExceedsMaxDeposit
         (, , , , uint256 totalDeposit, , , , ) = vault.vaultState();
         uint256 maxDeposit = vault.maxDeposit();
@@ -56,7 +62,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         console.log("** DEPOSIT", amount);
         hevm.prank(msg.sender);
         try vault.deposit(amount, msg.sender, 0) {} catch (bytes memory err) {
-            _shouldNotRevertUnless(err, _GENERAL_1);
+            if (!FLAG_SLIPPAGE) {
+                _shouldNotRevertUnless(err, _GENERAL_1);
+            }
         }
 
         _depositInfo.push(DepositInfo(msg.sender, amount, ig.getEpoch().current));
@@ -66,7 +74,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         VaultUtils.debugState(vault);
     }
 
-    function redeem(uint256 index) public {
+    function redeem(uint256 index) countCall("redeem") public {
         precondition(_depositInfo.length > 0);
         index = _between(index, 0, _depositInfo.length - 1);
         precondition(block.timestamp < ig.getEpoch().current); // EpochFinished()
@@ -78,13 +86,15 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         console.log("** REDEEM", heldByVault);
         hevm.prank(depInfo.user);
         try vault.redeem(heldByVault) {} catch (bytes memory err) {
-            _shouldNotRevertUnless(err, _GENERAL_1);
+            if (!FLAG_SLIPPAGE) {
+                _shouldNotRevertUnless(err, _GENERAL_1);
+            }
         }
 
         eq(vault.balanceOf(depInfo.user), heldByUser + heldByVault, "");
     }
 
-    function initiateWithdraw(uint256 index) public {
+    function initiateWithdraw(uint256 index) countCall("initiateWithdraw") public {
         precondition(_depositInfo.length > 0);
         index = _between(index, 0, _depositInfo.length - 1);
         precondition(block.timestamp < ig.getEpoch().current); // EpochFinished()
@@ -103,7 +113,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         hevm.prank(depInfo.user);
         try vault.initiateWithdraw(sharesToWithdraw) {} catch (bytes memory err) {
-            _shouldNotRevertUnless(err, _GENERAL_1);
+            if (!FLAG_SLIPPAGE) {
+                _shouldNotRevertUnless(err, _GENERAL_1);
+            }
         }
 
         _pendingWithdraw[depInfo.user] = true;
@@ -112,7 +124,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         VaultUtils.debugState(vault);
     }
 
-    function completeWithdraw(uint256 index) public {
+    function completeWithdraw(uint256 index) countCall("completeWithdraw") public {
         precondition(withdrawals.length > 0);
         index = _between(index, 0, withdrawals.length - 1);
 
@@ -127,7 +139,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         console.log("** WITHDRAW", expectedAmountToWithdraw);
         hevm.prank(withdrawInfo.user);
         try vault.completeWithdraw() {} catch (bytes memory err) {
-            _shouldNotRevertUnless(err, _GENERAL_1);
+            if (!FLAG_SLIPPAGE) {
+                _shouldNotRevertUnless(err, _GENERAL_1);
+            }
         }
 
         eq(baseToken.balanceOf(withdrawInfo.user), initialUserBalance + expectedAmountToWithdraw, "");
@@ -139,7 +153,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     // USER OPs.
     //----------------------------------------------
 
-    function buyBull(uint256 input) public {
+    function buyBull(uint256 input) countCall("buyBull") public {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_BULL, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
@@ -161,11 +175,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             _initialFinanceParameters
         );
 
-        lte(premium, premiumCallK, _IG_05_1.desc);
-        gte(premium, premiumCallKb, _IG_05_2.desc);
+        if (!FLAG_SLIPPAGE) {
+            lte(premium, premiumCallK, _IG_05_1.desc);
+            gte(premium, premiumCallKb, _IG_05_2.desc);
+        }
     }
 
-    function buyBear(uint256 input) public {
+    function buyBear(uint256 input) countCall("buyBear") public {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_BEAR, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
@@ -188,11 +204,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         );
 
         lte(premium, amount_.down, _IG_06.desc);
-        lte(premium, premiumPutK, _IG_07_1.desc);
-        gte(premium, premiumPutKa, _IG_07_2.desc);
+        if (!FLAG_SLIPPAGE) {
+            lte(premium, premiumPutK, _IG_07_1.desc);
+            gte(premium, premiumPutKa, _IG_07_2.desc);
+        }
     }
 
-    function buySmilee(uint256 input) public {
+    function buySmilee(uint256 input) countCall("buySmilee") public {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_SMILEE, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
@@ -214,11 +232,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             _initialFinanceParameters
         );
 
-        lte(premium, premiumStraddleK, _IG_08_1.desc);
-        gte(premium, premiumStrangleKaKb, _IG_08_2.desc);
+        if (!FLAG_SLIPPAGE) {
+            lte(premium, premiumStraddleK, _IG_08_1.desc);
+            gte(premium, premiumStrangleKaKb, _IG_08_2.desc);
+        }
     }
 
-    function sellBull(uint256 index) public {
+    function sellBull(uint256 index) countCall("sellBull") public {
         precondition(bullTrades.length > 0);
         index = _between(index, 0, bullTrades.length - 1);
         BuyInfo storage buyInfo_ = bullTrades[index];
@@ -231,7 +251,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _popTrades(index, buyInfo_);
     }
 
-    function sellBear(uint256 index) public {
+    function sellBear(uint256 index) countCall("sellBear") public {
         precondition(bearTrades.length > 0);
         index = _between(index, 0, bearTrades.length - 1);
         BuyInfo storage buyInfo_ = bearTrades[index];
@@ -245,7 +265,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _popTrades(index, buyInfo_);
     }
 
-    function sellSmilee(uint256 index) public {
+    function sellSmilee(uint256 index) countCall("sellSmilee") public {
         precondition(smileeTrades.length > 0);
         index = _between(index, 0, smileeTrades.length - 1);
         BuyInfo storage buyInfo_ = smileeTrades[index];
@@ -272,8 +292,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             return;
         } else if (perc < 10) {
             // 5% - Test invariant IG_24_3
-            emit Debug("_skipTime()");
-            _skipTime(input);
+            if (!FLAG_SLIPPAGE) {
+                emit Debug("_skipTime()");
+                _skipTime(input);
+            }
         } else if (perc < 30) {
             // 20% - RollEpoch
             emit Debug("_rollEpoch()");
@@ -285,7 +307,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
     }
 
-    function _rollEpoch() internal {
+    function _rollEpoch() countCall("rollEpoch") internal {
         console.log("** STATES PRE ROLLEPOCH");
         VaultUtils.debugState(vault);
         DVPUtils.debugState(ig);
@@ -306,6 +328,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
 
         console.log("************************ SHARE PRICE", vault.epochPricePerShare(ig.getEpoch().previous));
+        console.log("** STATES AFTER ROLLEPOCH");
+        VaultUtils.debugState(vault);
+        DVPUtils.debugState(ig);
 
         epochs.push(EpochInfo(currentEpoch, _endingStrike));
 
@@ -325,34 +350,34 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 uint256 epochPriceT1 = vault.epochPricePerShare(epochInfok1.epochTimestamp);
                 int256 payoffPerc = int256((epochPriceT1 * 1e18) / epochPriceT0) - 1e18;
 
-                uint256 vaultPayoff = TestOptionsFinanceHelper.vaultPayoff(
+                uint256 lpPayoff = TestOptionsFinanceHelper.lpPayoff(
                     ig.currentStrike(),
                     epochInfok1.epochStrike,
                     _endingFinanceParameters.kA,
                     _endingFinanceParameters.kB,
                     _endingFinanceParameters.theta
                 );
-                int256 vaultPnL = int256(vaultPayoff) - 1e18;
+                int256 vaultPnL = int256(lpPayoff) - 1e18;
 
-                t(payoffPerc >= vaultPnL, _VAULT_01.desc);
+                if (!FLAG_SLIPPAGE) {
+                    t(payoffPerc >= vaultPnL, _VAULT_01.desc);
+                }
             }
         }
 
         // +1 error margin see test_22
-        gte(
-            EchidnaVaultUtils.getAssetsValue(vault, ap) + 1,
-            _initialVaultState.liquidity.pendingPayoffs +
-                _initialVaultState.liquidity.pendingWithdrawals +
-                _initialVaultState.liquidity.pendingDeposits +
-                ((_initialVaultTotalSupply - _initialVaultState.withdrawals.heldShares) *
-                    vault.epochPricePerShare(ig.getEpoch().previous)) /
-                10 ** BASE_TOKEN_DECIMALS,
-            _VAULT_03.desc
-        );
-
-        console.log("** STATES AFTER ROLLEPOCH");
-        VaultUtils.debugState(vault);
-        DVPUtils.debugState(ig);
+        if (!FLAG_SLIPPAGE) {
+            gte(
+                EchidnaVaultUtils.getAssetsValue(vault, ap) + 1,
+                _initialVaultState.liquidity.pendingPayoffs +
+                    _initialVaultState.liquidity.pendingWithdrawals +
+                    _initialVaultState.liquidity.pendingDeposits +
+                    ((_initialVaultTotalSupply - _initialVaultState.withdrawals.heldShares) *
+                        vault.epochPricePerShare(ig.getEpoch().previous)) /
+                    10 ** BASE_TOKEN_DECIMALS,
+                _VAULT_03.desc
+            );
+        }
     }
 
     function _getTokenPrice(address tokenAddress) internal view returns (uint256 tokenPrice) {
@@ -360,7 +385,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         tokenPrice = apPriceOracle.getPrice(tokenAddress, vault.baseToken());
     }
 
-    function _setTokenPrice(uint256 price) internal {
+    function _setTokenPrice(uint256 price) countCall("setTokenPrice") internal {
         if (TOKEN_PRICE_CAN_CHANGE) {
             TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
             address sideToken = vault.sideToken();
@@ -372,7 +397,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
     }
 
-    function _skipTime(uint256 input) internal {
+    function _skipTime(uint256 input) countCall("skipTime") internal {
         precondition(ig.getEpoch().current - block.timestamp > MIN_TIME_WARP);
         console.log("** FORCE SKIP TIME");
 
@@ -439,14 +464,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             block.timestamp - (ig.getEpoch().current - ig.getEpoch().frequency)
         );
 
-        uint256 currentStrike = ig.currentStrike();
         uint256 buyTokenPrice = _getTokenPrice(vault.sideToken());
 
         _buyAssertion(buyTokenPrice);
 
-        (uint256 expectedPremium, uint256 fee) = ig.premium(currentStrike, amount.up, amount.down);
+        (uint256 expectedPremium, uint256 fee) = ig.premium(ig.currentStrike(), amount.up, amount.down);
         precondition(expectedPremium > 100); // Slippage has no influence for value <= 100
-        uint256 sigma = ig.getPostTradeVolatility(currentStrike, amount, true);
+        uint256 sigma = ig.getPostTradeVolatility(ig.currentStrike(), amount, true);
         uint256 maxPremium = expectedPremium + (ACCEPTED_SLIPPAGE * expectedPremium) / 10 ** BASE_TOKEN_DECIMALS;
         {
             (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(EPOCH_FREQUENCY);
@@ -460,6 +484,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         TokenUtils.provideApprovedTokens(admin, address(baseToken), msg.sender, address(ig), maxPremium, _convertVm());
         uint256 initialUserBalance = baseToken.balanceOf(msg.sender);
+
+        if (!FLAG_SLIPPAGE) {
+            (uint256 preTradeRY, uint256 preTradePremium, uint256 uPreTrade) = _getTradeRY(buyType, ig.currentStrike(), 1, 1);
+            ryInfo_VAULT_2_1 = RYInfo(preTradeRY, preTradePremium, uPreTrade);
+        }
 
         uint256 premium;
 
@@ -476,6 +505,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         VaultUtils.debugState(vault);
 
+        if (!FLAG_SLIPPAGE) {
+            uint256 postTradeRY = _getPostTradeRY(buyType, ig.currentStrike(), ryInfo_VAULT_2_1, 1, 1);
+            t(postTradeRY - ryInfo_VAULT_2_1.tradeRY >= 0, _VAULT_02.desc);
+        }
+
         totalAmountBought.up += amount.up;
         totalAmountBought.down += amount.down;
 
@@ -483,16 +517,15 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         lte(premium, maxPremium, _IG_11.desc);
         gte(premium / 10 ** BASE_TOKEN_DECIMALS, expectedPremium / 10 ** BASE_TOKEN_DECIMALS, _IG_03_3.desc); // see test_17
 
-        uint256 utilizationRate = ig.getUtilizationRate();
         BuyInfo memory buyInfo = BuyInfo(
             msg.sender,
             ig.getEpoch().current,
             epochs.length,
             amount.up,
             amount.down,
-            currentStrike,
+            ig.currentStrike(),
             premium,
-            utilizationRate,
+            ig.getUtilizationRate(),
             buyTokenPrice,
             expectedPremium,
             buyType,
@@ -547,6 +580,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         _checkFee(fee, _SELL);
         uint256 payoff;
+
+        if (!FLAG_SLIPPAGE) {
+            (uint256 preTradeRY, uint256 preTradePremium, uint256 uPreTrade) = _getTradeRY(sellType, ig.currentStrike(), 1, 1);
+            ryInfo_VAULT_2_1 = RYInfo(preTradeRY, preTradePremium, uPreTrade);
+        }
+
         hevm.prank(buyInfo_.recipient);
         try
             ig.burn(
@@ -564,6 +603,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             if (!FLAG_SLIPPAGE) {
                 _shouldNotRevertUnless(err, _GENERAL_6);
             }
+        }
+
+        if (!FLAG_SLIPPAGE) {
+            uint256 postTradeRY = _getPostTradeRY(sellType, buyInfo_.strike, ryInfo_VAULT_2_1, 1, 1);
+            t(postTradeRY - ryInfo_VAULT_2_1.tradeRY >= 0, _VAULT_02.desc);
         }
 
         if (totalAmountBought.up > 0) {
@@ -596,6 +640,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 _getRiskFreeRate(address(baseToken)),
                 BASE_TOKEN_DECIMALS
             );
+    }
+
+    function _getExpiryPayoff(uint256 price) internal view returns (uint256, uint256) {
+        FinanceParameters memory financeParameters = TestOptionsFinanceHelper.getFinanceParameters(ig);
+        return FinanceIG.getPayoffPercentages(financeParameters, price);
     }
 
     function _getIVMaxMin(uint256 duration) internal view returns (uint256, uint256) {
@@ -652,11 +701,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             uint256 ert = FinanceIGPrice._ert(buyRiskFreeRate, buyTau);
             uint256 discountedPayoff = ((payoff * ert) * 999) / (1e18 * 1000); // discount + approx
 
-            if (sellType == _BEAR && sellTokenPrice >= buyTokenPrice && (isEpochRolled || sellUtilizationRate <= buyUtilizationRate)) {
-                t(!(discountedPayoff > premium), _IG_04_2.desc);
-            }
-            if (sellType == _SMILEE && sellTokenPrice == buyTokenPrice && (isEpochRolled || sellUtilizationRate <= buyUtilizationRate)) {
-                t(!(discountedPayoff > premium), _IG_04_2.desc);
+            if (!FLAG_SLIPPAGE) {
+                if (sellType == _BEAR && sellTokenPrice >= buyTokenPrice && (isEpochRolled || sellUtilizationRate <= buyUtilizationRate)) {
+                    t(!(discountedPayoff > premium), _IG_04_2.desc);
+                }
+                if (sellType == _SMILEE && sellTokenPrice == buyTokenPrice && (isEpochRolled || sellUtilizationRate <= buyUtilizationRate)) {
+                    t(!(discountedPayoff > premium), _IG_04_2.desc);
+                }
             }
         }
     }
@@ -686,39 +737,41 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     }
 
     function _buyAssertion(uint256 buyTokenPrice) internal {
-        // This invariant are valid only at the same istant of time (or very close)
-        if (lastBuy.epoch == ig.getEpoch().current && lastBuy.timestamp == block.timestamp) {
-            (uint256 invariantPremium, ) = ig.premium(lastBuy.strike, lastBuy.amountUp, lastBuy.amountDown);
-            Amount memory amount = Amount(lastBuy.amountUp, lastBuy.amountDown);
-            uint256 currentSigma = ig.getPostTradeVolatility(
-                lastBuy.strike, //TestOptionsFinanceHelper.getFinanceParameters(ig).currentStrike,
-                amount,
-                true
-            );
+        if (!FLAG_SLIPPAGE) {
+            // This invariant are valid only at the same istant of time (or very close)
+            if (lastBuy.epoch == ig.getEpoch().current && lastBuy.timestamp == block.timestamp) {
+                (uint256 invariantPremium, ) = ig.premium(lastBuy.strike, lastBuy.amountUp, lastBuy.amountDown);
+                Amount memory amount = Amount(lastBuy.amountUp, lastBuy.amountDown);
+                uint256 currentSigma = ig.getPostTradeVolatility(
+                    lastBuy.strike, //TestOptionsFinanceHelper.getFinanceParameters(ig).currentStrike,
+                    amount,
+                    true
+                );
 
-            if (currentSigma == lastBuy.sigma) {
-                // price grow bull premium grow, bear premium decrease
-                if (buyTokenPrice > lastBuy.buyTokenPrice) {
-                    if (lastBuy.buyType == _BULL) {
-                        gte(invariantPremium, lastBuy.expectedPremium, _IG_24_1.desc);
-                    } else if (lastBuy.buyType == _BEAR) {
-                        lte(invariantPremium, lastBuy.expectedPremium, _IG_24_1.desc);
-                    }
-                } else if (buyTokenPrice < lastBuy.buyTokenPrice) {
-                    if (lastBuy.buyType == _BULL) {
-                        lte(invariantPremium, lastBuy.expectedPremium, _IG_24_1.desc);
-                    } else if (lastBuy.buyType == _BEAR) {
-                        gte(invariantPremium, lastBuy.expectedPremium, _IG_24_1.desc);
+                if (currentSigma == lastBuy.sigma) {
+                    // price grow bull premium grow, bear premium decrease
+                    if (buyTokenPrice > lastBuy.buyTokenPrice) {
+                        if (lastBuy.buyType == _BULL) {
+                            gte(invariantPremium, lastBuy.expectedPremium, _IG_24_1.desc);
+                        } else if (lastBuy.buyType == _BEAR) {
+                            lte(invariantPremium, lastBuy.expectedPremium, _IG_24_1.desc);
+                        }
+                    } else if (buyTokenPrice < lastBuy.buyTokenPrice) {
+                        if (lastBuy.buyType == _BULL) {
+                            lte(invariantPremium, lastBuy.expectedPremium, _IG_24_1.desc);
+                        } else if (lastBuy.buyType == _BEAR) {
+                            gte(invariantPremium, lastBuy.expectedPremium, _IG_24_1.desc);
+                        }
                     }
                 }
-            }
 
-            // volatility grow, premium grow
-            if (buyTokenPrice == lastBuy.buyTokenPrice) {
-                if (currentSigma > lastBuy.sigma) {
-                    gte(invariantPremium, lastBuy.expectedPremium, _IG_24_2.desc);
-                } else {
-                    lte(invariantPremium, lastBuy.expectedPremium, _IG_24_2.desc);
+                // volatility grow, premium grow
+                if (buyTokenPrice == lastBuy.buyTokenPrice) {
+                    if (currentSigma > lastBuy.sigma) {
+                        gte(invariantPremium, lastBuy.expectedPremium, _IG_24_2.desc);
+                    } else {
+                        lte(invariantPremium, lastBuy.expectedPremium, _IG_24_2.desc);
+                    }
                 }
             }
         }
@@ -748,23 +801,25 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 buyInfo_.tau
             );
 
-            if (sellType == _BULL) {
-                if (sellTokenPrice > buyInfo_.strike) {
-                    t(payoff > 0, _IG_12.desc);
-                } else {
-                    t(payoff == 0, _IG_12.desc);
-                }
-            } else if (sellType == _BEAR) {
-                if (sellTokenPrice < buyInfo_.strike) {
-                    t(payoff > 0, _IG_13.desc);
-                } else {
-                    t(payoff == 0, _IG_13.desc);
-                }
-            } else if (sellType == _SMILEE) {
-                if (sellTokenPrice != buyInfo_.strike) {
-                    t(payoff > 0, _IG_27.desc);
-                } else {
-                    t(payoff == 0, _IG_27.desc);
+            if (!FLAG_SLIPPAGE) {
+                if (sellType == _BULL) {
+                    if (sellTokenPrice > buyInfo_.strike) {
+                        t(payoff > 0, _IG_12.desc);
+                    } else {
+                        t(payoff == 0, _IG_12.desc);
+                    }
+                } else if (sellType == _BEAR) {
+                    if (sellTokenPrice < buyInfo_.strike) {
+                        t(payoff > 0, _IG_13.desc);
+                    } else {
+                        t(payoff == 0, _IG_13.desc);
+                    }
+                } else if (sellType == _SMILEE) {
+                        if (sellTokenPrice != buyInfo_.strike) {
+                            t(payoff > 0, _IG_27.desc);
+                        } else {
+                            t(payoff == 0, _IG_27.desc);
+                        }
                 }
             }
         } else {
@@ -792,8 +847,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             eq(_initialVaultState.liquidity.lockedInitially, _endingVaultState.liquidity.lockedInitially, _IG_15.desc);
             eq(_initialStrike, _endingStrike, _IG_16.desc);
             t(_compareFinanceParameters(_initialFinanceParameters, _endingFinanceParameters), _IG_17.desc);
-            // TODO t(_endingFinanceParameters.limSup > 0, _IG_22.desc);
-            // TODO t(_endingFinanceParameters.limInf < 0, _IG_23.desc);
             lte(
                 (totalAmountBought.up + totalAmountBought.down),
                 _initialVaultState.liquidity.lockedInitially,
@@ -837,34 +890,40 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                     priceParams.teta = _endingFinanceParameters.theta;
                 }
 
-                gte(
-                    EchidnaVaultUtils.getAssetsValue(vault, ap),
-                    _endingVaultState.liquidity.pendingPayoffs +
-                        _endingVaultState.liquidity.pendingWithdrawals +
-                        _endingVaultState.liquidity.pendingDeposits +
-                        (TestOptionsFinanceHelper.lpValue(priceParams) *
-                            (_endingVaultState.liquidity.lockedInitially / 1e18)) +
-                        totalExpectedPremium,
-                    _VAULT_20.desc
-                );
+                if (!FLAG_SLIPPAGE) {
+                    gte(
+                        EchidnaVaultUtils.getAssetsValue(vault, ap),
+                        _endingVaultState.liquidity.pendingPayoffs +
+                            _endingVaultState.liquidity.pendingWithdrawals +
+                            _endingVaultState.liquidity.pendingDeposits +
+                            (TestOptionsFinanceHelper.lpPrice(priceParams) *
+                                (_endingVaultState.liquidity.lockedInitially / 1e18)) +
+                            totalExpectedPremium,
+                        _VAULT_20.desc
+                    );
+                }
             }
         }
     }
 
     function _rollepochAssertionAfter() internal {
         if (_endingVaultState.liquidity.lockedInitially > 0) {
-            gte(
-                IERC20(vault.baseToken()).balanceOf(address(vault)),
-                _initialVaultState.liquidity.pendingWithdrawals +
-                    _initialVaultState.liquidity.pendingPayoffs +
-                    _initialVaultState.liquidity.pendingDeposits,
-                _VAULT_04.desc
-            );
+            if (!FLAG_SLIPPAGE) {
+                gte(
+                    IERC20(vault.baseToken()).balanceOf(address(vault)),
+                    _initialVaultState.liquidity.pendingWithdrawals +
+                        _initialVaultState.liquidity.pendingPayoffs +
+                        _initialVaultState.liquidity.pendingDeposits,
+                    _VAULT_04.desc
+                );
+            }
 
             (uint256 vaultBaseTokens, ) = vault.balances();
             (uint256 minStv, uint256 maxStv) = _ewSideTokenMinMax();
-            gte(vaultBaseTokens, minStv, _VAULT_06.desc);
-            lte(vaultBaseTokens, maxStv, _VAULT_06.desc);
+            if (!FLAG_SLIPPAGE) {
+                gte(vaultBaseTokens, minStv, _VAULT_06.desc);
+                lte(vaultBaseTokens, maxStv, _VAULT_06.desc);
+            }
 
             uint256 expectedPendingWithdrawals = (_endingVaultState.withdrawals.newHeldShares *
                 vault.epochPricePerShare(ig.getEpoch().previous)) / (10 ** BASE_TOKEN_DECIMALS);
@@ -907,5 +966,38 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         // 18 DECIMALS -> 1.00...0100 (15 zeri)
         uint256 res = (10 ** BASE_TOKEN_DECIMALS + (10 ** (BASE_TOKEN_DECIMALS - 1 - (BASE_TOKEN_DECIMALS * 5) / 6)));
         return res;
+    }
+
+    function _getTradeRY(uint8 tradeType, uint256 strike, uint256 amountUp, uint256 amountDown) internal view returns (uint256, uint256, uint256) {
+        // RY = notional - (premium_pre * V0 / 2) * u_pre
+        (uint256 preTradePremium, uint256 preTradeFee, uint256 total) = _getRYPremium(tradeType, strike, amountUp, amountDown);
+
+        preTradePremium = preTradePremium - preTradeFee;
+        uint256 uPreTrade = ig.getUtilizationRate();
+        uint256 tradeRY = vault.notional() - ((preTradePremium * uPreTrade * (vault.v0() / total)) / 1e18);
+        return (tradeRY, preTradePremium, uPreTrade);
+    }
+
+    function _getPostTradeRY(uint8 tradeType, uint256 strike, RYInfo memory ryInfo, uint256 amountUp, uint256 amountDown) internal view returns (uint256 tradeRY) {
+        // RY = notional - (premium_pre * V0 / 2) * u_pre - (premium_post * V0 / 2) * (u_post - u_pre)
+        (uint256 postTradePremium, uint256 postTradeFee, uint256 total) = _getRYPremium(tradeType, strike, amountUp, amountDown);
+        uint256 a = (ryInfo.tradePremium * ryInfo.uTrade * (vault.v0() / total)) / 1e18;
+        uint256 b = ((postTradePremium - postTradeFee) * (ig.getUtilizationRate() - ryInfo.uTrade) * (vault.v0() / (2 * 10 ** BASE_TOKEN_DECIMALS))) / 1e18;
+        tradeRY = vault.notional() - a - b;
+    }
+
+    function _getRYPremium(uint8 tradeType, uint256 strike, uint256 amountUp, uint256 amountDown) internal view returns(uint256 tradePremium, uint256 tradeFee, uint256 total) {
+        if (tradeType == _BULL ) {
+            (tradePremium, tradeFee) = ig.premium(strike, amountUp * 10 ** BASE_TOKEN_DECIMALS, 0);
+            total = 1 * 10 ** BASE_TOKEN_DECIMALS;
+        }
+        else if (tradeType == _BEAR ) {
+            (tradePremium, tradeFee) = ig.premium(strike, 0, amountDown * 10 ** BASE_TOKEN_DECIMALS);
+            total = 1 * 10 ** BASE_TOKEN_DECIMALS;
+        }
+        else if (tradeType == _SMILEE ) {
+            (tradePremium, tradeFee) = ig.premium(strike, amountUp * 10 ** BASE_TOKEN_DECIMALS, amountDown * 10 ** BASE_TOKEN_DECIMALS);
+            total = 2 * 10 ** BASE_TOKEN_DECIMALS;
+        }
     }
 }

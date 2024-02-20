@@ -61,8 +61,8 @@ library AddressProviderUtils {
             dexAddress = address(exchange);
             if (dexHasSlippage) {
                 vm.prank(admin);
-                // set random slippage between [-1, 3] %
-                exchange.setSlippage(0, -0.01e18, 0.03e18);
+                // set random slippage between [0, 2] %, always against the swap (keep in sync with SwapAdapterRouter accepted slippage)
+                exchange.setSlippage(0, 0, 0.02e18);
             }
             vm.prank(admin);
             addressProvider.setExchangeAdapter(dexAddress);
