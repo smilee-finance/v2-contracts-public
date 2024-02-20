@@ -484,6 +484,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             ryInfo_VAULT_2_1 = RYInfo(preTradeRY, preTradePremium, uPreTrade);
         }
 
+        _vault25(buyType);
+
         uint256 premium;
 
         hevm.prank(msg.sender);
@@ -503,6 +505,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             uint256 postTradeRY = _getPostTradeRY(buyType, ig.currentStrike(), ryInfo_VAULT_2_1, 1, 1);
             t(postTradeRY - ryInfo_VAULT_2_1.tradeRY >= 0, _VAULT_02.desc);
         }
+
+        _getRYInfoVault25(buyType); // VAULT_25
 
         totalAmountBought.up += amount.up;
         totalAmountBought.down += amount.down;
@@ -575,6 +579,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
 
         _checkFee(fee, _SELL);
+        _vault25(sellType);
+
         uint256 payoff;
 
         if (!FLAG_SLIPPAGE) {
@@ -605,6 +611,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             // uint256 postTradeRY = _getPostTradeRY(sellType, buyInfo_.strike, ryInfo_VAULT_2_1, 1, 1);
             // t(postTradeRY - ryInfo_VAULT_2_1.tradeRY >= 0, _VAULT_02.desc);
         }
+
+        _getRYInfoVault25(sellType); // VAULT_25
+
 
         if (totalAmountBought.up > 0) {
             totalAmountBought.up -= buyInfo_.amountUp;
@@ -998,5 +1007,50 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             (tradePremium, tradeFee) = ig.premium(strike, amountUp * 10 ** BASE_TOKEN_DECIMALS, amountDown * 10 ** BASE_TOKEN_DECIMALS);
             total = 2 * 10 ** BASE_TOKEN_DECIMALS;
         }
+    }
+
+    function _getRYInfoVault25(uint8 tradeType) internal {
+        // RY(t1)
+        (uint256 bearNotional, uint256 bullNotional, uint256 bearAvailNotional, uint256 bullAvailNotional) = ig.notional();
+        uint256 amountUp = bullNotional - bullAvailNotional;
+        uint256 amountDown = bearNotional - bearAvailNotional;
+
+        (uint256 tradeRY, uint256 tradePremium, uint256 uTrade) = _getTradeRY(tradeType, ig.currentStrike(), amountUp, amountDown);
+        RYInfo memory ryInfo = RYInfo(tradeRY, tradePremium, uTrade);
+        uint256 payoff = _getTheoreticalPayoff(1, 1);
+
+        t1Vault25 = RYInfoPostTrade(ryInfo, payoff, ig.getEpoch().current);
+    }
+
+    function _vault25(uint8 tradeType) internal {
+        if (t1Vault25.epoch == ig.getEpoch().current) {
+            (uint256 bearNotional, uint256 bullNotional, uint256 bearAvailNotional, uint256 bullAvailNotional) = ig.notional();
+            uint256 amountUp = bullNotional - bullAvailNotional;
+            uint256 amountDown = bearNotional - bearAvailNotional;
+
+            (uint256 ryT2, ,) = _getTradeRY(tradeType, ig.currentStrike(), amountUp, amountDown);
+            uint256 ryT1 = t1Vault25.ryInfo.tradeRY;
+
+            int256 vaultPnL = int256(ryT2) - int256(ryT1);
+
+            int256 payoffT1 = int256(t1Vault25.payoff);
+            int256 payoffT2 = int256(_getTheoreticalPayoff(1, 1));
+
+            int256 ilPnL = int256(payoffT2) - int256(payoffT1);
+            console.log("vaultPnL");
+            console.logInt(vaultPnL);
+            console.log("ilPnL");
+            console.logInt(ilPnL);
+            t(vaultPnL >= ilPnL, _VAULT_25.desc);
+        }
+        // t(true, _VAULT_25.desc);
+    }
+
+    function _getTheoreticalPayoff(uint256 amountUp, uint256 amountDown) internal view returns (uint256 payoff) {
+        uint256 price = _getTokenPrice(address(vault.sideToken()));
+        (uint256 up, uint256 down) = _getExpiryPayoff(price);
+        uint256 payOffUp = up * amountUp * 2;
+        uint256 payOffDown = down * amountDown * 2;
+        payoff = (payOffUp + payOffDown) / 1e18;
     }
 }

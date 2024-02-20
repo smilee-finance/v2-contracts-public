@@ -13,6 +13,7 @@ abstract contract State is Properties {
     DepositInfo[] internal _depositInfo;
 
     RYInfo internal ryInfo_VAULT_2_1;
+    RYInfoPostTrade internal t1Vault25;
 
     BuyInfo internal lastBuy;
     int256 firstDepositEpoch = -1;

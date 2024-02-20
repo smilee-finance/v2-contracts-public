@@ -57,6 +57,12 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         uint256 uTrade;
     }
 
+    struct RYInfoPostTrade {
+        RYInfo ryInfo;
+        uint256 epoch;
+        uint256 payoff;
+    }
+
     uint8 internal constant _BULL = 0;
     uint8 internal constant _BEAR = 1;
     uint8 internal constant _SMILEE = 2;
