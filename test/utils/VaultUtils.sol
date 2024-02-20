@@ -4,17 +4,16 @@ pragma solidity ^0.8.15;
 import {Vm} from "forge-std/Vm.sol";
 import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {VaultLib} from "../../src/lib/VaultLib.sol";
-import {AddressProvider} from "../../src/AddressProvider.sol";
-import {MarketOracle} from "../../src/MarketOracle.sol";
-import {IG} from "../../src/IG.sol";
-import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
-// import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+import {Epoch} from "@project/lib/EpochController.sol";
+import {VaultLib} from "@project/lib/VaultLib.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {MarketOracle} from "@project/MarketOracle.sol";
+import {Vault} from "@project/Vault.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
+// import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {MockedRegistry} from "../mock/MockedRegistry.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
 import {TokenUtils} from "./TokenUtils.sol";
-import {FinanceParameters} from "../../src/lib/FinanceIG.sol";
-import {IVault} from "../../src/interfaces/IVault.sol";
 
 library VaultUtils {
     function createVault(uint256 epochFrequency, AddressProvider ap, address admin, Vm vm) public returns (address) {
@@ -73,48 +72,20 @@ library VaultUtils {
     }
 
     /// @dev Builds and returns a `VaultLib.VaultState` with info on current vault state
-    function vaultState(IVault vault) internal view returns (VaultLib.VaultState memory) {
+    function getState(Vault vault) public view returns (VaultLib.VaultState memory) {
         (
-            uint256 lockedInitially,
-            uint256 pendingDepositAmount,
-            uint256 totalWithdrawAmount,
-            uint256 pendingPayoffs,
-            uint256 totalDeposit,
-            uint256 queuedWithdrawShares,
-            uint256 currentQueuedWithdrawShares,
+            VaultLib.VaultLiquidity memory liquidity,
+            VaultLib.VaultWithdrawals memory withdrawals,
             bool dead,
             bool killed
-        ) = vault.vaultState();
-        return
-            VaultLib.VaultState(
-                VaultLib.VaultLiquidity(
-                    lockedInitially,
-                    pendingDepositAmount,
-                    totalWithdrawAmount,
-                    pendingPayoffs,
-                    0,
-                    totalDeposit
-                ),
-                VaultLib.VaultWithdrawals(queuedWithdrawShares, currentQueuedWithdrawShares),
-                dead,
-                killed
-            );
-    }
+        ) = vault.state();
 
-    function debugState(IVault vault) public view {
-        VaultLib.VaultState memory state = vaultState(vault);
-        uint256 baseBalance = IERC20(vault.baseToken()).balanceOf(address(vault));
-        uint256 sideBalance = IERC20(vault.sideToken()).balanceOf(address(vault));
-        console.log("VAULT STATE ---------- lockedInitially", state.liquidity.lockedInitially);
-        console.log("VAULT STATE ---------- pendingDeposits", state.liquidity.pendingDeposits);
-        console.log("VAULT STATE ---------- pendingWithdrawals", state.liquidity.pendingWithdrawals);
-        console.log("VAULT STATE ---------- pendingPayoffs", state.liquidity.pendingPayoffs);
-        console.log("VAULT STATE ---------- newPendingPayoffs", state.liquidity.newPendingPayoffs);
-        console.log("VAULT STATE ---------- totalDeposit", state.liquidity.totalDeposit);
-        console.log("VAULT STATE ---------- heldShares", state.withdrawals.heldShares);
-        console.log("VAULT STATE ---------- newHeldShares", state.withdrawals.newHeldShares);
-        console.log("VAULT STATE ---------- baseBalance", baseBalance);
-        console.log("VAULT STATE ---------- sideBalance", sideBalance);
+        return VaultLib.VaultState({
+            liquidity: liquidity,
+            withdrawals: withdrawals,
+            dead: dead,
+            killed: killed
+        });
     }
 
     /**
@@ -124,7 +95,7 @@ library VaultUtils {
         IERC20 baseToken = IERC20(vault.baseToken());
         uint256 balance = baseToken.balanceOf(address(vault));
         uint256 locked = vault.v0();
-        uint256 pendingWithdrawals = vaultState(vault).liquidity.pendingWithdrawals;
+        uint256 pendingWithdrawals = getState(vault).liquidity.pendingWithdrawals;
 
         return balance - locked - pendingWithdrawals;
     }
@@ -137,29 +108,25 @@ library VaultUtils {
         vault.deposit(amount, user, 0);
     }
 
-    function logState(MockedVault vault) public view {
-        VaultLib.VaultState memory state_ = VaultUtils.vaultState(vault);
-
-        console.log("current epoch", vault.currentEpoch());
+    function logState(Vault vault) public view {
+        Epoch memory vaultEpoch = vault.getEpoch();
+        console.log("VAULT STATE ---------- current epoch", vaultEpoch.current);
+        VaultLib.VaultState memory state = getState(vault);
+        console.log("VAULT STATE ---------- lockedInitially", state.liquidity.lockedInitially);
+        console.log("VAULT STATE ---------- pendingDeposits", state.liquidity.pendingDeposits);
+        console.log("VAULT STATE ---------- pendingWithdrawals", state.liquidity.pendingWithdrawals);
+        console.log("VAULT STATE ---------- pendingPayoffs", state.liquidity.pendingPayoffs);
+        console.log("VAULT STATE ---------- newPendingPayoffs", state.liquidity.newPendingPayoffs);
+        console.log("VAULT STATE ---------- totalDeposit", state.liquidity.totalDeposit);
+        console.log("VAULT STATE ---------- heldShares", state.withdrawals.heldShares);
+        console.log("VAULT STATE ---------- newHeldShares", state.withdrawals.newHeldShares);
         uint256 baseBalance = IERC20(vault.baseToken()).balanceOf(address(vault));
         uint256 sideBalance = IERC20(vault.sideToken()).balanceOf(address(vault));
-        console.log("baseToken balance", baseBalance);
-        console.log("sideToken balance", sideBalance);
-        console.log("dead", state_.dead);
-        console.log("lockedInitially", state_.liquidity.lockedInitially);
-        console.log("pendingDeposits", state_.liquidity.pendingDeposits);
-        console.log("pendingWithdrawals", state_.liquidity.pendingWithdrawals);
-        console.log("pendingPayoffs", state_.liquidity.pendingPayoffs);
-        console.log("heldShares", state_.withdrawals.heldShares);
-        console.log("newHeldShares", state_.withdrawals.newHeldShares);
-
-        // console.log("notional");
-        // console.log(vault.notional());
-
+        console.log("VAULT STATE ---------- baseBalance", baseBalance);
+        console.log("VAULT STATE ---------- sideBalance", sideBalance);
         (uint256 btAmount, uint256 stAmount) = vault.balances();
-        console.log("base token notional", btAmount);
-        console.log("side token notional", stAmount);
-        console.log("----------------------------------------");
+        console.log("VAULT STATE ---------- base token notional", btAmount);
+        console.log("VAULT STATE ---------- side token notional", stAmount);
     }
 
     /// @dev Function used to skip coverage on this file

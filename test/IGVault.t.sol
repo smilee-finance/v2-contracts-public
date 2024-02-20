@@ -213,7 +213,7 @@ contract IGVaultTest is Test {
         vm.prank(admin);
         ig.rollEpoch();
 
-        uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        uint256 initialLiquidity = VaultUtils.getState(vault).liquidity.lockedInitially;
         assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
 
         (uint256 premium, ) = _assurePremium(
@@ -233,7 +233,7 @@ contract IGVaultTest is Test {
             0
         );
 
-        initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        initialLiquidity = VaultUtils.getState(vault).liquidity.lockedInitially;
         // Mint without rolling epoch doesn't change the vaule of initialLiquidity
         assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
 
@@ -294,7 +294,7 @@ contract IGVaultTest is Test {
             vm.stopPrank();
         }
 
-        initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        initialLiquidity = VaultUtils.getState(vault).liquidity.lockedInitially;
         // Mint without rolling epoch doesn't change the vaule of initialLiquidity
         assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
 
@@ -334,7 +334,7 @@ contract IGVaultTest is Test {
         ig.rollEpoch();
 
         {
-            uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+            uint256 initialLiquidity = VaultUtils.getState(vault).liquidity.lockedInitially;
             assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
         }
 
@@ -387,7 +387,7 @@ contract IGVaultTest is Test {
         ig.rollEpoch();
 
         // {
-        //     uint256 initialLiquidity = VaultUtils.vaultState(vault).liquidity.lockedInitially;
+        //     uint256 initialLiquidity = VaultUtils.getState(vault).liquidity.lockedInitially;
         //     // Since the position have the same premium and payoff perc, the initialLiquidity state shouldn't change.
         //     assertApproxEqAbs(params.aliceAmount + params.bobAmount, initialLiquidity, 1e2);
         // }
@@ -413,7 +413,7 @@ contract IGVaultTest is Test {
         console.log("davidPayoff + davidFeePayoff", davidPayoff + davidFeePayoff);
         assertApproxEqAbs(params.davidAmount / 5, davidPayoff + davidFeePayoff, 1e2);
 
-        uint256 pendingPayoff = VaultUtils.vaultState(vault).liquidity.pendingPayoffs;
+        uint256 pendingPayoff = VaultUtils.getState(vault).liquidity.pendingPayoffs;
         assertApproxEqAbs((charliePayoff + charlieFeePayoff) + (davidPayoff + davidFeePayoff), pendingPayoff, 1e2);
 
         {
@@ -431,7 +431,7 @@ contract IGVaultTest is Test {
             );
         }
 
-        pendingPayoff = VaultUtils.vaultState(vault).liquidity.pendingPayoffs;
+        pendingPayoff = VaultUtils.getState(vault).liquidity.pendingPayoffs;
 
         assertApproxEqAbs(charliePayoff + charlieFeePayoff, pendingPayoff, 1e2);
 

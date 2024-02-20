@@ -13,6 +13,7 @@ import {Vault} from "@project/Vault.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "@project/testnet/TestnetSwapAdapter.sol";
+import {VaultUtils} from "../utils/VaultUtils.sol";
 
 contract VaultUserTest is Test {
     address admin;
@@ -115,9 +116,9 @@ contract VaultUserTest is Test {
         // check vault pre-conditions:
         assertEq(0, baseToken.balanceOf(address(vault)));
         assertEq(0, sideToken.balanceOf(address(vault)));
-        (, uint256 pendingDeposit, , , uint256 totalDeposit, , , , ) = vault.vaultState();
-        assertEq(0, pendingDeposit);
-        assertEq(0, totalDeposit);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(0, state.liquidity.pendingDeposits);
+        assertEq(0, state.liquidity.totalDeposit);
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = vault.balances();
         assertEq(0, baseTokenAmount);
         assertEq(0, sideTokenAmount);
@@ -159,9 +160,9 @@ contract VaultUserTest is Test {
         // check vault post-conditions:
         assertEq(amount, baseToken.balanceOf(address(vault)));
         assertEq(0, sideToken.balanceOf(address(vault)));
-        (, pendingDeposit, , , totalDeposit, , , , ) = vault.vaultState();
-        assertEq(amount, pendingDeposit);
-        assertEq(amount, totalDeposit);
+        state = VaultUtils.getState(vault);
+        assertEq(amount, state.liquidity.pendingDeposits);
+        assertEq(amount, state.liquidity.totalDeposit);
         (baseTokenAmount, sideTokenAmount) = vault.balances();
         assertEq(0, baseTokenAmount);
         assertEq(0, sideTokenAmount);
@@ -285,9 +286,9 @@ contract VaultUserTest is Test {
         uint256 expected_total_amount = alice_amount_1 + alice_amount_2 + bob_amount;
         assertEq(expected_total_amount, baseToken.balanceOf(address(vault)));
         assertEq(0, sideToken.balanceOf(address(vault)));
-        (, uint256 pendingDeposit, , , uint256 totalDeposit, , , , ) = vault.vaultState();
-        assertEq(expected_total_amount, pendingDeposit);
-        assertEq(expected_total_amount, totalDeposit);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(expected_total_amount, state.liquidity.pendingDeposits);
+        assertEq(expected_total_amount, state.liquidity.totalDeposit);
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = vault.balances();
         assertEq(0, baseTokenAmount);
         assertEq(0, sideTokenAmount);
@@ -397,9 +398,9 @@ contract VaultUserTest is Test {
         (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
         assertEq(0, userShares);
         assertEq(0, userUnredeemedShares);
-        (, , , , , uint256 heldShares, uint256 newHeldShares, , ) = vault.vaultState();
-        assertEq(0, heldShares);
-        assertEq(0, newHeldShares);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         // The shares are minted when the epoch is rolled
         vm.warp(vault.getEpoch().current + 1);
@@ -415,9 +416,9 @@ contract VaultUserTest is Test {
         (userShares, userUnredeemedShares) = vault.shareBalances(user);
         assertEq(0, userShares);
         assertEq(expectedShares, userUnredeemedShares);
-        (, , , , , heldShares, newHeldShares, , ) = vault.vaultState();
-        assertEq(0, heldShares);
-        assertEq(0, newHeldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         // Roll another epoch
         vm.warp(vault.getEpoch().current + 1);
@@ -429,9 +430,9 @@ contract VaultUserTest is Test {
         (userShares, userUnredeemedShares) = vault.shareBalances(user);
         assertEq(0, userShares);
         assertEq(expectedShares, userUnredeemedShares);
-        (, , , , , heldShares, newHeldShares, , ) = vault.vaultState();
-        assertEq(0, heldShares);
-        assertEq(0, newHeldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
     }
 
     /**
@@ -951,9 +952,9 @@ contract VaultUserTest is Test {
         assertEq(shares, vault.balanceOf(user));
         assertEq(0, vault.balanceOf(address(vault)));
 
-        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
-        assertEq(shares, totalDeposit);
-        assertEq(0, newHeldShares);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(shares, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(0, epoch);
@@ -973,9 +974,9 @@ contract VaultUserTest is Test {
         (, , , cumulativeAmount) = vault.depositReceipts(user);
         assertEq(0, cumulativeAmount);
 
-        (, , , , totalDeposit, , newHeldShares , , ) = vault.vaultState();
-        assertEq(0, totalDeposit);
-        assertEq(shares, newHeldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(0, state.liquidity.totalDeposit);
+        assertEq(shares, state.withdrawals.newHeldShares);
 
         (epoch, withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().current, epoch);
@@ -1091,9 +1092,9 @@ contract VaultUserTest is Test {
         assertEq(shares, vault.balanceOf(user));
         assertEq(totalShares - shares, vault.balanceOf(address(vault)));
 
-        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
-        assertEq(totalShares, totalDeposit);
-        assertEq(0, newHeldShares);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(totalShares, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(0, epoch);
@@ -1114,9 +1115,9 @@ contract VaultUserTest is Test {
         (, , , cumulativeAmount) = vault.depositReceipts(user);
         assertEq(totalShares - shares, cumulativeAmount);
 
-        (, , , , totalDeposit, , newHeldShares , , ) = vault.vaultState();
-        assertEq(totalShares - shares, totalDeposit);
-        assertEq(shares, newHeldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(totalShares - shares, state.liquidity.totalDeposit);
+        assertEq(shares, state.withdrawals.newHeldShares);
 
         (epoch, withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().current, epoch);
@@ -1159,9 +1160,9 @@ contract VaultUserTest is Test {
         (, , , uint256 cumulativeAmount) = vault.depositReceipts(user);
         assertEq(totalShares - firstWithdraw, cumulativeAmount);
 
-        (, , , , uint256 totalDeposit, , uint256 newHeldShares, , ) = vault.vaultState();
-        assertEq(totalShares - firstWithdraw, totalDeposit);
-        assertEq(firstWithdraw, newHeldShares);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(totalShares - firstWithdraw, state.liquidity.totalDeposit);
+        assertEq(firstWithdraw, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().current, epoch);
@@ -1178,9 +1179,9 @@ contract VaultUserTest is Test {
         (, , , cumulativeAmount) = vault.depositReceipts(user);
         assertEq(totalShares - firstWithdraw - secondWithdraw, cumulativeAmount);
 
-        (, , , , totalDeposit, , newHeldShares, , ) = vault.vaultState();
-        assertEq(totalShares - firstWithdraw - secondWithdraw, totalDeposit);
-        assertEq(firstWithdraw + secondWithdraw, newHeldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(totalShares - firstWithdraw - secondWithdraw, state.liquidity.totalDeposit);
+        assertEq(firstWithdraw + secondWithdraw, state.withdrawals.newHeldShares);
 
         (epoch, withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().current, epoch);
@@ -1254,9 +1255,9 @@ contract VaultUserTest is Test {
         assertEq(firstDeposit, vault.balanceOf(user));
         assertEq(0, vault.balanceOf(address(vault)));
 
-        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
-        assertEq(firstDeposit + secondDeposit, totalDeposit);
-        assertEq(0, newHeldShares);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(firstDeposit + secondDeposit, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(0, epoch);
@@ -1274,9 +1275,9 @@ contract VaultUserTest is Test {
         assertEq(0, vault.balanceOf(user));
         assertEq(firstDeposit, vault.balanceOf(address(vault)));
 
-        (, , , , totalDeposit, , newHeldShares , , ) = vault.vaultState();
-        assertEq(secondDeposit, totalDeposit);
-        assertEq(firstDeposit, newHeldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(secondDeposit, state.liquidity.totalDeposit);
+        assertEq(firstDeposit, state.withdrawals.newHeldShares);
 
         (epoch, withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().current, epoch);
@@ -1316,9 +1317,9 @@ contract VaultUserTest is Test {
         assertEq(shares, vault.balanceOf(user));
         assertEq(0, vault.balanceOf(address(vault)));
 
-        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
-        assertEq(shares, totalDeposit);
-        assertEq(0, newHeldShares);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(shares, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(0, epoch);
@@ -1391,12 +1392,12 @@ contract VaultUserTest is Test {
         assertEq(0, vault.balanceOf(user));
 
         assertEq(totalDeposit, vault.balanceOf(address(vault)));
-        (, , uint256 pendingWithdrawals, , uint256 totalVaultDeposit, uint256 heldShares, uint256 newHeldShares, , ) = vault.vaultState();
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
         uint256 expectedAmount = (sharesToWithdraw * sharePrice) / (10 ** baseToken.decimals());
-        assertEq(pendingWithdrawals, expectedAmount);
-        assertEq(other_user_deposit, totalVaultDeposit);
-        assertEq(sharesToWithdraw, heldShares);
-        assertEq(0, newHeldShares);
+        assertEq(expectedAmount, state.liquidity.pendingWithdrawals);
+        assertEq(other_user_deposit, state.liquidity.totalDeposit);
+        assertEq(sharesToWithdraw, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().previous, epoch);
@@ -1407,15 +1408,14 @@ contract VaultUserTest is Test {
         vm.prank(user);
         vault.completeWithdraw();
 
-        (, , , , , heldShares, , , ) = vault.vaultState();
-        assertEq(0, heldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(0, state.withdrawals.heldShares);
         assertEq(other_user_deposit, vault.balanceOf(address(vault)));
 
         (, withdrawalShares) = vault.withdrawals(user);
         assertEq(0, withdrawalShares);
 
-        (, , pendingWithdrawals, , , , , , ) = vault.vaultState();
-        assertEq(0, pendingWithdrawals);
+        assertEq(0, state.liquidity.pendingWithdrawals);
 
         assertEq(expectedAmount, baseToken.balanceOf(user));
     }
@@ -1467,12 +1467,12 @@ contract VaultUserTest is Test {
         assertEq(totalDeposit - sharesToWithdraw, vault.balanceOf(user));
 
         assertEq(sharesToWithdraw, vault.balanceOf(address(vault)));
-        (, , uint256 pendingWithdrawals, , uint256 totalVaultDeposit, uint256 heldShares, uint256 newHeldShares, , ) = vault.vaultState();
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
         uint256 expectedAmount = (sharesToWithdraw * sharePrice) / (10 ** baseToken.decimals());
-        assertEq(pendingWithdrawals, expectedAmount);
-        assertEq(totalDeposit - sharesToWithdraw, totalVaultDeposit);
-        assertEq(sharesToWithdraw, heldShares);
-        assertEq(0, newHeldShares);
+        assertEq(state.liquidity.pendingWithdrawals, expectedAmount);
+        assertEq(totalDeposit - sharesToWithdraw, state.liquidity.totalDeposit);
+        assertEq(sharesToWithdraw, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().previous, epoch);
@@ -1483,15 +1483,14 @@ contract VaultUserTest is Test {
         vm.prank(user);
         vault.completeWithdraw();
 
-        (, , , , , heldShares, , , ) = vault.vaultState();
-        assertEq(0, heldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(0, state.withdrawals.heldShares);
         assertEq(0, vault.balanceOf(address(vault)));
 
         (, withdrawalShares) = vault.withdrawals(user);
         assertEq(0, withdrawalShares);
 
-        (, , pendingWithdrawals, , , , , , ) = vault.vaultState();
-        assertEq(0, pendingWithdrawals);
+        assertEq(0, state.liquidity.pendingWithdrawals);
 
         (userShares, userUnredeemedShares) = vault.shareBalances(user);
         assertEq(totalDeposit - sharesToWithdraw, userShares);
@@ -1560,36 +1559,30 @@ contract VaultUserTest is Test {
 
         uint256 expectedAmount = (sharesToWithdraw * sharePrice) / (10 ** baseToken.decimals());
         // NOTE: avoid stack too deep
-        {
-            assertEq(sharesToWithdraw, vault.balanceOf(address(vault)));
-            (, , uint256 pendingWithdrawals, , uint256 totalVaultDeposit, uint256 heldShares, uint256 newHeldShares, , ) = vault.vaultState();
-            assertEq(pendingWithdrawals, expectedAmount);
-            assertEq(totalDeposit - sharesToWithdraw, totalVaultDeposit);
-            assertEq(sharesToWithdraw, heldShares);
-            assertEq(0, newHeldShares);
+        assertEq(sharesToWithdraw, vault.balanceOf(address(vault)));
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(expectedAmount, state.liquidity.pendingWithdrawals);
+        assertEq(totalDeposit - sharesToWithdraw, state.liquidity.totalDeposit);
+        assertEq(sharesToWithdraw, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
 
-            (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
-            assertEq(maturityAtWithdraw, epoch);
-            assertEq(sharesToWithdraw, withdrawalShares);
+        (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
+        assertEq(maturityAtWithdraw, epoch);
+        assertEq(sharesToWithdraw, withdrawalShares);
 
-            assertEq(0, baseToken.balanceOf(user));
-        }
+        assertEq(0, baseToken.balanceOf(user));
 
         vm.prank(user);
         vault.completeWithdraw();
 
-        // NOTE: avoid stack too deep
-        {
-            (, , , , , uint256 heldShares, , , ) = vault.vaultState();
-            assertEq(0, heldShares);
-            assertEq(0, vault.balanceOf(address(vault)));
+        state = VaultUtils.getState(vault);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(0, vault.balanceOf(address(vault)));
 
-            (, uint256 withdrawalShares) = vault.withdrawals(user);
-            assertEq(0, withdrawalShares);
+        (, withdrawalShares) = vault.withdrawals(user);
+        assertEq(0, withdrawalShares);
 
-            (, , uint256 pendingWithdrawals, , , , , , ) = vault.vaultState();
-            assertEq(0, pendingWithdrawals);
-        }
+        assertEq(0, state.liquidity.pendingWithdrawals);
 
         // NOTE: avoid stack too deep
         {
@@ -1602,12 +1595,91 @@ contract VaultUserTest is Test {
         assertEq(expectedAmount, baseToken.balanceOf(user));
     }
 
-    // - [TODO] test complete withdraw with all the liquidity withdrawed
+    // Test complete withdraw with all the liquidity withdrawed
+    function testCompleteWithdrawNoLiquidityLeft(uint256 totalDeposit, uint256 sideTokenPrice) public {
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 1, vault.maxDeposit());
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
+
+        // User deposit (and later withdraw) a given amount
+        vm.prank(admin);
+        baseToken.mint(user, totalDeposit);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), totalDeposit);
+        vault.deposit(totalDeposit, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        // The user initiate a withdraw
+        vm.prank(user);
+        vault.redeem(totalDeposit);
+
+        vm.prank(user);
+        vault.initiateWithdraw(totalDeposit);
+
+        // The side token price is moved in order to also move the price per share
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: pre-computed for the current epoch
+        uint256 expectedSharePrice = vault.notional() * 10**baseToken.decimals() / vault.totalSupply();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+        uint256 sharePrice = vault.epochPricePerShare(vault.getEpoch().previous);
+        assertEq(sharePrice, expectedSharePrice);
+
+        (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(0, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(0, vault.balanceOf(user));
+
+        assertEq(totalDeposit, vault.balanceOf(address(vault)));
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        uint256 expectedAmount = (totalDeposit * sharePrice) / (10 ** baseToken.decimals());
+        assertGt(expectedAmount, 0);
+        assertEq(expectedAmount, state.liquidity.pendingWithdrawals);
+        assertEq(0, state.liquidity.totalDeposit);
+        assertEq(totalDeposit, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
+
+        (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
+        assertEq(vault.getEpoch().previous, epoch);
+        assertEq(totalDeposit, withdrawalShares);
+
+        assertEq(0, baseToken.balanceOf(user));
+
+        vm.prank(user);
+        vault.completeWithdraw();
+
+        state = VaultUtils.getState(vault);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(0, vault.balanceOf(address(vault)));
+
+        (, withdrawalShares) = vault.withdrawals(user);
+        assertEq(0, withdrawalShares);
+
+        assertEq(0, state.liquidity.pendingWithdrawals);
+
+        (userShares, userUnredeemedShares) = vault.shareBalances(user);
+        assertEq(0, userShares);
+        assertEq(0, userUnredeemedShares);
+        assertEq(0, vault.balanceOf(user));
+
+        assertEq(expectedAmount, baseToken.balanceOf(user));
+    }
+
     // - [TODO] test complete withdraw when the vault dies (after the request)
     // - [TODO] test complete withdraw when the vault is paused (revert)
     // - [TODO] test complete withdraw when not initiated (revert)
     // - [TODO] test complete withdraw when its epoch is not passed (revert)
     // - [TODO] test complete withdraw when already completed (revert)
+    // - [TBD] test complete withdraw when the liquidity is set aside for payoffs
 
     // ------------------------------------------------------------------------
     // [TODO]: review and/or move the test below to another file
@@ -1642,9 +1714,9 @@ contract VaultUserTest is Test {
         assertEq(firstDeposit, vault.balanceOf(user));
         assertEq(0, vault.balanceOf(address(vault)));
 
-        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
-        assertEq(firstDeposit + secondDeposit, totalDeposit);
-        assertEq(0, newHeldShares);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(firstDeposit + secondDeposit, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(0, epoch);
@@ -1662,9 +1734,9 @@ contract VaultUserTest is Test {
         assertEq(0, vault.balanceOf(user));
         assertEq(firstDeposit, vault.balanceOf(address(vault)));
 
-        (, , , , totalDeposit, , newHeldShares , , ) = vault.vaultState();
-        assertEq(secondDeposit, totalDeposit);
-        assertEq(firstDeposit, newHeldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(secondDeposit, state.liquidity.totalDeposit);
+        assertEq(firstDeposit, state.withdrawals.newHeldShares);
 
         (epoch, withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().current, epoch);
@@ -1713,9 +1785,9 @@ contract VaultUserTest is Test {
         assertEq(firstDeposit, vault.balanceOf(user));
         assertEq(0, vault.balanceOf(address(vault)));
 
-        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
-        assertEq(firstDeposit, totalDeposit);
-        assertEq(0, newHeldShares);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(firstDeposit, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(0, epoch);
@@ -1733,8 +1805,8 @@ contract VaultUserTest is Test {
         assertEq(0, vault.balanceOf(user));
         assertEq(firstDeposit, vault.balanceOf(address(vault)));
 
-        (, , , , totalDeposit, , newHeldShares , , ) = vault.vaultState();
-        assertEq(firstDeposit, newHeldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(firstDeposit, state.withdrawals.newHeldShares);
 
         (epoch, withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().current, epoch);
@@ -1795,9 +1867,9 @@ contract VaultUserTest is Test {
         assertEq(firstDeposit, vault.balanceOf(user));
         assertEq(0, vault.balanceOf(address(vault)));
 
-        (, , , , uint256 totalDeposit, , uint256 newHeldShares , , ) = vault.vaultState();
-        assertEq(firstDeposit, totalDeposit);
-        assertEq(0, newHeldShares);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(firstDeposit, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.newHeldShares);
 
         (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(user);
         assertEq(0, epoch);
@@ -1815,8 +1887,8 @@ contract VaultUserTest is Test {
         assertEq(0, vault.balanceOf(user));
         assertEq(firstDeposit, vault.balanceOf(address(vault)));
 
-        (, , , , totalDeposit, , newHeldShares , , ) = vault.vaultState();
-        assertEq(firstDeposit, newHeldShares);
+        state = VaultUtils.getState(vault);
+        assertEq(firstDeposit, state.withdrawals.newHeldShares);
 
         (epoch, withdrawalShares) = vault.withdrawals(user);
         assertEq(vault.getEpoch().current, epoch);

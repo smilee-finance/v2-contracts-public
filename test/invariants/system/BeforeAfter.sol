@@ -42,7 +42,7 @@ abstract contract BeforeAfter is Setup {
         )
     {
         currentStrike = ig.currentStrike();
-        vaultState = VaultUtils.vaultState(vault);
+        vaultState = VaultUtils.getState(vault);
         financeParameters = TestOptionsFinanceHelper.getFinanceParameters(ig);
         vaultTotalSupply = vault.totalSupply();
         sharePrice = vault.epochPricePerShare(ig.getEpoch().previous);

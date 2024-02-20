@@ -48,12 +48,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     //----------------------------------------------
     function deposit(uint256 amount) countCall("deposit") public {
         // precondition revert ExceedsMaxDeposit
-        (, , , , uint256 totalDeposit, , , , ) = vault.vaultState();
+        uint256 totalDeposit = VaultUtils.getState(vault).liquidity.totalDeposit;
         uint256 maxDeposit = vault.maxDeposit();
         uint256 depositCapacity = maxDeposit - totalDeposit;
         amount = _between(amount, MIN_VAULT_DEPOSIT, depositCapacity);
 
-        VaultUtils.debugState(vault);
+        VaultUtils.logState(vault);
 
         precondition(block.timestamp < ig.getEpoch().current);
 
@@ -71,7 +71,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         if (firstDepositEpoch < 0) {
             firstDepositEpoch = int256(epochs.length);
         }
-        VaultUtils.debugState(vault);
+        VaultUtils.logState(vault);
     }
 
     function redeem(uint256 index) countCall("redeem") public {
@@ -109,7 +109,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         sharesToWithdraw = sharesToWithdraw - (sharesToWithdraw / 10000); // see test_27
 
         console.log("** INITIATE WITHDRAW", sharesToWithdraw);
-        VaultUtils.debugState(vault);
+        VaultUtils.logState(vault);
 
         hevm.prank(depInfo.user);
         try vault.initiateWithdraw(sharesToWithdraw) {} catch (bytes memory err) {
@@ -121,7 +121,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _pendingWithdraw[depInfo.user] = true;
         withdrawals.push(WithdrawInfo(depInfo.user, sharesToWithdraw, epochs.length));
         _popDepositInfo(index);
-        VaultUtils.debugState(vault);
+        VaultUtils.logState(vault);
     }
 
     function completeWithdraw(uint256 index) countCall("completeWithdraw") public {
@@ -157,7 +157,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_BULL, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
-        DVPUtils.debugState(ig);
+        DVPUtils.logState(ig);
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
@@ -185,7 +185,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_BEAR, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
-        DVPUtils.debugState(ig);
+        DVPUtils.logState(ig);
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
@@ -214,7 +214,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_SMILEE, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
-        DVPUtils.debugState(ig);
+        DVPUtils.logState(ig);
 
         uint256 strike = ig.currentStrike();
         uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
@@ -309,8 +309,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
     function _rollEpoch() countCall("rollEpoch") internal {
         console.log("** STATES PRE ROLLEPOCH");
-        VaultUtils.debugState(vault);
-        DVPUtils.debugState(ig);
+        VaultUtils.logState(vault);
+        DVPUtils.logState(ig);
 
         uint256 currentEpoch = ig.getEpoch().current;
 
@@ -503,7 +503,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             }
         }
 
-        VaultUtils.debugState(vault);
+        VaultUtils.logState(vault);
 
         if (!FLAG_SLIPPAGE) {
             uint256 postTradeRY = _getPostTradeRY(buyType, ig.currentStrike(), ryInfo_VAULT_2_1, 1, 1);
@@ -665,7 +665,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
     function _buyPreconditions() internal {
         precondition(block.timestamp < ig.getEpoch().current);
-        (, , , , uint256 totalDeposit, , , , ) = vault.vaultState();
+        uint256 totalDeposit = VaultUtils.getState(vault).liquidity.totalDeposit;
         precondition(totalDeposit > 0);
     }
 

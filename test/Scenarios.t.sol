@@ -429,7 +429,7 @@ contract TestScenariosJson is Test {
         assertApproxEqAbs(endEpoch.v0, _vault.v0(), _tolerance(endEpoch.v0));
 
         // Checking user payoff for matured positions
-        (, , , uint256 vaultPendingPayoff, , , , , ) = _vault.vaultState();
+        uint256 vaultPendingPayoff = VaultUtils.getState(_vault).liquidity.pendingPayoffs;
 
         vm.startPrank(_trader);
         (uint256 traderPayoffNet, uint256 fees) = _dvp.payoff(

@@ -2,16 +2,13 @@
 pragma solidity ^0.8.15;
 
 library VaultLib {
-    bytes4 constant DeadMarketReason = bytes4(keccak256("MarketReason"));
-    bytes4 constant DeadManualKillReason = bytes4(keccak256("ManualKill"));
-
     struct VaultState {
         VaultLiquidity liquidity;
         VaultWithdrawals withdrawals;
         // Vault become dead when it's killed manually
         bool dead;
         // The flag killed is index of the will of the vault to be killed in the next epoch
-        bool killed; 
+        bool killed;
     }
 
     struct VaultLiquidity {

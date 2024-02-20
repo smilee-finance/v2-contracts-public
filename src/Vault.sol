@@ -45,7 +45,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
     mapping(uint256 => uint256) public epochPricePerShare; // NOTE: public for frontend and historical data purposes
 
-    VaultLib.VaultState internal _state;
+    VaultLib.VaultState public state;
 
     /// @notice The provider for external services addresses
     IAddressProvider internal immutable _addressProvider;
@@ -103,7 +103,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _shareDecimals = IERC20Metadata(baseToken).decimals();
 
         _addressProvider = IAddressProvider(addressProvider_);
-        maxDeposit = 100_000 * (10 ** _shareDecimals);
+        maxDeposit = 1_000_000_000 * (10 ** _shareDecimals);
 
         _hedgeMargin = 250; // 2.5 %
         priorityAccessFlag = false;
@@ -121,14 +121,14 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     }
 
     modifier isNotDead() {
-        if (_state.dead) {
+        if (state.dead) {
             revert VaultDead();
         }
         _;
     }
 
     modifier isDead() {
-        if (!_state.dead) {
+        if (!state.dead) {
             revert VaultNotDead();
         }
         _;
@@ -190,37 +190,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     function killVault() external {
         _checkRole(ROLE_ADMIN);
 
-        _state.killed = true;
+        state.killed = true;
 
         emit Killed();
-    }
-
-    function vaultState()
-        external
-        view
-        returns (
-            uint256 lockedLiquidityInitially,
-            uint256 pendingDeposit,
-            uint256 totalWithdrawAmount,
-            uint256 pendingPayoffs,
-            uint256 totalDeposit,
-            uint256 queuedWithdrawShares,
-            uint256 currentQueuedWithdrawShares,
-            bool dead_,
-            bool killed
-        )
-    {
-        return (
-            _state.liquidity.lockedInitially,
-            _state.liquidity.pendingDeposits,
-            _state.liquidity.pendingWithdrawals,
-            _state.liquidity.pendingPayoffs,
-            _state.liquidity.totalDeposit,
-            _state.withdrawals.heldShares,
-            _state.withdrawals.newHeldShares,
-            _state.dead,
-            _state.killed
-        );
     }
 
     /// @inheritdoc IVault
@@ -255,13 +227,13 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     function _notionalBaseTokens() internal view returns (uint256 amount_) {
         (uint256 baseTokens, ) = _tokenBalances();
 
-        uint256 pendings = _state.liquidity.pendingWithdrawals +
-            _state.liquidity.pendingDeposits +
-            _state.liquidity.pendingPayoffs;
+        uint256 pendings = state.liquidity.pendingWithdrawals +
+            state.liquidity.pendingDeposits +
+            state.liquidity.pendingPayoffs;
 
-        // Just catching the underflow and reverting with a more explicit error (see [IL-NOTE])
+        // Just catching the underflow as it's not relevant here
         if (baseTokens < pendings) {
-            revert InsufficientLiquidity(bytes4(keccak256("_notionalBaseTokens()")));
+            return 0;
         }
 
         return baseTokens - pendings;
@@ -282,12 +254,12 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
     /// @inheritdoc IVault
     function v0() public view virtual returns (uint256) {
-        return _state.liquidity.lockedInitially;
+        return state.liquidity.lockedInitially;
     }
 
     /// @inheritdoc IVault
     function dead() external view returns (bool) {
-        return _state.killed;
+        return state.killed;
     }
 
     /**
@@ -329,18 +301,18 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         // Avoids underflows when the maxDeposit is setted below than the totalDeposit
-        if (_state.liquidity.totalDeposit > maxDeposit) {
+        if (state.liquidity.totalDeposit > maxDeposit) {
             revert ExceedsMaxDeposit();
         }
 
-        if (amount > maxDeposit - _state.liquidity.totalDeposit) {
+        if (amount > maxDeposit - state.liquidity.totalDeposit) {
             revert ExceedsMaxDeposit();
         }
 
         _usePriorityAccess(amount, receiver, accessTokenId);
 
-        _state.liquidity.pendingDeposits += amount;
-        _state.liquidity.totalDeposit += amount;
+        state.liquidity.pendingDeposits += amount;
+        state.liquidity.totalDeposit += amount;
         _emitUpdatedDepositReceipt(receiver, amount);
 
         IERC20(baseToken).safeTransferFrom(msg.sender, address(this), amount);
@@ -506,11 +478,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         uint256 withdrawDepositEquivalent = (userDeposits * shares) / userShares;
 
-        _state.liquidity.totalDeposit -= withdrawDepositEquivalent;
+        state.liquidity.totalDeposit -= withdrawDepositEquivalent;
         depositReceipt.cumulativeAmount -= withdrawDepositEquivalent;
         // -----------------------------
 
-        _state.withdrawals.newHeldShares += shares;
+        state.withdrawals.newHeldShares += shares;
 
         _transfer(msg.sender, address(this), shares);
 
@@ -543,8 +515,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         uint256 amountToWithdraw = VaultLib.sharesToAsset(withdrawal.shares, pricePerShare, _shareDecimals);
 
         // NOTE: the user transferred the required shares to the vault when (s)he initiated the withdraw
-        _state.withdrawals.heldShares -= withdrawal.shares;
-        _state.liquidity.pendingWithdrawals -= amountToWithdraw;
+        state.withdrawals.heldShares -= withdrawal.shares;
+        state.liquidity.pendingWithdrawals -= amountToWithdraw;
 
         uint256 sharesToWithdraw = withdrawal.shares;
         withdrawal.shares = 0;
@@ -567,12 +539,12 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // NOTE: due to the missing roll-epoch between the two withdraw phases, we have to:
         //       - account the withdrawed shares as held.
         //       - account the new pendingWithdrawals; due to the dead vault, we have to use the last price per share.
-        _state.withdrawals.newHeldShares -= withdrawal.shares;
-        _state.withdrawals.heldShares += withdrawal.shares;
+        state.withdrawals.newHeldShares -= withdrawal.shares;
+        state.withdrawals.heldShares += withdrawal.shares;
         Epoch memory epoch = getEpoch();
         uint256 pricePerShare = epochPricePerShare[epoch.previous];
         uint256 newPendingWithdrawals = VaultLib.sharesToAsset(withdrawal.shares, pricePerShare, _shareDecimals);
-        _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
+        state.liquidity.pendingWithdrawals += newPendingWithdrawals;
 
         // NOTE: as the withdrawal.epoch is the epoch.current one, we also have to fake it in order to use the right price per share.
         withdrawal.epoch = epoch.previous;
@@ -588,11 +560,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     function _beforeRollEpoch() internal virtual override isNotDead {
         _checkRole(ROLE_EPOCH_ROLLER);
 
-        if (_state.killed) {
+        if (state.killed) {
             // Sell all sideToken to be able to pay all the withdraws initiated after manual kill.
             (, uint256 sideTokens) = _tokenBalances();
             _sellSideTokens(sideTokens);
-            _state.dead = true;
+            state.dead = true;
         }
 
         uint256 lockedLiquidity = notional();
@@ -601,19 +573,19 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // In rare scenarios (ex. roundings or very tiny TVL vaults with high impact swap slippage) there can be small losses in a single epoch.
         // As a precautionary design we plan to revert and have the protocol DAO / admin cover such tiny amount.
         // Managing such scenarios at code level would increase codebase complexity without bringing any real benefit to the protocol.
-        if (lockedLiquidity < _state.liquidity.newPendingPayoffs) {
+        if (lockedLiquidity < state.liquidity.newPendingPayoffs) {
             revert InsufficientLiquidity(
                 bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs"))
             );
         }
 
         // NOTE: the share price needs to account also the payoffs
-        lockedLiquidity -= _state.liquidity.newPendingPayoffs;
+        lockedLiquidity -= state.liquidity.newPendingPayoffs;
 
         // Computes the share price for the ending epoch:
         // - heldShares are the ones given back to the Vault in exchange of withdrawed tokens
         // - lockedLiquidity is the DVP portfolio value at the end of the epoch
-        uint256 outstandingShares = totalSupply() - _state.withdrawals.heldShares;
+        uint256 outstandingShares = totalSupply() - state.withdrawals.heldShares;
 
         // NOTE: the share price cannot go to zero unless `_state.liquidity.newPendingPayoffs` is exactly equal to `lockedLiquidity`
         // - when all the locked liquidity is set aside for (pending) withdrawals and payoffs (lockedLiquidity = 0, we revert)
@@ -627,58 +599,57 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         // Increase shares hold due to initiated withdrawals:
-        _state.withdrawals.heldShares += _state.withdrawals.newHeldShares;
+        state.withdrawals.heldShares += state.withdrawals.newHeldShares;
 
         // Reserve the liquidity needed to cover the withdrawals initiated in the current epoch:
         // NOTE: here we just account the amounts and we delay all the actual swaps to the final one in order to optimize them
         // NOTE: if sharePrice is zero, the users will receive zero from withdrawals
         uint256 newPendingWithdrawals = VaultLib.sharesToAsset(
-            _state.withdrawals.newHeldShares,
+            state.withdrawals.newHeldShares,
             sharePrice,
             _shareDecimals
         );
-        _state.liquidity.pendingWithdrawals += newPendingWithdrawals;
+        state.liquidity.pendingWithdrawals += newPendingWithdrawals;
         // Cannot underflow since share price is computed taking into account residual lockedLiquidity
         lockedLiquidity -= newPendingWithdrawals;
 
         // Reset the counter for the next epoch:
         // NOTE: the held shares are burned when withdrawals are completed
-        _state.withdrawals.newHeldShares = 0;
+        state.withdrawals.newHeldShares = 0;
 
         // Set aside the payoff to be paid:
-        _state.liquidity.pendingPayoffs += _state.liquidity.newPendingPayoffs;
-        _state.liquidity.newPendingPayoffs = 0;
+        state.liquidity.pendingPayoffs += state.liquidity.newPendingPayoffs;
+        state.liquidity.newPendingPayoffs = 0;
 
         // Mint shares related to new deposits performed during the closing epoch:
         // If vault has been killed, we go ahead minting shares and the last epoch depositors will have to call `rescueShares()`
-        uint256 sharesToMint = VaultLib.assetToShares(_state.liquidity.pendingDeposits, sharePrice, _shareDecimals);
+        uint256 sharesToMint = VaultLib.assetToShares(state.liquidity.pendingDeposits, sharePrice, _shareDecimals);
         _mint(address(this), sharesToMint);
 
-        lockedLiquidity += _state.liquidity.pendingDeposits;
-        _state.liquidity.pendingDeposits = 0;
+        lockedLiquidity += state.liquidity.pendingDeposits;
+        state.liquidity.pendingDeposits = 0;
 
-        _state.liquidity.lockedInitially = lockedLiquidity;
+        state.liquidity.lockedInitially = lockedLiquidity;
 
-        if (_state.killed) {
+        if (state.killed) {
             // NOTE: no need to adjust balances, since all side tokens should be already converted
             return;
         }
 
         _adjustBalances();
-        _state.liquidity.lockedInitially = notional();
-
-        // NOTE: leave only an even number of base tokens for the DVP epoch
-        if (lockedLiquidity % 2 != 0) {
-            _state.liquidity.lockedInitially -= 1;
-        }
 
         (uint256 baseTokens, ) = _tokenBalances();
 
         // NOTE: if after rebalance there's no enough liquidity to fulfill pending liabilities (see [IL-NOTE]) pause vault and signal to admins
-        if (baseTokens < _state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs) {
-            _pause();
-            emit MissingLiquidity(_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens);
+        if (baseTokens < state.liquidity.pendingWithdrawals + state.liquidity.pendingPayoffs) {
+            state.liquidity.lockedInitially = 0;
+
+            emit MissingLiquidity(state.liquidity.pendingWithdrawals + state.liquidity.pendingPayoffs - baseTokens);
+
+            return;
         }
+
+        state.liquidity.lockedInitially = notional();
     }
 
     /// @notice Adjusts the balances in order to cover the liquidity locked for pending operations and obtain an equal weight portfolio.
@@ -690,7 +661,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         IExchange exchange = IExchange(exchangeAddress);
 
         (uint256 baseTokens, uint256 sideTokens) = _tokenBalances();
-        uint256 pendings = _state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs;
+        uint256 pendings = state.liquidity.pendingWithdrawals + state.liquidity.pendingPayoffs;
 
         if (baseTokens < pendings) {
             // We must cover the missing base tokens by selling an amount of side tokens:
@@ -763,6 +734,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         uint256 amountToApprove = requiredInput;
         uint256 availableBaseTokens = _notionalBaseTokens();
+        // dev: this check may be removed when the improvement suggested below will be implemented...
+        if (availableBaseTokens == 0) {
+            revert InsufficientLiquidity(bytes4(keccak256("_buySideTokens()")));
+        }
 
         // Since `requiredInput` should be an over-estimate, if available tokens are not enough to cover `getInputAmountMax`, try to approve all and do the swap
         if (availableBaseTokens < requiredInput) {
@@ -818,7 +793,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         if (residualPayoff > notional()) {
             revert InsufficientLiquidity(bytes4(keccak256("reservePayoff()")));
         }
-        _state.liquidity.newPendingPayoffs = residualPayoff;
+        state.liquidity.newPendingPayoffs = residualPayoff;
     }
 
     /// @inheritdoc IVault
@@ -828,10 +803,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
 
         if (isPastEpoch) {
-            if (amount > _state.liquidity.pendingPayoffs) {
+            if (amount > state.liquidity.pendingPayoffs) {
                 revert ExceedsAvailable();
             }
-            _state.liquidity.pendingPayoffs -= amount;
+            state.liquidity.pendingPayoffs -= amount;
         } else {
             // NOTE: it should never happen as `_deltaHedge()` must always be executed before transfers
             if (amount > _notionalBaseTokens()) {

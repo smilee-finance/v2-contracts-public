@@ -21,7 +21,6 @@ contract VaultDeathTest is Test {
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant EpochFinished = bytes4(keccak256("EpochFinished()"));
     bytes4 constant VaultNotDead = bytes4(keccak256("VaultNotDead()"));
-    bytes4 constant DeadManualKillReason = bytes4(keccak256("ManualKill"));
 
     address tokenAdmin = address(0x1);
     address alice = address(0x2);
@@ -55,14 +54,14 @@ contract VaultDeathTest is Test {
         vm.prank(tokenAdmin);
         vault.killVault();
 
-        (, , , , , , , , bool killed) = vault.vaultState();
+        bool killed = VaultUtils.getState(vault).killed;
         assertEq(true, killed);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        assertEq(true, VaultUtils.vaultState(vault).dead);
+        assertEq(true, VaultUtils.getState(vault).dead);
     }
 
     function testVaultManualDeadRescueShares() public {
@@ -110,7 +109,7 @@ contract VaultDeathTest is Test {
         (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
         assertEq(200e18, vault.totalSupply());
         (, , , uint256 cumulativeAmountAlice) = vault.depositReceipts(alice);
-        assertEq(200e18, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(200e18, VaultUtils.getState(vault).liquidity.totalDeposit);
         assertEq(0, cumulativeAmountAlice);
         assertEq(0, heldByVaultAlice);
         assertEq(0, heldByAccountAlice);
@@ -122,7 +121,7 @@ contract VaultDeathTest is Test {
         (uint256 heldByAccountBob, uint256 heldByVaultBob) = vault.shareBalances(bob);
         assertEq(0, vault.totalSupply());
         (, , , uint256 cumulativeAmountBob) = vault.depositReceipts(bob);
-        assertEq(0, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(0, VaultUtils.getState(vault).liquidity.totalDeposit);
         assertEq(0, cumulativeAmountBob);
         assertEq(0, heldByVaultBob);
         assertEq(0, heldByAccountBob);
@@ -162,7 +161,7 @@ contract VaultDeathTest is Test {
         (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
         assertEq(0, vault.totalSupply());
         (, , , uint256 cumulativeAmountAlice) = vault.depositReceipts(alice);
-        assertEq(0, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(0, VaultUtils.getState(vault).liquidity.totalDeposit);
         assertEq(0, cumulativeAmountAlice);
         assertEq(0, heldByVaultAlice);
         assertEq(0, heldByAccountAlice);
@@ -193,7 +192,7 @@ contract VaultDeathTest is Test {
         (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);
         assertEq(50e18, vault.totalSupply());
         (, , , uint256 cumulativeAmountAlice) = vault.depositReceipts(alice);
-        assertEq(50e18, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(50e18, VaultUtils.getState(vault).liquidity.totalDeposit);
         assertEq(50e18, cumulativeAmountAlice);
         assertEq(0, heldByVaultAlice);
         assertEq(50e18, heldByAccountAlice);
@@ -206,7 +205,7 @@ contract VaultDeathTest is Test {
         (heldByAccountAlice, heldByVaultAlice) = vault.shareBalances(alice);
         assertEq(0, vault.totalSupply());
         (, , , cumulativeAmountAlice) = vault.depositReceipts(alice);
-        assertEq(0, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(0, VaultUtils.getState(vault).liquidity.totalDeposit);
         assertEq(0, cumulativeAmountAlice);
         assertEq(0, heldByVaultAlice);
         assertEq(0, heldByAccountAlice);
@@ -233,7 +232,7 @@ contract VaultDeathTest is Test {
         vault.rescueShares();
 
         assertEq(0, vault.totalSupply());
-        assertEq(0, VaultUtils.vaultState(vault).liquidity.totalDeposit);
+        assertEq(0, VaultUtils.getState(vault).liquidity.totalDeposit);
 
         // Check if alice has rescued all her shares
         (uint256 heldByAccountAlice, uint256 heldByVaultAlice) = vault.shareBalances(alice);

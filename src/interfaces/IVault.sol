@@ -91,17 +91,4 @@ interface IVault is IVaultParams {
      */
     function transferPayoff(address recipient, uint256 amount, bool isPastEpoch) external;
 
-    function vaultState()
-        external view
-        returns (
-            uint256 v0,
-            uint256 pendingDeposit,
-            uint256 pendingWithdraws,
-            uint256 pendingPayoffs,
-            uint256 totalDeposit,
-            uint256 queuedWithdrawShares,
-            uint256 currentQueuedWithdrawShares,
-            bool dead_,
-            bool killed
-        );
 }

@@ -19,7 +19,7 @@ library DVPUtils {
         vm.stopPrank();
     }
 
-    function debugState(IG ig) public view {
+    function logState(IG ig) public view {
         (
             uint256 maturity,
             uint256 currentStrike,

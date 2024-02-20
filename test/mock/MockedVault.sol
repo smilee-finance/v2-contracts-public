@@ -84,7 +84,11 @@ contract MockedVault is Vault {
     }
 
     function moveBaseToken(int amount) public {
-        _moveToken(baseToken, amount, true);
+        bool ignoreBaseTokenCheck = true;
+        if (amount < 0 && uint256(-amount) > _notionalBaseTokens()) {
+            ignoreBaseTokenCheck = false;
+        }
+        _moveToken(baseToken, amount, ignoreBaseTokenCheck);
     }
 
     /// @notice Gets or gives an amount of token from/to the sender, for testing purposes
@@ -109,7 +113,7 @@ contract MockedVault is Vault {
 
         (uint256 baseTokens, ) = _tokenBalances();
 
-        if (baseTokens < _state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs) {
+        if (baseTokens < state.liquidity.pendingWithdrawals + state.liquidity.pendingPayoffs) {
             revert InsufficientLiquidity(
                 bytes4(
                     keccak256(
