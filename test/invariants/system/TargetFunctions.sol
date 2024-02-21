@@ -329,8 +329,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         console.log("************************ SHARE PRICE", vault.epochPricePerShare(ig.getEpoch().previous));
         console.log("** STATES AFTER ROLLEPOCH");
-        VaultUtils.debugState(vault);
-        DVPUtils.debugState(ig);
+        VaultUtils.logState(vault);
+        DVPUtils.logState(ig);
 
         epochs.push(EpochInfo(currentEpoch, _endingStrike));
 
