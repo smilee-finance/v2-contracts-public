@@ -285,23 +285,16 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     function callAdminFunction(uint256 perc, uint256 input) public {
         perc = _between(perc, 0, 100);
 
-        if (perc < 5) {
-            // 5% - Do nothing
-            console.log("Do nothing");
-            emit Debug("Do nothing");
-            return;
-        } else if (perc < 10) {
-            // 5% - Test invariant IG_24_3
-            if (!FLAG_SLIPPAGE) {
-                emit Debug("_skipTime()");
-                _skipTime(input);
-            }
-        } else if (perc < 30) {
+        if (perc < 20) {
+            // 20% - Test invariant IG_24_3
+            emit Debug("_check_IG_24_3()");
+            _check_IG_24_3(input);
+        } else if (perc < 40) {
             // 20% - RollEpoch
             emit Debug("_rollEpoch()");
             _rollEpoch();
         } else {
-            // 70% - SetTokenPrice
+            // 35% - SetTokenPrice
             emit Debug("_setTokenPrice()");
             _setTokenPrice(input);
         }
@@ -397,7 +390,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
     }
 
-    function _skipTime(uint256 input) countCall("skipTime") internal {
+    function _check_IG_24_3(uint256 input) internal {
         precondition(ig.getEpoch().current - block.timestamp > MIN_TIME_WARP);
         console.log("** FORCE SKIP TIME");
 
