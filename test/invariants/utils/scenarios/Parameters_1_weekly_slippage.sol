@@ -3,15 +3,10 @@ pragma solidity ^0.8.15;
 
 import {FeeManager} from "@project/FeeManager.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
-import {BaseParemeters} from "./BaseParameters.sol";
+import {BaseParameters} from "./BaseParameters.sol";
 
 abstract contract Parameters is BaseParameters {
     bool internal FLAG_SLIPPAGE = true;
-
-    // Vault parameters
-    uint256 internal INITIAL_VAULT_DEPOSIT = 2_000 * 10 ** BASE_TOKEN_DECIMALS;
-    uint256 internal MIN_VAULT_DEPOSIT = 0.0001e18;
-    uint256 internal EPOCH_FREQUENCY = EpochFrequency.WEEKLY;
 
     // Token parameters
     uint8 internal BASE_TOKEN_DECIMALS = 6;
@@ -19,6 +14,11 @@ abstract contract Parameters is BaseParameters {
     uint256 internal INITIAL_TOKEN_PRICE = 1e18;
     uint256 internal MIN_TOKEN_PRICE = INITIAL_TOKEN_PRICE / 10 ** 3;
     uint256 internal MAX_TOKEN_PRICE = INITIAL_TOKEN_PRICE * 10 ** 3;
+
+    // Vault parameters
+    uint256 internal INITIAL_VAULT_DEPOSIT = 2_000 * 10 ** BASE_TOKEN_DECIMALS;
+    uint256 internal MIN_VAULT_DEPOSIT = 0.0001e18;
+    uint256 internal EPOCH_FREQUENCY = EpochFrequency.WEEKLY;
 
     // IG parameters
     uint256 internal MIN_OPTION_BUY = 0.001e18; // MAX is bullAvailNotional or bearAvailNotional
