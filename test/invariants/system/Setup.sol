@@ -13,12 +13,18 @@ import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedIG} from "../../mock/MockedIG.sol";
 import {Parameters} from "../utils/Parameters.sol";
 import {FeeManager} from "@project/FeeManager.sol";
+import {VaultUtils} from "../../utils/VaultUtils.sol";
 
 abstract contract Setup is Parameters {
     event Debug(string);
     event DebugUInt(string, uint256);
     event DebugAddr(string, address);
     event DebugBool(string, bool);
+
+    // Constant echidna addresses
+    address constant USER1 = address(0x10000);
+    address constant USER2 = address(0x20000);
+    address constant USER3 = address(0x30000);
 
     address internal constant VM_ADDRESS_SETUP = address(uint160(uint256(keccak256("hevm cheat code"))));
     IHevm internal hevm;
@@ -32,12 +38,6 @@ abstract contract Setup is Parameters {
 
     constructor() {
         hevm = IHevm(VM_ADDRESS_SETUP);
-
-        BASE_TOKEN_DECIMALS = 18;
-        SIDE_TOKEN_DECIMALS = 18;
-        EPOCH_FREQUENCY = EpochFrequency.DAILY;
-        USE_ORACLE_IMPL_VOL = false;
-        FLAG_SLIPPAGE = false;
     }
 
     function deploy() internal {
@@ -69,20 +69,10 @@ abstract contract Setup is Parameters {
         marketOracle.setDelay(address(baseToken), sideToken, frequency, 0, true);
 
         _impliedVolSetup(address(baseToken), sideToken, ap);
-    }
 
-    function skipTo(uint256 to) internal {
-        hevm.warp(to);
-    }
-
-    function skipDay(bool additionalSecond) internal {
-        uint256 secondToAdd = (additionalSecond) ? 1 : 0;
-        hevm.warp(block.timestamp + 1 days + secondToAdd);
-    }
-
-    function skipWeek(bool additionalSecond) internal {
-        uint256 secondToAdd = (additionalSecond) ? 1 : 0;
-        hevm.warp(block.timestamp + 1 weeks + secondToAdd);
+        if (INITIAL_TOKEN_PRICE > 0) {
+            VaultUtils.addVaultDeposit(USER1, INITIAL_VAULT_DEPOSIT, admin, address(vault), _convertVm());
+        }
     }
 
     function _between(uint256 val, uint256 lower, uint256 upper) internal pure returns (uint256) {

@@ -379,15 +379,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     }
 
     function _setTokenPrice(uint256 price) countCall("setTokenPrice") internal {
-        if (TOKEN_PRICE_CAN_CHANGE) {
-            TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
-            address sideToken = vault.sideToken();
+        TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
+        address sideToken = vault.sideToken();
 
-            price = _between(price, MIN_TOKEN_PRICE, MAX_TOKEN_PRICE);
-            console.log("** SET TOKEN PRICE", price);
-            hevm.prank(admin);
-            apPriceOracle.setTokenPrice(sideToken, price);
-        }
+        price = _between(price, MIN_TOKEN_PRICE, MAX_TOKEN_PRICE);
+        console.log("** SET TOKEN PRICE", price);
+        hevm.prank(admin);
+        apPriceOracle.setTokenPrice(sideToken, price);
     }
 
     function _check_IG_24_3(uint256 input) internal {

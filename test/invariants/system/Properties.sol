@@ -64,11 +64,6 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
     uint8 internal constant _BUY = 0;
     uint8 internal constant _SELL = 1;
 
-    // Constant echidna addresses
-    address constant USER1 = address(0x10000);
-    address constant USER2 = address(0x20000);
-    address constant USER3 = address(0x30000);
-
     // Errors
     bytes32 internal constant _ERR_VAULT_DEAD = keccak256(abi.encodeWithSignature("VaultDead()"));
     bytes32 internal constant _ERR_VAULT_PAUSED = keccak256(abi.encodeWithSignature("Pausable: paused"));
