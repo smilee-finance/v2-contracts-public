@@ -313,13 +313,14 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
         position.notionalUp -= notionalUp;
         position.notionalDown -= notionalDown;
 
+        emit Sell(position.dvpAddr, position.expiry, payoff_);
+
         if (position.notionalUp == 0 && position.notionalDown == 0) {
             delete _positions[tokenId];
             _burn(tokenId);
         }
 
         emit SellDVP(tokenId, (notionalUp + notionalDown), payoff_);
-        emit Sell(position.dvpAddr, position.expiry, payoff_);
     }
 
     /**

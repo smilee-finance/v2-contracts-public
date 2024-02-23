@@ -720,31 +720,33 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         @return baseTokens The amount of exchanged base tokens.
      */
     function _buySideTokens(uint256 amount) internal returns (uint256 baseTokens) {
-        if (amount == 0) {
-            return 0;
-        }
-        address exchangeAddress = _addressProvider.exchangeAdapter();
-        if (exchangeAddress == address(0)) {
-            revert AddressZero();
-        }
-        IExchange exchange = IExchange(exchangeAddress);
-
-        uint256 requiredInput = exchange.getInputAmountMax(baseToken, sideToken, amount);
-        uint256 minRequiredInput = exchange.getInputAmount(baseToken, sideToken, amount);
-
-        uint256 amountToApprove = requiredInput;
         uint256 availableBaseTokens = _notionalBaseTokens();
         // dev: this check may be removed when the improvement suggested below will be implemented...
         if (availableBaseTokens == 0) {
             revert InsufficientLiquidity(bytes4(keccak256("_buySideTokens()")));
         }
 
-        // Since `requiredInput` should be an over-estimate, if available tokens are not enough to cover `getInputAmountMax`, try to approve all and do the swap
-        if (availableBaseTokens < requiredInput) {
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        if (exchangeAddress == address(0)) {
+            revert AddressZero();
+        }
+        IExchange exchange = IExchange(exchangeAddress);
+
+        // dev: preview considering slippage
+        uint256 maxBaseTokensNeeded = exchange.getInputAmountMax(baseToken, sideToken, amount);
+
+        uint256 amountToApprove = maxBaseTokensNeeded;
+        // Since `maxBaseTokensNeeded` should be an over-estimate, if available tokens are not enough to
+        // cover `getInputAmountMax`, try to approve all and do the swap
+        if (availableBaseTokens < maxBaseTokensNeeded) {
             amountToApprove = availableBaseTokens;
 
-            // If even `minRequiredInput` cannot be covered, we reduce the required side tokens amount up to a X% safety margin to tackle with extreme scenarios where swap slippages may reduce the initial notional used for hedging computation
-            if (availableBaseTokens < minRequiredInput) {
+            // dev: preview without slippage
+            uint256 baseTokensNeeded = exchange.getInputAmount(baseToken, sideToken, amount);
+            // If even `baseTokensNeeded` cannot be covered, we reduce the required side tokens amount
+            // up to a X% safety margin to tackle with extreme scenarios where swap slippages may reduce
+            // the initial notional used for hedging computation
+            if (availableBaseTokens < baseTokensNeeded) {
                 amount -= (amount * _hedgeMargin) / 10000;
             }
         }

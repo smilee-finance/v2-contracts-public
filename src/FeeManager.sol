@@ -227,7 +227,12 @@ contract FeeManager is IFeeManager, AccessControl {
         emit TransferVaultFee(vault, feeAmount);
     }
 
-    /// @inheritdoc IFeeManager
+    /**
+     *
+     * @param receiver The address where fees will send to.
+     * @param sender The address who has paid fees.
+     * @param feeAmount The fee amount to withdraw.
+     */
     function withdrawFee(address receiver, address sender, uint256 feeAmount) external {
         _checkRole(ROLE_ADMIN);
         if (senders[sender] < feeAmount) {
