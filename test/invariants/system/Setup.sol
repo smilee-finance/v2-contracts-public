@@ -70,7 +70,7 @@ abstract contract Setup is Parameters {
 
         _impliedVolSetup(address(baseToken), sideToken, ap);
 
-        if (INITIAL_TOKEN_PRICE > 0) {
+        if (INITIAL_VAULT_DEPOSIT > 0) {
             VaultUtils.addVaultDeposit(USER1, INITIAL_VAULT_DEPOSIT, admin, address(vault), _convertVm());
         }
     }

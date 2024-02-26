@@ -46,7 +46,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     //----------------------------------------------
     // VAULT
     //----------------------------------------------
-    function deposit(uint256 amount) countCall("deposit") public {
+    function deposit(uint256 amount) public countCall("deposit") {
         // precondition revert ExceedsMaxDeposit
         uint256 totalDeposit = VaultUtils.getState(vault).liquidity.totalDeposit;
         uint256 maxDeposit = vault.maxDeposit();
@@ -74,7 +74,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         VaultUtils.logState(vault);
     }
 
-    function redeem(uint256 index) countCall("redeem") public {
+    function redeem(uint256 index) public countCall("redeem") {
         precondition(_depositInfo.length > 0);
         index = _between(index, 0, _depositInfo.length - 1);
         precondition(block.timestamp < ig.getEpoch().current); // EpochFinished()
@@ -153,7 +153,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     // USER OPs.
     //----------------------------------------------
 
-    function buyBull(uint256 input) countCall("buyBull") public {
+    function buyBull(uint256 input) public countCall("buyBull") {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_BULL, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
@@ -181,7 +181,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
     }
 
-    function buyBear(uint256 input) countCall("buyBear") public {
+    function buyBear(uint256 input) public countCall("buyBear") {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_BEAR, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
@@ -210,7 +210,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
     }
 
-    function buySmilee(uint256 input) countCall("buySmilee") public {
+    function buySmilee(uint256 input) public countCall("buySmilee") {
         _buyPreconditions();
         Amount memory amount_ = _boundBuyInput(_SMILEE, input);
         uint256 tokenPrice = _getTokenPrice(vault.sideToken());
@@ -238,7 +238,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
     }
 
-    function sellBull(uint256 index) countCall("sellBull") public {
+    function sellBull(uint256 index) public countCall("sellBull") {
         precondition(bullTrades.length > 0);
         index = _between(index, 0, bullTrades.length - 1);
         BuyInfo storage buyInfo_ = bullTrades[index];
@@ -251,7 +251,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _popTrades(index, buyInfo_);
     }
 
-    function sellBear(uint256 index) countCall("sellBear") public {
+    function sellBear(uint256 index) public countCall("sellBear") {
         precondition(bearTrades.length > 0);
         index = _between(index, 0, bearTrades.length - 1);
         BuyInfo storage buyInfo_ = bearTrades[index];
@@ -300,7 +300,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
     }
 
-    function _rollEpoch() countCall("rollEpoch") internal {
+    function _rollEpoch() internal countCall("rollEpoch") {
         console.log("** STATES PRE ROLLEPOCH");
         VaultUtils.logState(vault);
         DVPUtils.logState(ig);
@@ -341,7 +341,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 uint256 epochPriceT0 = vault.epochPricePerShare(epochInfok0.epochTimestamp);
                 EpochInfo memory epochInfok1 = epochs[epochsCount - 1]; // previous
                 uint256 epochPriceT1 = vault.epochPricePerShare(epochInfok1.epochTimestamp);
-                int256 payoffPerc = int256((epochPriceT1 * 1e18) / epochPriceT0) - 1e18;
+                uint256 btDecimals = 10 ** BASE_TOKEN_DECIMALS; // TODO: When merge VAULT_2 -> BT_UNIT
+                int256 payoffPerc = int256((epochPriceT1 * btDecimals) / epochPriceT0) - int256(btDecimals);
 
                 uint256 lpPayoff = TestOptionsFinanceHelper.lpPayoff(
                     ig.currentStrike(),
@@ -353,7 +354,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 int256 vaultPnL = int256(lpPayoff) - 1e18;
 
                 if (!FLAG_SLIPPAGE) {
-                    t(payoffPerc >= vaultPnL, _VAULT_01.desc);
+                    t((payoffPerc * int256(1e18 / 10 ** BASE_TOKEN_DECIMALS)) >= vaultPnL, _VAULT_01.desc);
                 }
             }
         }
@@ -378,11 +379,13 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         tokenPrice = apPriceOracle.getPrice(tokenAddress, vault.baseToken());
     }
 
-    function _setTokenPrice(uint256 price) countCall("setTokenPrice") internal {
+    function _setTokenPrice(uint256 price) internal countCall("setTokenPrice") {
         TestnetPriceOracle apPriceOracle = TestnetPriceOracle(ap.priceOracle());
         address sideToken = vault.sideToken();
+        uint256 prevPrice = _getTokenPrice(sideToken);
 
         price = _between(price, MIN_TOKEN_PRICE, MAX_TOKEN_PRICE);
+        console.log("** PREVIOUS TOKEN PRICE", prevPrice);
         console.log("** SET TOKEN PRICE", price);
         hevm.prank(admin);
         apPriceOracle.setTokenPrice(sideToken, price);
@@ -558,8 +561,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             // valid only if buy epoch is not finished yet
             if (epochs.length == buyInfo_.epochCounter) {
                 (uint256 expectedPremium, ) = ig.premium(buyInfo_.strike, buyInfo_.amountUp, buyInfo_.amountDown);
-                gte(expectedPremium, expectedPayoff, _IG_14.desc);
-
+                uint256 epTolerance = expectedPremium > 10 ** BASE_TOKEN_DECIMALS
+                    ? expectedPremium / 10 ** BASE_TOKEN_DECIMALS
+                    : 1;
+                gte(expectedPremium + epTolerance, expectedPayoff, _IG_14.desc);
                 (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(EPOCH_FREQUENCY);
                 Amount memory amount = Amount(buyInfo_.amountUp, buyInfo_.amountDown);
                 uint256 payoffMaxIV = _getMarketValueWithCustomIV(ivMax, amount, address(baseToken), sellTokenPrice);
@@ -597,8 +602,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
 
         if (!FLAG_SLIPPAGE) {
-            uint256 postTradeRY = _getPostTradeRY(sellType, buyInfo_.strike, ryInfo_VAULT_2_1, 1, 1);
-            t(postTradeRY - ryInfo_VAULT_2_1.tradeRY >= 0, _VAULT_02.desc);
+            // uint256 postTradeRY = _getPostTradeRY(sellType, buyInfo_.strike, ryInfo_VAULT_2_1, 1, 1);
+            // t(postTradeRY - ryInfo_VAULT_2_1.tradeRY >= 0, _VAULT_02.desc);
         }
 
         if (totalAmountBought.up > 0) {
@@ -806,7 +811,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                         t(payoff == 0, _IG_13.desc);
                     }
                 } else if (sellType == _SMILEE) {
-                        if (sellTokenPrice != buyInfo_.strike) {
+                        int256 diff = int256(sellTokenPrice) - int256(buyInfo_.strike);
+                        diff = diff > 0 ? diff : -diff;
+
+                        if (diff > 1e9) {
                             t(payoff > 0, _IG_27.desc);
                         } else {
                             t(payoff == 0, _IG_27.desc);

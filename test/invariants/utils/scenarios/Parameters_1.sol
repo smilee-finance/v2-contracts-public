@@ -17,9 +17,9 @@ abstract contract Parameters is BaseParameters {
 
     // Vault parameters
     uint256 internal INITIAL_VAULT_DEPOSIT = 2_000 * 10 ** BASE_TOKEN_DECIMALS;
-    uint256 internal MIN_VAULT_DEPOSIT = 0.0001e18;
+    uint256 internal MIN_VAULT_DEPOSIT = 0.0001e6;
     uint256 internal EPOCH_FREQUENCY = EpochFrequency.DAILY;
 
     // IG parameters
-    uint256 internal MIN_OPTION_BUY = 0.001e18; // MAX is bullAvailNotional or bearAvailNotional
+    uint256 internal MIN_OPTION_BUY = 0.001e6; // MAX is bullAvailNotional or bearAvailNotional
 }

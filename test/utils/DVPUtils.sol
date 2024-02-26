@@ -31,15 +31,15 @@ library DVPUtils {
             uint256 sigmaZero,
             /* internalVolatilityParameters */
         ) = ig.financeParameters();
-        console.log("IG STATE ---------- maturity", maturity);
-        console.log("IG STATE ---------- strike", currentStrike);
-        console.log("IG STATE ---------- v0 up", initialLiquidity.up);
-        console.log("IG STATE ---------- v0 down", initialLiquidity.down);
-        console.log("IG STATE ---------- kA", kA);
-        console.log("IG STATE ---------- kB", kB);
-        console.log("IG STATE ---------- theta", theta);
+        console.log("IG STATE ------------- maturity", maturity);
+        console.log("IG STATE ------------- strike", currentStrike);
+        console.log("IG STATE ------------- v0 up", initialLiquidity.up);
+        console.log("IG STATE ------------- v0 down", initialLiquidity.down);
+        console.log("IG STATE ------------- kA", kA);
+        console.log("IG STATE ------------- kB", kB);
+        console.log("IG STATE ------------- theta", theta);
         // console.log("timeLocked", timeLocked);
-        console.log("IG STATE ---------- sigmaZero", sigmaZero);
+        console.log("IG STATE ------------- sigmaZero", sigmaZero);
     }
 
     /// @dev Function used to skip coverage on this file
