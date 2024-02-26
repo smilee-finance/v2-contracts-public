@@ -53,7 +53,7 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
 
     struct RYInfo {
         uint256 tradeRY;
-        uint256 tradePremium;
+        uint256 tradePremium; // premium (buying) or payoff (selling)
         uint256 uTrade;
     }
 
@@ -149,6 +149,5 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         uint256 baseTokenAmount = IERC20(baseToken).balanceOf(address(vault));
         uint256 sideTokenValue = EchidnaVaultUtils.getSideTokenValue(vault, ap);
         return notional == baseTokenAmount + sideTokenValue; // TODO: ~
-
     }
 }
