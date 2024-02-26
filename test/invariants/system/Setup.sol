@@ -11,7 +11,7 @@ import {AddressProviderUtils} from "../lib/AddressProviderUtils.sol";
 import {EchidnaVaultUtils} from "../lib/EchidnaVaultUtils.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedIG} from "../../mock/MockedIG.sol";
-import {Parameters} from "../utils/Parameters.sol";
+import {Parameters} from "../utils/scenarios/Parameters.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
 
@@ -53,7 +53,7 @@ abstract contract Setup is Parameters {
 
         AddressProviderUtils.initialize(admin, ap, address(baseToken), FLAG_SLIPPAGE, hevm);
         EPOCH_FREQUENCY = EpochFrequency.DAILY;
-        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, SIDE_TOKEN_DECIMALS, ap, EPOCH_FREQUENCY, hevm));
+        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, SIDE_TOKEN_DECIMALS, INITIAL_TOKEN_PRICE, ap, EPOCH_FREQUENCY, hevm));
 
         EchidnaVaultUtils.grantAdminRole(admin, address(vault));
         EchidnaVaultUtils.registerVault(admin, address(vault), ap, hevm);

@@ -11,7 +11,7 @@ abstract contract Parameters is BaseParameters {
     // Token parameters
     uint8 internal BASE_TOKEN_DECIMALS = 6;
     uint8 internal SIDE_TOKEN_DECIMALS = 8;
-    uint256 internal INITIAL_TOKEN_PRICE = 1e12;
+    uint256 internal INITIAL_TOKEN_PRICE = 1e26;
     uint256 internal MIN_TOKEN_PRICE = INITIAL_TOKEN_PRICE / 10 ** 3;
     uint256 internal MAX_TOKEN_PRICE = INITIAL_TOKEN_PRICE * 10 ** 3;
 

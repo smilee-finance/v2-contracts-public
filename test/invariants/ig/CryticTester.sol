@@ -13,7 +13,7 @@ contract CryticTester is TargetFunctions, CryticAsserts {
         setup();
 
         VaultUtils.addVaultDeposit(depositor, INITIAL_VAULT_DEPOSIT, admin, address(vault), _convertVm());
-        skipDay(false);
+        hevm.warp(block.timestamp + 86400);
         hevm.prank(admin);
         ig.rollEpoch();
     }

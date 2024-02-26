@@ -14,7 +14,7 @@ import {MasterChefSmilee} from "@project/periphery/MasterChefSmilee.sol";
 import {MasterChefSmilee} from "@project/periphery/MasterChefSmilee.sol";
 import {SimpleRewarderPerSec} from "@project/periphery/SimpleRewarderPerSec.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
-import {Parameters} from "../utils/Parameters.sol";
+import {Parameters} from "../utils/scenarios/Parameters.sol";
 
 abstract contract Setup is Parameters{
     address internal constant VM_ADDRESS_SETUP = address(uint160(uint256(keccak256("hevm cheat code"))));
@@ -49,7 +49,7 @@ abstract contract Setup is Parameters{
         baseToken.setAddressProvider(address(ap));
 
         AddressProviderUtils.initialize(admin, ap, address(baseToken), false, hevm);
-        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, SIDE_TOKEN_DECIMALS, ap, EpochFrequency.DAILY, hevm));
+        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, SIDE_TOKEN_DECIMALS, INITIAL_TOKEN_PRICE, ap, EpochFrequency.DAILY, hevm));
 
         EchidnaVaultUtils.grantAdminRole(admin, address(vault));
         EchidnaVaultUtils.registerVault(admin, address(vault), ap, hevm);

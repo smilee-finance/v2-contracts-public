@@ -19,6 +19,7 @@ library EchidnaVaultUtils {
         address baseToken,
         address tokenAdmin,
         uint8 sideTokenDecimals,
+        uint256 initialTokenPrice,
         AddressProvider addressProvider,
         uint256 epochFrequency,
         IHevm vm
@@ -29,7 +30,7 @@ library EchidnaVaultUtils {
         TestnetPriceOracle apPriceOracle = TestnetPriceOracle(addressProvider.priceOracle());
 
         vm.prank(tokenAdmin);
-        apPriceOracle.setTokenPrice(address(sideToken), 1 ether);
+        apPriceOracle.setTokenPrice(address(sideToken), initialTokenPrice);
 
         MockedVault vault = new MockedVault(
             address(baseToken),
