@@ -17,6 +17,7 @@ library FinanceIGPayoff {
         UD60x18 sdivkx18 = ud(sdivk);
         UD60x18 thetax18 = ud(theta);
 
+        // [ 1 + s / k - 2 √( s / k) ] / θ
         UD60x18 res = (convert(1).add(sdivkx18).sub((convert(2).mul(sdivkx18.sqrt())))).div(thetax18);
         inRangePayoffPerc = res.unwrap();
     }
@@ -36,8 +37,8 @@ library FinanceIGPayoff {
         uint256 kbound
     ) public pure returns (uint256 outRangePayoffPerc) {
         UD60x18 one = convert(1);
-        UD60x18 kDivKboundRtd = ud(k).div(ud(kbound)).sqrt();
-        UD60x18 kboundDivKRtd = ud(kbound).div(ud(k)).sqrt();
+        UD60x18 kDivKboundRtd = ud(k).div(ud(kbound)).sqrt(); // √(k / k<b/a>)
+        UD60x18 kboundDivKRtd = ud(kbound).div(ud(k)).sqrt(); // √(k<b/a> / k)
 
         bool c2Pos = kDivKboundRtd.gte(one);
         UD60x18 c2Abs = ud(sdivk).mul(c2Pos ? kDivKboundRtd.sub(one) : one.sub(kDivKboundRtd));
@@ -47,6 +48,7 @@ library FinanceIGPayoff {
         } else {
             num = one.add(c2Abs).sub(kboundDivKRtd);
         }
+        // [ 1 - s / k * [ √(k / k<b/a>) - 1 ] - √(k<b/a> / k) ] / θ
         return num.div(ud(theta)).unwrap();
     }
 

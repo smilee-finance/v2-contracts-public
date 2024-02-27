@@ -77,6 +77,7 @@ contract TestScenariosJson is Test {
     struct StartEpoch {
         StartEpochPreConditions pre;
         uint256 deposit;
+        uint256 duration;
         StartEpochPostConditions post;
     }
 
@@ -142,9 +143,17 @@ contract TestScenariosJson is Test {
 
         vm.prank(_admin);
         _ap = new AddressProvider(0);
+    }
+
+    function _marketSetup(uint256 duration) internal {
+        uint256 f = duration / 1e18 == 7
+            ? EpochFrequency.WEEKLY
+            : duration / 1e18 == 1
+                ? EpochFrequency.DAILY
+                : EpochFrequency.FOUR_WEEKS;
 
         // also creates exchange
-        _vault = MockedVault(VaultUtils.createVault(EpochFrequency.WEEKLY, _ap, _admin, vm));
+        _vault = MockedVault(VaultUtils.createVault(f, _ap, _admin, vm));
 
         vm.startPrank(_admin);
         _vault.grantRole(_vault.ROLE_ADMIN(), _admin);
@@ -170,51 +179,46 @@ contract TestScenariosJson is Test {
         vm.stopPrank();
     }
 
-    function testScenario1() public {
-        // One single Mint of a Bull option at the strike price.
-        _checkScenario("scenario_1", true);
-    }
+    // One single Mint of a Bull option at the strike price.
+    function testScenario1() public { _checkScenario("scenario_1", true); }
 
-    function testScenario2() public {
-        // One Mint for each Bull and Bear option at the strike price.
-        _checkScenario("scenario_2", true);
-    }
+    // One Mint for each Bull and Bear option at the strike price.
+    function testScenario2() public { _checkScenario("scenario_2", true); }
 
-    function testScenario3() public {
-        // Buy and sell single options with little price deviation from the strike price.
-        _checkScenario("scenario_3", true);
-    }
+    // Buy and sell single options with little price deviation from the strike price.
+    function testScenario3() public { _checkScenario("scenario_3", true); }
 
-    function testScenario4() public {
-        // Buy and sell both Bull and Bear options (in the same trade) with little price deviation from the strike price.
-        _checkScenario("scenario_4", true);
-    }
+    // Buy and sell both Bull and Bear options (in the same trade) with little price deviation from the strike price.
+    function testScenario4() public { _checkScenario("scenario_4", true); }
 
-    function testScenario5() public {
-        // Buy and sell all the available notional (single and both Bull and Bear options trade) with huge price deviation from the strike price.
-        _checkScenario("scenario_5", true);
-    }
+    // Buy and sell all the available notional (single and both Bull and Bear options trade) with huge price deviation from the strike price.
+    function testScenario5() public { _checkScenario("scenario_5", true); }
 
-    function testScenario6() public {
-        // Buy and sell all the available notional (both Bull and Bear options trade) with huge price deviation from the strike price.
-        _checkScenario("scenario_6", true);
-    }
+    // Buy and sell all the available notional (both Bull and Bear options trade) with huge price deviation from the strike price.
+    function testScenario6() public { _checkScenario("scenario_6", true); }
 
-    function testScenario7() public {
-        // Buy Both options little by little, with an ever-increasing price over time, selling everything 1 day before maturity.
-        _checkScenario("scenario_7", true);
-    }
+    // Buy Both options little by little, with an ever-increasing price over time, selling everything 1 day before maturity.
+    function testScenario7() public { _checkScenario("scenario_7", true); }
 
-    function testScenario8() public {
-        // Buy a Both option immediately, with an ever-decreasing price over time, selling little by little until maturity.
-        _checkScenario("scenario_8", true);
-    }
+    // Buy a Both option immediately, with an ever-decreasing price over time, selling little by little until maturity.
+    function testScenario8() public { _checkScenario("scenario_8", true); }
 
-    function testScenarioMultiEpoch() public {
-        // Controls the behavior of all components over multiple epochs.
-        _checkScenario("scenario_multi_1_e1", true);
-        _checkScenario("scenario_multi_1_e2", false);
-    }
+    // Controls the behavior of all components over multiple epochs
+    function testScenarioMultiEpoch01() public { _checkScenario("scenario_multi_1_e1", true); _checkScenario("scenario_multi_1_e2", false); }
+    function testScenarioMultiEpoch02() public { _checkScenario("scenario_multi_2_e1", true); _checkScenario("scenario_multi_2_e2", false); }
+    function testScenarioMultiEpoch03() public { _checkScenario("scenario_multi_3_e1", true); _checkScenario("scenario_multi_3_e2", false); }
+    function testScenarioMultiEpoch04() public { _checkScenario("scenario_multi_4_e1", true); _checkScenario("scenario_multi_4_e2", false); }
+    function testScenarioMultiEpoch05() public { _checkScenario("scenario_multi_5_e1", true); _checkScenario("scenario_multi_5_e2", false); }
+    function testScenarioMultiEpoch06() public { _checkScenario("scenario_multi_6_e1", true); _checkScenario("scenario_multi_6_e2", false); }
+    function testScenarioMultiEpoch07() public { _checkScenario("scenario_multi_7_e1", true); _checkScenario("scenario_multi_7_e2", false); }
+    function testScenarioMultiEpoch08() public { _checkScenario("scenario_multi_8_e1", true); _checkScenario("scenario_multi_8_e2", false); }
+    function testScenarioMultiEpoch09() public { _checkScenario("scenario_multi_9_e1", true); _checkScenario("scenario_multi_9_e2", false); }
+    function testScenarioMultiEpoch10() public { _checkScenario("scenario_multi_10_e1", true); _checkScenario("scenario_multi_10_e2", false); }
+    function testScenarioMultiEpoch11() public { _checkScenario("scenario_multi_11_e1", true); _checkScenario("scenario_multi_11_e2", false); }
+    function testScenarioMultiEpoch12() public { _checkScenario("scenario_multi_12_e1", true); _checkScenario("scenario_multi_12_e2", false); }
+    function testScenarioMultiEpoch13() public { _checkScenario("scenario_multi_13_e1", true); _checkScenario("scenario_multi_13_e2", false); }
+    function testScenarioMultiEpoch14() public { _checkScenario("scenario_multi_14_e1", true); _checkScenario("scenario_multi_14_e2", false); }
+    function testScenarioMultiEpoch15() public { _checkScenario("scenario_multi_15_e1", true); _checkScenario("scenario_multi_15_e2", false); }
 
     // function testScenarioLowKAHighVolatility() public {
     //     _checkScenario("scenario_low_ka_high_volatility", true);
@@ -238,13 +242,18 @@ contract TestScenariosJson is Test {
     // kA -> 0, IG goes paused, cannot trade
     function testFailScenarioSlippage08() public { _checkScenario("slip_001_08", true); }
 
-
     function _checkScenario(string memory scenarioName, bool isFirstEpoch) internal {
         console.log(string.concat("Executing scenario: ", scenarioName));
         string memory scenariosJSON = _getTestsFromJson(scenarioName);
 
+
         console.log("- Checking start epoch");
         StartEpoch memory startEpoch = _getStartEpochFromJson(scenariosJSON);
+
+        if (isFirstEpoch) {
+            _marketSetup(startEpoch.duration);
+        }
+
         _checkStartEpoch(startEpoch, isFirstEpoch);
 
         Trade[] memory trades = _getTradesFromJson(scenariosJSON);
@@ -265,7 +274,7 @@ contract TestScenariosJson is Test {
         _marketOracle.setImpliedVolatility(
             _dvp.baseToken(),
             _dvp.sideToken(),
-            EpochFrequency.WEEKLY,
+            _dvp.getEpoch().frequency,
             t0.pre.impliedVolatility
         );
         _marketOracle.setRiskFreeRate(_dvp.baseToken(), t0.pre.riskFreeRate);
@@ -340,9 +349,24 @@ contract TestScenariosJson is Test {
         if (t.isMint) {
             _traderResidualAmount.increase(Amount(t.amountUp, t.amountDown));
             (marketValue, fee) = _dvp.premium(strike, t.amountUp, t.amountDown);
-            TokenUtils.provideApprovedTokens(_admin, _vault.baseToken(), _trader, address(_dvp), (marketValue * (1e18 + t.post.acceptedPremiumSlippage) / 1e18) + fee, vm);
+            TokenUtils.provideApprovedTokens(
+                _admin,
+                _vault.baseToken(),
+                _trader,
+                address(_dvp),
+                ((marketValue * (1e18 + t.post.acceptedPremiumSlippage)) / 1e18) + fee,
+                vm
+            );
             vm.prank(_trader);
-            marketValue = _dvp.mint(_trader, strike, t.amountUp, t.amountDown, marketValue, t.post.acceptedPremiumSlippage, 0);
+            marketValue = _dvp.mint(
+                _trader,
+                strike,
+                t.amountUp,
+                t.amountDown,
+                marketValue,
+                t.post.acceptedPremiumSlippage,
+                0
+            );
             // TBD: check slippage on market value
         } else {
             _traderResidualAmount.decrease(Amount(t.amountUp, t.amountDown));
@@ -463,11 +487,14 @@ contract TestScenariosJson is Test {
         // TODO: add missing "complete withdraw"
     }
 
-    function _tolerance(uint256 value) private view returns (uint256) {
-        if (value == 0) {
-            return 1e8;
+    function _tolerance(uint256 value) private view returns (uint256 tol) {
+        if (value == 0) { // only works for 18 decimals
+            return 1e9;
         }
-        return (value * _tolerancePercentage) / 1e18;
+        tol = (value * _tolerancePercentage) / 1e18;
+        if (tol < 5e6) { // only works for 18 decimals
+            tol = 5e6;
+        }
     }
 
     function _tolerance(int256 value) private view returns (uint256) {
@@ -483,7 +510,7 @@ contract TestScenariosJson is Test {
     }
 
     function _getStartEpochFromJson(string memory json) private returns (StartEpoch memory) {
-        string[23] memory paths = [
+        string[24] memory paths = [
             "pre.sideTokenPrice",
             "pre.impliedVolatility",
             "pre.riskFreeRate",
@@ -500,6 +527,7 @@ contract TestScenariosJson is Test {
             "pre.exchangeFeeTier",
             "pre.successFee",
             "deposit",
+            "duration",
             "post.baseTokenAmount",
             "post.sideTokenAmount",
             "post.impliedVolatility",
@@ -508,7 +536,7 @@ contract TestScenariosJson is Test {
             "post.kB",
             "post.theta"
         ];
-        uint256[23] memory vars;
+        uint256[24] memory vars;
 
         string memory fixedJsonPath = "$.startEpoch";
         for (uint256 i = 0; i < paths.length; i++) {
@@ -535,6 +563,7 @@ contract TestScenariosJson is Test {
                 successFee: vars[counter++]
             }),
             deposit: vars[counter++],
+            duration: vars[counter++],
             post: StartEpochPostConditions({
                 baseTokenAmount: vars[counter++],
                 sideTokenAmount: vars[counter++],
