@@ -11,6 +11,7 @@ abstract contract Parameters is BaseParameters {
     // Token parameters
     uint8 internal BASE_TOKEN_DECIMALS = 6;
     uint8 internal SIDE_TOKEN_DECIMALS = 8;
+    uint256 internal BT_UNIT = 10 ** BASE_TOKEN_DECIMALS;
     // While using testnet price oracle all price has 18 decimals
     uint256 internal INITIAL_TOKEN_PRICE = 1e26;
     uint256 internal MIN_TOKEN_PRICE = INITIAL_TOKEN_PRICE / 10 ** 3;
