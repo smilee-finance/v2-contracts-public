@@ -458,24 +458,6 @@ contract VaultStateTest is Test {
     /**
      *
      */
-    function testVaultRevertInsufficientLiquidityNewPendingPayoff() public {
-        VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
-
-        Utils.skipDay(true, vm);
-        vm.prank(admin);
-        vault.rollEpoch();
-
-        vm.prank(admin);
-        vault.setAllowedDVP(admin);
-
-        vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("reservePayoff()"))));
-        vault.reservePayoff(101e18);
-    }
-
-        /**
-     *
-     */
     function testVaultRevertInsufficientLiquidityNewPendingPayoffWithMoveValue() public {
         VaultUtils.addVaultDeposit(alice, 100e18, admin, address(vault), vm);
 
@@ -516,6 +498,8 @@ contract VaultStateTest is Test {
 
         vault.moveValue(-10000);
 
+        VaultUtils.addVaultDeposit(alice, 1, admin, address(vault), vm);
+
         Utils.skipDay(true, vm);
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector,  bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0"))));
@@ -534,6 +518,8 @@ contract VaultStateTest is Test {
 
         vm.prank(admin);
         vault.reservePayoff(100e18);
+
+        VaultUtils.addVaultDeposit(alice, 1, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
@@ -554,7 +540,10 @@ contract VaultStateTest is Test {
         vm.prank(admin);
         vault.reservePayoff(100e18);
 
+        VaultUtils.addVaultDeposit(alice, 1, admin, address(vault), vm);
+
         Utils.skipDay(true, vm);
+
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0"))));
         vault.rollEpoch();

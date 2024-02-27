@@ -36,14 +36,14 @@ contract VaultDVPTest is Test {
     bytes4 public constant ERR_DVP_NOT_SET = bytes4(keccak256("DVPNotSet()"));
     bytes4 public constant ERR_ONLY_DVP_ALLOWED = bytes4(keccak256("OnlyDVPAllowed()"));
     bytes public constant ERR_PAUSED = bytes("Pausable: paused");
-    bytes public ERR_INSUFFICIENT_LIQUIDITY_RESERVE_PAYOFF;
+    // bytes public ERR_INSUFFICIENT_LIQUIDITY_RESERVE_PAYOFF;
 
     constructor() {
         admin = address(777);
         user = address(644);
         dvp = address(764);
 
-        ERR_INSUFFICIENT_LIQUIDITY_RESERVE_PAYOFF = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("reservePayoff()")));
+        // ERR_INSUFFICIENT_LIQUIDITY_RESERVE_PAYOFF = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("reservePayoff()")));
 
         vm.startPrank(admin);
         addressProvider = new AddressProvider(0);
@@ -119,34 +119,6 @@ contract VaultDVPTest is Test {
 
         state = VaultUtils.getState(vault);
         assertEq(payoff, state.liquidity.newPendingPayoffs);
-    }
-
-    // Test reserve payoff when there is not enough liquidity (revert)
-    function testReservePayoffWhenExcessive(uint256 notional, uint256 payoff) public {
-        notional = Utils.boundFuzzedValueToRange(notional, 1, vault.maxDeposit());
-        payoff = Utils.boundFuzzedValueToRange(payoff, notional + 1, type(uint256).max);
-        vm.assume(payoff > notional);
-
-        // provide tokens to the user:
-        vm.prank(admin);
-        baseToken.mint(user, notional);
-        // deposit:
-        vm.startPrank(user);
-        baseToken.approve(address(vault), notional);
-        vault.deposit(notional, user, 0);
-        vm.stopPrank();
-
-        vm.warp(vault.getEpoch().current + 1);
-        vm.prank(dvp);
-        vault.rollEpoch();
-
-        assertEq(notional, vault.notional());
-        VaultLib.VaultState memory state = VaultUtils.getState(vault);
-        assertEq(0, state.liquidity.newPendingPayoffs);
-
-        vm.prank(dvp);
-        vm.expectRevert(ERR_INSUFFICIENT_LIQUIDITY_RESERVE_PAYOFF);
-        vault.reservePayoff(payoff);
     }
 
     // Test reserve payoff when the DVP is not set (revert)

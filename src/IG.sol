@@ -28,7 +28,6 @@ contract IG is DVP {
     error NFTAccessDenied();
 
     // Used by TheGraph for frontend needs:
-    event EpochStrike(uint256 epoch, uint256 strike);
     event PausedForFinanceApproximation();
     event ChangedFinanceParameters();
 
@@ -251,8 +250,6 @@ contract IG is DVP {
         financeParameters.maturity = epoch.current;
         financeParameters.currentStrike = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         financeParameters.internalVolatilityParameters.epochStart = epoch.current - epoch.frequency; // Not using epoch.previous because epoch may be skipped
-
-        emit EpochStrike(epoch.current, financeParameters.currentStrike);
 
         {
             uint256 iv = IMarketOracle(_getMarketOracle()).getImpliedVolatility(

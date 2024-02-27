@@ -108,8 +108,8 @@ contract MockedVault is Vault {
         return getEpoch().current;
     }
 
-    function _beforeRollEpoch() internal virtual override {
-        super._beforeRollEpoch();
+    function _afterRollEpoch() internal virtual override {
+        super._afterRollEpoch();
 
         (uint256 baseTokens, ) = _tokenBalances();
 

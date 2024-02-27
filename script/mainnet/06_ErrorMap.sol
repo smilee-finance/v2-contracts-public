@@ -293,5 +293,27 @@ contract ErrorMap is Script {
         console.logBytes4(NotInitialized);
         console.log("Unauthorized");
         console.logBytes4(Unauthorized);
+
+        console.log("InsufficientLiquidity: portfolioValue < _state.liquidity.newPendingPayoffs");
+        console.logBytes4(getInsufficientLiquidityError("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs"));
+        console.log("InsufficientLiquidity: sharePrice == 0");
+        console.logBytes4(getInsufficientLiquidityError("_beforeRollEpoch()::sharePrice == 0"));
+        console.log("InsufficientLiquidity: sideTokensForMissingBaseTokens > sideTokens");
+        console.logBytes4(getInsufficientLiquidityError("_adjustBalances():sideTokensForMissingBaseTokens > sideTokens"));
+        console.log("InsufficientLiquidity: _buySideTokens()");
+        console.logBytes4(getInsufficientLiquidityError("_buySideTokens()"));
+        console.log("InsufficientLiquidity: _sellSideTokens()");
+        console.logBytes4(getInsufficientLiquidityError("_sellSideTokens()"));
+        console.log("InsufficientLiquidity: MockedVault");
+        console.logBytes4(getInsufficientLiquidityError("_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"));
     }
+
+    // InsufficientLiquidity(bytes4)
+    // function getInsufficientLiquidityError(string memory value) internal pure returns (bytes memory) {
+    function getInsufficientLiquidityError(string memory value) internal pure returns (bytes4) {
+        // bytes memory selector = hex'e7ef7373';
+        // return abi.encodeWithSelector(bytes4(selector), bytes4(keccak256(bytes(value))));
+        return bytes4(keccak256(bytes(value)));
+    }
+
 }
