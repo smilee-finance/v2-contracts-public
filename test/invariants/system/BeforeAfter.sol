@@ -11,6 +11,9 @@ abstract contract BeforeAfter is Setup {
     uint256 internal _initialStrike;
     uint256 internal _endingStrike;
 
+    uint256 internal _initialEwBaseTokens; // base tokens amount in V0 at epoch start
+    uint256 internal _initialEwSideTokens; // side tokens amount in V0 at epoch start
+
     VaultLib.VaultState internal _initialVaultState;
     VaultLib.VaultState internal _endingVaultState;
 
@@ -24,11 +27,27 @@ abstract contract BeforeAfter is Setup {
     uint256 internal _endingSharePrice;
 
     function _before() internal {
-        (_endingStrike, _endingVaultState, _endingFinanceParameters, _endingVaultTotalSupply, _endingSharePrice) = _collectData();
+        (
+            _endingStrike,
+            _endingVaultState,
+            _endingFinanceParameters,
+            _endingVaultTotalSupply,
+            _endingSharePrice,
+            ,
+
+        ) = _collectData();
     }
 
     function _after() internal {
-        (_initialStrike, _initialVaultState, _initialFinanceParameters, _initialVaultTotalSupply, _initialSharePrice) = _collectData();
+        (
+            _initialStrike,
+            _initialVaultState,
+            _initialFinanceParameters,
+            _initialVaultTotalSupply,
+            _initialSharePrice,
+            _initialEwBaseTokens,
+            _initialEwSideTokens
+        ) = _collectData();
     }
 
     function _collectData()
@@ -38,7 +57,9 @@ abstract contract BeforeAfter is Setup {
             VaultLib.VaultState memory vaultState,
             FinanceParameters  memory financeParameters,
             uint256 vaultTotalSupply,
-            uint256 sharePrice
+            uint256 sharePrice,
+            uint256 baseTokens,
+            uint256 sideTokens
         )
     {
         currentStrike = ig.currentStrike();
@@ -46,5 +67,6 @@ abstract contract BeforeAfter is Setup {
         financeParameters = TestOptionsFinanceHelper.getFinanceParameters(ig);
         vaultTotalSupply = vault.totalSupply();
         sharePrice = vault.epochPricePerShare(ig.getEpoch().previous);
+        (baseTokens, sideTokens) = vault.balances();
     }
 }

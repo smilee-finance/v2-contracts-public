@@ -60,7 +60,8 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
     struct RYInfoPostTrade {
         RYInfo ryInfo;
         uint256 epoch;
-        uint256 payoff;
+        uint256 payoff;     // vault total payoff after trade
+        uint256 tokenPrice; // oracle price of side token after trade
     }
 
     uint8 internal constant _BULL = 0;

@@ -1067,10 +1067,17 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             usedAmountDown
         );
         RYInfo memory ryInfo = RYInfo(tradeRY, tradePremium, uTrade);
-        uint256 payoff = _getTotalExpiryPayoff();
-        console.log("payoff", payoff);
 
-        t1Vault25 = RYInfoPostTrade(ryInfo, ig.getEpoch().current, payoff);
+        t1Vault25 = RYInfoPostTrade(
+            ryInfo,
+            ig.getEpoch().current,
+            _getTotalExpiryPayoff(),
+            _getTokenPrice(address(vault.sideToken()))
+        );
+
+        console.log("t1Vault25 :: epoch", t1Vault25.epoch);
+        console.log("t1Vault25 :: payoff", t1Vault25.payoff);
+        console.log("t1Vault25 :: tokenPrice", t1Vault25.tokenPrice);
     }
 
     function _vault25() internal {
@@ -1080,23 +1087,26 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             (uint256 ryT2, , ) = _getTradeRY(ig.currentStrike(), usedAmountUp, usedAmountDown);
             uint256 ryT1 = t1Vault25.ryInfo.tradeRY;
 
-            int256 payoffT1 = int256(t1Vault25.payoff);
-            int256 payoffT2 = int256(_getTotalExpiryPayoff());
-            console.log("ryT2", ryT2);
+            uint256 payoffT1 = t1Vault25.payoff;
+            uint256 payoffT2 = _getTotalExpiryPayoff();
+            uint256 ewT1 = _initialEwBaseTokens + _initialEwSideTokens * t1Vault25.tokenPrice / 1e18;
+            uint256 ewT2 = _initialEwBaseTokens + _initialEwSideTokens * _getTokenPrice(address(vault.sideToken())) / 1e18;
+
             console.log("ryT1", ryT1);
-            console.log("payoffT1");
-            console.logInt(payoffT1);
-            console.log("payoffT2");
-            console.logInt(payoffT2);
+            console.log("ryT2", ryT2);
+            console.log("payoffT1", payoffT1);
+            console.log("payoffT2", payoffT2);
+            console.log("ewT1", ewT1);
+            console.log("ewT2", ewT2);
 
-            int256 vaultPnL = int256(ryT2) - int256(ryT1);
-            int256 ilPnL = int256(payoffT2) - int256(payoffT1);
+            int256 vaultPnl = int256(ryT2) - int256(ryT1);
+            int256 lpPnl = int256(ewT2) - int256(payoffT2) - int256(ewT1) + int256(payoffT1);
 
-            console.log("vaultPnL");
-            console.logInt(vaultPnL);
-            console.log("ilPnL");
-            console.logInt(ilPnL);
-            t(vaultPnL >= ilPnL, _VAULT_25.desc);
+            console.log("vaultPnl");
+            console.logInt(vaultPnl);
+            console.log("lpPnl");
+            console.logInt(lpPnl);
+            t(vaultPnl >= lpPnl, _VAULT_25.desc);
         }
         // t(true, _VAULT_25.desc);
     }
@@ -1110,13 +1120,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
     function _getTotalExpiryPayoff() internal view returns (uint256 payoff) {
         console.log("_getTotalExpiryPayoff");
-        (uint256 amountUp, uint256 amountDown) = _usedNotional();
-        console.log("amountUp", amountUp);
-        console.log("amountDown", amountDown);
         (uint256 pUp, uint256 pDown) = _getExpiryPayoff();
-
-        uint256 payOffUp = pUp * amountUp * 2;
-        uint256 payOffDown = pDown * amountDown * 2;
+        uint256 payOffUp = pUp * vault.v0();
+        uint256 payOffDown = pDown * vault.v0();
         payoff = (payOffUp + payOffDown) / 1e18;
     }
 }
