@@ -1017,7 +1017,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     ) internal view returns (uint256, uint256, uint256) {
         // RY = notional - (premium_pre * V0 / 2) * u_pre
         (uint256 pUp, uint256 pDown) = _getRYPremium(strike, amountUp, amountDown);
-
         uint256 premium = pUp + pDown;
         uint256 ry = vault.notional() - (premium);
         return (ry, premium, ig.getUtilizationRate());
@@ -1074,10 +1073,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             _getTotalExpiryPayoff(),
             _getTokenPrice(address(vault.sideToken()))
         );
-
-        console.log("t1Vault25 :: epoch", t1Vault25.epoch);
-        console.log("t1Vault25 :: payoff", t1Vault25.payoff);
-        console.log("t1Vault25 :: tokenPrice", t1Vault25.tokenPrice);
     }
 
     function _vault25() internal {
@@ -1092,23 +1087,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             uint256 ewT1 = _initialEwBaseTokens + _initialEwSideTokens * t1Vault25.tokenPrice / 1e18;
             uint256 ewT2 = _initialEwBaseTokens + _initialEwSideTokens * _getTokenPrice(address(vault.sideToken())) / 1e18;
 
-            console.log("ryT1", ryT1);
-            console.log("ryT2", ryT2);
-            console.log("payoffT1", payoffT1);
-            console.log("payoffT2", payoffT2);
-            console.log("ewT1", ewT1);
-            console.log("ewT2", ewT2);
-
             int256 vaultPnl = int256(ryT2) - int256(ryT1);
             int256 lpPnl = int256(ewT2) - int256(payoffT2) - int256(ewT1) + int256(payoffT1);
 
-            console.log("vaultPnl");
-            console.logInt(vaultPnl);
-            console.log("lpPnl");
-            console.logInt(lpPnl);
-            t(vaultPnl >= lpPnl, _VAULT_25.desc);
+            // lpPnl can be greater then vaultPnl if time pass but nothing happened and price goes down before (bear)
+            t(((vaultPnl >= lpPnl) || (uint256(lpPnl - vaultPnl) < BT_UNIT / 100)), _VAULT_25.desc);
         }
-        // t(true, _VAULT_25.desc);
     }
 
     function _usedNotional() internal view returns (uint256 usedAmountUp, uint256 usedAmountDown) {
@@ -1119,7 +1103,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     }
 
     function _getTotalExpiryPayoff() internal view returns (uint256 payoff) {
-        console.log("_getTotalExpiryPayoff");
         (uint256 pUp, uint256 pDown) = _getExpiryPayoff();
         uint256 payOffUp = pUp * vault.v0();
         uint256 payOffDown = pDown * vault.v0();
