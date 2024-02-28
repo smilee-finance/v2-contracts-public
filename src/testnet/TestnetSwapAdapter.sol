@@ -82,6 +82,8 @@ contract TestnetSwapAdapter is IExchange, Ownable {
         amountIn = _getAmountIn(tokenIn, tokenOut, amountOut);
         amountIn = slipped(amountIn, true);
 
+        // NOTE: bug when amountIn == 0, it doesn't swaps
+
         if (amountIn > preApprovedAmountIn) {
             revert InsufficientInput();
         }

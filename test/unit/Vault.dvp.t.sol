@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
-// import {Epoch} from "@project/lib/EpochController.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
+import {AmountsMath} from "@project/lib/AmountsMath.sol";
 import {VaultLib} from "@project/lib/VaultLib.sol";
 import {TokenUtils} from "../utils/TokenUtils.sol";
 import {Utils} from "../utils/Utils.sol";
@@ -16,6 +16,8 @@ import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "@project/testnet/TestnetSwapAdapter.sol";
 
 contract VaultDVPTest is Test {
+    using AmountsMath for uint256;
+
     address admin;
     address user;
     address dvp;
@@ -25,6 +27,9 @@ contract VaultDVPTest is Test {
     TestnetPriceOracle priceOracle;
 
     Vault vault;
+
+    uint256 internal _toleranceBaseToken;
+    uint256 internal _toleranceSideToken;
 
     bytes4 public constant ERR_AMOUNT_ZERO = bytes4(keccak256("AmountZero()"));
     bytes4 public constant ERR_EXCEEDS_MAX_DEPOSIT = bytes4(keccak256("ExceedsMaxDeposit()"));
@@ -36,22 +41,22 @@ contract VaultDVPTest is Test {
     bytes4 public constant ERR_DVP_NOT_SET = bytes4(keccak256("DVPNotSet()"));
     bytes4 public constant ERR_ONLY_DVP_ALLOWED = bytes4(keccak256("OnlyDVPAllowed()"));
     bytes public constant ERR_PAUSED = bytes("Pausable: paused");
-    // bytes public ERR_INSUFFICIENT_LIQUIDITY_RESERVE_PAYOFF;
 
     constructor() {
         admin = address(777);
         user = address(644);
         dvp = address(764);
 
-        // ERR_INSUFFICIENT_LIQUIDITY_RESERVE_PAYOFF = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("reservePayoff()")));
-
         vm.startPrank(admin);
         addressProvider = new AddressProvider(0);
         addressProvider.grantRole(addressProvider.ROLE_ADMIN(), admin);
         vm.stopPrank();
 
-        baseToken = TestnetToken(TokenUtils.create("USDC", 7, addressProvider, admin, vm));
+        baseToken = TestnetToken(TokenUtils.create("USDC", 6, addressProvider, admin, vm));
         sideToken = TestnetToken(TokenUtils.create("WETH", 18, addressProvider, admin, vm));
+
+        _toleranceBaseToken = 10 ** baseToken.decimals() / 1000;
+        _toleranceSideToken = 10 ** sideToken.decimals() / 1000;
 
         vm.startPrank(admin);
 
@@ -92,6 +97,7 @@ contract VaultDVPTest is Test {
     }
 
     // Test reserve payoff
+    // NOTE: this does not check whether it is actually reserved on roll-epoch
     function testReservePayoff(uint256 notional, uint256 payoff) public {
         notional = Utils.boundFuzzedValueToRange(notional, 1, vault.maxDeposit());
         payoff = Utils.boundFuzzedValueToRange(payoff, 0, notional);
@@ -189,7 +195,189 @@ contract VaultDVPTest is Test {
         vault.reservePayoff(payoff);
     }
 
+    // Test roll epoch with an empty portfolio when already empty and without pending liquidity (either in or out)
+    function testRollEpochWithEmptyPortfolioAndNoActions() public {
+        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, sideToken.balanceOf(address(vault)));
+
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(0, state.liquidity.lockedInitially);
+        assertEq(0, state.liquidity.pendingDeposits);
+        assertEq(0, state.liquidity.pendingWithdrawals);
+        assertEq(0, state.liquidity.pendingPayoffs);
+        assertEq(0, state.liquidity.newPendingPayoffs);
+        assertEq(0, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
+        assertEq(false, state.dead);
+        assertEq(false, state.killed);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, sideToken.balanceOf(address(vault)));
+
+        assertEq(0, vault.v0());
+
+        state = VaultUtils.getState(vault);
+        assertEq(0, state.liquidity.lockedInitially);
+        assertEq(0, state.liquidity.pendingDeposits);
+        assertEq(0, state.liquidity.pendingWithdrawals);
+        assertEq(0, state.liquidity.pendingPayoffs);
+        assertEq(0, state.liquidity.newPendingPayoffs);
+        assertEq(0, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
+        assertEq(false, state.dead);
+        assertEq(false, state.killed);
+    }
+
+    /**
+     * Simulate the behaviour of the roll-epoch on an empty vault with only pending deposits.
+     *
+     * The vault must be on a clean state before the roll-epoch, with just the pending deposits.
+     * The vault must produce an equal weight portfolio of the right amounts and value.
+     */
+    function testRollEpochWithEmptyPortfolioAndDeposits(uint256 amount, uint256 sideTokenPrice) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
+
+        assertEq(0, baseToken.balanceOf(address(vault)));
+        assertEq(0, sideToken.balanceOf(address(vault)));
+
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        assertEq(amount, baseToken.balanceOf(address(vault)));
+        assertEq(0, sideToken.balanceOf(address(vault)));
+
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(0, state.liquidity.lockedInitially);
+        assertEq(amount, state.liquidity.pendingDeposits);
+        assertEq(0, state.liquidity.pendingWithdrawals);
+        assertEq(0, state.liquidity.pendingPayoffs);
+        assertEq(0, state.liquidity.newPendingPayoffs);
+        assertEq(amount, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
+        assertEq(false, state.dead);
+        assertEq(false, state.killed);
+
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 expectedBaseTokens = AmountsMath.wrapDecimals(amount, baseToken.decimals());
+        expectedBaseTokens = expectedBaseTokens / 2;
+        expectedBaseTokens = AmountsMath.unwrapDecimals(expectedBaseTokens, baseToken.decimals());
+        assertApproxEqAbs(expectedBaseTokens, baseToken.balanceOf(address(vault)), _toleranceBaseToken);
+
+        uint256 expectedSideTokens = AmountsMath.wrapDecimals(amount, baseToken.decimals());
+        expectedSideTokens = (expectedSideTokens / 2).wdiv(sideTokenPrice);
+        expectedSideTokens = AmountsMath.unwrapDecimals(expectedSideTokens, sideToken.decimals());
+        assertApproxEqAbs(expectedSideTokens, sideToken.balanceOf(address(vault)), _toleranceSideToken);
+
+        assertEq(amount, vault.v0());
+
+        state = VaultUtils.getState(vault);
+        assertEq(amount, state.liquidity.lockedInitially);
+        assertEq(0, state.liquidity.pendingDeposits);
+        assertEq(0, state.liquidity.pendingWithdrawals);
+        assertEq(0, state.liquidity.pendingPayoffs);
+        assertEq(0, state.liquidity.newPendingPayoffs);
+        assertEq(amount, state.liquidity.totalDeposit);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(0, state.withdrawals.newHeldShares);
+        assertEq(false, state.dead);
+        assertEq(false, state.killed);
+    }
+
+    /**
+     * Simulate the behaviour of the roll-epoch on a non-empty vault without pending liquidity (either in or out)
+     *
+     * The vault portfolio may be slightly unbalanced before the roll-epoch.
+     * The vault must produce an equal weight portfolio of the right amounts and value.
+     */
+    function testRollEpochWithExistingUnbalancedPortfolioAndNoActions(uint256 amount, uint256 sideTokenPrice, bool unbalancingDirection) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // Make the portfolio unbalanced:
+        uint256 unbalancingAmountAbs = AmountsMath.wrapDecimals(amount / 10, baseToken.decimals());
+        unbalancingAmountAbs = AmountsMath.unwrapDecimals(unbalancingAmountAbs, sideToken.decimals());
+        int256 unbalancingAmount = int256(unbalancingAmountAbs);
+        unbalancingAmount = (unbalancingDirection) ? unbalancingAmount : unbalancingAmount * -1;
+        vm.prank(dvp);
+        vault.deltaHedge(unbalancingAmount);
+
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        uint256 expectedNotional;
+        {
+            // NOTE: ignoring pendings as we know that there are no ones
+            uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+            uint256 sideTokens = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
+            uint256 sideTokensValue = AmountsMath.unwrapDecimals(sideTokens.wmul(sideTokenPrice), baseToken.decimals());
+
+            expectedNotional = baseTokenBalance + sideTokensValue;
+        }
+        assertApproxEqAbs(expectedNotional, vault.notional(), _toleranceBaseToken);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // Check equal weight portfolio:
+        uint256 expectedBaseTokens = AmountsMath.wrapDecimals(expectedNotional, baseToken.decimals());
+        expectedBaseTokens = expectedBaseTokens / 2;
+        expectedBaseTokens = AmountsMath.unwrapDecimals(expectedBaseTokens, baseToken.decimals());
+        assertApproxEqAbs(expectedBaseTokens, baseToken.balanceOf(address(vault)), _toleranceBaseToken);
+
+        uint256 expectedSideTokens = AmountsMath.wrapDecimals(expectedNotional, baseToken.decimals());
+        expectedSideTokens = (expectedSideTokens / 2).wdiv(sideTokenPrice);
+        expectedSideTokens = AmountsMath.unwrapDecimals(expectedSideTokens, sideToken.decimals());
+        assertApproxEqAbs(expectedSideTokens, sideToken.balanceOf(address(vault)), _toleranceSideToken);
+
+        assertApproxEqAbs(expectedNotional, vault.v0(), _toleranceBaseToken);
+
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertApproxEqAbs(expectedNotional, state.liquidity.lockedInitially, _toleranceBaseToken);
+    }
+
     // - [TODOs]: test roll epoch (focus on payoff and portfolio balance)
+    /**
+     * - Test roll epoch equal weight portfolio when not empty and with new pending payoff (less or equal to the notional)
+     * - [TBD]: test roll epoch equal weight portfolio when not empty and with new pending payoff (greater than the notional) [revert; seems impossible to happen from the DVP]
+     */
+
+    // ---------
+
     // - [TODO]: test delta hedge when side tokens needs to be bought and the available base tokens are enough for the swap
     // - [TODO]: test delta hedge when side tokens needs to be bought and the available base tokens are enough for the swap, but not for the slippage
     // - [TODO]: test delta hedge when side tokens needs to be bought and the available base tokens are not enough for the swap
