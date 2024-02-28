@@ -64,6 +64,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         try vault.deposit(amount, msg.sender, 0) {} catch (bytes memory err) {
             if (!FLAG_SLIPPAGE) {
                 _shouldNotRevertUnless(err, _GENERAL_1);
+            } else {
+                revert(string(err));
             }
         }
 
@@ -88,6 +90,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         try vault.redeem(heldByVault) {} catch (bytes memory err) {
             if (!FLAG_SLIPPAGE) {
                 _shouldNotRevertUnless(err, _GENERAL_1);
+            } else {
+                revert(string(err));
             }
         }
 
@@ -115,6 +119,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         try vault.initiateWithdraw(sharesToWithdraw) {} catch (bytes memory err) {
             if (!FLAG_SLIPPAGE) {
                 _shouldNotRevertUnless(err, _GENERAL_1);
+            } else {
+                revert(string(err));
             }
         }
 
@@ -141,6 +147,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         try vault.completeWithdraw() {} catch (bytes memory err) {
             if (!FLAG_SLIPPAGE) {
                 _shouldNotRevertUnless(err, _GENERAL_1);
+            } else {
+                revert(string(err));
             }
         }
 
@@ -504,6 +512,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         } catch (bytes memory err) {
             if (!FLAG_SLIPPAGE) {
                 _shouldNotRevertUnless(err, _GENERAL_6);
+            } else {
+                revert(string(err));
             }
         }
 
@@ -624,6 +634,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         } catch (bytes memory err) {
             if (!FLAG_SLIPPAGE) {
                 _shouldNotRevertUnless(err, _GENERAL_6);
+            } else {
+                revert(string(err));
             }
         }
 
@@ -703,7 +715,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     //----------------------------------------------
 
     function _shouldNotRevertUnless(bytes memory err, InvariantInfo memory _invariant) internal {
-        console.logBytes(err);
         if (!_ACCEPTED_REVERTS[_invariant.code][keccak256(err)]) {
             emit DebugBool(_invariant.code, _ACCEPTED_REVERTS[_invariant.code][keccak256(err)]);
             t(false, _invariant.desc);
@@ -1084,8 +1095,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
             uint256 payoffT1 = t1Vault25.payoff;
             uint256 payoffT2 = _getTotalExpiryPayoff();
-            uint256 ewT1 = _initialEwBaseTokens + _initialEwSideTokens * t1Vault25.tokenPrice / 1e18;
-            uint256 ewT2 = _initialEwBaseTokens + _initialEwSideTokens * _getTokenPrice(address(vault.sideToken())) / 1e18;
+            uint256 ewT1 = _initialEwBaseTokens + _initialEwSideTokens * t1Vault25.tokenPrice * BT_UNIT / (1e18 * ST_UNIT);
+            uint256 ewT2 = _initialEwBaseTokens + _initialEwSideTokens * _getTokenPrice(address(vault.sideToken())) * BT_UNIT / (1e18 * ST_UNIT);
 
             int256 vaultPnl = int256(ryT2) - int256(ryT1);
             int256 lpPnl = int256(ewT2) - int256(payoffT2) - int256(ewT1) + int256(payoffT1);

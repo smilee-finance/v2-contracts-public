@@ -12,13 +12,14 @@ abstract contract Parameters is BaseParameters {
     uint8 internal BASE_TOKEN_DECIMALS = 6;
     uint8 internal SIDE_TOKEN_DECIMALS = 8;
     uint256 internal BT_UNIT = 10 ** BASE_TOKEN_DECIMALS;
+    uint256 internal ST_UNIT = 10 ** SIDE_TOKEN_DECIMALS;
     uint256 internal INITIAL_TOKEN_PRICE = 1e18;
     uint256 internal MIN_TOKEN_PRICE = INITIAL_TOKEN_PRICE / 10 ** 3;
     uint256 internal MAX_TOKEN_PRICE = INITIAL_TOKEN_PRICE * 10 ** 3;
 
     // Vault parameters
     uint256 internal INITIAL_VAULT_DEPOSIT = 2_000 * 10 ** BASE_TOKEN_DECIMALS;
-    uint256 internal MIN_VAULT_DEPOSIT = 0.0001e6;
+    uint256 internal MIN_VAULT_DEPOSIT = 0.001e6;
     uint256 internal EPOCH_FREQUENCY = EpochFrequency.DAILY;
 
     // IG parameters
