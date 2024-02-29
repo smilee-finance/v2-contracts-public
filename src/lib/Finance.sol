@@ -58,25 +58,25 @@ library Finance {
     }
 
     /**
-     * @notice Check slippage between premium and expected premium 
+     * @notice Check slippage between premium and expected premium
      * @param premium Premium computed including the fees
-     * @param expectedpremium External previewed premium computed including the fees
+     * @param expectedPremium External previewed premium computed including the fees
      * @param maxSlippage The slippage percentage value
      * @param tradeIsBuy true if buy, false otherwise
      * @return ok true if the slippage is on range, false otherwise
      */
     function checkSlippage(
         uint256 premium,
-        uint256 expectedpremium,
+        uint256 expectedPremium,
         uint256 maxSlippage,
         bool tradeIsBuy
     ) public pure returns (bool ok) {
-        uint256 slippage = ud(expectedpremium).mul(ud(maxSlippage)).unwrap();
+        uint256 slippage = ud(expectedPremium).mul(ud(maxSlippage)).unwrap();
 
-        if (tradeIsBuy && (premium > expectedpremium + slippage)) {
+        if (tradeIsBuy && (premium > expectedPremium + slippage)) {
             return false;
         }
-        if (!tradeIsBuy && (premium < expectedpremium - slippage)) {
+        if (!tradeIsBuy && (premium < expectedPremium - slippage)) {
             return false;
         }
 

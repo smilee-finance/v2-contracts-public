@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.15;
 
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -176,17 +177,13 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
             revert AsymmetricAmount();
         }
 
-        uint256 obtainedPremium;
-        uint256 fee;
-        (obtainedPremium, fee) = dvp.premium(params.strike, params.notionalUp, params.notionalDown);
+        uint256 spending = params.expectedPremium + params.expectedPremium * params.maxSlippage / 1e18;
 
         // Transfer premium:
         // NOTE: The PositionManager is just a middleman between the user and the DVP
         IERC20 baseToken = IERC20(dvp.baseToken());
-        baseToken.safeTransferFrom(msg.sender, address(this), obtainedPremium);
-
-        // Premium already include fee
-        baseToken.safeApprove(params.dvpAddr, obtainedPremium);
+        baseToken.safeTransferFrom(msg.sender, address(this), spending);
+        baseToken.safeApprove(params.dvpAddr, spending);
 
         premium = dvp.mint(
             address(this),
@@ -198,9 +195,12 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
             accessTokenId
         );
 
-        if (obtainedPremium > premium) {
-            baseToken.safeTransferFrom(address(this), msg.sender, obtainedPremium - premium);
+        if (spending > premium) {
+            baseToken.safeTransfer(msg.sender, spending - premium);
         }
+
+        // clear allowance
+        baseToken.safeApprove(params.dvpAddr, 0);
 
         if (params.tokenId == 0) {
             // Mint token:

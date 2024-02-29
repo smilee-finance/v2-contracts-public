@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
 import {ud, convert} from "@prb/math/UD60x18.sol";
 import {IPositionManager} from "@project/interfaces/IPositionManager.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
@@ -85,7 +86,10 @@ contract PositionManagerTest is Test {
         uint256 strike = ig.currentStrike();
 
         (uint256 expectedMarketValue, ) = ig.premium(0, 10 ether, 0);
-        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), expectedMarketValue, vm);
+        uint256 slippage = 0.1e18;
+        uint256 maxSpending = (expectedMarketValue * (1e18 + slippage)) / 1e18;
+        TokenUtils.provideApprovedTokens(admin, baseToken, DEFAULT_SENDER, address(pm), maxSpending, vm);
+
         // NOTE: somehow, the sender is something else without this prank...
         vm.prank(DEFAULT_SENDER);
         (tokenId, ) = pm.mint(
@@ -97,7 +101,7 @@ contract PositionManagerTest is Test {
                 recipient: alice,
                 tokenId: 0,
                 expectedPremium: expectedMarketValue,
-                maxSlippage: 0.1e18,
+                maxSlippage: slippage,
                 nftAccessTokenId: 0
             })
         );
@@ -197,7 +201,6 @@ contract PositionManagerTest is Test {
 
     function testMintTwiceSamePosition() public {
         (uint256 tokenId, IG ig) = initAndMint();
-
         assertEq(1, tokenId);
 
         IPositionManager.PositionDetail memory pos = pm.positionDetail(tokenId);
@@ -217,11 +220,9 @@ contract PositionManagerTest is Test {
         TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(pm), 10 ether, vm);
 
         uint256 strike = ig.currentStrike();
-
         (uint256 expectedMarketValue, ) = ig.premium(strike, 10 ether, 0);
 
         vm.prank(alice);
-
         (tokenId, ) = pm.mint(
             IPositionManager.MintParams({
                 dvpAddr: address(ig),
@@ -334,7 +335,6 @@ contract PositionManagerTest is Test {
     //     );
 
     //     (uint256 expectedMarketValue3, ) = ig.premium(0, 10e18, 0);
-    //     console.log(expectedMarketValue3);
     //     assertGt(expectedMarketValue3, expectedMarketValue + slippage);
 
     //     vm.prank(DEFAULT_SENDER);

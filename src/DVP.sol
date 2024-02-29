@@ -196,11 +196,11 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
     function _checkSlippage(
         uint256 premium,
-        uint256 expectedpremium,
+        uint256 expectedPremium,
         uint256 maxSlippage,
         bool tradeIsBuy
     ) internal pure {
-        if (!Finance.checkSlippage(premium, expectedpremium, maxSlippage, tradeIsBuy)) {
+        if (!Finance.checkSlippage(premium, expectedPremium, maxSlippage, tradeIsBuy)) {
             revert SlippedMarketValue();
         }
     }
