@@ -25,6 +25,7 @@ contract VaultDVPTest is Test {
     TestnetToken sideToken;
     AddressProvider addressProvider;
     TestnetPriceOracle priceOracle;
+    TestnetSwapAdapter exchange;
 
     Vault vault;
 
@@ -40,12 +41,20 @@ contract VaultDVPTest is Test {
     bytes4 public constant ERR_EXCEEDS_AVAILABLE = bytes4(keccak256("ExceedsAvailable()"));
     bytes4 public constant ERR_DVP_NOT_SET = bytes4(keccak256("DVPNotSet()"));
     bytes4 public constant ERR_ONLY_DVP_ALLOWED = bytes4(keccak256("OnlyDVPAllowed()"));
+    bytes4 public constant ERR_INSUFFICIENT_INPUT = bytes4(keccak256("InsufficientInput()"));
+    bytes public ERR_INSUFFICIENT_LIQUIDITY_BUY_SIDE_TOKEN;
+    bytes public ERR_INSUFFICIENT_LIQUIDITY_SELL_SIDE_TOKEN;
+    bytes public ERR_INSUFFICIENT_LIQUIDITY_PENDING_PAYOFF;
     bytes public constant ERR_PAUSED = bytes("Pausable: paused");
 
     constructor() {
         admin = address(777);
         user = address(644);
         dvp = address(764);
+
+        ERR_INSUFFICIENT_LIQUIDITY_BUY_SIDE_TOKEN = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_buySideTokens()")));
+        ERR_INSUFFICIENT_LIQUIDITY_SELL_SIDE_TOKEN = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_sellSideTokens()")));
+        ERR_INSUFFICIENT_LIQUIDITY_PENDING_PAYOFF = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs")));
 
         vm.startPrank(admin);
         addressProvider = new AddressProvider(0);
@@ -68,7 +77,7 @@ contract VaultDVPTest is Test {
         priceOracle.setTokenPrice(address(sideToken), 1e18);
         addressProvider.setPriceOracle(address(priceOracle));
 
-        TestnetSwapAdapter exchange = new TestnetSwapAdapter(addressProvider.priceOracle());
+        exchange = new TestnetSwapAdapter(addressProvider.priceOracle());
         addressProvider.setExchangeAdapter(address(exchange));
 
         // No fees by default:
@@ -378,25 +387,713 @@ contract VaultDVPTest is Test {
 
     // ---------
 
-    // - [TODO]: test delta hedge when side tokens needs to be bought and the available base tokens are enough for the swap
-    // - [TODO]: test delta hedge when side tokens needs to be bought and the available base tokens are enough for the swap, but not for the slippage
-    // - [TODO]: test delta hedge when side tokens needs to be bought and the available base tokens are not enough for the swap
-    // - [TODO]: test delta hedge when side tokens needs to be bought but there are no available base tokens (revert)
+    /**
+     * Test delta hedge when side tokens needs to be bought and the available base tokens are enough for the swap
+     */
+    function testDeltaHedgeWhenBuySideTokensWithEnoughtBaseTokensToSwap(uint256 amount, uint256 sideTokenPrice) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // In order to buy side token for base token the price need to go down
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1e18);
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = sideToken.balanceOf(address(vault));
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        // Make the portfolio unbalanced:
+        uint256 unbalancingAmount = AmountsMath.wrapDecimals(amount / 10, baseToken.decimals());
+        unbalancingAmount = AmountsMath.unwrapDecimals(unbalancingAmount, sideToken.decimals());
+        vm.prank(dvp);
+        vault.deltaHedge(int256(unbalancingAmount));
+
+        uint256 expectedBaseTokenBalance = baseTokenBalance - AmountsMath.unwrapDecimals((unbalancingAmount.wmul(sideTokenPrice)), baseToken.decimals());
+        assertApproxEqAbs(expectedBaseTokenBalance, baseToken.balanceOf(address(vault)), _toleranceBaseToken);
+
+        uint256 expectedSideTokenBalance = sideTokenBalance + unbalancingAmount;
+        assertApproxEqAbs(expectedSideTokenBalance, sideToken.balanceOf(address(vault)), _toleranceSideToken);
+    }
+
+    /**
+     * Test delta hedge when side tokens needs to be bought and the available base tokens are enough for the swap, but not for the slippage
+     *
+     * Revert swap adapter
+     */
+    function testDeltaHedgeWhenBuySideTokensWithEnoughtBaseTokensToSwapButNotForSlippage(uint256 amount, uint256 sideTokenPrice) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // set slippage to 2%
+        uint256 exactSlippagePerc = 0.02e18;
+        vm.prank(admin);
+        exchange.setSlippage(int256(exactSlippagePerc), 0, 0);
+
+        // In order to buy side token for base token the price need to go down
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1e18);
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = sideToken.balanceOf(address(vault));
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        // Make the portfolio unbalanced:
+        vm.assume(baseTokenBalance > minAmount);
+        uint256 baseTokenBalanceWad = AmountsMath.wrapDecimals(baseTokenBalance, baseToken.decimals());
+        uint256 baseTokenSafeMargin = AmountsMath.unwrapDecimals(baseTokenBalanceWad.wmul(0.015e18).wdiv(1e18), baseToken.decimals());
+        uint256 unbalancingAmountWad = AmountsMath.wrapDecimals(baseTokenBalance - baseTokenSafeMargin, baseToken.decimals());
+        uint256 unbalancingAmount = AmountsMath.unwrapDecimals(unbalancingAmountWad.wdiv(sideTokenPrice), sideToken.decimals());
+        vm.prank(dvp);
+        vm.expectRevert(ERR_INSUFFICIENT_INPUT);
+        vault.deltaHedge(int256(unbalancingAmount));
+    }
+
+    /**
+     * Test delta hedge when side tokens needs to be bought and the available base tokens are not enough for the swap
+     */
+    function testDeltaHedgeWhenBuySideTokensWithNotEnoughtBaseTokensToSwap(uint256 amount, uint256 sideTokenPrice) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // In order to buy side token for base token the price need to go down
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1e18);
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        // Make the portfolio unbalanced:
+        uint256 baseTokenBalanceWad = AmountsMath.wrapDecimals(baseTokenBalance, baseToken.decimals());
+        uint256 baseTokenExceedMargin = AmountsMath.unwrapDecimals(baseTokenBalanceWad.wmul(0.015e18).wdiv(1e18), baseToken.decimals());
+        uint256 unbalancingAmountWad = AmountsMath.wrapDecimals(baseTokenBalance + baseTokenExceedMargin, baseToken.decimals());
+        uint256 unbalancingAmount = AmountsMath.unwrapDecimals(unbalancingAmountWad.wdiv(sideTokenPrice), sideToken.decimals());
+
+        vm.prank(dvp);
+        vault.deltaHedge(int256(unbalancingAmount));
+
+        uint256 _hedgeMargin = 250; // 2,5%
+        uint256 effectiveUnbalancingAmount = AmountsMath.unwrapDecimals(unbalancingAmount - ((unbalancingAmount * _hedgeMargin) / 10000), sideToken.decimals());
+        uint256 expectedBaseTokenBalance = AmountsMath.unwrapDecimals(effectiveUnbalancingAmount.wmul(sideTokenPrice), baseToken.decimals());
+        assertApproxEqAbs(baseTokenBalance - expectedBaseTokenBalance, baseToken.balanceOf(address(vault)), _toleranceBaseToken);
+
+        uint256 expectedSideTokenBalance = sideTokenBalance + effectiveUnbalancingAmount;
+        assertApproxEqAbs(expectedSideTokenBalance, sideToken.balanceOf(address(vault)), _toleranceSideToken);
+    }
+
+    /**
+     * Test delta hedge when side tokens needs to be bought but there are no available base tokens (revert)
+     */
+    function testDeltaHedgeWhenBuySideTokensWithNoAvailableBaseToken(uint256 amount, uint256 sideTokenPrice) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // In order to buy side token for base token the price need to go down
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1e18);
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        // Make the portfolio unbalanced:
+        uint256 baseTokenBalanceWad = AmountsMath.wrapDecimals(baseTokenBalance, baseToken.decimals());
+        uint256 unbalancingAmount = AmountsMath.unwrapDecimals(baseTokenBalanceWad.wdiv(sideTokenPrice), sideToken.decimals());
+
+        vm.prank(dvp);
+        vault.deltaHedge(int256(unbalancingAmount));
+
+        vm.assume(0 == baseToken.balanceOf(address(vault)));
+
+        vm.prank(dvp);
+        vm.expectRevert(ERR_INSUFFICIENT_LIQUIDITY_BUY_SIDE_TOKEN);
+        vault.deltaHedge(int256(unbalancingAmount));
+    }
+
+    /**
+     * Test delta hedge when side tokens needs to be sold and the available ones are enough
+     */
+    function testDeltaHedgeWhenSellSideTokensWithEnoughtSideTokens(uint256 amount, uint256 sideTokenPrice) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // In order to sell side token for base token the price need to go up
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 1e18, 1_000e18);
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = sideToken.balanceOf(address(vault));
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        // Make the portfolio unbalanced:
+        uint256 unbalancingAmount = AmountsMath.wrapDecimals(amount / 10, baseToken.decimals());
+        unbalancingAmount = AmountsMath.unwrapDecimals(unbalancingAmount, sideToken.decimals());
+        vm.prank(dvp);
+        vault.deltaHedge(-int256(unbalancingAmount));
+
+        uint256 expectedBaseTokenBalance = baseTokenBalance + AmountsMath.unwrapDecimals((unbalancingAmount.wmul(sideTokenPrice)), baseToken.decimals());
+        assertApproxEqAbs(expectedBaseTokenBalance, baseToken.balanceOf(address(vault)), _toleranceBaseToken);
+
+        uint256 expectedSideTokenBalance = sideTokenBalance - unbalancingAmount;
+        assertApproxEqAbs(expectedSideTokenBalance, sideToken.balanceOf(address(vault)), _toleranceSideToken);
+    }
+
+    /**
+     * Test delta hedge when side tokens needs to be sold and the available ones are not enough (revert)
+     */
+    function testDeltaHedgeWhenSellSideTokensWithNotEnoughSideToken(uint256 amount, uint256 sideTokenPrice) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // In order to sell side token for base token the price need to go up
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 1e18, 1_000e18);
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        vm.prank(dvp);
+        vm.expectRevert(ERR_INSUFFICIENT_LIQUIDITY_SELL_SIDE_TOKEN);
+        vault.deltaHedge(-int256(sideTokenBalance * 2));
+    }
+
+    /**
+     * Test delta hedge when the side tokens to move are zero
+     */
+    function testDeltaHedgeWhenSideTokensToMoveAreZero(uint256 amount, uint256 sideTokenPrice) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // In order to buy side token for base token the price need to go down
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1e18);
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        vm.prank(dvp);
+        vault.deltaHedge(0);
+
+        assertEq(baseTokenBalance, baseToken.balanceOf(address(vault)));
+        assertEq(sideTokenBalance, AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals()));
+    }
+
+    /**
+     * Test delta hedge when the the vault is dead (revert)
+     */
+    function testDeltaHedgeWhenVaultIsDead(uint256 amount) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        vm.prank(admin);
+        vault.killVault();
+        vm.warp(vault.getEpoch().current + 1);
+        vm.startPrank(dvp);
+        vault.rollEpoch();
+        vm.expectRevert(ERR_VAULT_DEAD);
+        vault.deltaHedge(1);
+    }
+
+    /**
+     * Test delta hedge when the the vault is paused (revert)
+     */
+    function testDeltaHedgeWhenVaultIsPaused(uint256 amount) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        vm.prank(admin);
+        vault.changePauseState();
+        vm.prank(dvp);
+        vm.expectRevert(ERR_PAUSED);
+        vault.deltaHedge(1);
+    }
+
+    /**
+     * Test delta hedge when the the caller is not the DVP (revert)
+     */
+    function testDeltaHedgeWhenCallerIsNotDVP(uint256 amount) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // NOTE: ignoring pendings as we know that there are no ones
+        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+        uint256 sideTokenBalance = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
+
+        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
+        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
+
+        vm.prank(admin);
+        vm.expectRevert(ERR_ONLY_DVP_ALLOWED);
+        vault.deltaHedge(1);
+    }
+
     // - [TBD]: test delta hedge when side tokens needs to be bought and the external exchange adapter is not set (revert)
-    // - [TBD]: test delta hedge when side tokens needs to be bought but the external exchange adapter reverts (revert)
-    // - [TODO]: test delta hedge when side tokens needs to be sold and the available ones are enough
-    // - [TODO]: test delta hedge when side tokens needs to be sold and the available ones are not enough (revert)
+    // - [TBD]: test delta hedge when side tokens needs to be bought but the external exchange adapter reverts (revert) // done
     // - [TBD]: test delta hedge when side tokens needs to be sold and the external exchange adapter is not set (revert)
     // - [TBD]: test delta hedge when side tokens needs to be sold but the external exchange adapter reverts (revert)
-    // - [TODO]: test delta hedge when the side tokens to move are zero
-    // - [TODO]: test delta hedge when the the vault is dead (revert)
-    // - [TODO]: test delta hedge when the the vault is paused (revert)
-    // - [TODO]: test delta hedge when the the caller is not the DVP (revert)
-    // - [TODO]: test transfer payoff accounted for a past epoch
-    // - [TODO]: test transfer payoff accounted for a past epoch but the amount exceeds the accounted one (revert)
-    // - [TODO]: test transfer payoff with the current notional
-    // - [TODO]: test transfer payoff when the current notional is not enough (revert)
-    // - [TODO]: test transfer payoff of zero amount
-    // - [TODO]: test transfer payoff when the vault is paused (revert)
-    // - [TODO]: test transfer payoff when the caller is not the DVP (revert)
+
+    /**
+     * Test transfer payoff accounted for a past epoch
+     */
+    function testTransferPayoffAccountedPastEpoch(uint256 amount, uint256 payoff) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+        payoff = Utils.boundFuzzedValueToRange(payoff, 0, amount);
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        vm.prank(dvp);
+        vault.reservePayoff(payoff);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 userBalance = baseToken.balanceOf(user);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        uint256 pendinfPayoffBeforeTransfer = state.liquidity.pendingPayoffs;
+
+        assertEq(0, userBalance);
+        assertEq(pendinfPayoffBeforeTransfer, payoff);
+
+        vm.prank(dvp);
+        vault.transferPayoff(user, payoff, true);
+
+        assertApproxEqAbs(baseToken.balanceOf(user), payoff, _toleranceBaseToken);
+        state = VaultUtils.getState(vault);
+        assertApproxEqAbs(state.liquidity.pendingPayoffs, pendinfPayoffBeforeTransfer - payoff, _toleranceBaseToken);
+    }
+
+    /**
+     * Test transfer payoff accounted for a past epoch but the amount exceeds the accounted one (revert)
+     */
+    function testTransferPayoffMoreThenAccountedPastEpoch(uint256 amount, uint256 payoff) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+        payoff = Utils.boundFuzzedValueToRange(payoff, 0, amount);
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        vm.prank(dvp);
+        vault.reservePayoff(payoff);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 userBalance = baseToken.balanceOf(user);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        uint256 pendinfPayoffBeforeTransfer = state.liquidity.pendingPayoffs;
+
+        assertEq(0, userBalance);
+        assertEq(pendinfPayoffBeforeTransfer, payoff);
+
+        vm.prank(dvp);
+        vm.expectRevert(ERR_EXCEEDS_AVAILABLE);
+        vault.transferPayoff(user, payoff + 1, true);
+    }
+
+    /**
+     * Test transfer payoff with the current notional
+     */
+    function testTransferPayoffAllNotionalPastEpoch(uint256 amount) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 payoff = vault.notional();
+        vm.prank(dvp);
+        vault.reservePayoff(payoff);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 userBalance = baseToken.balanceOf(user);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        uint256 pendinfPayoffBeforeTransfer = state.liquidity.pendingPayoffs;
+
+        assertEq(0, userBalance);
+        assertEq(pendinfPayoffBeforeTransfer, payoff);
+
+        vm.prank(dvp);
+        vault.transferPayoff(user, payoff, true);
+
+        assertApproxEqAbs(baseToken.balanceOf(user), payoff, _toleranceBaseToken);
+        state = VaultUtils.getState(vault);
+        assertApproxEqAbs(state.liquidity.pendingPayoffs, pendinfPayoffBeforeTransfer - payoff, _toleranceBaseToken);
+    }
+
+    /**
+     * Test transfer payoff when the current notional is not enough (revert)
+     */
+    function testTransferPayoffMoreThenNotionalPastEpoch(uint256 amount) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 payoff = vault.notional() + 1;
+        vm.prank(dvp);
+        vault.reservePayoff(payoff);
+
+        uint256 userBalance = baseToken.balanceOf(user);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        uint256 newPendinfPayoffBeforeTransfer = state.liquidity.newPendingPayoffs;
+
+        assertEq(0, userBalance);
+        assertEq(newPendinfPayoffBeforeTransfer, payoff);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vm.expectRevert(ERR_INSUFFICIENT_LIQUIDITY_PENDING_PAYOFF);
+        vault.rollEpoch();
+    }
+
+    /**
+     * Test transfer payoff of zero amount
+     */
+    function testTransferZeroPayoffPastEpoch(uint256 amount) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 payoff = 0;
+        vm.prank(dvp);
+        vault.reservePayoff(payoff);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 userBalance = baseToken.balanceOf(user);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        uint256 pendinfPayoffBeforeTransfer = state.liquidity.pendingPayoffs;
+
+        assertEq(0, userBalance);
+        assertEq(pendinfPayoffBeforeTransfer, payoff);
+
+        vm.prank(dvp);
+        vault.transferPayoff(user, payoff, true);
+
+        assertApproxEqAbs(baseToken.balanceOf(user), payoff, _toleranceBaseToken);
+        state = VaultUtils.getState(vault);
+        assertApproxEqAbs(state.liquidity.pendingPayoffs, pendinfPayoffBeforeTransfer - payoff, _toleranceBaseToken);
+    }
+
+    /**
+     * Test transfer payoff when the vault is paused (revert)
+     */
+    function testTransferPayoffPastEpochWhenVaultIsPaused(uint256 amount, uint256 payoff) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+        payoff = Utils.boundFuzzedValueToRange(payoff, 0, amount);
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        vm.prank(dvp);
+        vault.reservePayoff(payoff);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 userBalance = baseToken.balanceOf(user);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        uint256 pendinfPayoffBeforeTransfer = state.liquidity.pendingPayoffs;
+
+        assertEq(0, userBalance);
+        assertEq(pendinfPayoffBeforeTransfer, payoff);
+
+        vm.prank(admin);
+        vault.changePauseState();
+
+        vm.prank(dvp);
+        vm.expectRevert(ERR_PAUSED);
+        vault.transferPayoff(user, payoff, true);
+    }
+
+    /**
+     * Test transfer payoff when the caller is not the DVP (revert)
+     */
+    function testTransferPayoffWhenCallerIsNotDVP(uint256 amount, uint256 payoff) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+        payoff = Utils.boundFuzzedValueToRange(payoff, 0, amount);
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        vm.prank(dvp);
+        vault.reservePayoff(payoff);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        uint256 userBalance = baseToken.balanceOf(user);
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        uint256 pendinfPayoffBeforeTransfer = state.liquidity.pendingPayoffs;
+
+        assertEq(0, userBalance);
+        assertEq(pendinfPayoffBeforeTransfer, payoff);
+
+        vm.prank(admin);
+        vm.expectRevert(ERR_ONLY_DVP_ALLOWED);
+        vault.transferPayoff(user, payoff, true);
+    }
+
+    // - [TODOs]: test transfer payoff when epoch is not past
 }
