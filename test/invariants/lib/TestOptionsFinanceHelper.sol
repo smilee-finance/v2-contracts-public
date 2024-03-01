@@ -29,7 +29,7 @@ library TestOptionsFinanceHelper {
         uint256 n1,
         uint256 n2
     ) private pure returns (uint256) {
-        uint256 p = (ud(s).mul(ud(n1))).sub(ud(k).mul(ud(FinanceIGPrice._ert(r, tau))).mul(ud(n2))).unwrap();
+        uint256 p = (ud(s).mul(ud(n1))).sub(ud(k).mul(ud(FinanceIGPrice.ert(r, tau))).mul(ud(n2))).unwrap();
         return (amount * p) / k;
     }
 
@@ -43,7 +43,7 @@ library TestOptionsFinanceHelper {
         uint256 n1,
         uint256 n2
     ) private pure returns (uint256) {
-        uint256 p = (ud(k).mul(ud(FinanceIGPrice._ert(r, tau))).mul(ud(n2))).sub(ud(s).mul(ud(n1))).unwrap();
+        uint256 p = (ud(k).mul(ud(FinanceIGPrice.ert(r, tau))).mul(ud(n2))).sub(ud(s).mul(ud(n1))).unwrap();
         return (amount * p) / k;
     }
 
@@ -63,7 +63,7 @@ library TestOptionsFinanceHelper {
             SD59x18 n2min1 = (ud(2e18).mul(ud(n2))).intoSD59x18().sub(sd(1e18));
             SD59x18 ksd = ud(k).intoSD59x18();
             SD59x18 a = ud(s).intoSD59x18().mul(n1min1);
-            SD59x18 ert = ud(FinanceIGPrice._ert(r, tau)).intoSD59x18();
+            SD59x18 ert = ud(FinanceIGPrice.ert(r, tau)).intoSD59x18();
             SD59x18 b = ksd.mul(ert).mul(n2min1);
             p = a.sub(b).intoUD60x18();
         }
@@ -90,7 +90,7 @@ library TestOptionsFinanceHelper {
             // (N(db2) - N(-da2))
             SD59x18 n2Diff = ud(nbs.n2).intoSD59x18().sub(ud(nas.n2).intoSD59x18());
             // e^(-r tau)
-            SD59x18 ert = ud(FinanceIGPrice._ert(r, tau)).intoSD59x18();
+            SD59x18 ert = ud(FinanceIGPrice.ert(r, tau)).intoSD59x18();
             SD59x18 ksd = ud(k).intoSD59x18();
             // k * e^(-r tau) * N(db2) - N(-da2)
             SD59x18 b = ksd.mul(ert).mul(n2Diff);
@@ -295,14 +295,14 @@ library TestOptionsFinanceHelper {
         FinanceIGPrice.NTerms memory nas = FinanceIGPrice.nTerms(das);
         FinanceIGPrice.NTerms memory nbs = FinanceIGPrice.nTerms(dbs);
 
-        uint256 ert = FinanceIGPrice._ert(params.r, params.tau); // e^-(r τ)
+        uint256 ert = FinanceIGPrice.ert(params.r, params.tau); // e^-(r τ)
         UD60x18 v1 = _lpV1(params, nas.n1);
         UD60x18 v5 = _lpV5(params, nbs.n2, ert);
         UD60x18 v2 = _lpV2(params, nas.n2, ert);
         UD60x18 v3 = _lpV3(params, nas.n3, nbs.n3);
         UD60x18 v4 = _lpV4(params, nbs.n1);
 
-        return (v1.add(v5).sub(v2).sub(v3).sub(v4)).div(ud(params.teta)).unwrap();
+        return (v1.add(v5).sub(v2).sub(v3).sub(v4)).div(ud(params.theta)).unwrap();
     }
 
     // S / √(K Ka) * (1 - N(d1a))

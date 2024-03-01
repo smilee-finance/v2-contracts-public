@@ -32,7 +32,7 @@ library FinanceIGPrice {
         uint256 kb;
         ////// DERIVED //////
         // θ = 2 - √(Ka / K) - √(K / Kb)
-        uint256 teta;
+        uint256 theta;
     }
 
     /**
@@ -47,12 +47,12 @@ library FinanceIGPrice {
         NTerms memory nas = nTerms(das);
         NTerms memory nbs = nTerms(dbs);
 
-        uint256 ert = _ert(params.r, params.tau);
+        uint256 ert_ = ert(params.r, params.tau);
         uint256 sdivk = ud(params.s).div(ud(params.k)).unwrap();
 
         // Assume the price (up and down) is always >= 0
         {
-            PriceParts memory ps = pBullParts(params, ert, sdivk, ns, nbs);
+            PriceParts memory ps = pBullParts(params, ert_, sdivk, ns, nbs);
             uint256 pos = ps.p1 + ps.p2;
             uint256 neg = ps.p3 + ps.p4 + ps.p5;
             if (pos < neg) {
@@ -66,7 +66,7 @@ library FinanceIGPrice {
             }
         }
         {
-            PriceParts memory ps = pBearParts(params, ert, sdivk, ns, nas);
+            PriceParts memory ps = pBearParts(params, ert_, sdivk, ns, nas);
             uint256 pos = ps.p1 + ps.p2;
             uint256 neg = ps.p3 + ps.p4 + ps.p5;
             if (pos < neg) {
@@ -119,26 +119,26 @@ library FinanceIGPrice {
         uint256 ra = ud(params.s).div(ud(params.ka)).unwrap(); // S / Ka
         uint256 rb = ud(params.s).div(ud(params.kb)).unwrap(); // S / Kb
 
-        (uint256 sigmaTaurtd, uint256 q1) = d1Parts(params.r, params.sigma, params.tau);
+        (uint256 sigmaTaurtd_, uint256 q1) = d1Parts(params.r, params.sigma, params.tau);
 
         {
-            int256 d1_ = d1(r, q1, sigmaTaurtd);
-            int256 d2_ = d2(d1_, sigmaTaurtd);
-            int256 d3_ = d3(d2_, sigmaTaurtd);
+            int256 d1_ = d1(r, q1, sigmaTaurtd_);
+            int256 d2_ = d2(d1_, sigmaTaurtd_);
+            int256 d3_ = d3(d2_, sigmaTaurtd_);
             ds = DTerms(d1_, d2_, d3_);
         }
 
         {
-            int256 d1a_ = d1(ra, q1, sigmaTaurtd);
-            int256 d2a_ = d2(d1a_, sigmaTaurtd);
-            int256 d3a_ = d3(d2a_, sigmaTaurtd);
+            int256 d1a_ = d1(ra, q1, sigmaTaurtd_);
+            int256 d2a_ = d2(d1a_, sigmaTaurtd_);
+            int256 d3a_ = d3(d2a_, sigmaTaurtd_);
             das = DTerms(d1a_, d2a_, d3a_);
         }
 
         {
-            int256 d1b_ = d1(rb, q1, sigmaTaurtd);
-            int256 d2b_ = d2(d1b_, sigmaTaurtd);
-            int256 d3b_ = d3(d2b_, sigmaTaurtd);
+            int256 d1b_ = d1(rb, q1, sigmaTaurtd_);
+            int256 d2b_ = d2(d1b_, sigmaTaurtd_);
+            int256 d3b_ = d3(d2b_, sigmaTaurtd_);
             dbs = DTerms(d1b_, d2b_, d3b_);
         }
     }
@@ -152,73 +152,73 @@ library FinanceIGPrice {
     }
 
     /// @dev σ√τ AND ( r + σ^2 / 2 ) τ
-    function d1Parts(uint256 r, uint256 sigma, uint256 tau) public pure returns (uint256 sigmaTaurtd, uint256 q1) {
+    function d1Parts(uint256 r, uint256 sigma, uint256 tau) public pure returns (uint256 sigmaTaurtd_, uint256 q1) {
         q1 = ud(r).add(ud((sigma * sigma) / 2e18)).mul(ud(tau)).unwrap();
-        sigmaTaurtd = _sigmaTaurtd(sigma, tau);
+        sigmaTaurtd_ = sigmaTaurtd(sigma, tau);
     }
 
     /// @dev [ ln(S / K) + ( r + σ^2 / 2 ) τ ] / σ√τ
-    function d1(uint256 priceStrikeRt, uint256 q1, uint256 sigmaTaurtd) public pure returns (int256 d1_) {
+    function d1(uint256 priceStrikeRt, uint256 q1, uint256 sigmaTaurtd_) public pure returns (int256 d1_) {
         if (priceStrikeRt == 0) {
             return -type(int256).max;
         }
         int256 q0 = ud(priceStrikeRt).intoSD59x18().ln().unwrap();
         (uint256 sumQty, bool sumPos) = SignedMath.sum(q0, q1);
-        uint256 res = ud(sumQty).div(ud(sigmaTaurtd)).unwrap();
+        uint256 res = ud(sumQty).div(ud(sigmaTaurtd_)).unwrap();
 
         return SignedMath.revabs(res, sumPos);
     }
 
     /// @dev d1 - σ√τ
-    function d2(int256 d1_, uint256 sigmaTaurtd) public pure returns (int256) {
-        if (d1_ <= -(type(int256).max - SignedMath.castInt(sigmaTaurtd))) {
+    function d2(int256 d1_, uint256 sigmaTaurtd_) public pure returns (int256) {
+        if (d1_ <= -(type(int256).max - SignedMath.castInt(sigmaTaurtd_))) {
             return -type(int256).max;
         }
-        return d1_ - SignedMath.castInt(sigmaTaurtd);
+        return d1_ - SignedMath.castInt(sigmaTaurtd_);
     }
 
     /// @dev d2 + σ√τ / 2
-    function d3(int256 d2_, uint256 sigmaTaurtd) public pure returns (int256) {
-        return d2_ + int256(sigmaTaurtd / 2);
+    function d3(int256 d2_, uint256 sigmaTaurtd_) public pure returns (int256) {
+        return d2_ + int256(sigmaTaurtd_ / 2);
     }
 
     function pBullParts(
         Parameters memory params,
-        uint256 ert,
+        uint256 ert_,
         uint256 sdivk,
         NTerms memory ns,
         NTerms memory nbs
     ) public pure returns (PriceParts memory) {
         return
             PriceParts(
-                pbull1(ert, ns.n2),
+                pbull1(ert_, ns.n2),
                 pbull2(sdivk, ns.n1),
                 pbull3(sdivk, params.sigma, params.r, params.tau, ns.n3, nbs.n3),
-                pbull4(params.s, _kkrtd(params.k, params.kb), nbs.n1),
-                pbull5(ert, _kdivkrtd(params.k, params.kb), nbs.n2)
+                pbull4(params.s, kkrtd(params.k, params.kb), nbs.n1),
+                pbull5(ert_, kdivkrtd(params.k, params.kb), nbs.n2)
             );
     }
 
     function pBearParts(
         Parameters memory params,
-        uint256 ert,
+        uint256 ert_,
         uint256 sdivk,
         NTerms memory ns,
         NTerms memory nas
     ) public pure returns (PriceParts memory) {
         return
             PriceParts(
-                pbear1(ert, ns.n2),
+                pbear1(ert_, ns.n2),
                 pbear2(sdivk, ns.n1),
                 pbear3(sdivk, params.sigma, params.r, params.tau, ns.n3, nas.n3),
-                pbear4(params.s, _kkrtd(params.k, params.ka), nas.n1),
-                pbear5(ert, _kdivkrtd(params.k, params.ka), nas.n2)
+                pbear4(params.s, kkrtd(params.k, params.ka), nas.n1),
+                pbear5(ert_, kdivkrtd(params.k, params.ka), nas.n2)
             );
     }
 
     /// @dev e^-(r τ) * (1 - N(d2))
-    function pbear1(uint256 ert, uint256 n2) public pure returns (uint256) {
-        return ud(ert).mul(convert(1).sub(ud(n2))).unwrap();
+    function pbear1(uint256 ert_, uint256 n2) public pure returns (uint256) {
+        return ud(ert_).mul(convert(1).sub(ud(n2))).unwrap();
     }
 
     /// @dev S/K * (1 - N(d1))
@@ -236,8 +236,8 @@ library FinanceIGPrice {
         uint256 n3a
     ) public pure returns (uint256) {
         UD60x18 sdivkRtd = ud(sdivk).sqrt();
-        UD60x18 e1 = sd(SignedMath.neg(_boexp(r, sigma, tau))).exp().intoUD60x18();
-        return 2 * sdivkRtd.mul(e1).mul(ud(n3a).sub(ud(n3))).unwrap();
+        UD60x18 er2sig8_ = ud(er2sig8(r, sigma, tau));
+        return 2 * sdivkRtd.mul(er2sig8_).mul(ud(n3a).sub(ud(n3))).unwrap();
     }
 
     /// @dev S / √(K * K_a) * (1 - N(d1a))
@@ -246,13 +246,13 @@ library FinanceIGPrice {
     }
 
     /// @dev e^-(r τ) * √(K_a / K) * N(1 - d2a)
-    function pbear5(uint256 ert, uint256 kadivkrtd, uint256 n2a) public pure returns (uint256) {
-        return ud(ert).mul(ud(kadivkrtd).mul(convert(1).sub(ud(n2a)))).unwrap();
+    function pbear5(uint256 ert_, uint256 kadivkrtd, uint256 n2a) public pure returns (uint256) {
+        return ud(ert_).mul(ud(kadivkrtd).mul(convert(1).sub(ud(n2a)))).unwrap();
     }
 
     /// @dev e^-(r τ) * N(d2)
-    function pbull1(uint256 ert, uint256 n2) public pure returns (uint256) {
-        return ud(ert).mul(ud(n2)).unwrap();
+    function pbull1(uint256 ert_, uint256 n2) public pure returns (uint256) {
+        return ud(ert_).mul(ud(n2)).unwrap();
     }
 
     /// @dev S/K * N(d1)
@@ -270,8 +270,8 @@ library FinanceIGPrice {
         uint256 n3b
     ) public pure returns (uint256) {
         UD60x18 sdivkRtd = ud(sdivk).sqrt();
-        UD60x18 e1 = sd(SignedMath.neg(_boexp(r, sigma, tau))).exp().intoUD60x18();
-        return 2 * sdivkRtd.mul(e1).mul(ud(n3).sub(ud(n3b))).unwrap();
+        UD60x18 er2sig8_ = ud(er2sig8(r, sigma, tau));
+        return 2 * sdivkRtd.mul(er2sig8_).mul(ud(n3).sub(ud(n3b))).unwrap();
     }
 
     /// @dev S / √(K K_b) * N(d1b)
@@ -280,19 +280,14 @@ library FinanceIGPrice {
     }
 
     /// @dev e^-(r τ) * √(K_b / K) * N(d2b)
-    function pbull5(uint256 ert, uint256 kbdivkrtd, uint256 n2b) public pure returns (uint256) {
-        return ud(ert).mul(ud(kbdivkrtd).mul(ud(n2b))).unwrap();
+    function pbull5(uint256 ert_, uint256 kbdivkrtd, uint256 n2b) public pure returns (uint256) {
+        return ud(ert_).mul(ud(kbdivkrtd).mul(ud(n2b))).unwrap();
     }
 
     ////// HELPERS //////
 
-    /// @dev (r / 2 + σ^2 / 8)τ
-    function _boexp(uint256 r, uint256 sigma, uint256 tau) public pure returns (uint256) {
-        return ud(tau).mul(ud(r / 2 + SignedMath.pow2(int256(sigma)) / 8)).unwrap();
-    }
-
     /// @dev e^-(r τ)
-    function _ert(uint256 r, uint256 tau) public pure returns (uint256) {
+    function ert(uint256 r, uint256 tau) public pure returns (uint256) {
         return sd(SignedMath.neg(ud(r).mul(ud(tau)).unwrap())).exp().intoUD60x18().unwrap();
     }
 
@@ -303,7 +298,7 @@ library FinanceIGPrice {
     }
 
     /// @dev √(K K_<a|b>)
-    function _kkrtd(uint256 k, uint256 krange) public pure returns (uint256) {
+    function kkrtd(uint256 k, uint256 krange) public pure returns (uint256) {
         UD60x18 res = (ud(k).mul(ud(krange))).sqrt();
         uint256 resUnwrapped = res.unwrap();
         if (resUnwrapped == 0) {
@@ -313,23 +308,13 @@ library FinanceIGPrice {
     }
 
     /// @dev √(K_<a|b> / K)
-    function _kdivkrtd(uint256 k, uint256 krange) public pure returns (uint256) {
+    function kdivkrtd(uint256 k, uint256 krange) public pure returns (uint256) {
         UD60x18 res = (ud(krange).div(ud(k))).sqrt();
         return res.unwrap();
     }
 
-    /// @dev 2 - √(Ka / K) - √(K / Kb)
-    function _teta(uint256 k, uint256 ka, uint256 kb) public pure returns (uint256 teta) {
-        UD60x18 kx18 = ud(k);
-        UD60x18 kax18 = ud(ka);
-        UD60x18 kbx18 = ud(kb);
-
-        UD60x18 res = convert(2).sub((kax18.div(kx18)).sqrt()).sub((kx18.div(kbx18)).sqrt());
-        return res.unwrap();
-    }
-
     /// @dev σ√τ
-    function _sigmaTaurtd(uint256 sigma, uint256 tau) public pure returns (uint256) {
+    function sigmaTaurtd(uint256 sigma, uint256 tau) public pure returns (uint256) {
         return ud(sigma).mul(ud(tau).sqrt()).unwrap();
     }
 

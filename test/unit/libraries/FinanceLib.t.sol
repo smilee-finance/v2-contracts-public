@@ -123,7 +123,7 @@ contract FinanceLibJsonTest is Test {
         uint256 counter = 0;
         for (uint i = 0; i < scenarios_.length; i++) {
             Scenario memory scenario = scenarios_[i];
-            uint256 theta = FinanceIGPrice._teta(scenario.constants.k, scenario.constants.ka, scenario.constants.kb);
+            uint256 theta = FinanceIG.theta(scenario.constants.k, scenario.constants.ka, scenario.constants.kb);
             for (uint j = 0; j < scenario.testCases.length; j++) {
                 // Avoid stack too deep;
                 uint256 counterStack = counter++;
@@ -185,9 +185,9 @@ contract FinanceLibJsonTest is Test {
                 FinanceIGPrice.NTerms memory nas = FinanceIGPrice.nTerms(das);
                 FinanceIGPrice.NTerms memory nbs = FinanceIGPrice.nTerms(dbs);
 
-                uint256 ert = FinanceIGPrice._ert(testCases[i].priceParams.r, testCases[i].priceParams.tau);
+                uint256 ert = FinanceIGPrice.ert(testCases[i].priceParams.r, testCases[i].priceParams.tau);
                 uint256 sdivk = (testCases[i].priceParams.s).wdiv(testCases[i].priceParams.k);
-                uint256 theta= testCases[i].priceParams.teta;
+                uint256 theta= testCases[i].priceParams.theta;
 
                 {
                     FinanceIGPrice.PriceParts memory ps = FinanceIGPrice.pBullParts(testCases[i].priceParams, ert, sdivk, ns, nbs);
@@ -217,8 +217,8 @@ contract FinanceLibJsonTest is Test {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
                 (uint256 pBull, uint256 pBear) = FinanceIGPrice.igPrices(testCases[i].priceParams);
-                assertApproxEqAbs(testCases[i].price.pBull, testCases[i].v0.wmul(pBull).wdiv(testCases[i].priceParams.teta), 6e16);
-                assertApproxEqAbs(testCases[i].price.pBear, testCases[i].v0.wmul(pBear).wdiv(testCases[i].priceParams.teta), 6e16);
+                assertApproxEqAbs(testCases[i].price.pBull, testCases[i].v0.wmul(pBull).wdiv(testCases[i].priceParams.theta), 6e16);
+                assertApproxEqAbs(testCases[i].price.pBear, testCases[i].v0.wmul(pBear).wdiv(testCases[i].priceParams.theta), 6e16);
             }
             index = indexScenarioMax;
         }
@@ -229,7 +229,7 @@ contract FinanceLibJsonTest is Test {
         for (uint s = 0; s < scenariosNumber; s++) {
             uint256 indexScenarioMax = indexes[s];
             for (uint256 i = index; i < indexScenarioMax; i++) {
-                (uint256 poBull, uint256 poBear) = FinanceIGPayoff.igPayoffPerc(testCases[i].priceParams.s, testCases[i].priceParams.k, testCases[i].priceParams.ka, testCases[i].priceParams.kb, testCases[i].priceParams.teta);
+                (uint256 poBull, uint256 poBear) = FinanceIGPayoff.igPayoffPerc(testCases[i].priceParams.s, testCases[i].priceParams.k, testCases[i].priceParams.ka, testCases[i].priceParams.kb, testCases[i].priceParams.theta);
                 assertApproxEqAbs(testCases[i].payoff.igBull, testCases[i].v0.wmul(poBull), ERR);
                 assertApproxEqAbs(testCases[i].payoff.igBear, testCases[i].v0.wmul(poBear), ERR);
             }

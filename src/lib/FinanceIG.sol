@@ -130,7 +130,7 @@ library FinanceIG {
             priceParams.tau = _yearsToMaturity(params.maturity);
             priceParams.ka = params.kA;
             priceParams.kb = params.kB;
-            priceParams.teta = params.theta;
+            priceParams.theta = params.theta;
         }
         (uint256 igPBull, uint256 igPBear) = FinanceIGPrice.igPrices(priceParams);
         marketValue = FinanceIGPrice.getMarketValue(params.theta, amount.up, igPBull, amount.down, igPBear, baseTokenDecimals);
@@ -149,8 +149,8 @@ library FinanceIG {
        @return isFinanceApproximated True if the finance has been approximated during the rollEpoch.
      */
     function checkFinanceApprox(FinanceParameters storage params) public view returns (bool isFinanceApproximated) {
-        uint256 kkartd = FinanceIGPrice._kkrtd(params.currentStrike, params.kA);
-        uint256 kkbrtd = FinanceIGPrice._kkrtd(params.currentStrike, params.kB);
+        uint256 kkartd = FinanceIGPrice.kkrtd(params.currentStrike, params.kA);
+        uint256 kkbrtd = FinanceIGPrice.kkrtd(params.currentStrike, params.kB);
         return kkartd == 1 || kkbrtd == 1;
     }
 
@@ -177,7 +177,18 @@ library FinanceIG {
             params.sigmaZero = params.sigmaZero.wmul(volatilityPriceDiscountFactor);
         }
 
-        params.theta = FinanceIGPrice._teta(params.currentStrike, params.kA, params.kB);
+        params.theta = theta(params.currentStrike, params.kA, params.kB);
+    }
+
+
+    /// @dev 2 - √(Ka / K) - √(K / Kb)
+    function theta(uint256 k, uint256 ka, uint256 kb) public pure returns (uint256 theta_) {
+        UD60x18 kx18 = ud(k);
+        UD60x18 kax18 = ud(ka);
+        UD60x18 kbx18 = ud(kb);
+
+        UD60x18 res = convert(2).sub((kax18.div(kx18)).sqrt()).sub((kx18.div(kbx18)).sqrt());
+        return res.unwrap();
     }
 
     function _updateSigmaZero(FinanceParameters storage params, uint256 impliedVolatility) private {
@@ -217,11 +228,11 @@ library FinanceIG {
         params.internalVolatilityParameters.vegaAdj = 1e18;
     }
 
-    function sigmaZero(uint256 avgU, uint256 n, uint256 theta, uint256 sigmaZero_) public pure returns (uint256) {
+    function sigmaZero(uint256 avgU, uint256 n, uint256 theta_, uint256 sigmaZero_) public pure returns (uint256) {
         // F1 = 1 + (n - 1) * (avgU ^ 3)
         UD60x18 f1 = convert(1).add(ud(n).sub(convert(1)).mul(ud(avgU).powu(3)));
         // F2 = avgU + (1 - θ) * (1 - avgU)
-        UD60x18 f2 = ud(avgU).add(convert(1).sub(ud(theta)).mul(convert(1).sub(ud(avgU))));
+        UD60x18 f2 = ud(avgU).add(convert(1).sub(ud(theta_)).mul(convert(1).sub(ud(avgU))));
         // σ0 * F1 * F2
         return ud(sigmaZero_).mul(f1).mul(f2).unwrap();
     }

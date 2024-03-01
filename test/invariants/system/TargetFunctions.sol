@@ -742,7 +742,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         ) {
             t(!(payoff > premium), _IG_04_1.desc);
         } else {
-            uint256 ert = FinanceIGPrice._ert(buyRiskFreeRate, buyTau);
+            uint256 ert = FinanceIGPrice.ert(buyRiskFreeRate, buyTau);
             uint256 discountedPayoff = ((payoff * ert) * 999) / (1e18 * 1000); // discount + approx
 
             if (!FLAG_SLIPPAGE) {
@@ -942,7 +942,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                     priceParams.tau = WadTime.yearsToTimestamp(_endingFinanceParameters.maturity);
                     priceParams.ka = _endingFinanceParameters.kA;
                     priceParams.kb = _endingFinanceParameters.kB;
-                    priceParams.teta = _endingFinanceParameters.theta;
+                    priceParams.theta = _endingFinanceParameters.theta;
                 }
 
                 if (!FLAG_SLIPPAGE) {
