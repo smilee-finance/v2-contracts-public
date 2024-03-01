@@ -56,7 +56,7 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     /// @inheritdoc IExchange
     function getInputAmountMax(address tokenIn, address tokenOut, uint256 amountOut) external view returns (uint) {
         uint256 amountIn = _getAmountIn(tokenIn, tokenOut, amountOut);
-        uint256 amountInSlip = slipped(amountIn, true);
+        uint256 amountInSlip = slipped(amountIn, true, true);
         return amountIn > amountInSlip ? amountIn : amountInSlip;
     }
 
@@ -66,7 +66,7 @@ contract TestnetSwapAdapter is IExchange, Ownable {
             revert TransferFailed();
         }
         amountOut = _getAmountOut(tokenIn, tokenOut, amountIn);
-        amountOut = slipped(amountOut, false);
+        amountOut = slipped(amountOut, false, false);
 
         TestnetToken(tokenIn).burn(address(this), amountIn);
         TestnetToken(tokenOut).mint(msg.sender, amountOut);
@@ -80,7 +80,7 @@ contract TestnetSwapAdapter is IExchange, Ownable {
         uint256 preApprovedAmountIn
     ) external returns (uint256 amountIn) {
         amountIn = _getAmountIn(tokenIn, tokenOut, amountOut);
-        amountIn = slipped(amountIn, true);
+        amountIn = slipped(amountIn, true, false);
 
         // NOTE: bug when amountIn == 0, it doesn't swaps
 
@@ -118,20 +118,22 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     /// @dev "random" number for (testing purposes) between `min` and `max`
     function random(int256 min, int256 max) public view returns (int256) {
         uint256 rnd = block.timestamp;
-        uint256 range = SignedMath.abs(max - min); // always >= 0
+        uint256 range = SignedMath.abs((max - min) / 1e14); // always >= 0
         if (rnd > 0) {
-            return min + int256(rnd % range);
+            return min + int256((rnd % range) * 1e14);
         }
         return min;
     }
 
     /// @dev returns the given `amount` slipped by a value (simulation of DEX fees and slippage by a percentage)
-    function slipped(uint256 amount, bool directionOut) public view returns (uint256) {
+    function slipped(uint256 amount, bool directionOut, bool preview) public view returns (uint256) {
         int256 slipPerc = _exactSlippage;
 
         if (_exactSlippage == 0) {
             if (_minSlippage == 0 && _maxSlippage == 0) {
                 return amount;
+            } else if (preview) {
+                slipPerc = _maxSlippage;
             } else {
                 slipPerc = random(_minSlippage, _maxSlippage);
             }

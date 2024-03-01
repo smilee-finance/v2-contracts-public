@@ -253,22 +253,22 @@ contract TestnetSwapAdapterTest is Test {
     function testExactSlip() public {
         vm.prank(admin);
         dex.setSlippage(0.03e18, 0, 0); // -3%
-        uint256 slippedAmount = dex.slipped(100, false);
+        uint256 slippedAmount = dex.slipped(100, false, true);
         assertEq(slippedAmount, 97);
 
         vm.prank(admin);
         dex.setSlippage(-0.03e18, 0, 0); // -3%
-        slippedAmount = dex.slipped(100, true);
+        slippedAmount = dex.slipped(100, true, true);
         assertEq(slippedAmount, 97);
 
         vm.prank(admin);
         dex.setSlippage(0.03e18, 0, 0); // +3%
-        slippedAmount = dex.slipped(100, true);
+        slippedAmount = dex.slipped(100, true, true);
         assertEq(slippedAmount, 103);
 
         vm.prank(admin);
         dex.setSlippage(-0.03e18, 0, 0); // +3%
-        slippedAmount = dex.slipped(100, false);
+        slippedAmount = dex.slipped(100, false, true);
         assertEq(slippedAmount, 103);
     }
 
@@ -279,7 +279,7 @@ contract TestnetSwapAdapterTest is Test {
         // vm.assume(amount < type(uint128).max);
         vm.prank(admin);
         dex.setSlippage(slippage, 0, 0);
-        uint256 slippedAmount = dex.slipped(amount, true);
+        uint256 slippedAmount = dex.slipped(amount, true, true);
         int256 expectedSlip = (slippage * int256(amount)) / 1e18;
         assertApproxEqAbs(uint256(int(amount) + expectedSlip), slippedAmount, 1);
     }
@@ -290,19 +290,19 @@ contract TestnetSwapAdapterTest is Test {
         vm.warp(block.timestamp + delay);
 
         dex.setSlippage(0, -0.03e18, 0); // -3%
-        uint256 slippedAmount = dex.slipped(100, true);
+        uint256 slippedAmount = dex.slipped(100, true, true);
         assert(slippedAmount >= 97);
         assert(slippedAmount <= 100);
 
         vm.prank(admin);
         dex.setSlippage(0, 0, 0.03e18); // +3%
-        slippedAmount = dex.slipped(100, true);
+        slippedAmount = dex.slipped(100, true, true);
         assert(slippedAmount <= 103);
         assert(slippedAmount >= 100);
 
         vm.prank(admin);
         dex.setSlippage(0, 0.025e18, 0.03e18); // [2.5%, 3%]
-        slippedAmount = dex.slipped(1000, true);
+        slippedAmount = dex.slipped(1000, true, true);
         assert(slippedAmount <= 1030);
         assert(slippedAmount >= 1025);
     }
@@ -320,7 +320,7 @@ contract TestnetSwapAdapterTest is Test {
         dex.setSlippage(0, minSlippage, maxSlippage);
         int256 minExpectedSlipped = int256(amount) * (1e18 + minSlippage) / 1e18;
         int256 maxExpectedSlipped = int256(amount) * (1e18 + maxSlippage) / 1e18;
-        uint256 slippedAmount = dex.slipped(amount, true);
+        uint256 slippedAmount = dex.slipped(amount, true, true);
 
         assert(minExpectedSlipped >= 0);
         assert(maxExpectedSlipped >= 0);

@@ -745,6 +745,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         IERC20(baseToken).safeApprove(exchangeAddress, amountToApprove);
         baseTokens = exchange.swapOut(baseToken, sideToken, amount, amountToApprove);
+        IERC20(baseToken).safeApprove(exchangeAddress, 0);
 
         // // Improvement: in order to standardize error response, catch a custom Adapter error when given input is < requested
         // try exchange.swapOut(baseToken, sideToken, amount, amountToApprove) returns (uint256 inputBaseTokens) {
