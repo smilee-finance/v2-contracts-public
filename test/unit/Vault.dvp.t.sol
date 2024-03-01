@@ -379,9 +379,83 @@ contract VaultDVPTest is Test {
         assertApproxEqAbs(expectedNotional, state.liquidity.lockedInitially, _toleranceBaseToken);
     }
 
+    /**
+     * Simulate the behaviour of the roll-epoch on a non-empty vault with only a pending payoff
+     *
+     * The payoff needs to be less or equal to the notional.
+     * The vault portfolio may be slightly unbalanced before the roll-epoch.
+     * The vault must produce an equal weight portfolio of the right amounts and value.
+     */
+    function testRollEpochWithExistingUnbalancedPortfolioAndPayoff(uint256 amount, uint256 payoff, uint256 sideTokenPrice, bool unbalancingDirection) public {
+        vm.assume(payoff <= amount);
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
+
+        // First epoch with deposit:
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // Make the portfolio unbalanced:
+        uint256 unbalancingAmountAbs = AmountsMath.wrapDecimals(amount / 10, baseToken.decimals());
+        unbalancingAmountAbs = AmountsMath.unwrapDecimals(unbalancingAmountAbs, sideToken.decimals());
+        int256 unbalancingAmount = int256(unbalancingAmountAbs);
+        unbalancingAmount = (unbalancingDirection) ? unbalancingAmount : unbalancingAmount * -1;
+        vm.prank(dvp);
+        vault.deltaHedge(unbalancingAmount);
+
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
+
+        uint256 expectedNotional;
+        {
+            uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
+            uint256 sideTokens = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
+            uint256 sideTokensValue = AmountsMath.unwrapDecimals(sideTokens.wmul(sideTokenPrice), baseToken.decimals());
+
+            expectedNotional = baseTokenBalance + sideTokensValue;
+        }
+        assertApproxEqAbs(expectedNotional, vault.notional(), _toleranceBaseToken);
+
+        // Reserve the payoff:
+        vm.assume(expectedNotional >= minAmount);
+        payoff = Utils.boundFuzzedValueToRange(payoff, minAmount, expectedNotional);
+        vm.prank(dvp);
+        vault.reservePayoff(payoff);
+
+        expectedNotional -= payoff;
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // Check equal weight portfolio:
+        uint256 expectedBaseTokens = AmountsMath.wrapDecimals(expectedNotional, baseToken.decimals());
+        expectedBaseTokens = expectedBaseTokens / 2;
+        expectedBaseTokens = AmountsMath.unwrapDecimals(expectedBaseTokens, baseToken.decimals());
+        assertApproxEqAbs(expectedBaseTokens + payoff, baseToken.balanceOf(address(vault)), _toleranceBaseToken);
+
+        uint256 expectedSideTokens = AmountsMath.wrapDecimals(expectedNotional, baseToken.decimals());
+        expectedSideTokens = (expectedSideTokens / 2).wdiv(sideTokenPrice);
+        expectedSideTokens = AmountsMath.unwrapDecimals(expectedSideTokens, sideToken.decimals());
+        assertApproxEqAbs(expectedSideTokens, sideToken.balanceOf(address(vault)), _toleranceSideToken);
+
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertApproxEqAbs(expectedNotional, state.liquidity.lockedInitially, _toleranceBaseToken);
+        assertEq(payoff, state.liquidity.pendingPayoffs);
+    }
+
     // - [TODOs]: test roll epoch (focus on payoff and portfolio balance)
     /**
-     * - Test roll epoch equal weight portfolio when not empty and with new pending payoff (less or equal to the notional)
      * - [TBD]: test roll epoch equal weight portfolio when not empty and with new pending payoff (greater than the notional) [revert; seems impossible to happen from the DVP]
      */
 

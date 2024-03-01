@@ -37,10 +37,22 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
     uint8 internal immutable _shareDecimals;
 
-    /// @inheritdoc IVault
+    // /**
+    //     @notice Gives the deposit information struct associated with an address
+    //     @param account The address you want to retrieve information for
+    //     @return epoch The epoch of the latest deposit
+    //     @return amount The deposited amount
+    //     @return unredeemedShares The number of shares owned by the account but held by the vault
+    //     @return cumulativeAmount The sum of all-time deposited amounts
+    //  */
     mapping(address => VaultLib.DepositReceipt) public depositReceipts;
 
-    /// @inheritdoc IVault
+    // /**
+    //     @notice Gives the withdrawal information struct associated with an address
+    //     @param account The address you want to retrieve information for
+    //     @return epoch The epoch of the latest initiated withdraw
+    //     @return shares The amount of shares for the initiated withdraw
+    //  */
     mapping(address => VaultLib.Withdrawal) public withdrawals;
 
     mapping(uint256 => uint256) public epochPricePerShare; // NOTE: public for frontend and historical data purposes
@@ -198,7 +210,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         emit Killed();
     }
 
-    /// @inheritdoc IVault
+    /**
+        @notice Gives portfolio composition for currently active epoch
+        @return baseTokenAmount The amount of baseToken currently locked in the vault
+        @return sideTokenAmount The amount of sideToken currently locked in the vault
+     */
     function balances() public view returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
         baseTokenAmount = _notionalBaseTokens();
         sideTokenAmount = _notionalSideTokens();
@@ -260,11 +276,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         return state.liquidity.lockedInitially;
     }
 
-    /// @inheritdoc IVault
-    function dead() external view returns (bool) {
-        return state.killed;
-    }
-
     /**
         @notice Pause/Unpause
      */
@@ -295,7 +306,17 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     // USER OPERATIONS
     // ------------------------------------------------------------------------
 
-    /// @inheritdoc IVault
+    /**
+        @notice Provides liquidity for the next epoch
+        @param amount The amount of base token to deposit
+        @param receiver The wallet accounted for the deposit
+        @param accessTokenId The id of the owned priority NFT, if necessary (use 0 if not needed)
+        @dev The shares are not directly minted to the given wallet. We need to wait for epoch change in order to know
+             how many shares these assets correspond to. Shares are minted to Vault contract in `rollEpoch()` and owed
+             to the receiver of deposit
+        @dev The receiver can redeem its shares after the next epoch is rolled
+        @dev This Vault contract need to be approved on the base token contract before attempting this operation
+     */
     function deposit(uint256 amount, address receiver, uint256 accessTokenId) external isNotDead whenNotPaused {
         _checkEpochNotFinished();
 
@@ -420,7 +441,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         emit Redeem(shares);
     }
 
-    /// @inheritdoc IVault
+    /**
+        @notice Pre-order a withdrawal that can be executed after the end of the current epoch
+        @param shares is the number of shares to convert in withdrawed liquidity
+     */
     function initiateWithdraw(uint256 shares) external whenNotPaused isNotDead {
         _checkEpochNotFinished();
 
@@ -493,7 +517,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     }
 
     /**
-        @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price for the epoch.
+        @notice Completes a scheduled withdrawal from a past epoch. Uses finalized share price of the withdrawal creation epoch.
      */
     function completeWithdraw() external whenNotPaused {
         VaultLib.Withdrawal storage withdrawal = withdrawals[msg.sender];

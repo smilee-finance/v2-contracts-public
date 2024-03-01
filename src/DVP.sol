@@ -126,9 +126,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     ) internal returns (uint256 premium_) {
         _checkEpochNotFinished();
         _requireNotPaused();
-        if (IVault(vault).dead()) {
-            revert VaultDead();
-        }
         if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
         }

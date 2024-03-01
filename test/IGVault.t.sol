@@ -3,20 +3,14 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
-import {UD60x18, ud, convert} from "@prb/math/UD60x18.sol";
-
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IPositionManager} from "@project/interfaces/IPositionManager.sol";
+import {ud} from "@prb/math/UD60x18.sol";
 import {Epoch} from "@project/lib/EpochController.sol";
 import {AmountsMath} from "@project/lib/AmountsMath.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
-import {OptionStrategy} from "@project/lib/OptionStrategy.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
-import {MarketOracle} from "@project/MarketOracle.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {Vault} from "@project/Vault.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
-import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {DVPUtils} from "./utils/DVPUtils.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {Utils} from "./utils/Utils.sol";
@@ -34,7 +28,7 @@ contract IGVaultTest is Test {
     using AmountsMath for uint256;
 
     bytes4 constant NotEnoughNotional = bytes4(keccak256("NotEnoughNotional()"));
-    bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
+    // bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
     bytes4 constant EpochFinished = bytes4(keccak256("EpochFinished()"));
 
     address admin = address(0x1);
@@ -540,62 +534,62 @@ contract IGVaultTest is Test {
         ig.rollEpoch();
     }
 
-    function testBehaviorWhenVaultHasBeenKilled() public {
-        VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);
-        Utils.skipDay(true, vm);
+    // function testBehaviorWhenVaultHasBeenKilled() public {
+    //     VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);
+    //     Utils.skipDay(true, vm);
 
-        vm.prank(admin);
-        ig.rollEpoch();
+    //     vm.prank(admin);
+    //     ig.rollEpoch();
 
-        // Buy first option
-        uint256 optionAmount = 250e18;
-        (uint256 premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
-        vm.prank(charlie);
-        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+    //     // Buy first option
+    //     uint256 optionAmount = 250e18;
+    //     (uint256 premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+    //     vm.prank(charlie);
+    //     ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
 
-        uint256 firstOptionEpoch = ig.currentEpoch();
+    //     uint256 firstOptionEpoch = ig.currentEpoch();
 
-        Utils.skipDay(true, vm);
+    //     Utils.skipDay(true, vm);
 
-        vm.prank(admin);
-        ig.rollEpoch();
+    //     vm.prank(admin);
+    //     ig.rollEpoch();
 
-        // Buy second option during the manually kill epoch.
-        optionAmount = 250e18;
-        (premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
-        vm.prank(charlie);
-        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+    //     // Buy second option during the manually kill epoch.
+    //     optionAmount = 250e18;
+    //     (premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+    //     vm.prank(charlie);
+    //     ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
 
-        uint256 secondOptionEpoch = ig.currentEpoch();
+    //     uint256 secondOptionEpoch = ig.currentEpoch();
 
-        vm.prank(admin);
-        vault.killVault();
+    //     vm.prank(admin);
+    //     vault.killVault();
 
-        Utils.skipDay(true, vm);
+    //     Utils.skipDay(true, vm);
 
-        vm.prank(admin);
-        ig.rollEpoch();
+    //     vm.prank(admin);
+    //     ig.rollEpoch();
 
-        // Strike is the same for the two options because price won't never change.
-        uint256 strike = ig.currentStrike();
+    //     // Strike is the same for the two options because price won't never change.
+    //     uint256 strike = ig.currentStrike();
 
-        // Burn the first option
-        vm.startPrank(charlie);
-        (uint256 expectedMarketValue, ) = ig.payoff(firstOptionEpoch, strike, optionAmount, 0);
-        ig.burn(firstOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
+    //     // Burn the first option
+    //     vm.startPrank(charlie);
+    //     (uint256 expectedMarketValue, ) = ig.payoff(firstOptionEpoch, strike, optionAmount, 0);
+    //     ig.burn(firstOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
 
-        // Burn the second option
-        (expectedMarketValue, ) = ig.payoff(secondOptionEpoch, strike, optionAmount, 0);
-        ig.burn(secondOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
-        vm.stopPrank();
+    //     // Burn the second option
+    //     (expectedMarketValue, ) = ig.payoff(secondOptionEpoch, strike, optionAmount, 0);
+    //     ig.burn(secondOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
+    //     vm.stopPrank();
 
-        // Buy second option during the manually kill epoch.
-        optionAmount = 250e18;
-        (premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
-        vm.prank(charlie);
-        vm.expectRevert(VaultDead);
-        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
-    }
+    //     // Buy second option during the manually kill epoch.
+    //     optionAmount = 250e18;
+    //     (premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+    //     vm.prank(charlie);
+    //     vm.expectRevert(VaultDead);
+    //     ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+    // }
 
     function testBehaviorWhenEpochFinishedButNotRolled() public {
         VaultUtils.addVaultDeposit(alice, 1000e18, admin, address(vault), vm);

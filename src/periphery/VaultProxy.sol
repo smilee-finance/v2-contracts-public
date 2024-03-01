@@ -2,11 +2,12 @@
 pragma solidity ^0.8.15;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
 import {IRegistry} from "../interfaces/IRegistry.sol";
-import {IVault} from "../interfaces/IVault.sol";
+import {IVaultParams} from "../interfaces/IVaultParams.sol";
 import {IVaultProxy} from "../interfaces/IVaultProxy.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IVaultUser} from "../interfaces/IVaultUser.sol";
 
 contract VaultProxy is IVaultProxy {
     using SafeERC20 for IERC20;
@@ -26,12 +27,11 @@ contract VaultProxy is IVaultProxy {
             revert DepositToNonVaultContract();
         }
 
-        IVault vault = IVault(params.vault);
-
-        IERC20 baseToken = IERC20(vault.baseToken());
+        IERC20 baseToken = IERC20(IVaultParams(params.vault).baseToken());
         baseToken.safeTransferFrom(msg.sender, address(this), params.amount);
         baseToken.safeApprove(params.vault, params.amount);
 
+        IVaultUser vault = IVaultUser(params.vault);
         vault.deposit(params.amount, params.recipient, params.accessTokenId);
 
         emit Deposit(params.vault, params.recipient, msg.sender, params.amount);

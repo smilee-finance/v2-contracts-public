@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.19;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IDVPAccessNFT} from "./interfaces/IDVPAccessNFT.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
@@ -198,7 +199,7 @@ contract IG is DVP {
         FinanceIG.updateVolatilityOnTrade(financeParameters, oraclePrice, ur);
 
         Amount memory availableLiquidity = liquidity.available(strike);
-        (, uint256 sideTokensAmount) = IVault(vault).balances();
+        uint256 sideTokensAmount = IERC20(sideToken).balanceOf(vault);
 
         int256 tokensToSwap;
         tokensToSwap = FinanceIG.getDeltaHedgeAmount(

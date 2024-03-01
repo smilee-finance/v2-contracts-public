@@ -554,7 +554,8 @@ contract VaultUserTest is Test {
         vm.prank(admin);
         vault.rollEpoch();
 
-        assertEq(true, vault.dead());
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(true, state.dead);
 
         assertEq(amount, vault.totalSupply());
         (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
@@ -585,7 +586,8 @@ contract VaultUserTest is Test {
         vault.deposit(amount, user, 0);
         vm.stopPrank();
 
-        assertEq(false, vault.dead());
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(false, state.dead);
 
         vm.prank(user);
         vm.expectRevert(ERR_VAULT_NOT_DEAD);
@@ -614,7 +616,8 @@ contract VaultUserTest is Test {
         vm.warp(vault.getEpoch().current + 1);
         vm.prank(admin);
         vault.rollEpoch();
-        assertEq(true, vault.dead());
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(true, state.dead);
 
         vm.prank(user);
         vm.expectRevert(ERR_PAUSED);
@@ -730,7 +733,8 @@ contract VaultUserTest is Test {
         vm.prank(admin);
         vault.rollEpoch();
 
-        assertEq(true, vault.dead());
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(true, state.dead);
 
         // rescue shares
         assertEq(firstAmount + secondAmount, vault.totalSupply());
@@ -1309,7 +1313,8 @@ contract VaultUserTest is Test {
         vm.prank(admin);
         vault.rollEpoch();
 
-        assertEq(true, vault.dead());
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        assertEq(true, state.dead);
 
         vm.prank(user);
         vault.redeem(shares);
@@ -1320,7 +1325,7 @@ contract VaultUserTest is Test {
         assertEq(shares, vault.balanceOf(user));
         assertEq(0, vault.balanceOf(address(vault)));
 
-        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+        state = VaultUtils.getState(vault);
         assertEq(shares, state.liquidity.totalDeposit);
         assertEq(0, state.withdrawals.newHeldShares);
 
