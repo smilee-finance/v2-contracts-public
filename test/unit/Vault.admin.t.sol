@@ -38,7 +38,9 @@ contract VaultDVPTest is Test {
     bytes4 public constant ERR_OUT_OF_ALLOWED_RANGE = bytes4(keccak256("OutOfAllowedRange()"));
     bytes4 public constant ERR_EPOCH_NOT_FINISHED = bytes4(keccak256("EpochNotFinished()"));
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+    bytes32 public constant ROLE_EPOCH_ROLLER = keccak256("ROLE_EPOCH_ROLLER");
     bytes public ERR_NOT_ADMIN;
+    bytes public ERR_NOT_EPOCH_ROLLER;
 
     constructor() {
         admin = address(777);
@@ -50,6 +52,13 @@ contract VaultDVPTest is Test {
                         Strings.toHexString(dvp),
                         " is missing role ",
                         Strings.toHexString(uint256(ROLE_ADMIN), 32)
+                    );
+
+        ERR_NOT_EPOCH_ROLLER = abi.encodePacked(
+                        "AccessControl: account ",
+                        Strings.toHexString(admin),
+                        " is missing role ",
+                        Strings.toHexString(uint256(ROLE_EPOCH_ROLLER), 32)
                     );
 
         vm.startPrank(admin);
@@ -145,9 +154,9 @@ contract VaultDVPTest is Test {
     }
 
     function testChangeMaxDepositNotAdmin(uint256 maxDeposit) public {
+        assertEq(vault.maxDeposit(), 1_000_000_000 * (10 ** baseToken.decimals())); // default max deposit
         maxDeposit = Utils.boundFuzzedValueToRange(maxDeposit, 1, 2_000_000_000);
         maxDeposit = maxDeposit * (10 ** baseToken.decimals());
-        assertEq(vault.maxDeposit(), 1_000_000_000 * (10 ** baseToken.decimals())); // default max deposit
         vm.prank(dvp);
         vm.expectRevert(ERR_NOT_ADMIN);
         vault.setMaxDeposit(maxDeposit);
@@ -157,7 +166,7 @@ contract VaultDVPTest is Test {
         bool paused = vault.paused();
         vm.prank(admin);
         vault.changePauseState();
-        assertEq(vault.paused(), !paused);
+        assertEq(!paused, vault.paused());
     }
 
     function testChangePausedStateNotAdmin() public {
@@ -168,16 +177,14 @@ contract VaultDVPTest is Test {
 
     function testKillVault() public {
         VaultLib.VaultState memory state = VaultUtils.getState(vault);
-        assertEq(state.killed, false);
+        assertEq(false, state.killed);
         vm.prank(admin);
         vault.killVault();
         state = VaultUtils.getState(vault);
-        assertEq(state.killed, true);
+        assertEq(true, state.killed);
     }
 
     function testKillVaultNotAdmin() public {
-        VaultLib.VaultState memory state = VaultUtils.getState(vault);
-        assertEq(state.killed, false);
         vm.prank(dvp);
         vm.expectRevert(ERR_NOT_ADMIN);
         vault.killVault();
@@ -186,16 +193,16 @@ contract VaultDVPTest is Test {
     function testChangePriorityAccessFlag() public {
         vm.prank(admin);
         vault.setPriorityAccessFlag(true);
-        assertEq(vault.priorityAccessFlag(), true);
+        assertEq(true, vault.priorityAccessFlag());
         vm.prank(admin);
         vault.setPriorityAccessFlag(false);
-        assertEq(vault.priorityAccessFlag(), false);
+        assertEq(false, vault.priorityAccessFlag());
     }
 
-    function testChangePriorityAccessFlagNotAdmin() public {
+    function testChangePriorityAccessFlagNotAdmin(bool flag) public {
         vm.prank(dvp);
         vm.expectRevert(ERR_NOT_ADMIN);
-        vault.setPriorityAccessFlag(true);
+        vault.setPriorityAccessFlag(flag);
     }
 
     function testEmergencyRebalance(uint256 amount, uint256 sideTokenPrice) public {
@@ -216,7 +223,7 @@ contract VaultDVPTest is Test {
         vault.rollEpoch();
 
         // In order to buy side token for base token the price need to go down
-        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1e18);
+        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
         vm.prank(admin);
         priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
 
@@ -238,7 +245,7 @@ contract VaultDVPTest is Test {
         assertEq(0, sideToken.balanceOf(address(vault)));
     }
 
-    function testEmergencyRebalanceEpochNotFinished(uint256 amount, uint256 sideTokenPrice) public {
+    function testEmergencyRebalanceEpochNotFinished(uint256 amount) public {
         uint256 minAmount = 10 ** baseToken.decimals() / 1000;
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
@@ -254,25 +261,13 @@ contract VaultDVPTest is Test {
         vm.warp(vault.getEpoch().current + 1);
         vm.prank(dvp);
         vault.rollEpoch();
-
-        // In order to buy side token for base token the price need to go down
-        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1e18);
-        vm.prank(admin);
-        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
-
-        // NOTE: ignoring pendings as we know that there are no ones
-        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
-        uint256 sideTokenBalance = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
-
-        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
-        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
 
         vm.prank(admin);
         vm.expectRevert(ERR_EPOCH_NOT_FINISHED);
         vault.emergencyRebalance();
     }
 
-    function testEmergencyRebalanceEpochNotAdmin(uint256 amount, uint256 sideTokenPrice) public {
+    function testEmergencyRebalanceEpochNotAdmin(uint256 amount) public {
         uint256 minAmount = 10 ** baseToken.decimals() / 1000;
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
@@ -289,21 +284,29 @@ contract VaultDVPTest is Test {
         vm.prank(dvp);
         vault.rollEpoch();
 
-        // In order to buy side token for base token the price need to go down
-        sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1e18);
-        vm.prank(admin);
-        priceOracle.setTokenPrice(address(sideToken), sideTokenPrice);
-
-        // NOTE: ignoring pendings as we know that there are no ones
-        uint256 baseTokenBalance = baseToken.balanceOf(address(vault));
-        uint256 sideTokenBalance = AmountsMath.wrapDecimals(sideToken.balanceOf(address(vault)), sideToken.decimals());
-
-        assertApproxEqAbs(amount / 2, baseTokenBalance, _toleranceBaseToken);
-        assertApproxEqAbs(AmountsMath.unwrapDecimals(AmountsMath.wrapDecimals(amount / 2, baseToken.decimals()), sideToken.decimals()), sideTokenBalance, _toleranceSideToken);
-
         vm.warp(vault.getEpoch().current + 1);
         vm.prank(dvp);
         vm.expectRevert(ERR_NOT_ADMIN);
         vault.emergencyRebalance();
+    }
+
+    /**
+     * Test admin can grant epoch roller role to himself, can roll epoch and then renunce role
+     */
+    function testAdminGrantRoleAndCanRollEpoch() public {
+        vm.startPrank(admin);
+
+        vault.grantRole(ROLE_EPOCH_ROLLER, admin);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vault.rollEpoch();
+
+        vault.renounceRole(ROLE_EPOCH_ROLLER, admin);
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.expectRevert(ERR_NOT_EPOCH_ROLLER);
+        vault.rollEpoch();
+
+        vm.stopPrank();
     }
 }
