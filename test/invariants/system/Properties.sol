@@ -72,8 +72,8 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
     uint8 internal constant _SELL = 1;
 
     // Errors
+    string internal constant _ERR_VAULT_PAUSED = "Pausable: paused";
     bytes32 internal constant _ERR_VAULT_DEAD = keccak256(abi.encodeWithSignature("VaultDead()"));
-    bytes32 internal constant _ERR_VAULT_PAUSED = keccak256(abi.encodeWithSignature("Pausable: paused"));
     bytes32 internal constant _ERR_EPOCH_NOT_FINISHED = keccak256(abi.encodeWithSignature("EpochNotFinished()"));
     bytes32 internal constant _ERR_EXCEEDS_AVAILABLE = keccak256(abi.encodeWithSignature("ExceedsAvailable()"));
     bytes32 internal constant _ERR_PRICE_ZERO = keccak256(abi.encodeWithSignature("PriceZero()"));

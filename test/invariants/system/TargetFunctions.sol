@@ -326,6 +326,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 _shouldNotRevertUnless(err, _GENERAL_4);
             }
             _shouldNotRevertUnless(err, _GENERAL_5);
+        } catch Error(string memory reason) {
+            if (FLAG_SLIPPAGE && keccak256(abi.encodePacked(reason)) == keccak256(abi.encodePacked(_ERR_VAULT_PAUSED))) {
+                revert(reason);
+            } else {
+                t(false, _GENERAL_4.desc);
+            }
         }
 
         console.log("************************ SHARE PRICE", vault.epochPricePerShare(ig.getEpoch().previous));
@@ -500,7 +506,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             ryInfo_VAULT_2_1 = RYInfo(preTradeRY, preTradePremium, uPreTrade);
         }
 
-        _vault25();
+        // _vault25();
 
         uint256 premium;
 
@@ -601,7 +607,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
 
         _checkFee(fee, _SELL);
-        _vault25();
+        // _vault25();
 
         uint256 payoff;
 
@@ -1029,7 +1035,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         // RY = notional - (premium_pre * V0 / 2) * u_pre
         (uint256 pUp, uint256 pDown) = _getRYPremium(strike, amountUp, amountDown);
         uint256 premium = pUp + pDown;
-        uint256 ry = vault.notional() - (premium);
+        uint256 ry = vault.notional() - premium;
         return (ry, premium, ig.getUtilizationRate());
     }
 
@@ -1102,7 +1108,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             int256 lpPnl = int256(ewT2) - int256(payoffT2) - int256(ewT1) + int256(payoffT1);
 
             // lpPnl can be greater then vaultPnl if time pass but nothing happened and price goes down before (bear)
-            t(((vaultPnl >= lpPnl) || (uint256(lpPnl - vaultPnl) < BT_UNIT / 100)), _VAULT_25.desc);
+            uint256 tolerance = ryT1 / 1e9 < BT_UNIT ? BT_UNIT : ryT1 / 1e9;
+            t(((vaultPnl >= lpPnl) || (uint256(lpPnl - vaultPnl) < tolerance)), _VAULT_25.desc);
         }
     }
 

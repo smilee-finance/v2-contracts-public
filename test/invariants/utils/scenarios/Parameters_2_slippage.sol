@@ -6,7 +6,7 @@ import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {BaseParameters} from "./BaseParameters.sol";
 
 abstract contract Parameters is BaseParameters {
-    bool internal FLAG_SLIPPAGE = false;
+    bool internal FLAG_SLIPPAGE = true;
 
     // Token parameters
     uint8 internal BASE_TOKEN_DECIMALS = 6;
