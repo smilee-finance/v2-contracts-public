@@ -92,12 +92,13 @@ library FinanceIGDelta {
 
         uint256 deltaLimit;
         {
+            uint256 kkbrtd = ud(params.strike * params.kb).sqrt().unwrap() / 1e9;
             UD60x18 v0 = ud(params.initialLiquidityBull + params.initialLiquidityBear);
-            UD60x18 strike = ud(params.strike);
+            UD60x18 k = ud(params.strike);
             UD60x18 theta = ud(params.theta);
-            UD60x18 kb = ud(params.kb);
+
             // DeltaLimit := v0 / (θ * k) - v0 / (θ * √(K * Kb))
-            deltaLimit = v0.div(theta.mul(strike)).sub(v0.div(theta.mul(strike.mul(kb).sqrt()))).unwrap();
+            deltaLimit = v0.div(theta.mul(k)).sub(v0.div(theta.mul(ud(kkbrtd)))).unwrap();
         }
 
         tokensToSwap =
