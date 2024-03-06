@@ -46,7 +46,7 @@ abstract contract PropertiesDescriptions {
     InvariantInfo internal _GENERAL_6 = InvariantInfo("GENERAL_6", "GENERAL_6: Buy and sell should not revert");
 
     InvariantInfo internal _VAULT_01    =   InvariantInfo("VAULT_01",     "VAULT_01: Vault payoff at roll-epoch >= DEX LP payoff");
-    InvariantInfo internal _VAULT_02    =   InvariantInfo("VAULT_02",     "VAULT_02: Vault PnL mark-to-market >= 0 between pre and post trade");
+    InvariantInfo internal _VAULT_02_1  =   InvariantInfo("VAULT_02_1",   "VAULT_02_1: Vault PnL mark-to-market >= 0 between pre and post trade");
     InvariantInfo internal _VAULT_03    =   InvariantInfo("VAULT_03",     "VAULT_03: Vault balances = (or >=) PendingWithdraw + PendingPayoff + PendingDeposit + (vault share * sharePrice)");
     InvariantInfo internal _VAULT_04    =   InvariantInfo("VAULT_04",     "VAULT_04: Vault base tokens = (or >=) PendingWithdraw + PendingPayoff + PendingDeposit");
     InvariantInfo internal _VAULT_06    =   InvariantInfo("VAULT_06",     "VAULT_06: Vault balances minus PendingWithdraw and PendingPayoff are equal to an Equal Weight portfolio after roll-epoch");
