@@ -39,6 +39,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
 
     event ChangedAdapter(address tokenIn, address tokenOut, address adapter);
     event ChangedSlippage(address tokenIn, address tokenOut, uint256 slippage);
+    event Swapped(address tokenIn, address tokenOut, bool swapIn, uint256 amountIn, uint256 amountOut);
 
     constructor(address addressProvider, uint256 timeLockDelay_) AccessControl() {
         _zeroAddressCheck(addressProvider);
@@ -170,6 +171,8 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         }
 
         IERC20Metadata(tokenOut).safeTransfer(msg.sender, amountOut);
+
+        emit Swapped(tokenIn, tokenOut, true, amountIn, amountOut);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -202,6 +205,8 @@ contract SwapAdapterRouter is IExchange, AccessControl {
         if (amountIn < preApprovedAmountIn) {
             IERC20Metadata(tokenIn).safeTransfer(msg.sender, preApprovedAmountIn - amountIn);
         }
+
+        emit Swapped(tokenIn, tokenOut, false, amountIn, amountOut);
     }
 
     /**

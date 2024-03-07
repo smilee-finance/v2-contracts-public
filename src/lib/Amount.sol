@@ -8,7 +8,6 @@ struct Amount {
 }
 
 library AmountHelper {
-
     /**
         @notice Increase amount.
         @param amount the increased amount.

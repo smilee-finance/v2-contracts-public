@@ -147,7 +147,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
         {
             uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
-            uint256 premiumOrac = _getMarketValue(strike, amount, true, IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken));
+            uint256 premiumOrac = _getMarketValue(
+                strike,
+                amount,
+                true,
+                IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)
+            );
             uint256 premiumSwap = _getMarketValue(strike, amount, true, swapPrice);
             premium_ = premiumSwap > premiumOrac ? premiumSwap : premiumOrac;
         }
@@ -264,7 +269,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             _checkEpochNotFinished();
 
             uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
-            uint256 payoffOrac = _getMarketValue(strike, amount, false, IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken));
+            uint256 payoffOrac = _getMarketValue(
+                strike,
+                amount,
+                false,
+                IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)
+            );
             uint256 payoffSwap = _getMarketValue(strike, amount, false, swapPrice);
             paidPayoff = payoffSwap < payoffOrac ? payoffSwap : payoffOrac;
             _checkSlippage(paidPayoff, expectedMarketValue, maxSlippage, false);
