@@ -19,6 +19,10 @@ import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {MarketOracle} from "@project/MarketOracle.sol";
 import {MockedRegistry} from "./mock/MockedRegistry.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {Amount} from "@project/lib/Amount.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract IGTest is Test {
     using TimeLock for TimeLockedBool;
@@ -26,9 +30,17 @@ contract IGTest is Test {
 
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
+    bytes4 constant OnlyPositionManager = bytes4(keccak256("OnlyPositionManager()"));
+    bytes4 constant PositionNotFound = bytes4(keccak256("PositionNotFound()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
-    bytes constant IGPaused = bytes("Pausable: paused");
+    bytes4 constant NotEnoughNotional = bytes4(keccak256("NotEnoughNotional()"));
+    bytes4 constant EpochFinished = bytes4(keccak256("EpochFinished()"));
     bytes4 constant SlippedMarketValue = bytes4(keccak256("SlippedMarketValue()"));
+    bytes constant IGPaused = bytes("Pausable: paused");
+    bytes public ERR_NOT_ADMIN;
+    bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
+
+    uint256 MIN_MINT;
 
     address baseToken;
     address sideToken;
@@ -57,6 +69,16 @@ contract IGTest is Test {
         vault = MockedVault(VaultUtils.createVault(EpochFrequency.DAILY, ap, admin, vm));
         baseToken = vault.baseToken();
         sideToken = vault.sideToken();
+
+        uint256 btUnit = 10 ** IERC20Metadata(baseToken).decimals();
+        MIN_MINT = btUnit / 1000; // 0.001
+
+        ERR_NOT_ADMIN = abi.encodePacked(
+                        "AccessControl: account ",
+                        Strings.toHexString(alice),
+                        " is missing role ",
+                        Strings.toHexString(uint256(ROLE_ADMIN), 32)
+                    );
     }
 
     function setUp() public {
@@ -94,19 +116,30 @@ contract IGTest is Test {
     //   //     new MockedIG(address(vault));
     // }
 
+    function testSetNftAccessFlag(bool flag) public {
+        vm.prank(admin);
+        ig.setNftAccessFlag(flag);
+        assertEq(flag, ig.nftAccessFlag());
+    }
+
+    function testSetNftAccessFlagNoAdmin(bool flag) public {
+        vm.prank(alice);
+        vm.expectRevert(ERR_NOT_ADMIN);
+        ig.setNftAccessFlag(flag);
+    }
+
     function testCanUse() public {
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), 1, vm);
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), 1, vm);
 
         vm.prank(alice);
         ig.mint(alice, 0, 1, 0, 0, 0.1e18, 0);
     }
 
-    function testMint() public {
-        uint256 inputAmount = 1 ether;
+    function testMint(uint256 inputAmount) public {
+        (, , , uint256 bullAvailNotional) = ig.notional();
+        inputAmount = Utils.boundFuzzedValueToRange(inputAmount, MIN_MINT, bullAvailNotional);
 
-        // ToDo: review with premium
-        // uint256 expectedPremium = ig.premium(0, OptionStrategy.CALL, inputAmount);
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), inputAmount, vm);
 
         (uint256 expectedMarketValue, ) = ig.premium(0, inputAmount, 0);
 
@@ -122,120 +155,182 @@ contract IGTest is Test {
         assertEq(ig.currentEpoch(), epoch);
     }
 
-    function testMintSum() public {
-        uint256 inputAmount = 1 ether;
-
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
-
-        (uint256 expectedMarketValue, ) = ig.premium(0, inputAmount, 0);
-
-        vm.prank(alice);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
-
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
-
-        (expectedMarketValue, ) = ig.premium(0, inputAmount, 0);
-
-        vm.prank(alice);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
-
-        bytes32 posId = keccak256(abi.encodePacked(alice, ig.currentStrike()));
-        (uint256 amount, bool strategy, uint256 strike, uint256 epoch) = ig.positions(posId);
-        assertEq(OptionStrategy.CALL, strategy);
-        assertEq(ig.currentStrike(), strike);
-        assertEq(2 * inputAmount, amount);
-        assertEq(ig.currentEpoch(), epoch);
-    }
-
-    function testMintAndBurn() public {
-        uint256 inputAmount = 1 ether;
-
-        //MockedIG ig = new MockedIG(address(vault));
-        uint256 currEpoch = ig.currentEpoch();
-        uint256 strike = ig.currentStrike();
-
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
-        (uint256 expectedMarketValue, ) = ig.premium(strike, inputAmount, 0);
-        vm.prank(alice);
-        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
-
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
-        (expectedMarketValue, ) = ig.premium(strike, inputAmount, 0);
-        vm.prank(alice);
-        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
-
-        vm.prank(alice);
-        (expectedMarketValue, ) = ig.payoff(currEpoch, strike, inputAmount, 0);
-        vm.prank(alice);
-        ig.burn(currEpoch, alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18);
-
-        bytes32 posId = keccak256(abi.encodePacked(alice, ig.currentStrike()));
-
-        (uint256 amount, bool strategy, uint256 pStrike, uint256 epoch) = ig.positions(posId);
-        assertEq(OptionStrategy.CALL, strategy);
-        assertEq(strike, pStrike);
-        assertEq(inputAmount, amount);
-        assertEq(currEpoch, epoch);
-    }
-
-    function testMintMultiple() public {
-        bool aInputStrategy = OptionStrategy.CALL;
-        bool bInputStrategy = OptionStrategy.PUT;
-        uint256 inputAmount = 1;
-        uint256 currEpoch = ig.currentEpoch();
-
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
-
-        vm.prank(alice);
-        ig.mint(alice, 0, inputAmount, 0, 0, 0.1e18, 0);
-
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, bob, address(ig), inputAmount, vm);
-
-        vm.prank(bob);
-        ig.mint(bob, 0, 0, inputAmount, 0, 0.1e18, 0);
-
-        uint256 strike = ig.currentStrike();
-
-        bytes32 posId1 = keccak256(abi.encodePacked(alice, strike));
-        bytes32 posId2 = keccak256(abi.encodePacked(bob, strike));
-
-        {
-            (uint256 amount1, bool strategy1, , ) = ig.positions(posId1);
-            assertEq(aInputStrategy, strategy1);
-            assertEq(inputAmount, amount1);
-        }
-
-        {
-            (uint256 amount2, bool strategy2, , ) = ig.positions(posId2);
-            assertEq(bInputStrategy, strategy2);
-            assertEq(inputAmount, amount2);
-        }
-
-        vm.prank(alice);
-        ig.burn(currEpoch, alice, strike, inputAmount, 0, 0, 0.1e18);
-        vm.prank(bob);
-        ig.burn(currEpoch, bob, strike, 0, inputAmount, 0, 0.1e18);
-
-        {
-            (uint256 amount1, , , ) = ig.positions(posId1);
-            assertEq(0, amount1);
-        }
-
-        {
-            (uint256 amount2, , , ) = ig.positions(posId2);
-            assertEq(0, amount2);
-        }
+    function testCantMintWithoutNFT() public {
+        // [TODO] Need to mint NFT before
     }
 
     function testCantMintZero() public {
+        vm.prank(alice);
         vm.expectRevert(AmountZero);
         ig.mint(alice, 0, 0, 0, 0, 0.1e18, 0);
+    }
+
+    function testCantMintAfterEpochFinished() public {
+        vm.warp(ig.currentEpoch() + 1);
+        vm.prank(alice);
+        vm.expectRevert(EpochFinished);
+        ig.mint(alice, 0, 0, 0, 0, 0.1e18, 0);
+    }
+
+    function testUserCantMintUnbalancedAmount() public {
+        uint256 strike = ig.currentStrike();
+        Amount memory amount = Amount(1, 2);
+        vm.prank(alice);
+        vm.expectRevert(OnlyPositionManager);
+        ig.mint(alice, strike, amount.up, amount.down, 0, 0.1e18, 0);
+    }
+
+    function testCantMintMoreThanAvailable() public {
+        uint256 strike = ig.currentStrike();
+        (, ,  uint256 bearAvailNotional , uint256 bullAvailNotional) = ig.notional();
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), bullAvailNotional + bearAvailNotional, vm);
+
+        // More than bull available notional
+        vm.prank(alice);
+        vm.expectRevert(NotEnoughNotional);
+        ig.mint(alice, strike, bullAvailNotional + 1, 0, 0, 0.1e18, 0);
+
+        // More than bear available notional
+        vm.prank(alice);
+        vm.expectRevert(NotEnoughNotional);
+        ig.mint(alice, strike, 0, bearAvailNotional + 1, 0, 0.1e18, 0);
+    }
+
+    function testMultipleMintSameEpoch(uint256 amountFirstMint, uint256 amountSecondMint) public {
+        // First mint
+        Amount memory firstMintAmount = _getInputAmount(amountFirstMint, OptionStrategy.CALL);
+        _mint(firstMintAmount, alice);
+
+        // Second mint
+        Amount memory secondMintAmount = _getInputAmount(amountSecondMint, OptionStrategy.CALL);
+        _mint(secondMintAmount, alice);
+
+        bytes32 posId = keccak256(abi.encodePacked(alice, ig.currentStrike()));
+        (uint256 amount, bool strategy, uint256 strike, uint256 epoch) = ig.positions(posId);
+        assertEq(OptionStrategy.CALL, strategy);
+        assertEq(ig.currentStrike(), strike);
+        assertEq(ig.currentEpoch(), epoch);
+
+        assertEq(firstMintAmount.up + secondMintAmount.up, amount);
+    }
+
+    function testBurn(uint256 inputAmount, bool strategy) public {
+        uint256 currEpoch = ig.currentEpoch();
+        uint256 strike = ig.currentStrike();
+
+        Amount memory amount = _getInputAmount(inputAmount, strategy);
+        _mint(amount, alice);
+
+        // Burn
+        (, ,uint256 bearAvailNotional , uint256 bullAvailNotional) = ig.notional();
+        uint256 aliceBalanceBeforeBurn = IERC20(baseToken).balanceOf(alice);
+
+        vm.prank(alice);
+        (uint256 expectedMarketValue, ) = ig.payoff(currEpoch, strike, amount.up, amount.down);
+        vm.prank(alice);
+        uint256 payoff = ig.burn(currEpoch, alice, strike, amount.up, amount.down, expectedMarketValue, 0.1e18);
+
+        bytes32 posId = keccak256(abi.encodePacked(alice, ig.currentStrike()));
+
+        (uint256 posAmount, , uint256 pStrike, uint256 epoch) = ig.positions(posId);
+        (, ,uint256 bearAvailNotionalAfterBurn , uint256 bullAvailNotionalAfterBurn) = ig.notional();
+
+        strategy ? assertEq(bullAvailNotionalAfterBurn, bullAvailNotional + amount.up) : assertEq(bearAvailNotionalAfterBurn, bearAvailNotional + amount.down);
+        assertEq(aliceBalanceBeforeBurn + payoff, IERC20(baseToken).balanceOf(alice));
+        assertEq(strike, pStrike);
+        assertEq(0, posAmount);
+        assertEq(currEpoch, epoch);
+    }
+
+    function testCantBurnPositionNotFound() public {
+        uint256 currEpoch = ig.currentEpoch();
+        uint256 strike = ig.currentStrike();
+
+         vm.prank(alice);
+        vm.expectRevert(PositionNotFound);
+        ig.payoff(currEpoch, strike, 0, 0);
+
+        vm.prank(alice);
+        vm.expectRevert(PositionNotFound);
+        ig.burn(currEpoch, alice, strike, 0, 0, 0, 0.1e18);
+    }
+
+    function testCantBurnZero(uint256 inputAmount, bool strategy) public {
+        uint256 currEpoch = ig.currentEpoch();
+        uint256 strike = ig.currentStrike();
+
+        Amount memory amount = _getInputAmount(inputAmount, strategy);
+        _mint(amount, alice);
+
+        vm.prank(alice);
+        (uint256 expectedMarketValue, ) = ig.payoff(currEpoch, strike, 0, 0);
+        vm.prank(alice);
+        vm.expectRevert(AmountZero);
+        ig.burn(currEpoch, alice, strike, 0, 0, expectedMarketValue, 0.1e18);
+    }
+
+    function testUserCantBurnUnbalancedAmount(uint256 inputAmount) public {
+        uint256 currEpoch = ig.currentEpoch();
+        uint256 strike = ig.currentStrike();
+
+        // In this case a smilee strategy is required
+        (, , uint256 bearAvailNotional, uint256 bullAvailNotional) = ig.notional();
+        uint256 maxInput = bullAvailNotional <= bearAvailNotional ? bullAvailNotional : bearAvailNotional;
+        vm.assume(MIN_MINT < maxInput);
+        inputAmount = Utils.boundFuzzedValueToRange(inputAmount, MIN_MINT, maxInput);
+        Amount memory amount = Amount(inputAmount, inputAmount);
+
+        _mint(amount, alice);
+
+        vm.prank(alice);
+        (uint256 expectedMarketValue, ) = ig.payoff(currEpoch, strike, amount.up, amount.down);
+        vm.prank(alice);
+        vm.expectRevert(OnlyPositionManager);
+        ig.burn(currEpoch, alice, strike, 1, 2, expectedMarketValue, 0.1e18);
+    }
+
+    function testMintAndBurnMultipleUser(uint256 aInputAmount, bool aInputStrategy, uint256 bInputAmount, bool bInputStrategy) public {
+
+        Amount memory aAmount = _getInputAmount(aInputAmount, aInputStrategy);
+        _mint(aAmount, alice);
+
+        Amount memory bAmount = _getInputAmount(bInputAmount, bInputStrategy);
+        _mint(bAmount, bob);
+
+        uint256 strike = ig.currentStrike();
+        bytes32 posIdAlice = keccak256(abi.encodePacked(alice, strike));
+        bytes32 posIdBob = keccak256(abi.encodePacked(bob, strike));
+
+        {
+            (uint256 amount, bool strategy, , ) = ig.positions(posIdAlice);
+            assertEq(aInputStrategy, strategy);
+            assertEq((aAmount.up + aAmount.down), amount);
+        }
+
+        {
+            (uint256 amount, bool strategy, , ) = ig.positions(posIdBob);
+            assertEq(bInputStrategy, strategy);
+            assertEq((bAmount.up + bAmount.down), amount);
+        }
+
+        _burn(aAmount, alice);
+        _burn(bAmount, bob);
+
+        {
+            (uint256 amount, , , ) = ig.positions(posIdAlice);
+            assertEq(0, amount);
+        }
+
+        {
+            (uint256 amount, , , ) = ig.positions(posIdBob);
+            assertEq(0, amount);
+        }
     }
 
     function testCantBurnMoreThanMinted() public {
         uint256 inputAmount = 1e18;
 
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), inputAmount, vm);
 
         uint256 strike = ig.currentStrike();
         uint256 epoch = ig.currentEpoch();
@@ -252,6 +347,19 @@ contract IGTest is Test {
         ig.burn(epoch, alice, strike, inputAmount + 1e18, 0, expectedMarketValue, 0.1e18);
     }
 
+    function testGetUtilizationRate() public {
+        uint256 ur = ig.getUtilizationRate();
+        assertEq(0, ur);
+
+        (, , , uint256 bullAvailNotional) = ig.notional();
+        Amount memory amount = Amount(bullAvailNotional / 2, 0);
+        _mint(amount, alice);
+
+        // assuming bullAvailNotional ~= bearAvailNotional => bullAvailNotional / 2 = 25% of total
+        ur = ig.getUtilizationRate();
+        assertEq(0.25e18, ur);
+    }
+
     function testIGPaused() public {
         MarketOracle mo = MarketOracle(ap.marketOracle());
         vm.startPrank(admin);
@@ -259,7 +367,7 @@ contract IGTest is Test {
         vm.stopPrank();
 
         uint256 inputAmount = 1 ether;
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), inputAmount, vm);
 
         assertEq(ig.paused(), false);
 
@@ -365,40 +473,39 @@ contract IGTest is Test {
         vm.stopPrank();
     }
 
-    function testMintWithSlippage() public {
-        uint256 inputAmount = 1 ether;
+    function testMintWithSlippage(uint256 inputAmount, bool strategy) public {
+        Amount memory amount = _getInputAmount(inputAmount, strategy);
+        uint256 strike = ig.currentStrike();
 
-        // ToDo: review with premium
-        // uint256 expectedPremium = ig.premium(0, OptionStrategy.CALL, inputAmount);
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), (amount.up + amount.down), vm);
 
-        (uint256 expectedMarketValue, ) = ig.premium(0, inputAmount, 0);
+        (uint256 expectedMarketValue, ) = ig.premium(strike, amount.up, amount.down);
 
         ig.setOptionPrice(20e18);
 
         vm.prank(alice);
         vm.expectRevert(SlippedMarketValue);
-        ig.mint(alice, 0, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
+        ig.mint(alice, strike, amount.up, amount.down, expectedMarketValue, 0.1e18, 0);
     }
 
-    function testBurnWithSlippage() public {
-        uint256 inputAmount = 1 ether;
+    function testBurnWithSlippage(uint256 inputAmount, bool strategy) public {
+        Amount memory amount = _getInputAmount(inputAmount, strategy);
 
         //MockedIG ig = new MockedIG(address(vault));
         uint256 currEpoch = ig.currentEpoch();
         uint256 strike = ig.currentStrike();
 
-        TokenUtils.provideApprovedTokens(address(0x10), baseToken, alice, address(ig), inputAmount, vm);
-        (uint256 expectedMarketValue, ) = ig.premium(strike, inputAmount, 0);
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), (amount.up + amount.down), vm);
+        (uint256 expectedMarketValue, ) = ig.premium(strike, amount.up, amount.down);
         vm.prank(alice);
-        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
+        ig.mint(alice, strike, amount.up, amount.down, expectedMarketValue, 0.1e18, 0);
 
         vm.prank(alice);
-        (expectedMarketValue, ) = ig.payoff(currEpoch, strike, inputAmount, 0);
+        (expectedMarketValue, ) = ig.payoff(currEpoch, strike, amount.up, amount.down);
 
+        vm.prank(alice);
         vm.expectRevert(SlippedMarketValue);
-        vm.prank(alice);
-        ig.burn(currEpoch, alice, strike, inputAmount, 0, 20e18, 0.1e18);
+        ig.burn(currEpoch, alice, strike, amount.up, amount.down, 20e18, 0.1e18);
     }
 
     function testSetTimeLockedParameters() public {
@@ -449,5 +556,33 @@ contract IGTest is Test {
             volatilityPriceDiscountFactor: igParams.volatilityPriceDiscountFactor.get(),
             useOracleImpliedVolatility: igParams.useOracleImpliedVolatility.get()
         });
+    }
+
+    // - [TBD] - Test burn when epoch is expired
+
+    // UTILS
+    function _getInputAmount(uint256 fuzzedInput, bool strategy) internal view returns(Amount memory amount) {
+        (, , uint256 bearAvailNotional, uint256 bullAvailNotional) = ig.notional();
+        uint256 maxInput = strategy ? bullAvailNotional : bearAvailNotional;
+        vm.assume(MIN_MINT < maxInput);
+        fuzzedInput = Utils.boundFuzzedValueToRange(fuzzedInput, MIN_MINT, maxInput);
+        amount = Amount(strategy ? fuzzedInput : 0, strategy ? 0 : fuzzedInput);
+}
+
+    function _mint(Amount memory amount, address user) internal returns (uint256 expectedMarketValue, uint256 fee, uint256 premium) {
+        uint256 strike = ig.currentStrike();
+        TokenUtils.provideApprovedTokens(admin, baseToken, user, address(ig), (amount.up + amount.down), vm);
+        (expectedMarketValue, fee) = ig.premium(strike, amount.up, amount.down);
+        vm.prank(user);
+        premium = ig.mint(user, strike, amount.up, amount.down, expectedMarketValue, 0.1e18, 0);
+    }
+
+    function _burn(Amount memory amount, address user) internal returns (uint256 expectedMarketValue, uint256 fee, uint256 paidPayoff) {
+        uint256 strike = ig.currentStrike();
+        uint256 currEpoch = ig.currentEpoch();
+        vm.prank(user);
+        (expectedMarketValue, fee) = ig.payoff(currEpoch, strike, amount.up, amount.down);
+        vm.prank(user);
+        paidPayoff = ig.burn(currEpoch, user, strike, amount.up, amount.down, expectedMarketValue, 0.1e18);
     }
 }
