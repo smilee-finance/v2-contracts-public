@@ -31,8 +31,8 @@ contract AccessTokenOps is EnhancedScript {
         // Load the private key that will be used for signing the transactions:
         _adminPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
 
-        string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
-        _ap = AddressProvider(_readAddress(txLogs, "AddressProvider"));
+        // string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
+        _ap = AddressProvider(0xF2e173B3467D950c4117A1E452A2835A52e55764);
     }
 
     function run() external view {
@@ -95,6 +95,18 @@ contract AccessTokenOps is EnhancedScript {
         PositionManager pm = PositionManager(_ap.dvpPositionManager());
         pm.setNftAccessToken(tokenId);
         vm.stopBroadcast();
+    }
+
+    function getPositionManagerAccessToken() public view {
+        PositionManager pm = PositionManager(_ap.dvpPositionManager());
+        console.log(pm.accessTokenId());
+    }
+
+    function getPosManTokenId() public view {
+        address pm = _ap.dvpPositionManager();
+        IGAccessNFT igAccessNFT = IGAccessNFT(_ap.dvpAccessNFT());
+
+        console.log(igAccessNFT.tokenOfOwnerByIndex(pm, 0));
     }
 
 }

@@ -23,13 +23,13 @@ library Finance {
 
         if (residualAmountUp > 0) {
             residualAmountUp = AmountsMath.wrapDecimals(residualAmountUp, baseTokenDecimals);
-            payoffUp_ = ud(residualAmountUp).mul(ud(percentageUp).mul(convert(2))).unwrap();
+            payoffUp_ = 2 * ud(residualAmountUp).mul(ud(percentageUp)).unwrap();
             payoffUp_ = AmountsMath.unwrapDecimals(payoffUp_, baseTokenDecimals);
         }
 
         if (residualAmountDown > 0) {
             residualAmountDown = AmountsMath.wrapDecimals(residualAmountDown, baseTokenDecimals);
-            payoffDown_ = ud(residualAmountDown).mul(ud(percentageDown).mul(convert(2))).unwrap();
+            payoffDown_ = 2 * ud(residualAmountDown).mul(ud(percentageDown)).unwrap();
             payoffDown_ = AmountsMath.unwrapDecimals(payoffDown_, baseTokenDecimals);
         }
     }

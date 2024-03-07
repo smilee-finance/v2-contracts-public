@@ -17,6 +17,8 @@ contract ErrorMap is Script {
     bytes4 constant MissingFeeManager = bytes4(keccak256("MissingFeeManager()"));
     bytes4 constant SlippedMarketValue = bytes4(keccak256("SlippedMarketValue()"));
     bytes4 constant VaultDead = bytes4(keccak256("VaultDead()"));
+    bytes4 constant PayoffTooLow = bytes4 (keccak256("PayoffTooLow()"));
+    bytes4 constant OnlyPositionManager = bytes4 (keccak256("OnlyPositionManager()"));
 
     // EpochControls.sol
     bytes4 constant EpochFinished = bytes4(keccak256("EpochFinished()"));
@@ -36,6 +38,9 @@ contract ErrorMap is Script {
     bytes4 constant InvalidTokenID = bytes4(keccak256("InvalidTokenID()"));
     bytes4 constant NotOwner = bytes4(keccak256("NotOwner()"));
     bytes4 constant PositionExpired = bytes4(keccak256("PositionExpired()"));
+    bytes4 constant AsymmetricAmount = bytes4(keccak256("AsymmetricAmount()"));
+    bytes4 constant MissingAccessToken = bytes4(keccak256("MissingAccessToken()"));
+    bytes4 constant NFTAccessDenied = bytes4(keccak256("NFTAccessDenied()"));
 
     // Registry.sol
     bytes4 constant MissingAddress = bytes4(keccak256("MissingAddress()"));
@@ -159,6 +164,10 @@ contract ErrorMap is Script {
         console.logBytes4(SlippedMarketValue);
         console.log("VaultDead");
         console.logBytes4(VaultDead);
+        console.log("PayoffTooLow");
+        console.logBytes4(PayoffTooLow);
+        console.log("OnlyPositionManager");
+        console.logBytes4(OnlyPositionManager);
         console.log("EpochFinished");
         console.logBytes4(EpochFinished);
         console.log("NoEnoughFundsFromSender");
@@ -177,6 +186,12 @@ contract ErrorMap is Script {
         console.logBytes4(NotOwner);
         console.log("PositionExpired");
         console.logBytes4(PositionExpired);
+        console.log("AsymmetricAmount");
+        console.logBytes4(AsymmetricAmount);
+        console.log("MissingAccessToken");
+        console.logBytes4(MissingAccessToken);
+        console.log("NFTAccessDenied");
+        console.logBytes4(NFTAccessDenied);
         console.log("MissingAddress");
         console.logBytes4(MissingAddress);
         console.log("AddressZero");
