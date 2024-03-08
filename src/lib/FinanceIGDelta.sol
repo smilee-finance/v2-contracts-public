@@ -108,7 +108,7 @@ library FinanceIGDelta {
             SignedMath.castInt(deltaLimit);
 
         // due to sqrt computation error, sideTokens to sell may be very few more than available
-        if (SignedMath.abs(tokensToSwap) > params.sideTokensAmount) {
+        if (tokensToSwap > 0 && SignedMath.abs(tokensToSwap) > params.sideTokensAmount) {
             if (SignedMath.abs(tokensToSwap) - params.sideTokensAmount < params.sideTokensAmount / 10000) {
                 tokensToSwap = SignedMath.revabs(params.sideTokensAmount, true);
             }
