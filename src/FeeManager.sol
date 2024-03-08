@@ -4,6 +4,8 @@ pragma solidity ^0.8.15;
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
+import {IRegistry} from "../interfaces/IRegistry.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
@@ -65,6 +67,8 @@ contract FeeManager is IFeeManager, AccessControl {
     /// @notice Timelock delay for changing the parameters of a DVP
     uint256 public immutable timeLockDelay;
 
+    IAddressProvider private immutable _ap;
+
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
 
@@ -83,8 +87,11 @@ contract FeeManager is IFeeManager, AccessControl {
     error NoEnoughFundsFromSender();
     error OutOfAllowedRange();
     error WrongVault();
+    error ZeroAddress();
+    error NotAllowed();
 
-    constructor(uint256 timeLockDelay_) AccessControl() {
+    constructor(address addressProvider, uint256 timeLockDelay_) AccessControl() {
+        _ap = IAddressProvider(addressProvider);
         timeLockDelay = timeLockDelay_;
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
@@ -208,6 +215,8 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @inheritdoc IFeeManager
     function receiveFee(uint256 feeAmount) external {
+        _checkSender(msg.sender);
+
         _getBaseTokenInfo(msg.sender).safeTransferFrom(msg.sender, address(this), feeAmount);
         senders[msg.sender] += feeAmount;
 
@@ -216,7 +225,8 @@ contract FeeManager is IFeeManager, AccessControl {
 
     /// @inheritdoc IFeeManager
     function trackVaultFee(address vault, uint256 feeAmount) external {
-        // Check sender:
+        _checkSender(msg.sender);
+        // Check dvp/vault relationship:
         IDVP dvp = IDVP(msg.sender);
         if (vault != dvp.vault()) {
             revert WrongVault();
@@ -225,6 +235,17 @@ contract FeeManager is IFeeManager, AccessControl {
         vaultFeeAmounts[vault] += feeAmount;
 
         emit TransferVaultFee(vault, feeAmount);
+    }
+
+    function _checkSender(address dvp) internal {
+        address registryAddr = _ap.registry();
+        if (registryAddr == address(0)) {
+            revert ZeroAddress();
+        }
+
+        if (!IRegistry(registryAddr).isRegistered(dvp)) {
+            revert NotAllowed();
+        }
     }
 
     /**
