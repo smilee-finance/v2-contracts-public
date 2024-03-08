@@ -11,12 +11,13 @@ import {TokenUtils} from "./utils/TokenUtils.sol";
 
 contract FeeManagerTest is Test {
     FeeManager _feeManager;
+    AddressProvider ap;
     address _admin = address(0x1);
     address _fakeDVP;
 
     constructor() {
         vm.startPrank(_admin);
-        AddressProvider ap = new AddressProvider(0);
+        ap = new AddressProvider(0);
         ap.grantRole(ap.ROLE_ADMIN(), _admin);
         vm.stopPrank();
 
@@ -36,7 +37,7 @@ contract FeeManagerTest is Test {
 
     function setUp() public {
         vm.startPrank(_admin);
-        _feeManager = new FeeManager(0);
+        _feeManager = new FeeManager(address(ap), 0);
         _feeManager.grantRole(_feeManager.ROLE_ADMIN(), _admin);
         vm.stopPrank();
     }

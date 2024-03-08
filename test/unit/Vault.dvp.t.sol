@@ -42,6 +42,7 @@ contract VaultDVPTest is Test {
     bytes4 public constant ERR_DVP_NOT_SET = bytes4(keccak256("DVPNotSet()"));
     bytes4 public constant ERR_ONLY_DVP_ALLOWED = bytes4(keccak256("OnlyDVPAllowed()"));
     bytes4 public constant ERR_INSUFFICIENT_INPUT = bytes4(keccak256("InsufficientInput()"));
+    bytes public ERR_INSUFFICIENT_LIQUIDITY_MINT_SHARES;
     bytes public ERR_INSUFFICIENT_LIQUIDITY_BUY_SIDE_TOKEN;
     bytes public ERR_INSUFFICIENT_LIQUIDITY_SELL_SIDE_TOKEN;
     bytes public ERR_INSUFFICIENT_LIQUIDITY_PENDING_PAYOFF;
@@ -52,6 +53,7 @@ contract VaultDVPTest is Test {
         user = address(644);
         dvp = address(764);
 
+        ERR_INSUFFICIENT_LIQUIDITY_MINT_SHARES = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0")));
         ERR_INSUFFICIENT_LIQUIDITY_BUY_SIDE_TOKEN = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_buySideTokens()")));
         ERR_INSUFFICIENT_LIQUIDITY_SELL_SIDE_TOKEN = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_sellSideTokens()")));
         ERR_INSUFFICIENT_LIQUIDITY_PENDING_PAYOFF = abi.encodeWithSelector(Vault.InsufficientLiquidity.selector, bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs")));
@@ -81,7 +83,7 @@ contract VaultDVPTest is Test {
         addressProvider.setExchangeAdapter(address(exchange));
 
         // No fees by default:
-        FeeManager feeManager = new FeeManager(0);
+        FeeManager feeManager = new FeeManager(address(addressProvider), 0);
         feeManager.grantRole(feeManager.ROLE_ADMIN(), admin);
         addressProvider.setFeeManager(address(feeManager));
 
@@ -454,9 +456,52 @@ contract VaultDVPTest is Test {
         assertEq(payoff, state.liquidity.pendingPayoffs);
     }
 
+    // TBD: move to Vault.user.t.sol
+    // Test roll-epoch when new pending payoff is equal to the notional and with a non-zero deposit (revert).
+    function testRollEpochWhenNewDepositsAreWorthZero(uint256 amount) public {
+        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
+
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vault.rollEpoch();
+
+        // Force portfolio value to zero by reserving everything:
+        uint256 payoff = vault.notional();
+        vm.prank(dvp);
+        vault.reservePayoff(payoff);
+
+        // Add a new pending deposit:
+        vm.prank(admin);
+        baseToken.mint(user, minAmount);
+        vm.startPrank(user);
+        baseToken.approve(address(vault), minAmount);
+        vault.deposit(minAmount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(dvp);
+        vm.expectRevert(ERR_INSUFFICIENT_LIQUIDITY_MINT_SHARES);
+        vault.rollEpoch();
+    }
+
     // - [TODOs]: test roll epoch (focus on payoff and portfolio balance)
     /**
-     * - [TBD]: test roll epoch equal weight portfolio when not empty and with new pending payoff (greater than the notional) [revert; seems impossible to happen from the DVP]
+     * - [TBD]: test roll-epoch equal weight portfolio when non-empty and with pending payoff, deposits and withdrawals, but payoff less or equal to the notional.
+     * - [TBD]: test roll-epoch when new pending payoff is greater than the notional [revert; seems impossible to happen from the DVP]
+     * - [TBD]: test roll-epoch when the base tokens don't cover the pendings (revert; seems impossible to happen)
+     * - [ToDo]: test roll-epoch portfolio when the vault has been killed
+     * - [ToDo]: test roll-epoch when the vault is dead (revert)
+     * - [ToDo]: test roll-epoch when the msg.sender is not allowed (revert)
+     * - [ToDo]: test all the paths within _adjustBalances...
      */
 
     // ---------

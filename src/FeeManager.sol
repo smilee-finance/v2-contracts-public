@@ -4,8 +4,8 @@ pragma solidity ^0.8.15;
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
-import {IRegistry} from "../interfaces/IRegistry.sol";
+import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
+import {IRegistry} from "./interfaces/IRegistry.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IVaultParams} from "./interfaces/IVaultParams.sol";
@@ -237,7 +237,7 @@ contract FeeManager is IFeeManager, AccessControl {
         emit TransferVaultFee(vault, feeAmount);
     }
 
-    function _checkSender(address dvp) internal {
+    function _checkSender(address dvp) internal view {
         address registryAddr = _ap.registry();
         if (registryAddr == address(0)) {
             revert ZeroAddress();

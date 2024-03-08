@@ -20,7 +20,7 @@ contract MockedVault is Vault {
         uint256 epochFrequency_,
         address addressProvider_
     ) Vault(baseToken_, sideToken_, epochFrequency_, epochFrequency_, addressProvider_) {
-        _hedgeMargin = 0;
+        hedgeMargin = 0;
     }
 
     function setV0(uint256 value) public {

@@ -66,7 +66,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     bool public priorityAccessFlag;
 
     /// @notice Tolerance margin when buying side tokens exceeds the availability (in basis points [0 - 10000])
-    uint256 internal _hedgeMargin;
+    uint256 public hedgeMargin;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -116,7 +116,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _addressProvider = IAddressProvider(addressProvider_);
         maxDeposit = 1_000_000_000 * (10 ** _shareDecimals);
 
-        _hedgeMargin = 250; // 2.5 %
+        hedgeMargin = 250; // 2.5 %
         priorityAccessFlag = false;
         _dvpSet = false;
 
@@ -178,18 +178,18 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
     /**
         @notice Set the tolerated hedge margin
-        @param hedgeMargin The number of basis points (10000 is 100%)
+        @param hedgeMargin_ The number of basis points (10000 is 100%)
      */
-    function setHedgeMargin(uint256 hedgeMargin) external {
+    function setHedgeMargin(uint256 hedgeMargin_) external {
         _checkRole(ROLE_ADMIN);
         // Cap is 10%
-        if (hedgeMargin > 1000) {
+        if (hedgeMargin_ > 1000) {
             revert OutOfAllowedRange();
         }
 
-        _hedgeMargin = hedgeMargin;
+        hedgeMargin = hedgeMargin_;
 
-        emit ChangedHedgeMargin(hedgeMargin);
+        emit ChangedHedgeMargin(hedgeMargin_);
     }
 
     /**
@@ -579,6 +579,31 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _completeWithdraw();
     }
 
+    /// @inheritdoc ERC20
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override {
+        /**
+         * As user may transfer their shares, we need to fix the accounting
+         * used to adjust state.liquidity.totalDeposit when a user
+         * initiate a withdrawal request.
+         */
+        VaultLib.DepositReceipt storage fromDepositReceipt = depositReceipts[from];
+        VaultLib.DepositReceipt storage toDepositReceipt = depositReceipts[to];
+
+        uint256 userDeposits = fromDepositReceipt.cumulativeAmount;
+        if (fromDepositReceipt.epoch == getEpoch().current) {
+            userDeposits -= fromDepositReceipt.amount;
+        }
+        (uint256 heldByAccount, uint256 heldByVault) = shareBalances(from);
+        uint256 amountEquivalent = (userDeposits * amount) / (heldByAccount + heldByVault);
+
+        fromDepositReceipt.cumulativeAmount -= amountEquivalent;
+        toDepositReceipt.cumulativeAmount += amountEquivalent;
+    }
+
     // ------------------------------------------------------------------------
     // VAULT OPERATIONS
     // ------------------------------------------------------------------------
@@ -667,8 +692,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         // NOTE: signal the admins if, after rebalance, there's not enough liquidity to fulfill pending liabilities (see [IL-NOTE])
         (uint256 baseTokens, ) = _tokenBalances();
         if (baseTokens < state.liquidity.pendingWithdrawals + state.liquidity.pendingPayoffs) {
-            state.liquidity.lockedInitially = 0;
-
             emit MissingLiquidity(state.liquidity.pendingWithdrawals + state.liquidity.pendingPayoffs - baseTokens);
         }
     }
@@ -763,7 +786,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             // up to a X% safety margin to tackle with extreme scenarios where swap slippages may reduce
             // the initial notional used for hedging computation
             if (availableBaseTokens < baseTokensNeeded) {
-                amount -= (amount * _hedgeMargin) / 10000;
+                amount -= (amount * hedgeMargin) / 10000;
             }
         }
 

@@ -150,7 +150,7 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
         nft.checkCap(tokenId, notionalAmount);
     }
 
-    function _checkRegisteredDVP(address dvp) internal {
+    function _checkRegisteredDVP(address dvp) internal view {
         address registryAddr = _addressProvider.registry();
         if (registryAddr == address(0)) {
             revert ZeroAddress();

@@ -128,7 +128,7 @@ contract DeployCoreFoundations is Script {
         console.log("UniswapAdapter deployed at", address(uniswapAdapter));
 
         // Fee manager:
-        FeeManager feeManager = new FeeManager(6 hours);
+        FeeManager feeManager = new FeeManager(address(ap), 6 hours);
         feeManager.grantRole(feeManager.ROLE_GOD(), _godAddress);
         feeManager.grantRole(feeManager.ROLE_ADMIN(), _adminAddress);
         if (!_deployerIsGod) {

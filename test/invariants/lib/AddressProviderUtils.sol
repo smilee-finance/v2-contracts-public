@@ -38,7 +38,7 @@ library AddressProviderUtils {
 
         address feeManagerAddress = addressProvider.feeManager();
         if (feeManagerAddress == address(0)) {
-            FeeManager feeManager = new FeeManager(0);
+            FeeManager feeManager = new FeeManager(address(addressProvider), 0);
             feeManager.grantRole(feeManager.ROLE_ADMIN(), admin);
             feeManagerAddress = address(feeManager);
             vm.prank(admin);

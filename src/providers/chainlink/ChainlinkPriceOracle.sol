@@ -23,6 +23,7 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
 
     uint256 internal _defaultMaxDelay;
     uint256 public timeLockDelay;
+    TimeLockedAddress internal _sequencerUptimeFeed;
 
     bytes32 public constant ROLE_GOD = keccak256("ROLE_GOD");
     bytes32 public constant ROLE_ADMIN = keccak256("ROLE_ADMIN");
@@ -32,9 +33,11 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
     error PriceZero();
     error PriceNegative();
     error PriceTooOld();
+    error SequencerDown();
 
     event ChangedTokenPriceFeed(address token, address feed);
     event ChangedTokenPriceFeedMaxDelay(address token, uint256 delay);
+    event ChangedSequencerUptimeFeed(address feed);
 
     constructor() AccessControl() {
         _defaultMaxDelay = 2 days;
@@ -82,6 +85,17 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
         }
     }
 
+    function setSequencerUptimeFeed(address feed) external {
+        _checkRole(ROLE_ADMIN);
+        if (feed == address(0)) {
+            revert AddressZero();
+        }
+
+        _sequencerUptimeFeed.set(feed, timeLockDelay);
+
+        emit ChangedSequencerUptimeFeed(feed);
+    }
+
     /**
         @notice Return Price of token in USD
         @param token Address of token
@@ -108,6 +122,8 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
     }
 
     function _getFeedValue(address priceFeedAddr) internal view returns (OracleValue memory datum) {
+        _checkSequencer();
+
         AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeedAddr);
         /*
             latestRoundData SHOULD raise "No data present"
@@ -122,6 +138,20 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
 
         datum.value = AmountsMath.wrapDecimals(uint256(answer), priceFeed.decimals());
         datum.lastUpdate = updatedAt;
+    }
+
+    function _checkSequencer() internal view {
+        // Check sequencer, if any:
+        address sequencerUptimeFeedAddr = _sequencerUptimeFeed.get();
+        if (sequencerUptimeFeedAddr == address(0)) {
+            return;
+        }
+
+        AggregatorV3Interface sequencerUptimeFeed = AggregatorV3Interface(sequencerUptimeFeedAddr);
+        (, int256 answer, , , ) = sequencerUptimeFeed.latestRoundData();
+        if (answer != 0) {
+            revert SequencerDown();
+        }
     }
 
     /// @inheritdoc IPriceOracle
