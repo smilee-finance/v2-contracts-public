@@ -74,6 +74,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
     error AddressZero();
     error AmountZero();
+    error AmountNotAllowed();
     error DVPAlreadySet();
     error DVPNotSet();
     error ExceedsAvailable(); // raised when a user tries to move more assets than allowed to or owned
@@ -341,6 +342,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         IERC20(baseToken).safeTransferFrom(msg.sender, address(this), amount);
 
+        // Mitigate vault inflation attacks:
+        if (state.liquidity.totalDeposit < 10 ** _shareDecimals) {
+            revert AmountNotAllowed();
+        }
+
         emit Deposit(amount);
     }
 
@@ -507,6 +513,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         state.liquidity.totalDeposit -= withdrawDepositEquivalent;
         depositReceipt.cumulativeAmount -= withdrawDepositEquivalent;
+
+        // Mitigate vault inflation attacks:
+        if (state.liquidity.totalDeposit != 0 && state.liquidity.totalDeposit < 10 ** _shareDecimals) {
+            revert AmountNotAllowed();
+        }
         // -----------------------------
 
         state.withdrawals.newHeldShares += shares;
