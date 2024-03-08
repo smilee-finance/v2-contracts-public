@@ -107,9 +107,18 @@ library FinanceIGDelta {
             SignedMath.castInt(params.sideTokensAmount) -
             SignedMath.castInt(deltaLimit);
 
-        // due to sqrt computation error, sideTokens to sell may be very few more than available
-        if (tokensToSwap > 0 && SignedMath.abs(tokensToSwap) > params.sideTokensAmount) {
-            if (SignedMath.abs(tokensToSwap) - params.sideTokensAmount < params.sideTokensAmount / 10000) {
+        // due to sqrt computation error, the side tokens to sell may be very few more than the available ones
+        if (tokensToSwap > 0) {
+            // NOTE: the amounts are in WAD, hence the difference is very tiny...
+            uint256 tolerance = params.sideTokensAmount / 1e4;
+            // NOTE: tolerance may go to zero due to loss of precision
+            if (params.sideTokensAmount < 1e8) {
+                tolerance = 1e4;
+            }
+
+            uint256 uTokenToSwap = SignedMath.abs(tokensToSwap);
+            uint256 missingAmount = uTokenToSwap - params.sideTokensAmount;
+            if (missingAmount > 0 && missingAmount < tolerance) {
                 tokensToSwap = SignedMath.revabs(params.sideTokensAmount, true);
             }
         }
