@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.15;
 
-
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -12,6 +11,7 @@ import {IAddressProvider} from "../interfaces/IAddressProvider.sol";
 import {IDVP} from "../interfaces/IDVP.sol";
 import {IDVPAccessNFT} from "../interfaces/IDVPAccessNFT.sol";
 import {IPositionManager} from "../interfaces/IPositionManager.sol";
+import {IRegistry} from "../interfaces/IRegistry.sol";
 import {Epoch} from "../lib/EpochController.sol";
 
 contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
@@ -54,6 +54,8 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
     error AsymmetricAmount();
     error MissingAccessToken();
     error NFTAccessDenied();
+    error ZeroAddress();
+    error NotRegistered();
 
     constructor(address addressProvider) ERC721Enumerable() ERC721("Smilee DVP Position", "SMIL-DVP-POS") AccessControl() {
         _nextId = 1;
@@ -148,10 +150,22 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
         nft.checkCap(tokenId, notionalAmount);
     }
 
+    function _checkRegisteredDVP(address dvp) internal {
+        address registryAddr = _addressProvider.registry();
+        if (registryAddr == address(0)) {
+            revert ZeroAddress();
+        }
+
+        if (!IRegistry(registryAddr).isRegistered(dvp)) {
+            revert NotRegistered();
+        }
+    }
+
     /// @inheritdoc IPositionManager
     function mint(
         IPositionManager.MintParams calldata params
     ) external override returns (uint256 tokenId, uint256 premium) {
+        _checkRegisteredDVP(params.dvpAddr);
         IDVP dvp = IDVP(params.dvpAddr);
 
         _checkNFTAccess(params.nftAccessTokenId, msg.sender, params.notionalUp + params.notionalDown);
