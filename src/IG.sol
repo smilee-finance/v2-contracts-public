@@ -27,6 +27,7 @@ contract IG is DVP {
     bool public nftAccessFlag = false;
 
     error NFTAccessDenied();
+    error WrongStrike();
 
     // Used by TheGraph for frontend needs:
     event PausedForFinanceApproximation();
@@ -68,9 +69,12 @@ contract IG is DVP {
         uint256 maxSlippage,
         uint256 nftAccessTokenId
     ) external override returns (uint256 premium_) {
-        strike;
         _checkNFTAccess(nftAccessTokenId, recipient, amountUp + amountDown);
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
+
+        if (strike != financeParameters.currentStrike) {
+            revert WrongStrike();
+        }
 
         premium_ = _mint(recipient, financeParameters.currentStrike, amount_, expectedPremium, maxSlippage);
     }
