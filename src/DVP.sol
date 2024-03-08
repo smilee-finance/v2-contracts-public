@@ -146,15 +146,23 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         {
-            uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
             uint256 premiumOrac = _getMarketValue(
                 strike,
                 amount,
                 true,
                 IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)
             );
+
+            // anticipate expected premium transfer (to facilitate delta hedge corner cases)
+            IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premiumOrac);
+
+            uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
             uint256 premiumSwap = _getMarketValue(strike, amount, true, swapPrice);
             premium_ = premiumSwap > premiumOrac ? premiumSwap : premiumOrac;
+
+            if (premium_ > premiumOrac) {
+                IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_ - premiumOrac);
+            }
         }
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
@@ -176,7 +184,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         feeManager.receiveFee(fee - vaultFee);
 
         // Get base premium from sender:
-        IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_ + vaultFee);
+        IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, vaultFee);
         feeManager.trackVaultFee(address(vault), vaultFee);
 
         // Update user premium:
