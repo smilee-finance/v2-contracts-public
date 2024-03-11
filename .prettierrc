@@ -8,7 +8,8 @@
                 "test/UniswapAdapter.t.sol",
                 "test/invariants/system/Properties.sol",
                 "test/invariants/system/PropertiesDescriptions.sol",
-                "test/unit/libraries/FinanceLib.t.sol"
+                "test/unit/libraries/FinanceLib.t.sol",
+                "test/unit/libraries/FinanceLibVega.t.sol"
             ],
             "options": {
                 "printWidth": 260
