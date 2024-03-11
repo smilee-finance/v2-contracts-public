@@ -596,7 +596,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         address to,
         uint256 amount
     ) internal override {
-        if (from == address(0) || to == address(0)) {
+        if (from == address(0) || from == address(this) || to == address(0)) {
             return;
         }
         /**

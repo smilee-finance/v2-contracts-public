@@ -118,17 +118,17 @@ contract VaultSharesTest is Test {
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
-        
+
         vm.prank(alice);
         vault.initiateWithdraw(100);
-        
+
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
-        
+
         Utils.skipDay(true, vm);
         vm.prank(alice);
-        vault.completeWithdraw();   
+        vault.completeWithdraw();
 
         assertEq(0, vault.totalSupply());
     }
@@ -818,5 +818,50 @@ contract VaultSharesTest is Test {
         (heldByVaultAlice, heldByAlice) = vault.shareBalances(alice);
         assertEq(0, heldByVaultAlice);
         assertEq(0, heldByAlice);
+    }
+
+    function testUserTrasferShares(uint256 amount, uint256 shares) public {
+        address user = address(644);
+        address admin = tokenAdmin;
+        amount = Utils.boundFuzzedValueToRange(amount, 10 ** baseToken.decimals(), vault.maxDeposit());
+        shares = Utils.boundFuzzedValueToRange(amount, 0, amount);
+
+        vm.prank(admin);
+        baseToken.mint(user, amount);
+
+        vm.startPrank(user);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, user, 0);
+        vm.stopPrank();
+
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+
+
+        (, , , uint256 comulativeAmountPreRedeem) = vault.depositReceipts(user);
+        assertEq(amount, comulativeAmountPreRedeem);
+
+        vm.prank(user);
+        vault.redeem(shares);
+
+
+        (, uint256 receiptAmount, uint256 unredeemedShares, uint256 comulativeAmountAfterRedeem) = vault.depositReceipts(user);
+        assertEq(0, receiptAmount);
+        assertEq(amount - shares, unredeemedShares);
+        assertEq(amount, comulativeAmountAfterRedeem);
+
+        (uint256 userShares, uint256 userUnredeemedShares) = vault.shareBalances(user);
+        uint256 amountEquivalent = (amount * shares) / (userShares + userUnredeemedShares);
+
+        address shareRecevier = address(645);
+        vm.prank(user);
+        vault.transfer(shareRecevier, shares);
+
+        (, , , uint256 comulativeAmount) = vault.depositReceipts(user);
+        assertEq(amount - amountEquivalent, comulativeAmount);
+
+        (, , , comulativeAmount) = vault.depositReceipts(shareRecevier);
+        assertEq(amountEquivalent, comulativeAmount);
     }
 }
