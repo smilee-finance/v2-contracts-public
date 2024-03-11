@@ -596,6 +596,9 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         address to,
         uint256 amount
     ) internal override {
+        if (from == address(0) || to == address(0)) {
+            return;
+        }
         /**
          * As user may transfer their shares, we need to fix the accounting
          * used to adjust state.liquidity.totalDeposit when a user
