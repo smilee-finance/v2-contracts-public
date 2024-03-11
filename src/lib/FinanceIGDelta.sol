@@ -117,9 +117,11 @@ library FinanceIGDelta {
             }
 
             uint256 uTokenToSwap = SignedMath.abs(tokensToSwap);
-            uint256 missingAmount = uTokenToSwap - params.sideTokensAmount;
-            if (missingAmount > 0 && missingAmount < tolerance) {
-                tokensToSwap = SignedMath.revabs(params.sideTokensAmount, true);
+            if (uTokenToSwap > params.sideTokensAmount) {
+                uint256 missingAmount = uTokenToSwap - params.sideTokensAmount;
+                if (missingAmount > 0 && missingAmount < tolerance) {
+                    tokensToSwap = SignedMath.revabs(params.sideTokensAmount, true);
+                }
             }
         }
         params.sideTokensAmount = SignedMath.abs(tokensToSwap);
