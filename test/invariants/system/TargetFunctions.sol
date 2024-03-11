@@ -172,7 +172,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         DVPUtils.logState(ig);
 
         uint256 strike = ig.currentStrike();
-        uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
+        (uint256 sigma, ) = ig.getPostTradeVolatility(strike, amount_, true);
         uint256 riskFreeRate = _getRiskFreeRate(vault.baseToken());
 
         console.log("** BUY BULL", amount_.up);
@@ -200,7 +200,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         DVPUtils.logState(ig);
 
         uint256 strike = ig.currentStrike();
-        uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
+        (uint256 sigma, ) = ig.getPostTradeVolatility(strike, amount_, true);
         uint256 riskFreeRate = _getRiskFreeRate(vault.baseToken());
 
         console.log("** BUY BEAR", amount_.down);
@@ -229,7 +229,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         DVPUtils.logState(ig);
 
         uint256 strike = ig.currentStrike();
-        uint256 sigma = ig.getPostTradeVolatility(strike, amount_, true);
+        (uint256 sigma, ) = ig.getPostTradeVolatility(strike, amount_, true);
         uint256 riskFreeRate = _getRiskFreeRate(vault.baseToken());
 
         console.log("** BUY SMILEE");
@@ -479,7 +479,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         (uint256 expectedPremium, uint256 fee) = ig.premium(ig.currentStrike(), amount.up, amount.down);
         precondition(expectedPremium > 100); // Slippage has no influence for value <= 100
-        uint256 sigma = ig.getPostTradeVolatility(ig.currentStrike(), amount, true);
+        (uint256 sigma, ) = ig.getPostTradeVolatility(ig.currentStrike(), amount, true);
         uint256 maxPremium = expectedPremium + (ACCEPTED_SLIPPAGE * expectedPremium) / BT_UNIT;
         {
             (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(EPOCH_FREQUENCY);
@@ -785,7 +785,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             if (lastBuy.epoch == ig.getEpoch().current && lastBuy.timestamp == block.timestamp) {
                 (uint256 invariantPremium, ) = ig.premium(lastBuy.strike, lastBuy.amountUp, lastBuy.amountDown);
                 Amount memory amount = Amount(lastBuy.amountUp, lastBuy.amountDown);
-                uint256 currentSigma = ig.getPostTradeVolatility(
+                (uint256 currentSigma, ) = ig.getPostTradeVolatility(
                     lastBuy.strike, //TestOptionsFinanceHelper.getFinanceParameters(ig).currentStrike,
                     amount,
                     true
@@ -922,7 +922,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
             if (block.timestamp < ig.getEpoch().current) {
                 Amount memory amount = Amount(totalAmountBought.up, totalAmountBought.down);
-                uint256 sigma = ig.getPostTradeVolatility(_endingFinanceParameters.currentStrike, amount, false);
+                (uint256 sigma, ) = ig.getPostTradeVolatility(_endingFinanceParameters.currentStrike, amount, false);
                 uint256 price = _getTokenPrice(address(vault.sideToken()));
                 uint256 totalExpectedPremium = _getMarketValueWithCustomIV(sigma, amount, address(baseToken), price);
 
@@ -1062,7 +1062,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 amountDown > 0 ? 1 : 0
             );
         uint256 sideTokenPrice = _getTokenPrice(vault.sideToken());
-        uint256 iv = ig.getPostTradeVolatility(strike, hypAmount, true);
+        (uint256 iv, ) = ig.getPostTradeVolatility(strike, hypAmount, true);
         p = _getMarketValueWithCustomIV(iv, amount, address(baseToken), sideTokenPrice);
     }
 

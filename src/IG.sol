@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.19;
 
+import {console} from "forge-std/console.sol";
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IDVPAccessNFT} from "./interfaces/IDVPAccessNFT.sol";
@@ -131,10 +133,12 @@ contract IG is DVP {
         bool tradeIsBuy,
         uint256 swapPrice
     ) internal view virtual override returns (uint256 marketValue) {
+        (uint256 postTradeVol, ) = getPostTradeVolatility(strike, amount, tradeIsBuy);
+        console.log("postTradeVol", postTradeVol);
         marketValue = FinanceIG.getMarketValue(
             financeParameters,
             amount,
-            getPostTradeVolatility(strike, amount, tradeIsBuy),
+            postTradeVol,
             swapPrice,
             IMarketOracle(_getMarketOracle()).getRiskFreeRate(baseToken),
             _baseTokenDecimals
@@ -168,19 +172,44 @@ contract IG is DVP {
         uint256 strike,
         Amount memory amount,
         bool tradeIsBuy
-    ) public view returns (uint256 sigma) {
-        strike;
-
-        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
-        uint256 ur = liquidity.postTradeUtilizationRate(
-            financeParameters.currentStrike,
-            amount,
-            tradeIsBuy,
-            _baseTokenDecimals
-        );
+    ) public view returns (uint256 sigma, uint256 postTradeUr) {
         uint256 t0 = getEpoch().current - getEpoch().frequency;
 
-        return FinanceIG.getPostTradeVolatility(financeParameters, ur, t0);
+        console.log(
+            "financeParameters.internalVolatilityParameters.uPrev",
+            financeParameters.internalVolatilityParameters.uPrev
+        );
+        {
+            uint256 preTradeVol = FinanceIG.getPostTradeVolatility(
+                financeParameters,
+                financeParameters.internalVolatilityParameters.uPrevCache,
+                t0
+            );
+
+            // TODO non e' detto che sia giusto usare oracle price sempre, perche' quando calcolo premium con prezzo di swap?
+
+            uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+            uint256 riskFree = IMarketOracle(_getMarketOracle()).getRiskFreeRate(baseToken);
+            Amount memory availableLiq;
+            {
+                Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
+                availableLiq = liquidity.available(strike);
+                console.log("availableLiq.up", availableLiq.up);
+                console.log("availableLiq.down", availableLiq.down);
+            }
+
+            postTradeUr = FinanceIG.postTradeUtilizationRate(
+                financeParameters,
+                oraclePrice,
+                riskFree,
+                preTradeVol,
+                availableLiq,
+                amount,
+                tradeIsBuy
+            );
+        }
+
+        sigma = FinanceIG.getPostTradeVolatility(financeParameters, postTradeUr, t0);
     }
 
     /// @inheritdoc DVP
@@ -189,22 +218,17 @@ contract IG is DVP {
         Amount memory amount,
         bool tradeIsBuy
     ) internal virtual override returns (uint256 swapPrice) {
-        uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-
         Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
 
-        // Also update the epoch volatility with the trade effect:
-        uint256 ur = liquidity.postTradeUtilizationRate(
-            financeParameters.currentStrike,
-            amount,
-            tradeIsBuy,
-            _baseTokenDecimals
-        );
-        FinanceIG.updateVolatilityOnTrade(financeParameters, oraclePrice, ur);
-
+        uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         Amount memory availableLiquidity = liquidity.available(strike);
-        uint256 sideTokensAmount = IERC20(sideToken).balanceOf(vault);
+        {
+            uint256 riskFree = IMarketOracle(_getMarketOracle()).getRiskFreeRate(baseToken);
+            (uint256 postTradeVol, uint256 postTradeUr) = getPostTradeVolatility(strike, amount, tradeIsBuy);
+            FinanceIG.updateVolatilityOnTrade(financeParameters, oraclePrice, postTradeUr, riskFree, postTradeVol);
+        }
 
+        uint256 sideTokensAmount = IERC20(sideToken).balanceOf(vault);
         int256 tokensToSwap;
         tokensToSwap = FinanceIG.getDeltaHedgeAmount(
             financeParameters,
@@ -225,6 +249,12 @@ contract IG is DVP {
         uint256 exchangedBaseTokens = IVault(vault).deltaHedge(-tokensToSwap);
 
         swapPrice = Finance.getSwapPrice(tokensToSwap, exchangedBaseTokens, _sideTokenDecimals, _baseTokenDecimals);
+    }
+
+    function _updateCachedUr() internal virtual override {
+        financeParameters.internalVolatilityParameters.uPrevCache = financeParameters
+            .internalVolatilityParameters
+            .uPrev;
     }
 
     /// @inheritdoc DVP
@@ -254,16 +284,19 @@ contract IG is DVP {
 
         financeParameters.maturity = epoch.current;
         financeParameters.currentStrike = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
-        financeParameters.internalVolatilityParameters.epochStart = epoch.current - epoch.frequency; // Not using epoch.previous because epoch may be skipped
+        // Not using epoch.previous because epoch may be skipped
+        financeParameters.internalVolatilityParameters.epochStart = epoch.current - epoch.frequency;
 
         {
-            uint256 iv = IMarketOracle(_getMarketOracle()).getImpliedVolatility(
+            IMarketOracle oracle = IMarketOracle(_getMarketOracle());
+            uint256 riskFree = oracle.getRiskFreeRate(baseToken);
+            uint256 iv = oracle.getImpliedVolatility(
                 baseToken,
                 sideToken,
                 financeParameters.currentStrike,
                 epoch.frequency
             );
-            FinanceIG.updateParameters(financeParameters, iv);
+            FinanceIG.updateParameters(financeParameters, iv, riskFree);
         }
 
         super._afterRollEpoch();

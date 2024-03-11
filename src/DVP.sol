@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.19;
 
+import {console} from "forge-std/console.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -146,19 +147,25 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         {
+            console.log("IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)", IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken));
             uint256 premiumOrac = _getMarketValue(
                 strike,
                 amount,
                 true,
                 IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)
             );
+            console.log("premiumOrac", premiumOrac);
 
             // anticipate expected premium transfer (to facilitate delta hedge corner cases)
             IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premiumOrac);
 
             uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
+            console.log("swapPrice", swapPrice);
             uint256 premiumSwap = _getMarketValue(strike, amount, true, swapPrice);
+            console.log("premiumSwap", premiumSwap);
             premium_ = premiumSwap > premiumOrac ? premiumSwap : premiumOrac;
+
+            _updateCachedUr();
 
             if (premium_ > premiumOrac) {
                 IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_ - premiumOrac);
@@ -209,7 +216,10 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 expectedPremium,
         uint256 maxSlippage,
         bool tradeIsBuy
-    ) internal pure {
+    ) internal view {
+        console.log("premium", premium);
+        console.log("expectedPremium", expectedPremium);
+
         if (!Finance.checkSlippage(premium, expectedPremium, maxSlippage, tradeIsBuy)) {
             revert SlippedMarketValue();
         }
@@ -227,6 +237,8 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         Amount memory amount,
         bool tradeIsBuy
     ) internal virtual returns (uint256 swapPrice);
+
+    function _updateCachedUr() internal virtual;
 
     /**
         @notice Burn or decrease a position.

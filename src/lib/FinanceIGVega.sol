@@ -35,9 +35,11 @@ library FinanceIGVega {
                 FinanceIGPrice.DTerms memory das,
                 FinanceIGPrice.DTerms memory dbs
             ) = FinanceIGPrice.dTerms(inp);
+
             FinanceIGPrice.NTerms memory cdfs = FinanceIGPrice.nTerms(ds);
             FinanceIGPrice.NTerms memory cdfas = FinanceIGPrice.nTerms(das);
             FinanceIGPrice.NTerms memory cdfbs = FinanceIGPrice.nTerms(dbs);
+
             FinanceIGPrice.NTerms memory pdfs = _pdfTerms(ds);
             FinanceIGPrice.NTerms memory pdfas = _pdfTerms(das);
             FinanceIGPrice.NTerms memory pdfbs = _pdfTerms(dbs);
@@ -45,7 +47,9 @@ library FinanceIGVega {
             Params memory p = Params(inp, ds, das, dbs, cdfs, cdfas, cdfbs, pdfs, pdfas, pdfbs);
 
             uint256 ert = FinanceIGPrice.ert(p.inp.r, p.inp.tau);
+
             int256 v1_ = v1(ert, p.ds.d1, p.pdfs.n2);
+
             int256 v2_ = v2(p.inp.s, p.inp.k, p.ds.d2, p.pdfs.n1);
 
             vBull = bullVega(p, ert, v1_, v2_);

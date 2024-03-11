@@ -27,7 +27,6 @@ import {MockedVault} from "./mock/MockedVault.sol";
 import {TestnetSwapAdapter} from "@project/testnet/TestnetSwapAdapter.sol";
 import {PositionManager} from "@project/periphery/PositionManager.sol";
 
-
 contract IGVaultTest is Test {
     using AmountsMath for uint256;
 
@@ -109,7 +108,6 @@ contract IGVaultTest is Test {
         VaultUtils.logState(vault);
         DVPUtils.logState(ig);
 
-
         console.log("---------------------------- 1 ");
         testBuyOption(1e18, 1e18, 0);
         console.log("---------------------------- 2 ");
@@ -119,11 +117,10 @@ contract IGVaultTest is Test {
     }
 
     function testBuyOption(uint price, uint128 optionAmountUp, uint128 optionAmountDown) internal {
-
         vm.prank(admin);
         priceOracle.setTokenPrice(address(sideToken), price);
 
-        (uint256 premium, uint256 fee) = _assurePremium(charlie, _strike, optionAmountUp, optionAmountDown);
+        (uint256 premium /* uint256 fee */, ) = _assurePremium(charlie, _strike, optionAmountUp, optionAmountDown);
 
         vm.startPrank(charlie);
         premium = ig.mint(charlie, _strike, optionAmountUp, optionAmountDown, premium, 1e18, 0);
@@ -141,12 +138,7 @@ contract IGVaultTest is Test {
         uint256 charliePayoffFee;
         {
             vm.startPrank(charlie);
-            (charliePayoff, charliePayoffFee) = ig.payoff(
-                ig.currentEpoch(),
-                _strike,
-                optionAmountUp,
-                optionAmountDown
-            );
+            (charliePayoff, charliePayoffFee) = ig.payoff(ig.currentEpoch(), _strike, optionAmountUp, optionAmountDown);
 
             charliePayoff = ig.burn(
                 ig.currentEpoch(),
@@ -171,9 +163,8 @@ contract IGVaultTest is Test {
         uint256 amountUp,
         uint256 amountDown
     ) private returns (uint256 premium_, uint256 fee) {
-
         (premium_, fee) = ig.premium(strike, amountUp, amountDown);
         console.log("premium ipotetico", premium_);
-        TokenUtils.provideApprovedTokens(admin, address(baseToken), user, address(ig), premium_*2, vm);
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), user, address(ig), premium_ * 2, vm);
     }
 }

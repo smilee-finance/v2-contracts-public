@@ -134,7 +134,7 @@ contract IGTradeTest is Test {
         vm.prank(admin);
         priceOracle.setTokenPrice(address(sideToken), price);
 
-        (uint256 premium, uint256 fee) = _assurePremium(charlie, _strike, optionAmountUp, optionAmountDown);
+        (uint256 premium /* uint256 fee */, ) = _assurePremium(charlie, _strike, optionAmountUp, optionAmountDown);
 
         vm.startPrank(charlie);
         premium = ig.mint(charlie, _strike, optionAmountUp, optionAmountDown, premium, 10e18, 0);
@@ -143,7 +143,7 @@ contract IGTradeTest is Test {
         console.log("premium", premium);
     }
 
-    function testSellOption(uint price, uint128 optionAmountUp, uint128 optionAmountDown) internal returns (uint) {
+    function testSellOption(uint price, uint128 optionAmountUp, uint128 optionAmountDown) internal {
         vm.prank(admin);
         priceOracle.setTokenPrice(address(sideToken), price);
 

@@ -144,11 +144,12 @@ library FinanceIGPrice {
     }
 
     function nTerms(DTerms memory ds) public pure returns (NTerms memory) {
-        return NTerms(
-            ds.d1 < -type(int256).max / 1e18 ? 0 : uint256(Gaussian.cdf(ds.d1)),
-            ds.d2 < -type(int256).max / 1e18 ? 0 : uint256(Gaussian.cdf(ds.d2)),
-            ds.d3 < -type(int256).max / 1e18 ? 0 : uint256(Gaussian.cdf(ds.d3))
-        );
+        return
+            NTerms(
+                ds.d1 < -type(int256).max / 1e18 ? 0 : uint256(Gaussian.cdf(ds.d1)),
+                ds.d2 < -type(int256).max / 1e18 ? 0 : uint256(Gaussian.cdf(ds.d2)),
+                ds.d3 < -type(int256).max / 1e18 ? 0 : uint256(Gaussian.cdf(ds.d3))
+            );
     }
 
     /// @dev σ√τ AND ( r + σ^2 / 2 ) τ
@@ -242,7 +243,7 @@ library FinanceIGPrice {
 
     /// @dev S / √(K * K_a) * (1 - N(d1a))
     function pbear4(uint256 s, uint256 kkartd, uint256 n1a) public pure returns (uint256) {
-        return s * convert(1).sub(ud(n1a)).unwrap() / kkartd;
+        return (s * convert(1).sub(ud(n1a)).unwrap()) / kkartd;
     }
 
     /// @dev e^-(r τ) * √(K_a / K) * N(1 - d2a)
@@ -276,7 +277,7 @@ library FinanceIGPrice {
 
     /// @dev S / √(K K_b) * N(d1b)
     function pbull4(uint256 s, uint256 kkbrtd, uint256 n1b) public pure returns (uint256) {
-        return s * n1b / kkbrtd;
+        return (s * n1b) / kkbrtd;
     }
 
     /// @dev e^-(r τ) * √(K_b / K) * N(d2b)
@@ -339,12 +340,15 @@ library FinanceIGPrice {
         @dev All the values are expressed in Wad.
      */
     function liquidityRange(LiquidityRangeParams calldata params) public pure returns (uint256 kA, uint256 kB) {
+        // m * σ * √T
         uint256 mSigmaT = ud(params.sigma)
             .mul(ud(params.sigmaMultiplier))
             .mul(ud(params.yearsToMaturity).sqrt())
             .unwrap();
 
+        // K * e^-(m * σ * √T)
         kA = ud(params.k).mul(sd(SignedMath.neg(mSigmaT)).exp().intoUD60x18()).unwrap();
+        // K * e^(m * σ * √T)
         kB = ud(params.k).mul(ud(mSigmaT).exp()).unwrap();
 
         if (kA == 0) {
@@ -403,7 +407,7 @@ library FinanceIGPrice {
         // igP multiplies a notional computed as follow:
         // V0 * user% = V0 * amount / initial(strategy) = V0 * amount / (V0/2) = amount * 2
         // (amountUp * (2 priceUp)) + (amountDown * (2 priceDown))
-        marketValue_ = 2 * (amountUp * priceUp + amountDown * priceDown) / theta;
+        marketValue_ = (2 * (amountUp * priceUp + amountDown * priceDown)) / theta;
         return AmountsMath.unwrapDecimals(marketValue_, decimals);
     }
 }

@@ -337,11 +337,15 @@ contract TestScenariosJson is Test {
         assertApproxEqAbs(t.pre.availableNotionalBear, availableBearNotional, _tolerance(t.pre.availableNotionalBear));
         assertApproxEqAbs(t.pre.availableNotionalBull, availableBullNotional, _tolerance(t.pre.availableNotionalBull));
         uint256 strike = _dvp.currentStrike();
-        assertApproxEqAbs(
-            t.pre.volatility,
-            _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true),
-            _toleranceOnPercentage
-        );
+
+        {
+            (uint256 sigma, /* uint256 ur */) = _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true);
+            assertApproxEqAbs(
+                t.pre.volatility,
+                sigma,
+                _toleranceOnPercentage
+            );
+        }
 
         // actual trade:
         uint256 marketValue;
@@ -399,11 +403,15 @@ contract TestScenariosJson is Test {
             availableBullNotional,
             _tolerance(t.post.availableNotionalBull)
         );
-        assertApproxEqAbs(
-            t.post.volatility,
-            _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true),
-            _toleranceOnPercentage
-        );
+
+        {
+            (uint256 sigma, /* uint256 ur */) = _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true);
+            assertApproxEqAbs(
+                t.post.volatility,
+                sigma,
+                _toleranceOnPercentage
+            );
+        }
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
         assertApproxEqAbs(t.post.baseTokenAmount, baseTokenAmount, _tolerance(t.post.baseTokenAmount));
