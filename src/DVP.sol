@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.19;
 
-import {console} from "forge-std/console.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -67,6 +66,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     error PayoffTooLow();
     error VaultDead();
     error OnlyPositionManager();
+    error AsymmetricAmount();
 
     /**
         @notice Emitted when option is minted for a given position
@@ -130,14 +130,31 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
         }
-        if ((amount.up > 0 && amount.down > 0) && (amount.up != amount.down)) {
+
+        Epoch memory epoch = getEpoch();
+        Position.Info storage position = _getPosition(epoch.current, recipient, strike);
+
+        {
             // If amount is an unbalanced smile, only the position manager is allowed to proceed:
             if (msg.sender != _addressProvider.dvpPositionManager()) {
-                revert OnlyPositionManager();
+                bool positionExists = position.amountUp > 0 || position.amountDown == 0;
+                if (positionExists) {
+                    bool posIsBull = position.amountUp > 0 && position.amountDown == 0;
+                    if (posIsBull && amount.down > 0) {
+                        revert AsymmetricAmount();
+                    }
+                    bool posIsBear = position.amountUp == 0 && position.amountDown > 0;
+                    if (posIsBear && amount.up > 0) {
+                        revert AsymmetricAmount();
+                    }
+                    bool posIsSmile = position.amountUp > 0 && position.amountDown > 0;
+                    if (posIsSmile && amount.up != amount.down) {
+                        revert AsymmetricAmount();
+                    }
+                }
             }
         }
 
-        Epoch memory epoch = getEpoch();
         Notional.Info storage liquidity = _liquidity[epoch.current];
 
         // Check available liquidity:
@@ -147,25 +164,21 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         {
-            console.log("IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)", IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken));
             uint256 premiumOrac = _getMarketValue(
                 strike,
                 amount,
                 true,
                 IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)
             );
-            console.log("premiumOrac", premiumOrac);
 
             // anticipate expected premium transfer (to facilitate delta hedge corner cases)
             IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premiumOrac);
 
             uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
-            console.log("swapPrice", swapPrice);
             uint256 premiumSwap = _getMarketValue(strike, amount, true, swapPrice);
-            console.log("premiumSwap", premiumSwap);
             premium_ = premiumSwap > premiumOrac ? premiumSwap : premiumOrac;
 
-            _updateCachedUr();
+            _updateCachedUr(strike, amount, true);
 
             if (premium_ > premiumOrac) {
                 IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_ - premiumOrac);
@@ -201,7 +214,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         liquidity.increaseUsage(strike, amount);
 
         // Create or update position:
-        Position.Info storage position = _getPosition(epoch.current, recipient, strike);
+        // Position.Info storage position = _getPosition(epoch.current, recipient, strike);
         position.premium += premium_;
         position.epoch = epoch.current;
         position.strike = strike;
@@ -217,9 +230,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 maxSlippage,
         bool tradeIsBuy
     ) internal view {
-        console.log("premium", premium);
-        console.log("expectedPremium", expectedPremium);
-
         if (!Finance.checkSlippage(premium, expectedPremium, maxSlippage, tradeIsBuy)) {
             revert SlippedMarketValue();
         }
@@ -238,7 +248,10 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         bool tradeIsBuy
     ) internal virtual returns (uint256 swapPrice);
 
-    function _updateCachedUr() internal virtual;
+    function _updateCachedUr(uint256 strike,
+        Amount memory amount,
+        bool tradeIsBuy
+    ) internal virtual;
 
     /**
         @notice Burn or decrease a position.
@@ -264,11 +277,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             revert PositionNotFound();
         }
 
-        // // If the position reached maturity, the user must close the entire position
-        // // NOTE: we have to avoid this due to the PositionManager that holds positions for multiple tokens.
-        // if (position.epoch != epoch.current) {
-        //     amount = position.amount;
-        // }
         if (amount.up == 0 && amount.down == 0) {
             // NOTE: a zero amount may have some parasite effect, henct we proactively protect against it.
             revert AmountZero();
@@ -276,10 +284,11 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         if (amount.up > position.amountUp || amount.down > position.amountDown) {
             revert CantBurnMoreThanMinted();
         }
-        if ((amount.up > 0 && amount.down > 0) && (amount.up != amount.down)) {
-            // If amount is an unbalanced smile, only the position manager is allowed to proceed:
-            if (msg.sender != _addressProvider.dvpPositionManager()) {
-                revert OnlyPositionManager();
+        // If amount is an unbalanced smile, only the position manager is allowed to proceed:
+        if (msg.sender != _addressProvider.dvpPositionManager()) {
+            bool posIsSmile = position.amountUp > 0 && position.amountDown > 0;
+            if (posIsSmile && amount.up != amount.down) {
+                revert AsymmetricAmount();
             }
         }
 
@@ -298,6 +307,8 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             uint256 payoffSwap = _getMarketValue(strike, amount, false, swapPrice);
             paidPayoff = payoffSwap < payoffOrac ? payoffSwap : payoffOrac;
             _checkSlippage(paidPayoff, expectedMarketValue, maxSlippage, false);
+
+            _updateCachedUr(strike, amount, false);
         } else {
             // Compute the payoff to be paid:
             Amount memory payoff_ = _liquidity[expiry].shareOfPayoff(strike, amount, _baseTokenDecimals);

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.19;
 
-import {console} from "forge-std/console.sol";
-
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
 import {IDVPAccessNFT} from "./interfaces/IDVPAccessNFT.sol";
@@ -120,10 +118,7 @@ contract IG is DVP {
 
     /// @inheritdoc IDVP
     function getUtilizationRate() public view returns (uint256) {
-        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
-        (uint256 used, uint256 total) = liquidity.utilizationRateFactors(financeParameters.currentStrike);
-
-        return Finance.getUtilizationRate(used, total, _baseTokenDecimals);
+        return financeParameters.internalVolatilityParameters.uPrev;
     }
 
     /// @inheritdoc DVP
@@ -134,7 +129,6 @@ contract IG is DVP {
         uint256 swapPrice
     ) internal view virtual override returns (uint256 marketValue) {
         (uint256 postTradeVol, ) = getPostTradeVolatility(strike, amount, tradeIsBuy);
-        console.log("postTradeVol", postTradeVol);
         marketValue = FinanceIG.getMarketValue(
             financeParameters,
             amount,
@@ -175,18 +169,13 @@ contract IG is DVP {
     ) public view returns (uint256 sigma, uint256 postTradeUr) {
         uint256 t0 = getEpoch().current - getEpoch().frequency;
 
-        console.log(
-            "financeParameters.internalVolatilityParameters.uPrev",
-            financeParameters.internalVolatilityParameters.uPrev
-        );
         {
             uint256 preTradeVol = FinanceIG.getPostTradeVolatility(
                 financeParameters,
-                financeParameters.internalVolatilityParameters.uPrevCache,
+                // financeParameters.internalVolatilityParameters.uPrevCache,
+                financeParameters.internalVolatilityParameters.uPrev,
                 t0
             );
-
-            // TODO non e' detto che sia giusto usare oracle price sempre, perche' quando calcolo premium con prezzo di swap?
 
             uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
             uint256 riskFree = IMarketOracle(_getMarketOracle()).getRiskFreeRate(baseToken);
@@ -194,8 +183,6 @@ contract IG is DVP {
             {
                 Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
                 availableLiq = liquidity.available(strike);
-                console.log("availableLiq.up", availableLiq.up);
-                console.log("availableLiq.down", availableLiq.down);
             }
 
             postTradeUr = FinanceIG.postTradeUtilizationRate(
@@ -218,19 +205,12 @@ contract IG is DVP {
         Amount memory amount,
         bool tradeIsBuy
     ) internal virtual override returns (uint256 swapPrice) {
-        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
-
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
         Amount memory availableLiquidity = liquidity.available(strike);
-        {
-            uint256 riskFree = IMarketOracle(_getMarketOracle()).getRiskFreeRate(baseToken);
-            (uint256 postTradeVol, uint256 postTradeUr) = getPostTradeVolatility(strike, amount, tradeIsBuy);
-            FinanceIG.updateVolatilityOnTrade(financeParameters, oraclePrice, postTradeUr, riskFree, postTradeVol);
-        }
-
         uint256 sideTokensAmount = IERC20(sideToken).balanceOf(vault);
-        int256 tokensToSwap;
-        tokensToSwap = FinanceIG.getDeltaHedgeAmount(
+
+        int256 tokensToSwap = FinanceIG.getDeltaHedgeAmount(
             financeParameters,
             amount,
             tradeIsBuy,
@@ -251,11 +231,21 @@ contract IG is DVP {
         swapPrice = Finance.getSwapPrice(tokensToSwap, exchangedBaseTokens, _sideTokenDecimals, _baseTokenDecimals);
     }
 
-    function _updateCachedUr() internal virtual override {
-        financeParameters.internalVolatilityParameters.uPrevCache = financeParameters
-            .internalVolatilityParameters
-            .uPrev;
-    }
+    function _updateCachedUr(uint256 strike,
+        Amount memory amount,
+        bool tradeIsBuy
+    ) internal virtual override {
+        // financeParameters.internalVolatilityParameters.uPrevCache = financeParameters
+        //     .internalVolatilityParameters
+        //     .uPrev;
+
+        uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
+        uint256 riskFree = IMarketOracle(_getMarketOracle()).getRiskFreeRate(baseToken);
+
+        (uint256 postTradeVol, uint256 postTradeUr) = getPostTradeVolatility(strike, amount, tradeIsBuy);
+
+        FinanceIG.updateVolatilityOnTrade(financeParameters, oraclePrice, postTradeUr, riskFree, postTradeVol);
+}
 
     /// @inheritdoc DVP
     function _residualPayoffPerc(
@@ -287,6 +277,12 @@ contract IG is DVP {
         // Not using epoch.previous because epoch may be skipped
         financeParameters.internalVolatilityParameters.epochStart = epoch.current - epoch.frequency;
 
+        super._afterRollEpoch();
+
+        // NOTE: initial liquidity is allocated by the DVP call
+        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
+        financeParameters.initialLiquidity = liquidity.getInitial(financeParameters.currentStrike);
+
         {
             IMarketOracle oracle = IMarketOracle(_getMarketOracle());
             uint256 riskFree = oracle.getRiskFreeRate(baseToken);
@@ -299,16 +295,10 @@ contract IG is DVP {
             FinanceIG.updateParameters(financeParameters, iv, riskFree);
         }
 
-        super._afterRollEpoch();
-
         if (FinanceIG.checkFinanceApprox(financeParameters)) {
             _pause();
             emit PausedForFinanceApproximation();
-        }
-
-        // NOTE: initial liquidity is allocated by the DVP call
-        Notional.Info storage liquidity = _liquidity[financeParameters.maturity];
-        financeParameters.initialLiquidity = liquidity.getInitial(financeParameters.currentStrike);
+        }        
     }
 
     /// @inheritdoc DVP

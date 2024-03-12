@@ -33,7 +33,7 @@
     "trades": [
         {
             "pre": {
-                "volatility": 449832589285713749,
+                "volatility": 449832589285713750,
                 "baseTokenAmount": 400000000000000000000000,
                 "sideTokenAmount": 200000000000000000000,
                 "utilizationRate": 0,
@@ -43,7 +43,7 @@
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 899665178571427499,
+                "volatility": 899665178571427500,
                 "baseTokenAmount": 415232769268882962000000,
                 "sideTokenAmount": 200000000000000000000,
                 "utilizationRate": 1000000000000000000,
@@ -70,7 +70,7 @@
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 449665178571429106,
+                "volatility": 449665178571429107,
                 "baseTokenAmount": 461610351129212293000000,
                 "sideTokenAmount": 175123830306061733000,
                 "utilizationRate": 0,
@@ -87,7 +87,7 @@
         },
         {
             "pre": {
-                "volatility": 449330357142856606,
+                "volatility": 449330357142856607,
                 "baseTokenAmount": 461610351129212293000000,
                 "sideTokenAmount": 175123830306061733000,
                 "utilizationRate": 0,
@@ -124,7 +124,7 @@
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 448995535714285713,
+                "volatility": 448995535714285714,
                 "baseTokenAmount": 522912772651291713000000,
                 "sideTokenAmount": 151141469614055444000,
                 "utilizationRate": 0,
@@ -141,7 +141,7 @@
         },
         {
             "pre": {
-                "volatility": 447991071428571427,
+                "volatility": 447991071428571428,
                 "baseTokenAmount": 522912772651291713000000,
                 "sideTokenAmount": 151141469614055444000,
                 "utilizationRate": 0,
@@ -151,7 +151,7 @@
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 895982142857142856,
+                "volatility": 895982142857142857,
                 "baseTokenAmount": 440081242355339659000000,
                 "sideTokenAmount": 200000000000000000000,
                 "utilizationRate": 1000000000000000000,
@@ -178,7 +178,7 @@
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 401785714285714284,
+                "volatility": 401785714285714285,
                 "baseTokenAmount": 230380326261527305000000,
                 "sideTokenAmount": 309663512996874052000,
                 "utilizationRate": 0,
@@ -195,7 +195,7 @@
         },
         {
             "pre": {
-                "volatility": 369642857142857141,
+                "volatility": 369642857142857142,
                 "baseTokenAmount": 230380326261527305000000,
                 "sideTokenAmount": 309663512996874052000,
                 "utilizationRate": 0,
@@ -232,7 +232,7 @@
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 353571428571428570,
+                "volatility": 353571428571428571,
                 "baseTokenAmount": 349747922693105815000000,
                 "sideTokenAmount": 252666719779635793000,
                 "utilizationRate": 0,
@@ -250,7 +250,7 @@
     ],
     "endEpoch": {
         "sideTokenPrice": 2000000000000000000000,
-        "impliedVolatility": 559545073900831222,
+        "impliedVolatility": 675624146141886239,
         "depositAmount": 0,
         "withdrawSharesAmount": 0,
         "baseTokenAmount": 427540681126188701000000,

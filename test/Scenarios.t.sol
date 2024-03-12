@@ -179,6 +179,8 @@ contract TestScenariosJson is Test {
         vm.stopPrank();
     }
 
+    function testScenarioTmp() public { _checkScenario("scenario_tmp", true); }
+
     // One single Mint of a Bull option at the strike price.
     function testScenario1() public { _checkScenario("scenario_1", true); }
 

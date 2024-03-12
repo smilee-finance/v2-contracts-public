@@ -33,7 +33,7 @@
     "trades": [
         {
             "pre": {
-                "volatility": 1166953124999990240,
+                "volatility": 1166953124999990250,
                 "baseTokenAmount": 400000005000000000000000,
                 "sideTokenAmount": 216216218918918918000,
                 "utilizationRate": 0,
@@ -43,10 +43,10 @@
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 2333906206239239390,
+                "volatility": 2333906206239239410,
                 "baseTokenAmount": 414963600932607431000000,
                 "sideTokenAmount": 216216218918918918000,
-                "utilizationRate": 999999987500000158,
+                "utilizationRate": 999999987500000163,
                 "availableNotionalBear": 4999999999000000,
                 "availableNotionalBull": 4999999999000000,
                 "marketValue": 15203595932607431600000,
@@ -60,17 +60,17 @@
         },
         {
             "pre": {
-                "volatility": 2327812456353536200,
+                "volatility": 2327812456353536220,
                 "baseTokenAmount": 414963600932607431000000,
                 "sideTokenAmount": 216216218918918918000,
-                "utilizationRate": 999999987500000158,
+                "utilizationRate": 999999987500000163,
                 "availableNotionalBear": 4999999999000000,
                 "availableNotionalBull": 4999999999000000,
                 "sideTokenPrice": 1970000000000000000000,
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 1163906250000009740,
+                "volatility": 1163906250000009750,
                 "baseTokenAmount": 542695953915774679000000,
                 "sideTokenAmount": 147282716426772560000,
                 "utilizationRate": 0,
@@ -87,7 +87,7 @@
         },
         {
             "pre": {
-                "volatility": 1157812499999990240,
+                "volatility": 1157812499999990250,
                 "baseTokenAmount": 542695953915774679000000,
                 "sideTokenAmount": 147282716426772560000,
                 "utilizationRate": 0,
@@ -100,7 +100,7 @@
                 "volatility": 2315624956582012820,
                 "baseTokenAmount": 426722030188772150000000,
                 "sideTokenAmount": 216216218549977400000,
-                "utilizationRate": 999999987500000158,
+                "utilizationRate": 999999987500000159,
                 "availableNotionalBear": 4999999999000000,
                 "availableNotionalBull": 4999999999000000,
                 "marketValue": 15239730307086668000000,
@@ -117,14 +117,14 @@
                 "volatility": 2303437456810547940,
                 "baseTokenAmount": 426722030188772150000000,
                 "sideTokenAmount": 216216218549977400000,
-                "utilizationRate": 999999987500000158,
+                "utilizationRate": 999999987500000159,
                 "availableNotionalBear": 4999999999000000,
                 "availableNotionalBull": 4999999999000000,
                 "sideTokenPrice": 2000000000000000000000,
                 "riskFreeRate": 30000000000000000
             },
             "post": {
-                "volatility": 1151718749999999990,
+                "volatility": 1151718750000000000,
                 "baseTokenAmount": 586939770377998261000000,
                 "sideTokenAmount": 131026212334438884000,
                 "utilizationRate": 0,
@@ -141,7 +141,7 @@
         },
         {
             "pre": {
-                "volatility": 1133437499999999990,
+                "volatility": 1133437500000000000,
                 "baseTokenAmount": 586939770377998261000000,
                 "sideTokenAmount": 131026212334438884000,
                 "utilizationRate": 0,
@@ -169,7 +169,7 @@
     ],
     "endEpoch": {
         "sideTokenPrice": 1880000000000000000000,
-        "impliedVolatility": 1970852464102214970,
+        "impliedVolatility": 2114262270612172300,
         "depositAmount": 0,
         "withdrawSharesAmount": 0,
         "baseTokenAmount": 422307117683986674000000,

@@ -30,7 +30,7 @@ struct VolatilityParameters {
     uint256 vegaAdj; // vega adjusted
     uint256 tPrev; // previous trade timestamp
     uint256 uPrev; // previous trade utilization rate (post trade)
-    uint256 uPrevCache; // previous trade old utilization rate (still = uPrev even after `updateVolatilityOnTrade()` call)
+    // uint256 uPrevCache; // previous trade old utilization rate (still = uPrev even after `updateVolatilityOnTrade()` call)
     uint256 tvwUr; // time-vega weighted utilization rate
     uint256 omega; // total weight
 }
@@ -189,7 +189,7 @@ library FinanceIG {
             params.internalVolatilityParameters.omega = 0;
             params.internalVolatilityParameters.tPrev = 0;
             params.internalVolatilityParameters.uPrev = 0;
-            params.internalVolatilityParameters.uPrevCache = 0;
+            // params.internalVolatilityParameters.uPrevCache = 0;
 
             // Multiply baselineVolatility for a safety margin after the computation of kA and kB:
             uint256 volatilityPriceDiscountFactor = params.timeLocked.volatilityPriceDiscountFactor.get();
@@ -247,7 +247,7 @@ library FinanceIG {
         uint256 oraclePrice,
         uint256 sigma
     ) internal view returns (uint256 vBull, uint256 vBear) {
-        uint256 tau = WadTime.rangeInYears(params.internalVolatilityParameters.epochStart, params.maturity);
+        uint256 tau = _yearsToMaturity(params.maturity);
         return
             FinanceIGVega.igVega(
                 FinanceIGPrice.Parameters(
@@ -264,7 +264,7 @@ library FinanceIG {
             );
     }
 
-    function sigmaZero(uint256 avgU, uint256 n, uint256 theta_, uint256 sigmaZero_) public pure returns (uint256) {
+    function sigmaZero(uint256 avgU, uint256 n, uint256 theta_, uint256 sigmaZero_) public view returns (uint256) {
         // F1 = 1 + (n - 1) * (avgU ^ 3)
         UD60x18 f1 = convert(1).add(ud(n).sub(convert(1)).mul(ud(avgU).powu(3)));
         // F2 = avgU + (1 - θ) * (1 - avgU)
@@ -357,7 +357,7 @@ library FinanceIG {
 
         params.internalVolatilityParameters.tPrev = timeElapsed;
         // cache old uPrev (used by swap price premium computation, after `_deltaHedgePosition()`)
-        params.internalVolatilityParameters.uPrevCache = params.internalVolatilityParameters.uPrev;
+        // params.internalVolatilityParameters.uPrevCache = params.internalVolatilityParameters.uPrev;
         params.internalVolatilityParameters.uPrev = postTradeUtilizationRate_;
         (uint256 vBull, uint256 vBear) = _vega(params, riskFree, oraclePrice, postTradeVol);
         params.internalVolatilityParameters.vegaAdj = vBull + vBear;
@@ -367,16 +367,17 @@ library FinanceIG {
         FinanceParameters storage params,
         uint256 oraclePrice,
         uint256 riskFree,
-        uint256 postTradeVol,
+        uint256 volatility,
         Amount calldata availableLiquidity,
         Amount calldata tradeAmount,
         bool tradeIsBuy
     ) public view returns (uint256) {
         if (tradeAmount.up == 0 && tradeAmount.down == 0) {
-            return params.internalVolatilityParameters.uPrevCache;
+            // return params.internalVolatilityParameters.uPrevCache;
+            return params.internalVolatilityParameters.uPrev;
         }
 
-        (uint256 vBull, uint256 vBear) = _vega(params, riskFree, oraclePrice, postTradeVol);
+        (uint256 vBull, uint256 vBear) = _vega(params, riskFree, oraclePrice, volatility);
 
         // down limit vegas to 0.000000001
         vBull = vBull < 1e9 ? 1e9 : vBull;
@@ -396,15 +397,22 @@ library FinanceIG {
                 (vBull * availableLiquidity.up) /
                 params.initialLiquidity.up);
 
-            uImpact = (vTrade * (1e18 - params.internalVolatilityParameters.uPrevCache)) / availableVega;
+            // uImpact = (vTrade * (1e18 - params.internalVolatilityParameters.uPrevCache)) / availableVega;
+            uImpact = (vTrade * (1e18 - params.internalVolatilityParameters.uPrev)) / availableVega;
+
+            return params.internalVolatilityParameters.uPrev + uImpact;
         } else {
             uint256 vBearUsed = vBear * (1e18 - (availableLiquidity.down * 1e18) / params.initialLiquidity.down);
             uint256 vBullUsed = vBull * (1e18 - (availableLiquidity.up * 1e18) / params.initialLiquidity.up);
-            uint256 usedVega = vBearUsed + vBullUsed;
+            uint256 usedVega = (vBearUsed + vBullUsed) / 1e18;
 
-            uImpact = (vTrade * params.internalVolatilityParameters.uPrevCache) / usedVega;
+            // uImpact = (vTrade * params.internalVolatilityParameters.uPrevCache) / usedVega;
+            uImpact = (vTrade * params.internalVolatilityParameters.uPrev) / usedVega;
+
+            return params.internalVolatilityParameters.uPrev - uImpact;
         }
 
-        return params.internalVolatilityParameters.uPrevCache + uImpact;
+        // return params.internalVolatilityParameters.uPrevCache + uImpact;
+        return params.internalVolatilityParameters.uPrev + uImpact;
     }
 }

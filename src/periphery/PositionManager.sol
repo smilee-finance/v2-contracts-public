@@ -185,10 +185,25 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
             if (position.expiry != epoch.current) {
                 revert PositionExpired();
             }
-        }
-        if ((params.notionalUp > 0 && params.notionalDown > 0) && (params.notionalUp != params.notionalDown)) {
-            // If amount is a smile, it must be balanced:
-            revert AsymmetricAmount();
+            {
+                bool posIsBull = position.notionalUp > 0 && position.notionalDown == 0;
+                if (posIsBull && params.notionalDown > 0) {
+                    revert AsymmetricAmount();
+                }
+                bool posIsBear = position.notionalUp == 0 && position.notionalDown > 0;
+                if (posIsBear && params.notionalUp > 0) {
+                    revert AsymmetricAmount();
+                }
+                bool posIsSmile = position.notionalUp > 0 && position.notionalDown > 0;
+                if (posIsSmile && params.notionalUp != params.notionalDown) {
+                    revert AsymmetricAmount();
+                }
+            }
+        } else {
+            if ((params.notionalUp > 0 && params.notionalDown > 0) && (params.notionalUp != params.notionalDown)) {
+                // If amount is a smile, it must be balanced:
+                revert AsymmetricAmount();
+            }
         }
 
         uint256 spending = params.expectedPremium + params.expectedPremium * params.maxSlippage / 1e18;

@@ -62,7 +62,7 @@ contract LibraryDeployer {
         tlui = TimeLockedUInt(1, 2, 3);
         TimeLockedBool memory tmlb = TimeLockedBool(true, true, 1);
         tfp = TimeLockedFinanceParameters(tlui, tlui, tlui, tlui, tmlb);
-        tvp = VolatilityParameters(1, 1, 1, 1, 1, 1, 1);
+        tvp = VolatilityParameters(1, 1, 1, 1, 1, 1);
         FinanceParameters memory fp = FinanceParameters(12, 13, amountOne, 123, 124, 2, tfp, 1, tvp);
         FinanceIG.getPayoffPercentages(fp, 1);
         FinanceIGDelta.bullDelta(0, 0, 0, 0);

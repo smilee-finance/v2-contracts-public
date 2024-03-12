@@ -28,7 +28,7 @@ library FinanceIGVega {
     function igVega(
         FinanceIGPrice.Parameters calldata inp,
         uint256 v0
-    ) external pure returns (uint256 vBull, uint256 vBear) {
+    ) external view returns (uint256 vBull, uint256 vBear) {
         {
             (
                 FinanceIGPrice.DTerms memory ds,
@@ -55,11 +55,13 @@ library FinanceIGVega {
             vBull = bullVega(p, ert, v1_, v2_);
             vBear = bearVega(p, ert, v1_, v2_);
         }
+        {
+        }
         vBull = (v0 * vBull) / inp.theta / 100;
         vBear = (v0 * vBear) / inp.theta / 100;
     }
 
-    function bullVega(Params memory p, uint256 ert, int256 v1_, int256 v2_) public pure returns (uint256) {
+    function bullVega(Params memory p, uint256 ert, int256 v1_, int256 v2_) public view returns (uint256) {
         uint256 er2sig8 = FinanceIGPrice.er2sig8(p.inp.r, p.inp.sigma, p.inp.tau);
         uint256 sdivkRtd = ud(p.inp.s).div(ud(p.inp.k)).sqrt().unwrap();
 
@@ -70,13 +72,17 @@ library FinanceIGVega {
 
         int256 sum = (-v1_ - v2_ - v3_ - v4_ + v5_ + v6_);
         if (sum < 0) {
-            revert PositiveSumLtZero();
+            // NOTE: rounding errors may yields a slightly negative number
+            if (sum < -1e9) {
+                revert PositiveSumLtZero();
+            }
+            return 0;
         }
 
         return (SignedMath.abs(sum) * 1e18) / p.inp.sigma;
     }
 
-    function bearVega(Params memory p, uint256 ert, int256 v1_, int256 v2_) public pure returns (uint256) {
+    function bearVega(Params memory p, uint256 ert, int256 v1_, int256 v2_) public view returns (uint256) {
         uint256 er2sig8 = FinanceIGPrice.er2sig8(p.inp.r, p.inp.sigma, p.inp.tau);
         uint256 sdivkRtd = ud(p.inp.s).div(ud(p.inp.k)).sqrt().unwrap();
 
@@ -87,7 +93,11 @@ library FinanceIGVega {
 
         int256 sum = (v1_ + v2_ - v3_ - v4_ - v5_ - v6_);
         if (sum < 0) {
-            revert PositiveSumLtZero();
+            // NOTE: rounding errors may yields a slightly negative number
+            if (sum < -1e9) {
+                revert PositiveSumLtZero();
+            }
+            return 0;
         }
 
         return (SignedMath.abs(sum) * 1e18) / p.inp.sigma;
