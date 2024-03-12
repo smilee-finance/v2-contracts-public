@@ -5,6 +5,7 @@ import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {IPositionManager} from "@project/interfaces/IPositionManager.sol";
 import {Amount, AmountHelper} from "@project/lib/Amount.sol";
 import {EpochFrequency} from "@project/lib/EpochFrequency.sol";
 import {FinanceParameters} from "@project/lib/FinanceIG.sol";
@@ -12,6 +13,7 @@ import {SignedMath} from "@project/lib/SignedMath.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {MarketOracle} from "@project/MarketOracle.sol";
+import {PositionManager} from "@project/periphery/PositionManager.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {TestnetSwapAdapter} from "@project/testnet/TestnetSwapAdapter.sol";
 import {MockedIG} from "./mock/MockedIG.sol";
@@ -34,11 +36,9 @@ contract TestScenariosJson is Test {
     TestnetPriceOracle internal _oracle;
     TestnetSwapAdapter internal _exchange;
     MarketOracle internal _marketOracle;
+    PositionManager internal _pm;
     uint256 internal _toleranceOnPercentage;
     uint256 internal _tolerancePercentage;
-
-    // keep track of trader outstanding open position at maturity
-    Amount internal _traderResidualAmount;
 
     struct JsonPathType {
         string path;
@@ -111,6 +111,7 @@ contract TestScenariosJson is Test {
         bool isMint;
         TradePostConditions post;
         TradePreConditions pre;
+        uint256 tokenID;
     }
 
     struct EndEpoch {
@@ -138,11 +139,16 @@ contract TestScenariosJson is Test {
     }
 
     function setUp() public {
-        _traderResidualAmount.setRaw(0, 0);
         vm.warp(EpochFrequency.REF_TS);
 
-        vm.prank(_admin);
+        vm.startPrank(_admin);
         _ap = new AddressProvider(0);
+        _ap.grantRole(_ap.ROLE_ADMIN(), _admin);
+
+        _pm = new PositionManager(address(_ap));
+        _pm.grantRole(_pm.ROLE_ADMIN(), _admin);
+        _ap.setDvpPositionManager(address(_pm));
+        vm.stopPrank();
     }
 
     function _marketSetup(uint256 duration) internal {
@@ -178,8 +184,6 @@ contract TestScenariosJson is Test {
 
         vm.stopPrank();
     }
-
-    function testScenarioTmp() public { _checkScenario("scenario_tmp", true); }
 
     // One single Mint of a Bull option at the strike price.
     function testScenario1() public { _checkScenario("scenario_1", true); }
@@ -353,40 +357,46 @@ contract TestScenariosJson is Test {
         uint256 marketValue;
         uint256 fee;
         if (t.isMint) {
-            _traderResidualAmount.increase(Amount(t.amountUp, t.amountDown));
             (marketValue, fee) = _dvp.premium(strike, t.amountUp, t.amountDown);
             TokenUtils.provideApprovedTokens(
                 _admin,
                 _vault.baseToken(),
                 _trader,
-                address(_dvp),
+                address(_pm),
                 ((marketValue * (1e18 + t.post.acceptedPremiumSlippage)) / 1e18) + fee,
                 vm
             );
+
+            {
+                IPositionManager.MintParams memory params = IPositionManager.MintParams({
+                    tokenId: t.tokenID,
+                    dvpAddr: address(_dvp),
+                    notionalUp: t.amountUp,
+                    notionalDown: t.amountDown,
+                    strike: strike,
+                    recipient: _trader,
+                    expectedPremium: marketValue,
+                    maxSlippage: t.post.acceptedPremiumSlippage,
+                    nftAccessTokenId: 0
+                });
+                vm.prank(_trader);
+                (/*uint256 tokenId*/, marketValue) = _pm.mint(params);
+            }
             vm.prank(_trader);
-            marketValue = _dvp.mint(
-                _trader,
-                strike,
-                t.amountUp,
-                t.amountDown,
-                marketValue,
-                t.post.acceptedPremiumSlippage,
-                0
-            );
             // TBD: check slippage on market value
         } else {
-            _traderResidualAmount.decrease(Amount(t.amountUp, t.amountDown));
             vm.startPrank(_trader);
-            (marketValue, fee) = _dvp.payoff(_dvp.currentEpoch(), strike, t.amountUp, t.amountDown);
-            marketValue = _dvp.burn(
-                _dvp.currentEpoch(),
-                _trader,
-                strike,
-                t.amountUp,
-                t.amountDown,
-                marketValue,
-                t.post.acceptedPremiumSlippage
-            );
+            (marketValue, fee) = _pm.payoff(t.tokenID, t.amountUp, t.amountDown);
+            {
+                IPositionManager.SellParams memory params = IPositionManager.SellParams({
+                    tokenId: t.tokenID,
+                    notionalUp: t.amountUp,
+                    notionalDown: t.amountDown,
+                    expectedMarketValue: marketValue,
+                    maxSlippage: t.post.acceptedPremiumSlippage
+                });
+                marketValue = _pm.sell(params);
+            }
             vm.stopPrank();
         }
         //fee = _feeManager.calculateTradeFee(t.amountUp + t.amountDown, marketValue, IToken(_vault.baseToken()).decimals(), false);
@@ -464,34 +474,41 @@ contract TestScenariosJson is Test {
 
         // Checking user payoff for matured positions
         uint256 vaultPendingPayoff = VaultUtils.getState(_vault).liquidity.pendingPayoffs;
-
-        vm.startPrank(_trader);
-        (uint256 traderPayoffNet, uint256 fees) = _dvp.payoff(
-            _dvp.getEpoch().previous,
-            currentStrike,
-            _traderResidualAmount.up,
-            _traderResidualAmount.down
-        );
-
         assertApproxEqAbs(endEpoch.payoffNet, vaultPendingPayoff, _tolerance(endEpoch.payoffNet));
-        assertApproxEqAbs(endEpoch.payoffNet, traderPayoffNet + fees, _tolerance(endEpoch.payoffNet));
 
-        if (_traderResidualAmount.getTotal() > 0) {
-            uint256 netPaid = _dvp.burn(
-                _dvp.getEpoch().previous,
-                _trader,
-                currentStrike,
-                _traderResidualAmount.up,
-                _traderResidualAmount.down,
-                0,
-                0
-            );
-
-            // Right now it makes sense only becasue there is only one trader
-            assertApproxEqAbs(endEpoch.payoffTotal, netPaid, _tolerance(endEpoch.payoffTotal));
+        uint256 accPayoffNet = 0;
+        uint256 accPayoffFees = 0;
+        uint256 accNetPaid = 0;
+        vm.startPrank(_trader);
+        {
+            uint256 numPositions = _pm.balanceOf(_trader);
+            for (uint i = 0; i < numPositions; i++) {
+                uint256 tokenID = _pm.tokenOfOwnerByIndex(_trader, 0);
+                IPositionManager.PositionDetail memory posDetail = _pm.positionDetail(tokenID);
+                (uint256 traderPayoffNet, uint256 fees) = _pm.payoff(
+                    tokenID,
+                    posDetail.notionalUp,
+                    posDetail.notionalDown
+                );
+                accPayoffNet += traderPayoffNet;
+                accPayoffFees += fees;
+                IPositionManager.SellParams memory params = IPositionManager.SellParams({
+                    tokenId: tokenID,
+                    notionalUp: posDetail.notionalUp,
+                    notionalDown: posDetail.notionalDown,
+                    expectedMarketValue: traderPayoffNet,
+                    maxSlippage: 1e18
+                });
+                uint256 netPaid = _pm.sell(params);
+                accNetPaid += netPaid;
+            }
         }
 
-        _traderResidualAmount.setRaw(0, 0);
+        assertApproxEqAbs(endEpoch.payoffNet, accPayoffNet + accPayoffFees, _tolerance(endEpoch.payoffNet));
+
+        // Right now it makes sense only becasue there is only one trader
+        assertApproxEqAbs(endEpoch.payoffTotal, accNetPaid, _tolerance(endEpoch.payoffTotal));
+
         vm.stopPrank();
 
         // TODO: add missing "complete withdraw"

@@ -56,6 +56,7 @@
             "amountDown": 0,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 900
         },
         {
@@ -83,6 +84,7 @@
             "amountDown": 80000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 899
         }
     ],

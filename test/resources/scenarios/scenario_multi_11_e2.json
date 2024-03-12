@@ -56,6 +56,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 900
         },
         {
@@ -83,6 +84,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": false,
             "epochOfBurnedPosition": 0,
+            "token_id": 3,
             "elapsedTimeSeconds": 899
         },
         {
@@ -110,6 +112,7 @@
             "amountDown": 200000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 1800
         },
         {
@@ -137,6 +140,7 @@
             "amountDown": 200000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 4,
             "elapsedTimeSeconds": 7199
         },
         {
@@ -164,6 +168,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": false,
             "epochOfBurnedPosition": 0,
+            "token_id": 4,
             "elapsedTimeSeconds": 75600
         },
         {
@@ -191,6 +196,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 432000
         },
         {
@@ -218,6 +224,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": false,
             "epochOfBurnedPosition": 0,
+            "token_id": 5,
             "elapsedTimeSeconds": 77760
         }
     ],

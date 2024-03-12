@@ -56,6 +56,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 900
         },
         {
@@ -83,6 +84,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": false,
             "epochOfBurnedPosition": 0,
+            "token_id": 6,
             "elapsedTimeSeconds": 899
         },
         {
@@ -110,6 +112,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 900
         },
         {
@@ -137,6 +140,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": false,
             "epochOfBurnedPosition": 0,
+            "token_id": 7,
             "elapsedTimeSeconds": 900
         },
         {
@@ -164,6 +168,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 59
         },
         {
@@ -191,6 +196,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": false,
             "epochOfBurnedPosition": 0,
+            "token_id": 8,
             "elapsedTimeSeconds": 839
         },
         {
@@ -218,6 +224,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 900
         },
         {
@@ -245,6 +252,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": false,
             "epochOfBurnedPosition": 0,
+            "token_id": 9,
             "elapsedTimeSeconds": 1799
         },
         {
@@ -272,6 +280,7 @@
             "amountDown": 400000000000000000000000,
             "isMint": true,
             "epochOfBurnedPosition": 0,
+            "token_id": 0,
             "elapsedTimeSeconds": 595872
         }
     ],
