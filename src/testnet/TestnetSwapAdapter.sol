@@ -119,7 +119,8 @@ contract TestnetSwapAdapter is IExchange, Ownable {
     function random(int256 min, int256 max) public view returns (int256) {
         uint256 rnd = block.timestamp;
         uint256 range = SignedMath.abs((max - min) / 1e14); // always >= 0
-        if (rnd > 0) {
+        // number % 0 is not allowed.
+        if (rnd > 0 && range > 0) {
             return min + int256((rnd % range) * 1e14);
         }
         return min;

@@ -51,26 +51,26 @@ contract VaultSharesTest is Test {
     }
 
     function testDeposit() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
         Utils.skipDay(false, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        // initial share price is 1:1, so expect 100 shares to be minted
-        assertEq(100, vault.totalSupply());
+        // initial share price is 1:1, so expect 100e18 shares to be minted
+        assertEq(100e18, vault.totalSupply());
         (uint256 shares, uint256 unredeemedShares) = vault.shareBalances(alice);
         assertEq(0, baseToken.balanceOf(alice));
         assertEq(0, shares);
-        assertEq(100, unredeemedShares);
+        assertEq(100e18, unredeemedShares);
         // check lockedLiquidity
         uint256 lockedLiquidity = vault.v0();
-        assertEq(100, lockedLiquidity);
+        assertEq(100e18, lockedLiquidity);
     }
 
     function testRedeemFail() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(false, vm);
         vm.prank(tokenAdmin);
@@ -78,11 +78,11 @@ contract VaultSharesTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(ExceedsAvailable);
-        vault.redeem(150);
+        vault.redeem(150e18);
     }
 
     function testDepositAmountZeroFail() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(false, vm);
         vm.prank(tokenAdmin);
@@ -94,25 +94,25 @@ contract VaultSharesTest is Test {
     }
 
     function testDepositEpochFinishedFail() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
         Utils.skipDay(false, vm);
         vm.expectRevert(EpochFinished);
-        vault.deposit(100, alice, 0);
+        vault.deposit(100e18, alice, 0);
     }
 
     function testInitWithdrawEpochFinishedFail() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
         Utils.skipDay(false, vm);
         vm.expectRevert(EpochFinished);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
     }
 
     function testCompleteWithdrawEpochFinishedSuccess() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
         assertEq(0, vault.totalSupply()); // shares are minted at next epoch change
 
         Utils.skipDay(true, vm);
@@ -120,7 +120,7 @@ contract VaultSharesTest is Test {
         vault.rollEpoch();
 
         vm.prank(alice);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
@@ -137,21 +137,21 @@ contract VaultSharesTest is Test {
         Wallet deposits twice (or more) in the same epoch. The amount of the shares minted for the user is the sum of all deposits.
      */
     function testDoubleDepositSameEpoch() public {
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100, vm);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), alice, address(vault), 100e18, vm);
         vm.startPrank(alice);
-        vault.deposit(50, alice, 0);
-        vault.deposit(50, alice, 0);
+        vault.deposit(50e18, alice, 0);
+        vault.deposit(50e18, alice, 0);
         vm.stopPrank();
 
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
         (uint256 vaultBaseTokenBalance, ) = vault.balances();
-        assertEq(100, vault.totalSupply());
-        assertEq(50, vaultBaseTokenBalance);
-        assertEq(100, heldByVaultAlice);
+        assertEq(100e18, vault.totalSupply());
+        assertEq(50e18, vaultBaseTokenBalance);
+        assertEq(100e18, heldByVaultAlice);
     }
 
     function testRedeemZeroFail() public {
@@ -165,36 +165,40 @@ contract VaultSharesTest is Test {
     }
 
     function testRedeem() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);
-        vault.redeem(50);
+        vault.redeem(50e18);
 
         (uint256 shares, uint256 unredeemedShares) = vault.shareBalances(alice);
-        assertEq(50, shares);
-        assertEq(50, unredeemedShares);
-        assertEq(50, vault.balanceOf(alice));
+        assertEq(50e18, shares);
+        assertEq(50e18, unredeemedShares);
+        assertEq(50e18, vault.balanceOf(alice));
 
         // check lockedLiquidity. It still remains the same
         uint256 lockedLiquidity = vault.v0();
-        assertEq(100, lockedLiquidity);
+        assertEq(100e18, lockedLiquidity);
     }
 
     function testInitWithdrawWithoutSharesFail() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         vm.expectRevert(ExceedsAvailable);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
     }
 
     function testInitWithdrawZeroFail() public {
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
+
+        vm.prank(alice);
+        vm.expectRevert(ExceedsAvailable);
+        vault.initiateWithdraw(100e18);
 
         vm.prank(alice);
         vm.expectRevert(AmountZero);
@@ -205,70 +209,70 @@ contract VaultSharesTest is Test {
         Wallet redeems its shares and start a withdraw. Everithing goes ok.
      */
     function testInitWithdrawWithRedeem() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.startPrank(alice);
-        vault.redeem(100);
-        vault.initiateWithdraw(100);
+        vault.redeem(100e18);
+        vault.initiateWithdraw(100e18);
         vm.stopPrank();
         (, uint256 withdrawalShares) = vault.withdrawals(alice);
 
         assertEq(0, vault.balanceOf(alice));
-        assertEq(100, withdrawalShares);
+        assertEq(100e18, withdrawalShares);
     }
 
     /**
         Wallet withdraws without redeeming its shares before. An automatic redeem is executed by the protocol.
      */
     function testInitWithdrawNoRedeem() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
         (, uint256 withdrawalShares) = vault.withdrawals(alice);
         assertEq(0, vault.balanceOf(alice));
-        assertEq(100, withdrawalShares);
+        assertEq(100e18, withdrawalShares);
     }
 
     /**
         Wallet withdraws twice (or more) in the same epoch. The amount of the shares to withdraw has to be the sum of each.
      */
     function testInitWithdrawTwiceSameEpoch() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.startPrank(alice);
-        vault.initiateWithdraw(50);
-        vault.initiateWithdraw(50);
+        vault.initiateWithdraw(50e18);
+        vault.initiateWithdraw(50e18);
         vm.stopPrank();
 
         (, uint256 aliceWithdrawalShares) = vault.withdrawals(alice);
-        assertEq(100, aliceWithdrawalShares);
+        assertEq(100e18, aliceWithdrawalShares);
     }
 
     /**
         Wallet withdraws twice (or more) in subsequent epochs. A ExistingIncompleteWithdraw error is expected.
      */
     function testInitWithdrawTwiceDifferentEpochs() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);
-        vault.initiateWithdraw(50);
+        vault.initiateWithdraw(50e18);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
@@ -276,14 +280,14 @@ contract VaultSharesTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(ExistingIncompleteWithdraw);
-        vault.initiateWithdraw(50);
+        vault.initiateWithdraw(50e18);
     }
 
     /**
         Wallet completes withdraw without init. A WithdrawNotInitiated error is expected.
      */
     function testCompleteWithdrawWithoutInitFail() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
@@ -298,14 +302,14 @@ contract VaultSharesTest is Test {
         Wallet inits and completes a withdrawal procedure in the same epoch. An WithdrawTooEarly error is expected.
      */
     function testInitAndCompleteWithdrawSameEpoch() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.startPrank(alice);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
         vm.expectRevert(WithdrawTooEarly);
         vault.completeWithdraw();
         vm.stopPrank();
@@ -315,52 +319,58 @@ contract VaultSharesTest is Test {
         Wallet makes a partial withdraw without redeeming its shares. All shares are automatically redeemed and some of them held by the vault for withdrawal.
      */
     function testInitWithdrawPartWithoutRedeem() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);
-        vault.initiateWithdraw(50);
+        vault.initiateWithdraw(50e18);
         (, uint256 withdrawalShares) = vault.withdrawals(alice);
-        assertEq(50, vault.balanceOf(alice));
-        assertEq(50, vault.balanceOf(address(vault)));
-        assertEq(50, withdrawalShares);
+        assertEq(50e18, vault.balanceOf(alice));
+        assertEq(50e18, vault.balanceOf(address(vault)));
+        assertEq(50e18, withdrawalShares);
     }
 
-    function testWithdraw() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+    function testWithdraw(uint256 depositAmount, uint256 initiateWithdrawAmount) public {
+        vm.assume(depositAmount >= initiateWithdrawAmount);
+        uint256 minAmount = 10 ** baseToken.decimals();
+        depositAmount = Utils.boundFuzzedValueToRange(depositAmount, minAmount, vault.maxDeposit());
+        initiateWithdrawAmount = Utils.boundFuzzedValueToRange(initiateWithdrawAmount, minAmount, depositAmount);
+        vm.assume(depositAmount - initiateWithdrawAmount >= minAmount);
+
+        VaultUtils.addVaultDeposit(alice, depositAmount, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(false, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         vm.prank(alice);
-        vault.initiateWithdraw(40);
+        vault.initiateWithdraw(initiateWithdrawAmount);
         // a max redeem is done within initiateWithdraw so unwithdrawn shares remain to alice
-        assertEq(40, vault.balanceOf(address(vault)));
-        assertEq(60, vault.balanceOf(alice));
+        assertEq(initiateWithdrawAmount, vault.balanceOf(address(vault)));
+        assertEq(depositAmount - initiateWithdrawAmount, vault.balanceOf(alice));
         // check lockedLiquidity
         uint256 lockedLiquidity = vault.v0();
-        assertEq(100, lockedLiquidity);
+        assertEq(depositAmount, lockedLiquidity);
 
         Utils.skipDay(false, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
-        assertEq(40, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(initiateWithdrawAmount, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         // check lockedLiquidity
         lockedLiquidity = vault.v0();
-        assertEq(60, lockedLiquidity);
+        assertEq(depositAmount - initiateWithdrawAmount, lockedLiquidity);
 
         vm.prank(alice);
         vault.completeWithdraw();
         assertEq(0, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         (, uint256 withdrawalShares) = vault.withdrawals(alice);
-        assertEq(60, vault.totalSupply());
-        assertEq(40, baseToken.balanceOf(address(alice)));
+        assertEq(depositAmount - initiateWithdrawAmount, vault.totalSupply());
+        assertEq(initiateWithdrawAmount, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalShares);
     }
 
@@ -373,56 +383,56 @@ contract VaultSharesTest is Test {
         - Alice should receive 400 (100*4) and Bob 200 (100*2).
      */
     function testVaultMathDoubleLiquidity() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(vault.totalSupply(), 100);
-        assertEq(heldByVaultAlice, 100);
+        assertEq(vault.totalSupply(), 100e18);
+        assertEq(heldByVaultAlice, 100e18);
 
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100, vm);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 100e18, vm);
         vm.prank(tokenAdmin);
         vault.moveValue(10000); // +100% Alice
-        assertEq(200, vault.notional());
+        assertEq(200e18, vault.notional());
 
         Utils.skipDay(false, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(150, vault.totalSupply());
-        assertEq(heldByVaultBob, 50);
+        assertEq(150e18, vault.totalSupply());
+        assertEq(heldByVaultBob, 50e18);
 
         vm.prank(alice);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
 
         vm.prank(bob);
-        vault.initiateWithdraw(50);
+        vault.initiateWithdraw(50e18);
 
-        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 300, vm);
+        TokenUtils.provideApprovedTokens(tokenAdmin, address(baseToken), tokenAdmin, address(vault), 300e18, vm);
         vm.prank(tokenAdmin);
         vault.moveValue(10000); // +200% Alice, +100% Bob
-        assertEq(600, vault.notional());
+        assertEq(600e18, vault.notional());
 
         Utils.skipDay(false, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
-        assertEq(600, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(600e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         assertEq(0, vault.notional()); // everyone withdraws, notional is 0
 
         vm.prank(alice);
         vault.completeWithdraw();
-        assertEq(200, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(200e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
-        assertEq(50, vault.totalSupply());
-        assertEq(400, baseToken.balanceOf(address(alice)));
+        assertEq(50e18, vault.totalSupply());
+        assertEq(400e18, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
 
         vm.prank(bob);
@@ -431,7 +441,7 @@ contract VaultSharesTest is Test {
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
         assertEq(0, vault.totalSupply());
-        assertEq(200, baseToken.balanceOf(address(bob)));
+        assertEq(200e18, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
     }
 
@@ -444,55 +454,55 @@ contract VaultSharesTest is Test {
         - Alice should receive 25 (100/4) and Bob 50 (100/2)
      */
     function testVaultMathHalveLiquidity() public {
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(vault.totalSupply(), 100);
-        assertEq(heldByVaultAlice, 100);
+        assertEq(vault.totalSupply(), 100e18);
+        assertEq(heldByVaultAlice, 100e18);
 
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
         vault.moveValue(-5000); // -50% Alice
-        assertEq(50, vault.notional());
+        assertEq(50e18, vault.notional());
 
         Utils.skipDay(false, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(vault.totalSupply(), 300);
-        assertEq(heldByVaultBob, 200);
+        assertEq(vault.totalSupply(), 300e18);
+        assertEq(heldByVaultBob, 200e18);
 
         vm.prank(alice);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
 
         assertEq(0, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         vm.prank(bob);
-        vault.initiateWithdraw(200);
+        vault.initiateWithdraw(200e18);
 
         vault.moveValue(-5000); // -75% Alice, -50% Bob
-        assertEq(75, vault.notional());
+        assertEq(75e18, vault.notional());
 
         Utils.skipDay(false, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        assertEq(75, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(75e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         assertEq(0, vault.notional()); // everyone withdraws, notional is 0
 
         vm.prank(alice);
         vault.completeWithdraw();
-        assertEq(50, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(50e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         (, uint256 withdrawalSharesAlice) = vault.withdrawals(alice);
-        assertEq(200, vault.totalSupply());
-        assertEq(25, baseToken.balanceOf(address(alice)));
+        assertEq(200e18, vault.totalSupply());
+        assertEq(25e18, baseToken.balanceOf(address(alice)));
         assertEq(0, withdrawalSharesAlice);
 
         vm.prank(bob);
@@ -501,7 +511,7 @@ contract VaultSharesTest is Test {
 
         (, uint256 withdrawalSharesBob) = vault.withdrawals(bob);
         assertEq(0, vault.totalSupply());
-        assertEq(50, baseToken.balanceOf(address(bob)));
+        assertEq(50e18, baseToken.balanceOf(address(bob)));
         assertEq(0, withdrawalSharesBob);
     }
 
@@ -513,63 +523,63 @@ contract VaultSharesTest is Test {
      */
     function testRollEpochMathSingleInitWithdrawWithDepositWithoutCompletingWithdraw() public {
         // Roll first epoch
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(heldByVaultAlice, 100);
+        assertEq(heldByVaultAlice, 100e18);
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(heldByVaultBob, 100);
-        assertEq(200, vault.totalSupply());
+        assertEq(heldByVaultBob, 100e18);
+        assertEq(200e18, vault.totalSupply());
 
         // Alice starts withdraw
         vm.prank(alice);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
-        assertEq(100, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(100e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         // ToDo: check Alice's shares
 
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(200, heldByVaultBob);
-        assertEq(300, vault.totalSupply());
+        assertEq(200e18, heldByVaultBob);
+        assertEq(300e18, vault.totalSupply());
 
         // Alice not compliting withdraw in this test. Check the following test
         // vm.prank(alice);
         // vault.completeWithdraw();
 
         vm.prank(bob);
-        vault.initiateWithdraw(200);
+        vault.initiateWithdraw(200e18);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
-        assertEq(300, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(300e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         vm.prank(bob);
         vault.completeWithdraw();
-        assertEq(100, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(100e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         assertEq(0, baseToken.balanceOf(alice));
-        assertEq(200, baseToken.balanceOf(bob));
-        assertEq(100, vault.totalSupply());
+        assertEq(200e18, baseToken.balanceOf(bob));
+        assertEq(100e18, vault.totalSupply());
     }
 
     /**
@@ -580,28 +590,28 @@ contract VaultSharesTest is Test {
      * Completing or not the withdraw cannot change the behaviour.
      */
     function testRollEpochMathSingleInitAndCompletingWithdrawWithDeposit() public {
-        vm.warp(block.timestamp + 1 days + 1);
         // Roll first epoch
+        Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(heldByVaultAlice, 100);
+        assertEq(heldByVaultAlice, 100e18);
 
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(heldByVaultBob, 100);
-        assertEq(vault.totalSupply(), 200);
+        assertEq(heldByVaultBob, 100e18);
+        assertEq(vault.totalSupply(), 200e18);
 
         // Alice starts withdraw
         vm.prank(alice);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
 
         assertEq(0, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
@@ -611,9 +621,9 @@ contract VaultSharesTest is Test {
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        assertEq(100, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(100e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
 
@@ -622,11 +632,11 @@ contract VaultSharesTest is Test {
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        assertEq(100, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(100e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         (, heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(200, heldByVaultBob);
-        assertEq(300, vault.totalSupply());
+        assertEq(200e18, heldByVaultBob);
+        assertEq(300e18, vault.totalSupply());
 
         vm.prank(alice);
         vault.completeWithdraw();
@@ -634,7 +644,7 @@ contract VaultSharesTest is Test {
         assertEq(0, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         vm.prank(bob);
-        vault.initiateWithdraw(200);
+        vault.initiateWithdraw(200e18);
 
         Utils.skipDay(true, vm);
 
@@ -642,15 +652,15 @@ contract VaultSharesTest is Test {
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        assertEq(200, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(200e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         vm.prank(bob);
         vault.completeWithdraw();
 
         assertEq(0, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
-        assertEq(100, baseToken.balanceOf(alice));
-        assertEq(200, baseToken.balanceOf(bob));
+        assertEq(100e18, baseToken.balanceOf(alice));
+        assertEq(200e18, baseToken.balanceOf(bob));
         assertEq(0, vault.v0());
         assertEq(0, vault.totalSupply());
     }
@@ -660,43 +670,43 @@ contract VaultSharesTest is Test {
      * The price of a single share of the first deposit after all withdraws has to be 1$ (UNIT_PRICE).
      */
     function testRollEpochMathEveryoneWithdraw() public {
-        vm.warp(block.timestamp + 1 days + 1);
+        Utils.skipDay(true, vm);
         // Roll first epoch
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(heldByVaultAlice, 100);
+        assertEq(heldByVaultAlice, 100e18);
 
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(heldByVaultBob, 100);
-        assertEq(vault.totalSupply(), 200);
+        assertEq(heldByVaultBob, 100e18);
+        assertEq(vault.totalSupply(), 200e18);
 
         vm.startPrank(alice);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
         vm.stopPrank();
 
         vm.startPrank(bob);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
         vm.stopPrank();
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        assertEq(200, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(200e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         vm.prank(alice);
         vault.completeWithdraw();
 
-        assertEq(100, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(100e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         vm.prank(bob);
         vault.completeWithdraw();
@@ -707,15 +717,15 @@ contract VaultSharesTest is Test {
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(heldByVaultBob, 100);
-        assertEq(vault.totalSupply(), 100);
+        assertEq(heldByVaultBob, 100e18);
+        assertEq(vault.totalSupply(), 100e18);
     }
 
     /**
@@ -728,26 +738,26 @@ contract VaultSharesTest is Test {
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
         (, uint256 heldByVaultAlice) = vault.shareBalances(alice);
-        assertEq(heldByVaultAlice, 100);
+        assertEq(heldByVaultAlice, 100e18);
 
         (, uint256 heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(heldByVaultBob, 100);
-        assertEq(vault.totalSupply(), 200);
+        assertEq(heldByVaultBob, 100e18);
+        assertEq(vault.totalSupply(), 200e18);
 
         vm.startPrank(alice);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
         vm.stopPrank();
 
         vm.startPrank(bob);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
 
         // pendingWithdrawals state have to keep its value after roll epoch
 
@@ -759,9 +769,9 @@ contract VaultSharesTest is Test {
         vm.prank(tokenAdmin);
         vault.rollEpoch();
 
-        assertEq(200, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(200e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
-        VaultUtils.addVaultDeposit(bob, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(bob, 100e18, tokenAdmin, address(vault), vm);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
@@ -770,21 +780,21 @@ contract VaultSharesTest is Test {
         vm.prank(alice);
         vault.completeWithdraw();
 
-        assertEq(100, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
+        assertEq(100e18, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
         vm.prank(bob);
         vault.completeWithdraw();
         assertEq(0, VaultUtils.getState(vault).liquidity.pendingWithdrawals);
 
-        assertEq(100, baseToken.balanceOf(alice));
-        assertEq(100, baseToken.balanceOf(bob));
-        assertEq(100, vault.v0());
-        assertEq(100, vault.totalSupply());
+        assertEq(100e18, baseToken.balanceOf(alice));
+        assertEq(100e18, baseToken.balanceOf(bob));
+        assertEq(100e18, vault.v0());
+        assertEq(100e18, vault.totalSupply());
         (, heldByVaultBob) = vault.shareBalances(bob);
-        assertEq(heldByVaultBob, 100);
+        assertEq(heldByVaultBob, 100e18);
 
         vm.prank(bob);
-        vault.initiateWithdraw(100);
+        vault.initiateWithdraw(100e18);
 
         Utils.skipDay(true, vm);
         vm.prank(tokenAdmin);
@@ -801,7 +811,7 @@ contract VaultSharesTest is Test {
         assertEq(0, heldByVaultBob);
         assertEq(0, vault.totalSupply());
         assertEq(0, vault.v0());
-        assertEq(200, baseToken.balanceOf(bob));
+        assertEq(200e18, baseToken.balanceOf(bob));
     }
 
     /**
@@ -812,7 +822,7 @@ contract VaultSharesTest is Test {
         assertEq(0, heldByVaultAlice);
         assertEq(0, heldByAlice);
 
-        VaultUtils.addVaultDeposit(alice, 100, tokenAdmin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 100e18, tokenAdmin, address(vault), vm);
 
         //Check Share Balance of Alice epoch not rolled yet
         (heldByVaultAlice, heldByAlice) = vault.shareBalances(alice);

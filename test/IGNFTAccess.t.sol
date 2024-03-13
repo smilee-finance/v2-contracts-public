@@ -134,6 +134,6 @@ contract IGNFTAccessTest is Test {
         uint256 tokenId = _nft.createToken(_bob, 100e18);
 
         vm.prank(_bob);
-        _ig.mint(_bob, 0, 1, 0, 0, 0.1e18, tokenId);
+        _ig.mint(_bob, _ig.currentStrike(), 1, 0, 0, 0.1e18, tokenId);
     }
 }

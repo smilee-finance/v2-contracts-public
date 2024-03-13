@@ -115,30 +115,34 @@ contract VaultProxyTest is Test {
     /**
         Check simple deposit works
      */
-    function testDeposit() public {
-        TokenUtils.provideApprovedTokens(_tokenAdmin, address(_baseToken), _alice, address(_proxy), 100, vm);
+    function testDeposit(uint256 deposit) public {
+        deposit = Utils.boundFuzzedValueToRange(deposit, 10 ** _baseToken.decimals(), _vault0.maxDeposit());
+        TokenUtils.provideApprovedTokens(_tokenAdmin, address(_baseToken), _alice, address(_proxy), deposit, vm);
         vm.prank(_alice);
-        _proxy.deposit(IVaultProxy.DepositParams(address(_vault0), _alice, 100, 0));
+        _proxy.deposit(IVaultProxy.DepositParams(address(_vault0), _alice, deposit, 0));
         Utils.skipDay(false, vm);
         vm.prank(_tokenAdmin);
         _vault0.rollEpoch();
 
         (, uint256 unredeemedShares) = _vault0.shareBalances(_alice);
-        assertEq(100, _vault0.totalSupply());
-        assertEq(100, unredeemedShares);
+        assertEq(deposit, _vault0.totalSupply());
+        assertEq(deposit, unredeemedShares);
     }
 
     /**
         Check multiple deposits can be done with a single approval
      */
-    function testMultipleDeposit() public {
-        TokenUtils.provideApprovedTokens(_tokenAdmin, address(_baseToken), _alice, address(_proxy), 200, vm);
+    function testMultipleDeposit(uint256 depositVault0, uint256 depositVault1) public {
+        depositVault0 = Utils.boundFuzzedValueToRange(depositVault0, 10 ** _baseToken.decimals(), _vault0.maxDeposit());
+        depositVault1 = Utils.boundFuzzedValueToRange(depositVault1, 10 ** _baseToken.decimals(), _vault1.maxDeposit());
+
+        TokenUtils.provideApprovedTokens(_tokenAdmin, address(_baseToken), _alice, address(_proxy), depositVault0 + depositVault1, vm);
 
         vm.prank(_alice);
-        _proxy.deposit(IVaultProxy.DepositParams(address(_vault0), _alice, 100, 0));
+        _proxy.deposit(IVaultProxy.DepositParams(address(_vault0), _alice, depositVault0, 0));
 
         vm.prank(_alice);
-        _proxy.deposit(IVaultProxy.DepositParams(address(_vault1), _alice, 100, 0));
+        _proxy.deposit(IVaultProxy.DepositParams(address(_vault1), _alice, depositVault1, 0));
 
         Utils.skipDay(false, vm);
         vm.prank(_tokenAdmin);
@@ -152,11 +156,11 @@ contract VaultProxyTest is Test {
 
         (, uint256 unredeemedShares0) = _vault0.shareBalances(_alice);
         (, uint256 unredeemedShares1) = _vault1.shareBalances(_alice);
-        assertEq(100, _vault0.totalSupply());
-        assertEq(100, unredeemedShares0);
+        assertEq(depositVault0, _vault0.totalSupply());
+        assertEq(depositVault0, unredeemedShares0);
 
-        assertEq(100, _vault1.totalSupply());
-        assertEq(100, unredeemedShares1);
+        assertEq(depositVault1, _vault1.totalSupply());
+        assertEq(depositVault1, unredeemedShares1);
     }
 
     /**

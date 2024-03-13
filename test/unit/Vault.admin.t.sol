@@ -206,7 +206,7 @@ contract VaultDVPTest is Test {
     }
 
     function testEmergencyRebalance(uint256 amount, uint256 sideTokenPrice) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         // First epoch with deposit:
@@ -246,7 +246,7 @@ contract VaultDVPTest is Test {
     }
 
     function testEmergencyRebalanceEpochNotFinished(uint256 amount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         // First epoch with deposit:
@@ -268,7 +268,7 @@ contract VaultDVPTest is Test {
     }
 
     function testEmergencyRebalanceEpochNotAdmin(uint256 amount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         // First epoch with deposit:

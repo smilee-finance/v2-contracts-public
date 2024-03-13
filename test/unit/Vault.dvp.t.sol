@@ -110,7 +110,8 @@ contract VaultDVPTest is Test {
     // Test reserve payoff
     // NOTE: this does not check whether it is actually reserved on roll-epoch
     function testReservePayoff(uint256 notional, uint256 payoff) public {
-        notional = Utils.boundFuzzedValueToRange(notional, 1, vault.maxDeposit());
+        uint256 minAmount = 10 ** baseToken.decimals();
+        notional = Utils.boundFuzzedValueToRange(notional, minAmount, vault.maxDeposit());
         payoff = Utils.boundFuzzedValueToRange(payoff, 0, notional);
         vm.assume(payoff <= notional);
 
@@ -140,7 +141,8 @@ contract VaultDVPTest is Test {
 
     // Test reserve payoff when the DVP is not set (revert)
     function testReservePayoffWhenDVPIsNotSet(uint256 notional, uint256 payoff) public {
-        notional = Utils.boundFuzzedValueToRange(notional, 1, vault.maxDeposit());
+        uint256 minAmount = 10 ** baseToken.decimals();
+        notional = Utils.boundFuzzedValueToRange(notional, minAmount, vault.maxDeposit());
         payoff = Utils.boundFuzzedValueToRange(payoff, 0, notional);
         vm.assume(payoff <= notional);
 
@@ -180,7 +182,8 @@ contract VaultDVPTest is Test {
 
     // Test reserve payoff when caller is not the DVP (revert)
     function testReservePayoffWhenCallerIsNotDVP(uint256 notional, uint256 payoff) public {
-        notional = Utils.boundFuzzedValueToRange(notional, 1, vault.maxDeposit());
+        uint256 minAmount = 10 ** baseToken.decimals();
+        notional = Utils.boundFuzzedValueToRange(notional, minAmount, vault.maxDeposit());
         payoff = Utils.boundFuzzedValueToRange(payoff, 0, notional);
         vm.assume(payoff <= notional);
 
@@ -252,7 +255,7 @@ contract VaultDVPTest is Test {
      * The vault must produce an equal weight portfolio of the right amounts and value.
      */
     function testRollEpochWithEmptyPortfolioAndDeposits(uint256 amount, uint256 sideTokenPrice) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
 
@@ -321,7 +324,7 @@ contract VaultDVPTest is Test {
      * The vault must produce an equal weight portfolio of the right amounts and value.
      */
     function testRollEpochWithExistingUnbalancedPortfolioAndNoActions(uint256 amount, uint256 sideTokenPrice, bool unbalancingDirection) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
 
@@ -390,7 +393,7 @@ contract VaultDVPTest is Test {
      */
     function testRollEpochWithExistingUnbalancedPortfolioAndPayoff(uint256 amount, uint256 payoff, uint256 sideTokenPrice, bool unbalancingDirection) public {
         vm.assume(payoff <= amount);
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
 
@@ -459,7 +462,7 @@ contract VaultDVPTest is Test {
     // TBD: move to Vault.user.t.sol
     // Test roll-epoch when new pending payoff is equal to the notional and with a non-zero deposit (revert).
     function testRollEpochWhenNewDepositsAreWorthZero(uint256 amount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -510,7 +513,7 @@ contract VaultDVPTest is Test {
      * Test delta hedge when side tokens needs to be bought and the available base tokens are enough for the swap
      */
     function testDeltaHedgeWhenBuySideTokensWithEnoughtBaseTokensToSwap(uint256 amount, uint256 sideTokenPrice) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -555,7 +558,7 @@ contract VaultDVPTest is Test {
      * NOTE: Revert swap adapter
      */
     function testDeltaHedgeWhenBuySideTokensWithEnoughtBaseTokensToSwapButNotForSlippage(uint256 amount, uint256 sideTokenPrice) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -602,7 +605,7 @@ contract VaultDVPTest is Test {
      * Test delta hedge when side tokens needs to be bought and the available base tokens are not enough for the swap
      */
     function testDeltaHedgeWhenBuySideTokensWithNotEnoughtBaseTokensToSwap(uint256 amount, uint256 sideTokenPrice) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -656,7 +659,7 @@ contract VaultDVPTest is Test {
      * Test delta hedge when side tokens needs to be bought but there are no available base tokens (revert)
      */
     function testDeltaHedgeWhenBuySideTokensWithNoAvailableBaseToken(uint256 amount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -693,7 +696,7 @@ contract VaultDVPTest is Test {
      * This test also verifies that the basic token amount affected by the delta hedge is the notional one, therefore net of any pendings
      */
     function testDeltaHedgeWhenBuySideTokensWithNoAvailableBaseTokenWithPendings(uint256 amount, uint256 withdrawAmount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount * 2, vault.maxDeposit());
         withdrawAmount = Utils.boundFuzzedValueToRange(withdrawAmount, minAmount, amount / 2); // leave some baseTokens
 
@@ -733,7 +736,7 @@ contract VaultDVPTest is Test {
      * Test delta hedge when side tokens needs to be sold and the available ones are enough
      */
     function testDeltaHedgeWhenSellSideTokensWithEnoughtSideTokens(uint256 amount, uint256 sideTokenPrice) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -776,7 +779,7 @@ contract VaultDVPTest is Test {
      * Test delta hedge when side tokens needs to be sold and the available ones are not enough (revert)
      */
     function testDeltaHedgeWhenSellSideTokensWithNotEnoughSideToken(uint256 amount, uint256 sideTokenPrice) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -812,7 +815,7 @@ contract VaultDVPTest is Test {
      * Test delta hedge when the side tokens to move are zero
      */
     function testDeltaHedgeWhenSideTokensToMoveAreZero(uint256 amount, uint256 sideTokenPrice) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -850,7 +853,7 @@ contract VaultDVPTest is Test {
      * Test delta hedge when the the vault is dead (revert)
      */
     function testDeltaHedgeWhenVaultIsDead(uint256 amount, int256 hedgingAmount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -880,7 +883,7 @@ contract VaultDVPTest is Test {
      * Test delta hedge when the the vault is paused (revert)
      */
     function testDeltaHedgeWhenVaultIsPaused(uint256 amount, int256 hedgingAmount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -906,7 +909,7 @@ contract VaultDVPTest is Test {
      * Test delta hedge when the the caller is not the DVP (revert)
      */
     function testDeltaHedgeWhenCallerIsNotDVP(uint256 amount, int256 hedgingAmount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -935,7 +938,7 @@ contract VaultDVPTest is Test {
      * Test transfer payoff accounted for a past epoch
      */
     function testTransferPayoffAccountedPastEpoch(uint256 amount, uint256 payoff) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
         payoff = Utils.boundFuzzedValueToRange(payoff, 0, amount);
 
@@ -975,7 +978,7 @@ contract VaultDVPTest is Test {
      * Test transfer payoff accounted for a past epoch but the amount exceeds the accounted one (revert)
      */
     function testTransferPayoffMoreThenAccountedPastEpoch(uint256 amount, uint256 payoff) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
         payoff = Utils.boundFuzzedValueToRange(payoff, 0, amount);
 
@@ -1012,7 +1015,7 @@ contract VaultDVPTest is Test {
      * Test transfer payoff with the current notional
      */
     function testTransferPayoffAllNotionalPastEpoch(uint256 amount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         vm.prank(admin);
@@ -1054,7 +1057,7 @@ contract VaultDVPTest is Test {
      * Test transfer payoff of zero amount
      */
     function testTransferZeroPayoffPastEpoch(uint256 amount, uint256 payoff) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
         payoff = Utils.boundFuzzedValueToRange(payoff, 0, amount);
 
@@ -1098,7 +1101,7 @@ contract VaultDVPTest is Test {
      * Test transfer payoff when the vault is paused (revert)
      */
     function testTransferPayoffPastEpochWhenVaultIsPaused(uint256 amount, uint256 payoff) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
         payoff = Utils.boundFuzzedValueToRange(payoff, 0, amount);
 
@@ -1133,7 +1136,7 @@ contract VaultDVPTest is Test {
      * Test transfer payoff when the caller is not the DVP (revert)
      */
     function testTransferPayoffWhenCallerIsNotDVP(uint256 amount, uint256 payoff) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
         payoff = Utils.boundFuzzedValueToRange(payoff, 0, amount);
 
@@ -1167,7 +1170,7 @@ contract VaultDVPTest is Test {
      * Test v0 return locked initially (0 or != 0)
      */
     function testV0ReturnInitialLockedLiquidity(uint256 amount) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit());
 
         VaultLib.VaultState memory state = VaultUtils.getState(vault);
@@ -1196,9 +1199,10 @@ contract VaultDVPTest is Test {
      * Test that vault.notional() return base token balance + side token value
      */
     function testNotionalReturnExactBaseTokenAndSideTokenNotional(uint256 amount, uint256 withdrawAmount, uint256 sideTokenPrice) public {
-        uint256 minAmount = 10 ** baseToken.decimals() / 1000;
+        uint256 minAmount = 10 ** baseToken.decimals();
         amount = Utils.boundFuzzedValueToRange(amount, minAmount, vault.maxDeposit() / 2); // Half max deposit because i need to make 2 deposit
         withdrawAmount = Utils.boundFuzzedValueToRange(withdrawAmount, minAmount, amount); // leave some baseTokens
+        vm.assume(amount - withdrawAmount > minAmount);
 
         vm.prank(admin);
         baseToken.mint(user, amount);

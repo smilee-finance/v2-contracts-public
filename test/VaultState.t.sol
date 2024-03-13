@@ -101,19 +101,24 @@ contract VaultStateTest is Test {
         assertNotEq(epoch.previous, epoch.current);
     }
 
-    function testCheckPendingDepositAmount() public {
-        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
+    function testCheckPendingDepositAmount(uint256 firstDeposit, uint256 secondDeposit) public {
+        uint256 minAmount = 10 ** baseToken.decimals();
+        firstDeposit = Utils.boundFuzzedValueToRange(firstDeposit, minAmount, vault.maxDeposit());
+        secondDeposit = Utils.boundFuzzedValueToRange(secondDeposit, minAmount, vault.maxDeposit());
+        vm.assume(firstDeposit + secondDeposit < vault.maxDeposit());
+
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), firstDeposit, vm);
         vm.prank(alice);
-        vault.deposit(100, alice, 0);
+        vault.deposit(firstDeposit, alice, 0);
 
         uint256 stateDepositAmount = VaultUtils.getState(vault).liquidity.pendingDeposits;
-        assertEq(100, stateDepositAmount);
+        assertEq(firstDeposit, stateDepositAmount);
 
-        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), secondDeposit, vm);
         vm.prank(alice);
-        vault.deposit(100, alice, 0);
+        vault.deposit(secondDeposit, alice, 0);
         stateDepositAmount = VaultUtils.getState(vault).liquidity.pendingDeposits;
-        assertEq(200, stateDepositAmount);
+        assertEq(firstDeposit + secondDeposit, stateDepositAmount);
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
@@ -123,20 +128,26 @@ contract VaultStateTest is Test {
         assertEq(0, stateDepositAmount);
     }
 
-    function testHeldShares() public {
-        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), 100, vm);
+    function testHeldShares(uint256 depositAmount, uint256 initiateWithdrawAmount ) public {
+        vm.assume(depositAmount >= initiateWithdrawAmount);
+        uint256 minAmount = 10 ** baseToken.decimals();
+        depositAmount = Utils.boundFuzzedValueToRange(depositAmount, minAmount, vault.maxDeposit());
+        initiateWithdrawAmount = Utils.boundFuzzedValueToRange(initiateWithdrawAmount, minAmount, depositAmount);
+        vm.assume(depositAmount - initiateWithdrawAmount >= minAmount);
+
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), alice, address(vault), depositAmount, vm);
         vm.prank(alice);
-        vault.deposit(100, alice, 0);
+        vault.deposit(depositAmount, alice, 0);
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
         vault.rollEpoch();
 
         vm.prank(alice);
-        vault.initiateWithdraw(50);
+        vault.initiateWithdraw(initiateWithdrawAmount);
 
         uint256 newHeldShares = VaultUtils.getState(vault).withdrawals.newHeldShares;
-        assertEq(50, newHeldShares);
+        assertEq(initiateWithdrawAmount, newHeldShares);
 
         Utils.skipDay(true, vm);
         vm.prank(admin);
@@ -144,7 +155,7 @@ contract VaultStateTest is Test {
 
         uint256 heldShares = VaultUtils.getState(vault).withdrawals.heldShares;
         newHeldShares = VaultUtils.getState(vault).withdrawals.newHeldShares;
-        assertEq(50, heldShares);
+        assertEq(initiateWithdrawAmount, heldShares);
         assertEq(0, newHeldShares);
 
         vm.prank(alice);

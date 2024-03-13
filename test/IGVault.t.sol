@@ -118,31 +118,38 @@ contract IGVaultTest is Test {
     // Controllare test quando non ci sono opzioni disponibili, cosa succede se ne bruci una (altro utente può acquistare)
 
     function testBuyOptionWithoutLiquidity() public {
-        uint256 inputAmount = 1 ether;
-        (uint256 expectedMarketValue, ) = ig.premium(0, inputAmount, 0);
+        uint256 inputAmount = 2 ether;
+
+        uint256 strike = ig.currentStrike();
+
+        (uint256 expectedMarketValue, ) = ig.premium(strike, inputAmount, 0);
         vm.prank(charlie);
         vm.expectRevert(NotEnoughNotional);
-        ig.mint(charlie, 0, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
+        ig.mint(charlie, strike, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
 
-        VaultUtils.addVaultDeposit(alice, 0.5 ether, admin, address(vault), vm);
+        VaultUtils.addVaultDeposit(alice, 1 ether, admin, address(vault), vm);
 
         Utils.skipDay(true, vm);
 
         vm.prank(admin);
         ig.rollEpoch();
 
-        _assurePremium(charlie, 0, inputAmount, 0);
+        strike = ig.currentStrike();
+
+        _assurePremium(charlie, strike, inputAmount, 0);
 
         vm.expectRevert(NotEnoughNotional);
-        ig.mint(charlie, 0, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
+        ig.mint(charlie, strike, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
     }
 
     // Assumption: Price 1:1
     // ToDo: Adjust with different price
     function testBuyOptionWithLiquidity(uint64 aliceAmount, uint64 bobAmount, uint128 optionAmount) public {
-        vm.assume(aliceAmount > 0);
-        vm.assume(bobAmount > 0);
+        uint256 minAmount = 10 ** baseToken.decimals(); 
+        vm.assume(aliceAmount > minAmount);
+        vm.assume(bobAmount > minAmount);
         vm.assume(optionAmount > 0);
+        
         vm.assume(((uint128(aliceAmount) + uint128(bobAmount))) / 2 >= optionAmount);
 
         VaultUtils.addVaultDeposit(alice, aliceAmount, admin, address(vault), vm);
@@ -153,17 +160,19 @@ contract IGVaultTest is Test {
         vm.prank(admin);
         ig.rollEpoch();
 
+        uint256 strike = ig.currentStrike();
+
         uint256 vaultNotionalBeforeMint = vault.notional();
-        (uint256 premium, uint256 fee) = _assurePremium(charlie, 0, optionAmount, 0);
+        (uint256 premium, uint256 fee) = _assurePremium(charlie, strike, optionAmount, 0);
 
         vm.startPrank(charlie);
-        premium = ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+        premium = ig.mint(charlie, strike, optionAmount, 0, premium, 0.1e18, 0);
         vm.stopPrank();
         // ToDo: check premium change
 
         uint256 vaultNotionalAfterMint = vault.notional();
 
-        bytes32 posId = keccak256(abi.encodePacked(charlie, ig.currentStrike()));
+        bytes32 posId = keccak256(abi.encodePacked(charlie, strike));
 
         (uint256 amount, , , ) = ig.positions(posId);
         assertEq(amount, optionAmount);
@@ -206,20 +215,21 @@ contract IGVaultTest is Test {
 
         vm.prank(admin);
         ig.rollEpoch();
+        uint256 strike = ig.currentStrike();
 
         uint256 initialLiquidity = VaultUtils.getState(vault).liquidity.lockedInitially;
         assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
 
         (uint256 premium, ) = _assurePremium(
             charlie,
-            0,
+            strike,
             (params.optionStrategy) ? params.charlieAmount : 0,
             (params.optionStrategy) ? 0 : params.charlieAmount
         );
         vm.prank(charlie);
         ig.mint(
             charlie,
-            0,
+            strike,
             (params.optionStrategy) ? params.charlieAmount : 0,
             (params.optionStrategy) ? 0 : params.charlieAmount,
             premium,
@@ -233,11 +243,10 @@ contract IGVaultTest is Test {
 
         (uint256 davidInitialBalance, ) = _assurePremium(
             david,
-            0,
+            strike,
             (params.optionStrategy) ? params.davidAmount : 0,
             (params.optionStrategy) ? 0 : params.davidAmount
         );
-        uint256 strike = ig.currentStrike();
         {
             uint256 davidPremium;
             vm.prank(david);
@@ -332,9 +341,11 @@ contract IGVaultTest is Test {
             assertEq(params.aliceAmount + params.bobAmount, initialLiquidity);
         }
 
+        uint256 strike = ig.currentStrike();
+
         (uint256 charlieInitialBalance, ) = _assurePremium(
             charlie,
-            0,
+            strike,
             (params.optionStrategy) ? params.charlieAmount : 0,
             (params.optionStrategy) ? 0 : params.charlieAmount
         );
@@ -342,7 +353,7 @@ contract IGVaultTest is Test {
             vm.prank(charlie);
             ig.mint(
                 charlie,
-                1900e18,
+                strike,
                 (params.optionStrategy) ? params.charlieAmount : 0,
                 (params.optionStrategy) ? 0 : params.charlieAmount,
                 charlieInitialBalance,
@@ -353,7 +364,7 @@ contract IGVaultTest is Test {
 
         (uint256 davidInitialBalance, ) = _assurePremium(
             david,
-            0,
+            strike,
             (params.optionStrategy) ? params.davidAmount : 0,
             (params.optionStrategy) ? 0 : params.davidAmount
         );
@@ -361,7 +372,7 @@ contract IGVaultTest is Test {
             vm.prank(david);
             uint256 davidPremium = ig.mint(
                 david,
-                1900e18,
+                strike,
                 (params.optionStrategy) ? params.davidAmount : 0,
                 (params.optionStrategy) ? 0 : params.davidAmount,
                 davidInitialBalance,
@@ -465,11 +476,13 @@ contract IGVaultTest is Test {
         ig.rollEpoch();
         // VaultUtils.logState(vault);
 
+        uint256 strike = ig.currentStrike();
+
         // Mint option of 250:
         uint256 optionAmount = 250e18;
-        _assurePremium(charlie, 0, optionAmount, 0);
+        _assurePremium(charlie, strike, optionAmount, 0);
         vm.prank(charlie);
-        ig.mint(charlie, 0, optionAmount, 0, 0, 0.1e18, 0);
+        ig.mint(charlie, strike, optionAmount, 0, 0, 0.1e18, 0);
 
         Utils.skipDay(true, vm);
 
@@ -485,11 +498,13 @@ contract IGVaultTest is Test {
         vm.prank(admin);
         ig.rollEpoch();
 
+        uint256 strike = ig.currentStrike();
+
         uint256 optionAmount = 250e18;
-        (uint256 premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+        (uint256 premium, ) = _assurePremium(charlie, strike, optionAmount, 0);
         // Mint option of 125:
         vm.prank(charlie);
-        ig.mint(charlie, 0, optionAmount / 2, 0, premium, 0.1e18, 0);
+        ig.mint(charlie, strike, optionAmount / 2, 0, premium, 0.1e18, 0);
 
         vm.prank(admin);
         vault.changePauseState();
@@ -501,12 +516,11 @@ contract IGVaultTest is Test {
         vm.startPrank(charlie);
 
         vm.expectRevert("Pausable: paused");
-        ig.mint(charlie, 0, optionAmount, 0, expectedMarketValue, 0.1e18, 0);
+        ig.mint(charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18, 0);
         vm.stopPrank();
 
         // Try burn option after Vault was paused
         uint256 currentEpoch = ig.currentEpoch();
-        uint256 strike = ig.currentStrike();
         vm.startPrank(charlie);
 
         (expectedMarketValue, ) = ig.payoff(currentEpoch, strike, optionAmount / 2, 0);
@@ -597,12 +611,12 @@ contract IGVaultTest is Test {
 
         vm.prank(admin);
         ig.rollEpoch();
-
+        uint256 strike = ig.currentStrike();
         // Buy first option
         uint256 optionAmount = 250e18;
-        (uint256 premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+        (uint256 premium, ) = _assurePremium(charlie, strike, optionAmount, 0);
         vm.prank(charlie);
-        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+        ig.mint(charlie, strike, optionAmount, 0, premium, 0.1e18, 0);
 
         uint256 firstOptionEpoch = ig.currentEpoch();
 
@@ -610,12 +624,13 @@ contract IGVaultTest is Test {
 
         vm.prank(admin);
         ig.rollEpoch();
+        strike = ig.currentStrike();
 
         // Buy second option during the second epoch.
         optionAmount = 250e18;
-        (premium, ) = _assurePremium(charlie, 0, optionAmount, 0);
+        (premium, ) = _assurePremium(charlie, strike, optionAmount, 0);
         vm.prank(charlie);
-        ig.mint(charlie, 0, optionAmount, 0, premium, 0.1e18, 0);
+        ig.mint(charlie, strike, optionAmount, 0, premium, 0.1e18, 0);
 
         uint256 secondOptionEpoch = ig.currentEpoch();
 
@@ -623,7 +638,7 @@ contract IGVaultTest is Test {
         Utils.skipDay(true, vm);
 
         // Strike is the same for the two options because price won't never change.
-        uint256 strike = ig.currentStrike();
+        strike = ig.currentStrike();
 
         // Burn the first option successfully.
         vm.startPrank(charlie);
@@ -640,7 +655,7 @@ contract IGVaultTest is Test {
         optionAmount = 250e18;
         vm.prank(charlie);
         vm.expectRevert(EpochFinished);
-        ig.mint(charlie, 0, optionAmount, 0, 0, 0.1e18, 0);
+        ig.mint(charlie, strike, optionAmount, 0, 0, 0.1e18, 0);
     }
 
     function testIGMultipleRollEpochWithoutDepositAnythingOnTheVault() public {
