@@ -9,11 +9,6 @@ abstract contract State is Properties {
     BuyInfo[] internal bullTrades;
     BuyInfo[] internal bearTrades;
     BuyInfo[] internal smileeTrades;
-    WithdrawInfo[] internal withdrawals;
-    DepositInfo[] internal _depositInfo;
-
-    RYInfo internal ryInfo_VAULT_2_1;
-    RYInfoPostTrade internal t1Vault25;
 
     BuyInfo internal lastBuy;
     int256 firstDepositEpoch = -1;
@@ -29,28 +24,29 @@ abstract contract State is Properties {
     }
 
     /// Removes element at the given index from trades
-    function _popTrades(uint256 index, BuyInfo memory trade) internal {
+    function _popTrades(uint256 index, BuyInfo memory trade, uint256 amountSold) internal {
         if (trade.amountUp > 0 && trade.amountDown == 0) {
-            bullTrades[index] = bullTrades[bullTrades.length - 1];
-            bullTrades.pop();
+            if (amountSold == trade.amountUp) {
+                bullTrades[index] = bullTrades[bullTrades.length - 1];
+                bullTrades.pop();
+            } else {
+                bullTrades[index].amountUp -= amountSold;
+            }
         } else if (trade.amountUp == 0 && trade.amountDown > 0) {
-            bearTrades[index] = bearTrades[bearTrades.length - 1];
-            bearTrades.pop();
+            if (amountSold == trade.amountDown) {
+                bearTrades[index] = bearTrades[bearTrades.length - 1];
+                bearTrades.pop();
+            } else {
+                bearTrades[index].amountDown -= amountSold;
+            }
         } else {
-            smileeTrades[index] = smileeTrades[smileeTrades.length - 1];
-            smileeTrades.pop();
+            if (amountSold == trade.amountUp) {
+                smileeTrades[index] = smileeTrades[smileeTrades.length - 1];
+                smileeTrades.pop();
+            } else {
+                smileeTrades[index].amountUp -= amountSold;
+                smileeTrades[index].amountDown -= amountSold;
+            }
         }
-    }
-
-    /// Removes element at the given index from deposit info
-    function _popDepositInfo(uint256 index) internal {
-        _depositInfo[index] = _depositInfo[_depositInfo.length - 1];
-        _depositInfo.pop();
-    }
-
-    /// Removes element at the given index from withdrawals
-    function _popWithdrawals(uint256 index) internal {
-        withdrawals[index] = withdrawals[withdrawals.length - 1];
-        withdrawals.pop();
     }
 }

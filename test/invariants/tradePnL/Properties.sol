@@ -16,53 +16,19 @@ import {EchidnaVaultUtils} from "../lib/EchidnaVaultUtils.sol";
 abstract contract Properties is BeforeAfter, PropertiesDescriptions {
     error PropertyFail(string);
 
-    struct DepositInfo {
-        address user;
-        uint256 amount;
-        uint256 epoch;
-    }
-
     struct BuyInfo {
-        uint256 positionTokenId;
+        uint256 tokenId; // position manager nft
         address recipient;
-        uint256 epoch;
-        uint256 epochCounter;
+        uint256 premium;
         uint256 amountUp;
         uint256 amountDown;
-        uint256 strike;
-        uint256 premium;
-        uint256 utilizationRate;
-        uint256 buyTokenPrice;
-        uint256 expectedPremium;
-        uint8 buyType;
-        uint256 sigma;
         uint256 timestamp;
-        uint256 riskFreeRate;
-        uint256 tau;
-    }
-
-    struct WithdrawInfo {
-        address user;
-        uint256 amount;
-        uint256 epochCounter;
+        uint256 buyTokenPrice;
     }
 
     struct EpochInfo {
         uint256 epochTimestamp;
         uint256 epochStrike;
-    }
-
-    struct RYInfo {
-        uint256 tradeRY;
-        uint256 tradePremium; // premium (buying) or payoff (selling)
-        uint256 uTrade;
-    }
-
-    struct RYInfoPostTrade {
-        RYInfo ryInfo;
-        uint256 epoch;
-        uint256 payoff;     // vault total payoff after trade
-        uint256 tokenPrice; // oracle price of side token after trade
     }
 
     uint8 internal constant _BULL = 0;
@@ -82,11 +48,34 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
     bytes32 internal constant _ERR_ASYMMETRIC_AMOUNT = keccak256(abi.encodeWithSignature("AsymmetricAmount()"));
 
     bytes4 internal constant _INSUFFICIENT_LIQUIDITY_SEL = bytes4(keccak256("InsufficientLiquidity(bytes4)"));
-    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_01 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs"))));
-    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_02 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0"))));
-    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_03 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"))));
+    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_01 =
+        keccak256(
+            abi.encodeWithSelector(
+                _INSUFFICIENT_LIQUIDITY_SEL,
+                bytes4(keccak256("_beforeRollEpoch()::lockedLiquidity <= _state.liquidity.newPendingPayoffs"))
+            )
+        );
+    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_02 =
+        keccak256(
+            abi.encodeWithSelector(
+                _INSUFFICIENT_LIQUIDITY_SEL,
+                bytes4(keccak256("_beforeRollEpoch()::sharePrice == 0"))
+            )
+        );
+    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_ROLL_03 =
+        keccak256(
+            abi.encodeWithSelector(
+                _INSUFFICIENT_LIQUIDITY_SEL,
+                bytes4(
+                    keccak256(
+                        "_beforeRollEpoch()::_state.liquidity.pendingWithdrawals + _state.liquidity.pendingPayoffs - baseTokens"
+                    )
+                )
+            )
+        );
 
-    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_EDGE_01 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_sellSideTokens()"))));
+    bytes32 internal constant _ERR_INSUFF_LIQUIDITY_EDGE_01 =
+        keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_sellSideTokens()"))));
     // bytes32 internal constant _ERR_INSUFF_LIQUIDITY_EDGE_02 = keccak256(abi.encodeWithSelector(_INSUFFICIENT_LIQUIDITY_SEL, bytes4(keccak256("_buySideTokens()")))); // Replace by InsufficientInput()
     bytes32 internal constant _ERR_INSUFFICIENT_INPUT = keccak256(abi.encodeWithSignature("InsufficientInput()")); // see TestnetSwapAdapter
     bytes32 internal constant _ERR_CHECK_SLIPPAGE = keccak256(abi.encodeWithSignature("SlippedMarketValue()")); // see test_21

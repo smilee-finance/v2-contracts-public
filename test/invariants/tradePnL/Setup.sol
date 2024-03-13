@@ -111,7 +111,7 @@ abstract contract Setup is Parameters {
             admin,
             address(baseToken),
             USER1,
-            address(ig),
+            address(pm),
             USER1_INITIAL_BALANCE,
             _convertVm()
         );
