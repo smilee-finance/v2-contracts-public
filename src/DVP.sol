@@ -163,22 +163,39 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             revert NotEnoughNotional();
         }
 
+        uint256 fee;
+        uint256 vaultFee;
         {
-            uint256 premiumOrac = _getMarketValue(
-                strike,
-                amount,
-                true,
-                IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)
-            );
+            uint256 premiumOrac;
+            {
+                premiumOrac = _getMarketValue(
+                    strike,
+                    amount,
+                    true,
+                    IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)
+                );
 
-            // anticipate expected premium transfer (to facilitate delta hedge corner cases)
-            IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premiumOrac);
+                // anticipate expected premium transfer (to facilitate delta hedge corner cases)
+                IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premiumOrac);
 
-            uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
-            uint256 premiumSwap = _getMarketValue(strike, amount, true, swapPrice);
-            premium_ = premiumSwap > premiumOrac ? premiumSwap : premiumOrac;
+                uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
+                uint256 premiumSwap = _getMarketValue(strike, amount, true, swapPrice);
+                premium_ = premiumSwap > premiumOrac ? premiumSwap : premiumOrac;
+            }
 
             _updateCachedUr(strike, amount, true);
+
+            (fee, vaultFee) = IFeeManager(_getFeeManager()).tradeBuyFee(
+                address(this),
+                epoch.current,
+                amount.up + amount.down,
+                premium_,
+                _baseTokenDecimals
+            );
+
+            // Revert if actual price exceeds the previewed premium
+            // NOTE: cannot use the approved premium as a reference due to the PositionManager...
+            _checkSlippage(premium_ + fee, expectedPremium, maxSlippage, true);
 
             if (premium_ > premiumOrac) {
                 IERC20Metadata(baseToken).safeTransferFrom(msg.sender, vault, premium_ - premiumOrac);
@@ -186,18 +203,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         IFeeManager feeManager = IFeeManager(_getFeeManager());
-        (uint256 fee, uint256 vaultFee) = feeManager.tradeBuyFee(
-            address(this),
-            epoch.current,
-            amount.up + amount.down,
-            premium_,
-            _baseTokenDecimals
-        );
-
-        // Revert if actual price exceeds the previewed premium
-        // NOTE: cannot use the approved premium as a reference due to the PositionManager...
-        _checkSlippage(premium_ + fee, expectedPremium, maxSlippage, true);
-
         // Get fees from sender:
         IERC20Metadata(baseToken).safeTransferFrom(msg.sender, address(this), fee - vaultFee);
         IERC20Metadata(baseToken).safeApprove(address(feeManager), fee - vaultFee);
