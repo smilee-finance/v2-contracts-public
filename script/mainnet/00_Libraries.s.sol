@@ -13,6 +13,7 @@ import {TimeLockedFinanceParameters, FinanceParameters, FinanceIG, VolatilityPar
 import {FinanceIGDelta} from "@project/lib/FinanceIGDelta.sol";
 import {FinanceIGPayoff} from "@project/lib/FinanceIGPayoff.sol";
 import {FinanceIGPrice} from "@project/lib/FinanceIGPrice.sol";
+import {FinanceIGPVega} from "@project/lib/FinanceIGPVega.sol";
 import {Notional} from "@project/lib/Notional.sol";
 import {OptionStrategy} from "@project/lib/OptionStrategy.sol";
 import {Position} from "@project/lib/Position.sol";

@@ -59,6 +59,8 @@ contract IGNFTAccessTest is Test {
         _ig = new MockedIG(address(vault), address(ap));
         _ig.grantRole(_ig.ROLE_ADMIN(), _admin);
         _ig.grantRole(_ig.ROLE_EPOCH_ROLLER(), _admin);
+        _ig.grantRole(_ig.ROLE_TRADER(), _alice);
+        _ig.grantRole(_ig.ROLE_TRADER(), _bob);
 
         MarketOracle mo = MarketOracle(ap.marketOracle());
         mo.setDelay(_ig.baseToken(), _ig.sideToken(), _ig.getEpoch().frequency, 0, true);
@@ -133,7 +135,8 @@ contract IGNFTAccessTest is Test {
         vm.prank(_admin);
         uint256 tokenId = _nft.createToken(_bob, 100e18);
 
+        uint256 strike = _ig.currentStrike();
         vm.prank(_bob);
-        _ig.mint(_bob, _ig.currentStrike(), 1, 0, 0, 0.1e18, tokenId);
+        _ig.mint(_bob, strike, 1, 0, 0, 0.1e18, tokenId);
     }
 }

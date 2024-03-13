@@ -80,6 +80,7 @@ contract PositionManagerTest is Test {
         ig = new IG(address(vault), address(ap));
         ig.grantRole(ig.ROLE_ADMIN(), admin);
         ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
+        ig.grantRole(ig.ROLE_TRADER(), address(pm));
         registry.register(address(ig));
 
         vault.grantRole(vault.ROLE_ADMIN(), admin);

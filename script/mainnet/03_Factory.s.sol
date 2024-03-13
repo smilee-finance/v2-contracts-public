@@ -122,7 +122,6 @@ contract DeployDVP is EnhancedScript {
         if (!deribitToken) {
             _useOnchainImpliedVolatility(dvpAddr);
         }
-        // IG(dvpAddr).setNftAccessFlag(true);
         if (!_deployerIsAdmin) {
             IG dvp = IG(dvpAddr);
             dvp.renounceRole(dvp.ROLE_ADMIN(), _deployerAddress);
@@ -206,12 +205,15 @@ contract DeployDVP is EnhancedScript {
     }
 
     function _createImpermanentGainDVP(address vault) internal returns (address) {
+        address pm = _addressProvider.dvpPositionManager();
+
         IG dvp = new IG(vault, address(_addressProvider));
 
         dvp.grantRole(dvp.ROLE_GOD(), _godAddress);
         dvp.grantRole(dvp.ROLE_ADMIN(), _adminAddress);
         dvp.grantRole(dvp.ROLE_ADMIN(), _deployerAddress); // TMP
         dvp.grantRole(dvp.ROLE_EPOCH_ROLLER(), _scheduler);
+        dvp.grantRole(dvp.ROLE_TRADER(), pm);
         if (!_deployerIsGod) {
             dvp.renounceRole(dvp.ROLE_GOD(), _deployerAddress);
         }

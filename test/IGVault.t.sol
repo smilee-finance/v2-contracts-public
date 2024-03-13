@@ -71,6 +71,8 @@ contract IGVaultTest is Test {
         ig = new MockedIG(address(vault), address(ap));
         ig.grantRole(ig.ROLE_ADMIN(), admin);
         ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
+        ig.grantRole(ig.ROLE_TRADER(), charlie);
+        ig.grantRole(ig.ROLE_TRADER(), david);
         vault.grantRole(vault.ROLE_ADMIN(), admin);
         vm.stopPrank();
         ig.setOptionPrice(1e3);
@@ -138,6 +140,7 @@ contract IGVaultTest is Test {
 
         _assurePremium(charlie, strike, inputAmount, 0);
 
+        vm.prank(charlie);
         vm.expectRevert(NotEnoughNotional);
         ig.mint(charlie, strike, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
     }

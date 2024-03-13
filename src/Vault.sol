@@ -89,6 +89,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     error InsufficientLiquidity(bytes4); // raise when accounting operations would break the system due to lack of liquidity
     error FailingDeltaHedge();
     error OutOfAllowedRange();
+    error TransferNotAllowed();
 
     event Deposit(uint256 amount);
     event Redeem(uint256 amount);
@@ -595,7 +596,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         address from,
         address to,
         uint256 amount
-    ) internal override {
+    ) internal view override {
+        amount;
         // NOTE: either mint or burn
         if (from == address(0) || to == address(0)) {
             return;
@@ -606,24 +608,26 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             return;
         }
 
-        /**
-         * As user may transfer their shares, we need to fix the accounting
-         * used to adjust state.liquidity.totalDeposit when a user
-         * initiate a withdrawal request.
-         */
-        VaultLib.DepositReceipt storage fromDepositReceipt = depositReceipts[from];
+        revert TransferNotAllowed();
 
-        uint256 userDeposits = fromDepositReceipt.cumulativeAmount;
-        if (fromDepositReceipt.epoch == getEpoch().current) {
-            userDeposits -= fromDepositReceipt.amount;
-        }
-        (uint256 heldByAccount, uint256 heldByVault) = shareBalances(from);
-        uint256 amountEquivalent = (userDeposits * amount) / (heldByAccount + heldByVault);
+        // /**
+        //  * As user may transfer their shares, we need to fix the accounting
+        //  * used to adjust state.liquidity.totalDeposit when a user
+        //  * initiate a withdrawal request.
+        //  */
+        // VaultLib.DepositReceipt storage fromDepositReceipt = depositReceipts[from];
 
-        fromDepositReceipt.cumulativeAmount -= amountEquivalent;
+        // uint256 userDeposits = fromDepositReceipt.cumulativeAmount;
+        // if (fromDepositReceipt.epoch == getEpoch().current) {
+        //     userDeposits -= fromDepositReceipt.amount;
+        // }
+        // (uint256 heldByAccount, uint256 heldByVault) = shareBalances(from);
+        // uint256 amountEquivalent = (userDeposits * amount) / (heldByAccount + heldByVault);
 
-        VaultLib.DepositReceipt storage toDepositReceipt = depositReceipts[to];
-        toDepositReceipt.cumulativeAmount += amountEquivalent;
+        // fromDepositReceipt.cumulativeAmount -= amountEquivalent;
+
+        // VaultLib.DepositReceipt storage toDepositReceipt = depositReceipts[to];
+        // toDepositReceipt.cumulativeAmount += amountEquivalent;
     }
 
     // ------------------------------------------------------------------------

@@ -175,6 +175,7 @@ contract TestScenariosJson is Test {
         _dvp = new MockedIG(address(_vault), address(_ap));
         _dvp.grantRole(_dvp.ROLE_ADMIN(), _admin);
         _dvp.grantRole(_dvp.ROLE_EPOCH_ROLLER(), _admin);
+        _dvp.grantRole(_dvp.ROLE_TRADER(), address(_pm));
         _vault.grantRole(_vault.ROLE_ADMIN(), _admin);
 
         _marketOracle.setDelay(_dvp.baseToken(), _dvp.sideToken(), _dvp.getEpoch().frequency, 0, true);

@@ -10,7 +10,6 @@ import {SignedMath} from "./SignedMath.sol";
 /// @title Implementation of core financial computations for Smilee protocol
 library FinanceIGPrice {
     error PriceZero();
-    error OutOfRange(string varname, uint256 value);
     error NegativePriceDetected();
 
     /// @notice A wrapper for the input parameters of delta and price functions

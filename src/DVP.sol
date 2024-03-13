@@ -125,44 +125,16 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 expectedPremium,
         uint256 maxSlippage
     ) internal returns (uint256 premium_) {
+        _beforeTrade();
         _checkEpochNotFinished();
         _requireNotPaused();
         if (amount.up == 0 && amount.down == 0) {
             revert AmountZero();
         }
 
-        Epoch memory epoch = getEpoch();
-        Position.Info storage position = _getPosition(epoch.current, recipient, strike);
-
-        {
-            // If amount is an unbalanced smile, only the position manager is allowed to proceed:
-            if (msg.sender != _addressProvider.dvpPositionManager()) {
-                bool positionExists = position.amountUp > 0 || position.amountDown > 0;
-                if (positionExists) {
-                    bool posIsBull = position.amountUp > 0 && position.amountDown == 0;
-                    if (posIsBull && amount.down > 0) {
-                        revert AsymmetricAmount();
-                    }
-                    bool posIsBear = position.amountUp == 0 && position.amountDown > 0;
-                    if (posIsBear && amount.up > 0) {
-                        revert AsymmetricAmount();
-                    }
-                    bool posIsSmile = position.amountUp > 0 && position.amountDown > 0;
-                    if (posIsSmile && amount.up != amount.down) {
-                        revert AsymmetricAmount();
-                    }
-                } else {
-                    bool tradeIsSmile = amount.up > 0 && amount.down > 0;
-                    if (tradeIsSmile && amount.up != amount.down) {
-                        revert AsymmetricAmount();
-                    }
-                }
-            }
-        }
-
-        Notional.Info storage liquidity = _liquidity[epoch.current];
-
         // Check available liquidity:
+        Epoch memory epoch = getEpoch();
+        Notional.Info storage liquidity = _liquidity[epoch.current];
         Amount memory availableLiquidity = liquidity.available(strike);
         if (availableLiquidity.up < amount.up || availableLiquidity.down < amount.down) {
             revert NotEnoughNotional();
@@ -188,7 +160,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
                 premium_ = premiumSwap > premiumOrac ? premiumSwap : premiumOrac;
             }
 
-            _updateCachedUr(strike, amount, true);
+            _updateVolatility(strike, amount, true);
 
             (fee, vaultFee) = IFeeManager(_getFeeManager()).tradeBuyFee(
                 address(this),
@@ -224,7 +196,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         liquidity.increaseUsage(strike, amount);
 
         // Create or update position:
-        // Position.Info storage position = _getPosition(epoch.current, recipient, strike);
+        Position.Info storage position = _getPosition(epoch.current, recipient, strike);
         position.premium += premium_;
         position.epoch = epoch.current;
         position.strike = strike;
@@ -258,10 +230,13 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         bool tradeIsBuy
     ) internal virtual returns (uint256 swapPrice);
 
-    function _updateCachedUr(uint256 strike,
+    function _updateVolatility(uint256 strike,
         Amount memory amount,
         bool tradeIsBuy
     ) internal virtual;
+
+    // Allows to perform further initial checks
+    function _beforeTrade() internal virtual;
 
     /**
         @notice Burn or decrease a position.
@@ -281,6 +256,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 expectedMarketValue,
         uint256 maxSlippage
     ) internal returns (uint256 paidPayoff) {
+        _beforeTrade();
         _requireNotPaused();
         Position.Info storage position = _getPosition(expiry, msg.sender, strike);
         if (!position.exists()) {
@@ -293,13 +269,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
         if (amount.up > position.amountUp || amount.down > position.amountDown) {
             revert CantBurnMoreThanMinted();
-        }
-        // Only the position manager is allowed to obtain an unbalanced smile position:
-        if (msg.sender != _addressProvider.dvpPositionManager()) {
-            bool posIsSmile = position.amountUp > 0 && position.amountDown > 0;
-            if (posIsSmile && amount.up != amount.down) {
-                revert AsymmetricAmount();
-            }
         }
 
         bool expired = expiry != getEpoch().current;
@@ -318,7 +287,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             paidPayoff = payoffSwap < payoffOrac ? payoffSwap : payoffOrac;
             _checkSlippage(paidPayoff, expectedMarketValue, maxSlippage, false);
 
-            _updateCachedUr(strike, amount, false);
+            _updateVolatility(strike, amount, false);
         } else {
             // Compute the payoff to be paid:
             Amount memory payoff_ = _liquidity[expiry].shareOfPayoff(strike, amount, _baseTokenDecimals);

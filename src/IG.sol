@@ -26,6 +26,8 @@ contract IG is DVP {
     /// @notice A flag to tell if this DVP is currently bound to check access for trade
     bool public nftAccessFlag = false;
 
+    bytes32 public constant ROLE_TRADER = keccak256("ROLE_TRADER");
+
     error NFTAccessDenied();
     error WrongStrike();
 
@@ -43,6 +45,8 @@ contract IG is DVP {
                 useOracleImpliedVolatility: true
             })
         );
+
+        _setRoleAdmin(ROLE_TRADER, ROLE_ADMIN);
     }
 
     /**
@@ -237,21 +241,23 @@ contract IG is DVP {
         swapPrice = Finance.getSwapPrice(tokensToSwap, exchangedBaseTokens, _sideTokenDecimals, _baseTokenDecimals);
     }
 
-    function _updateCachedUr(uint256 strike,
+    function _updateVolatility(uint256 strike,
         Amount memory amount,
         bool tradeIsBuy
     ) internal virtual override {
-        // financeParameters.internalVolatilityParameters.uPrevCache = financeParameters
-        //     .internalVolatilityParameters
-        //     .uPrev;
-
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         uint256 riskFree = IMarketOracle(_getMarketOracle()).getRiskFreeRate(baseToken);
 
         (uint256 postTradeVol, uint256 postTradeUr) = getPostTradeVolatility(strike, amount, tradeIsBuy);
 
         FinanceIG.updateVolatilityOnTrade(financeParameters, oraclePrice, postTradeUr, riskFree, postTradeVol);
-}
+    }
+
+    function _beforeTrade() internal virtual override {
+        // NOTE: due to potential issues with unbalanced IG smile positions,
+        // only the PositionManager will be allowed to trade.
+        _checkRole(ROLE_TRADER);
+    }
 
     /// @inheritdoc DVP
     function _residualPayoffPerc(

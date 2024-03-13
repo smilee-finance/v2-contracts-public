@@ -64,7 +64,6 @@ contract ErrorMap is Script {
 
     // IDVP.sol
     // bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
-    bytes4 constant InvalidStrategy = bytes4(keccak256("InvalidStrategy()"));
 
     // AmountsMath.sol
     bytes4 constant AddOverflow = bytes4(keccak256("AddOverflow()"));
@@ -80,7 +79,6 @@ contract ErrorMap is Script {
 
     // FinanceIGPrice.sol
     bytes4 constant PriceZero = bytes4(keccak256("PriceZero()"));
-    bytes4 constant OutOfRange = bytes4(keccak256("OutOfRange()"));
 
     // SignedMath.sol
     bytes4 constant Overflow = bytes4(keccak256("Overflow()"));
@@ -217,8 +215,6 @@ contract ErrorMap is Script {
         console.logBytes4(DepositToNonVaultContract);
         console.log("AmountZero");
         console.logBytes4(AmountZero);
-        console.log("InvalidStrategy");
-        console.logBytes4(InvalidStrategy);
         console.log("AddOverflow");
         console.logBytes4(AddOverflow);
         console.log("MulOverflow");
@@ -233,8 +229,6 @@ contract ErrorMap is Script {
         console.logBytes4(UnsupportedFrequency);
         console.log("PriceZero");
         console.logBytes4(PriceZero);
-        console.log("OutOfRange");
-        console.logBytes4(OutOfRange);
         console.log("Overflow");
         console.logBytes4(Overflow);
         console.log("AddressZero");

@@ -10,7 +10,6 @@ import {IEpochControls} from "./IEpochControls.sol";
  */
 interface IDVP is IDVPImmutables, IEpochControls {
     error AmountZero();
-    error InvalidStrategy();
 
     /**
         @notice Returns the pool providing liquidity for these DVP options

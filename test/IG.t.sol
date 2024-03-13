@@ -31,7 +31,6 @@ contract IGTest is Test {
     bytes4 constant AmountZero = bytes4(keccak256("AmountZero()"));
     bytes4 constant AddressZero = bytes4(keccak256("AddressZero()"));
     bytes4 constant AsymmetricAmount = bytes4(keccak256("AsymmetricAmount()"));
-    bytes4 constant OnlyPositionManager = bytes4(keccak256("OnlyPositionManager()"));
     bytes4 constant PositionNotFound = bytes4(keccak256("PositionNotFound()"));
     bytes4 constant CantBurnMoreThanMinted = bytes4(keccak256("CantBurnMoreThanMinted()"));
     bytes4 constant NotEnoughNotional = bytes4(keccak256("NotEnoughNotional()"));
@@ -87,6 +86,8 @@ contract IGTest is Test {
         ig = new MockedIG(address(vault), address(ap));
         ig.grantRole(ig.ROLE_ADMIN(), admin);
         ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
+        ig.grantRole(ig.ROLE_TRADER(), alice);
+        ig.grantRole(ig.ROLE_TRADER(), bob);
         vault.grantRole(vault.ROLE_ADMIN(), admin);
 
         FeeManager(ap.feeManager()).setDVPFee(
@@ -132,8 +133,9 @@ contract IGTest is Test {
     function testCanUse() public {
         TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), 1, vm);
 
+        uint256 strike = ig.currentStrike();
         vm.prank(alice);
-        ig.mint(alice, ig.currentStrike(), 1, 0, 0, 0.1e18, 0);
+        ig.mint(alice, strike, 1, 0, 0, 0.1e18, 0);
     }
 
     function testMint(uint256 inputAmount) public {
@@ -143,15 +145,16 @@ contract IGTest is Test {
         TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), inputAmount, vm);
 
         (uint256 expectedMarketValue, ) = ig.premium(ig.currentStrike(), inputAmount, 0);
+        uint256 strike = ig.currentStrike();
 
         vm.prank(alice);
-        ig.mint(alice, ig.currentStrike(), inputAmount, 0, expectedMarketValue, 0.1e18, 0);
+        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18, 0);
 
-        bytes32 posId = keccak256(abi.encodePacked(alice, ig.currentStrike()));
+        bytes32 posId = keccak256(abi.encodePacked(alice, strike));
 
-        (uint256 amount, bool strategy, uint256 strike, uint256 epoch) = ig.positions(posId);
+        (uint256 amount, bool strategy, uint256 posStrike, uint256 epoch) = ig.positions(posId);
         assertEq(OptionStrategy.CALL, strategy);
-        assertEq(ig.currentStrike(), strike);
+        assertEq(ig.currentStrike(), posStrike);
         assertEq(inputAmount, amount);
         assertEq(ig.currentEpoch(), epoch);
     }
@@ -176,13 +179,14 @@ contract IGTest is Test {
         ig.mint(alice, strike, 0, 0, 0, 0.1e18, 0);
     }
 
-    function testUserCantMintUnbalancedAmount() public {
-        uint256 strike = ig.currentStrike();
-        Amount memory amount = Amount(1, 2);
-        vm.prank(alice);
-        vm.expectRevert(AsymmetricAmount);
-        ig.mint(alice, strike, amount.up, amount.down, 0, 0.1e18, 0);
-    }
+    // TODO: move to the position manager
+    // function testUserCantMintUnbalancedAmount() public {
+    //     uint256 strike = ig.currentStrike();
+    //     Amount memory amount = Amount(1, 2);
+    //     vm.prank(alice);
+    //     vm.expectRevert(AsymmetricAmount);
+    //     ig.mint(alice, strike, amount.up, amount.down, 0, 0.1e18, 0);
+    // }
 
     function testCantMintMoreThanAvailable() public {
         uint256 strike = ig.currentStrike();
@@ -289,7 +293,7 @@ contract IGTest is Test {
         vm.prank(alice);
         (uint256 expectedMarketValue, ) = ig.payoff(currEpoch, strike, amount.up, amount.down);
         vm.prank(alice);
-        vm.expectRevert(OnlyPositionManager);
+        vm.expectRevert(); // TODO: add exact reason (missing role)
         ig.burn(currEpoch, alice, strike, 1, 2, expectedMarketValue, 0.1e18);
     }
 
