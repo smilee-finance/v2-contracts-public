@@ -15,6 +15,7 @@ import {Parameters} from "../utils/scenarios/Parameters.sol";
 import {FeeManager} from "@project/FeeManager.sol";
 import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {PositionManager} from "@project/periphery/PositionManager.sol";
+import {TokenUtils} from "../../utils/TokenUtils.sol";
 
 abstract contract Setup is Parameters {
     event Debug(string);
@@ -26,6 +27,8 @@ abstract contract Setup is Parameters {
     address constant USER1 = address(0x10000);
     address constant USER2 = address(0x20000);
     address constant USER3 = address(0x30000);
+
+    uint256 USER1_INITIAL_BALANCE;
 
     address internal constant VM_ADDRESS_SETUP = address(uint160(uint256(keccak256("hevm cheat code"))));
     IHevm internal hevm;
@@ -43,6 +46,8 @@ abstract contract Setup is Parameters {
     }
 
     function deploy() internal {
+        USER1_INITIAL_BALANCE = 2_000_000 * BT_UNIT;
+
         hevm.warp(EpochFrequency.REF_TS + 1);
         ap = new AddressProvider(0);
 
@@ -80,6 +85,8 @@ abstract contract Setup is Parameters {
         if (INITIAL_VAULT_DEPOSIT > 0) {
             VaultUtils.addVaultDeposit(USER1, INITIAL_VAULT_DEPOSIT, admin, address(vault), _convertVm());
         }
+
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), USER1, address(ig), USER1_INITIAL_BALANCE, _convertVm());
     }
 
     function _between(uint256 val, uint256 lower, uint256 upper) internal pure returns (uint256) {

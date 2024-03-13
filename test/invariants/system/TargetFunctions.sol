@@ -52,7 +52,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         uint256 totalDeposit = VaultUtils.getState(vault).liquidity.totalDeposit;
         uint256 maxDeposit = vault.maxDeposit();
         uint256 depositCapacity = maxDeposit - totalDeposit;
-        amount = _between(amount, MIN_VAULT_DEPOSIT, depositCapacity);
+        uint256 minVaultDeposit = totalDeposit == 0 ? BT_UNIT : MIN_VAULT_DEPOSIT;
+        amount = _between(amount, minVaultDeposit, depositCapacity);
 
         VaultUtils.logState(vault);
 
@@ -480,7 +481,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         (uint256 expectedPremium, uint256 fee) = ig.premium(ig.currentStrike(), amount.up, amount.down);
         precondition(expectedPremium > 100); // Slippage has no influence for value <= 100
         (uint256 sigma, ) = ig.getPostTradeVolatility(ig.currentStrike(), amount, true);
-        uint256 maxPremium = expectedPremium + (ACCEPTED_SLIPPAGE * expectedPremium) / BT_UNIT;
+        uint256 maxPremium = expectedPremium + (ACCEPTED_SLIPPAGE * expectedPremium) / 1e18;
         {
             (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(EPOCH_FREQUENCY);
             uint256 premiumMaxIV = _getMarketValueWithCustomIV(ivMax, amount, address(baseToken), buyTokenPrice);
@@ -499,10 +500,36 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             ryInfo_VAULT_2_1 = RYInfo(preTradeRY, preTradePremium, uPreTrade);
         }
 
-        // _vault25();
+        _vault25();
 
         uint256 premium;
+        // uint256 positiontokenId;
 
+        // try pm.mint(IPositionManager.MintParams({
+        //         dvpAddr: address(ig),
+        //         notionalUp: amount.up,
+        //         notionalDown: amount.down,
+        //         strike: ig.currentStrike(),
+        //         recipient: msg.sender,
+        //         tokenId: 0,
+        //         expectedPremium: expectedPremium,
+        //         maxSlippage: ACCEPTED_SLIPPAGE,
+        //         nftAccessTokenId: 0
+        //     })) returns (uint256 _positiontokenId, uint256 _premium) {
+        //         premium = _premium;
+        //         positionTokenId = _positionTokenId;
+        //     } catch (bytes memory err) {
+        //         if (!FLAG_SLIPPAGE) {
+        //             _shouldNotRevertUnless(err, _GENERAL_6);
+        //         } else {
+        //             revert(string(err));
+        //         }
+        //     }
+        uint256 currentStrike = ig.currentStrike();
+
+        console.log("expectedPremium", expectedPremium);
+        console.log("maxPremium", maxPremium);
+        console.log("ALLOWANCE", baseToken.allowance(msg.sender, address(ig)));
         hevm.prank(msg.sender);
         try ig.mint(msg.sender, buyTokenPrice, amount.up, amount.down, expectedPremium, ACCEPTED_SLIPPAGE) returns (
             uint256 _premium
@@ -533,6 +560,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         gte(premium / BT_UNIT, expectedPremium / BT_UNIT, _IG_03_3.desc); // see test_17
 
         BuyInfo memory buyInfo = BuyInfo(
+            0,
             msg.sender,
             ig.getEpoch().current,
             epochs.length,
@@ -603,7 +631,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             }
         }
         _checkFee(fee, _SELL);
-        // _vault25();
+        _vault25();
 
         uint256 payoff;
 

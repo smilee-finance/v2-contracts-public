@@ -8,7 +8,7 @@ abstract contract BaseParameters {
 
     // IG parameters
     uint256 internal VOLATILITY = 0.5e18;
-    uint256 internal ACCEPTED_SLIPPAGE = 0.03e18;
+    uint256 internal ACCEPTED_SLIPPAGE = 0.05e18;
 
     uint256 internal MIN_TIME_WARP = 1000; // see invariant IG_24_3
 

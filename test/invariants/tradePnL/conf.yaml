@@ -1,5 +1,5 @@
 codeSize: 0x10000
-corpusDir: "/app/test/invariants/out/system/corpus"
+corpusDir: "/app/test/invariants/out/tradePnL/corpus"
 workers: 6
 seqLen: 100
 testLimit: 30000
