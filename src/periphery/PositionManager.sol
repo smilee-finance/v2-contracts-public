@@ -200,7 +200,8 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
                 }
             }
         } else {
-            if ((params.notionalUp > 0 && params.notionalDown > 0) && (params.notionalUp != params.notionalDown)) {
+            bool tradeIsSmile = params.notionalUp > 0 && params.notionalDown > 0;
+            if (tradeIsSmile && (params.notionalUp != params.notionalDown)) {
                 // If amount is a smile, it must be balanced:
                 revert AsymmetricAmount();
             }

@@ -137,7 +137,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         {
             // If amount is an unbalanced smile, only the position manager is allowed to proceed:
             if (msg.sender != _addressProvider.dvpPositionManager()) {
-                bool positionExists = position.amountUp > 0 || position.amountDown == 0;
+                bool positionExists = position.amountUp > 0 || position.amountDown > 0;
                 if (positionExists) {
                     bool posIsBull = position.amountUp > 0 && position.amountDown == 0;
                     if (posIsBull && amount.down > 0) {
@@ -149,6 +149,11 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
                     }
                     bool posIsSmile = position.amountUp > 0 && position.amountDown > 0;
                     if (posIsSmile && amount.up != amount.down) {
+                        revert AsymmetricAmount();
+                    }
+                } else {
+                    bool tradeIsSmile = amount.up > 0 && amount.down > 0;
+                    if (tradeIsSmile && amount.up != amount.down) {
                         revert AsymmetricAmount();
                     }
                 }
@@ -289,7 +294,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         if (amount.up > position.amountUp || amount.down > position.amountDown) {
             revert CantBurnMoreThanMinted();
         }
-        // If amount is an unbalanced smile, only the position manager is allowed to proceed:
+        // Only the position manager is allowed to obtain an unbalanced smile position:
         if (msg.sender != _addressProvider.dvpPositionManager()) {
             bool posIsSmile = position.amountUp > 0 && position.amountDown > 0;
             if (posIsSmile && amount.up != amount.down) {
