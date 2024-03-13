@@ -228,6 +228,12 @@ contract IG is DVP {
         // NOTE: We negate the value because the protocol will sell side tokens when `h` is positive.
         uint256 exchangedBaseTokens = IVault(vault).deltaHedge(-tokensToSwap);
 
+        // Delta hedge can be avoided if tokensToSwap is very small (compared to token price)
+        // Returning oracle price will allow to trade in this case
+        if (exchangedBaseTokens == 0) {
+            return oraclePrice;
+        }
+
         swapPrice = Finance.getSwapPrice(tokensToSwap, exchangedBaseTokens, _sideTokenDecimals, _baseTokenDecimals);
     }
 
@@ -298,7 +304,7 @@ contract IG is DVP {
         if (FinanceIG.checkFinanceApprox(financeParameters)) {
             _pause();
             emit PausedForFinanceApproximation();
-        }        
+        }
     }
 
     /// @inheritdoc DVP

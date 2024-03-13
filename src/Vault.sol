@@ -793,6 +793,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         }
         IExchange exchange = IExchange(exchangeAddress);
 
+        // If amount to swap is too small doesn't swap
+        if (exchange.getInputAmount(baseToken, sideToken, amount) == 0) {
+            return 0;
+        }
+
         // dev: preview considering slippage
         uint256 maxBaseTokensNeeded = exchange.getInputAmountMax(baseToken, sideToken, amount);
 
@@ -847,6 +852,11 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             revert AddressZero();
         }
         IExchange exchange = IExchange(exchangeAddress);
+
+        // If amount to swap is too small doesn't swap
+        if (exchange.getOutputAmount(sideToken, baseToken, amount) == 0) {
+            return 0;
+        }
 
         IERC20(sideToken).safeApprove(exchangeAddress, amount);
         baseTokens = exchange.swapIn(sideToken, baseToken, amount);
