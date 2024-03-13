@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.15;
 
+import {console} from "forge-std/console.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
 import {IHevm} from "../utils/IHevm.sol";
@@ -11,11 +12,12 @@ import {AddressProviderUtils} from "../lib/AddressProviderUtils.sol";
 import {EchidnaVaultUtils} from "../lib/EchidnaVaultUtils.sol";
 import {MockedVault} from "../../mock/MockedVault.sol";
 import {MockedIG} from "../../mock/MockedIG.sol";
-import {Parameters} from "../utils/scenarios/Parameters.sol";
 import {FeeManager} from "@project/FeeManager.sol";
-import {VaultUtils} from "../../utils/VaultUtils.sol";
 import {PositionManager} from "@project/periphery/PositionManager.sol";
+import {DVPUtils} from "../../utils/DVPUtils.sol";
+import {Parameters} from "../utils/scenarios/Parameters.sol";
 import {TokenUtils} from "../../utils/TokenUtils.sol";
+import {VaultUtils} from "../../utils/VaultUtils.sol";
 
 abstract contract Setup is Parameters {
     event Debug(string);
@@ -60,7 +62,17 @@ abstract contract Setup is Parameters {
 
         AddressProviderUtils.initialize(admin, ap, address(baseToken), FLAG_SLIPPAGE, hevm);
 
-        vault = MockedVault(EchidnaVaultUtils.createVault(address(baseToken), admin, SIDE_TOKEN_DECIMALS, INITIAL_TOKEN_PRICE, ap, EPOCH_FREQUENCY, hevm));
+        vault = MockedVault(
+            EchidnaVaultUtils.createVault(
+                address(baseToken),
+                admin,
+                SIDE_TOKEN_DECIMALS,
+                INITIAL_TOKEN_PRICE,
+                ap,
+                EPOCH_FREQUENCY,
+                hevm
+            )
+        );
 
         EchidnaVaultUtils.grantAdminRole(admin, address(vault));
         EchidnaVaultUtils.registerVault(admin, address(vault), ap, hevm);
@@ -86,7 +98,23 @@ abstract contract Setup is Parameters {
             VaultUtils.addVaultDeposit(USER1, INITIAL_VAULT_DEPOSIT, admin, address(vault), _convertVm());
         }
 
-        TokenUtils.provideApprovedTokens(admin, address(baseToken), USER1, address(ig), USER1_INITIAL_BALANCE, _convertVm());
+        hevm.warp(ig.getEpoch().current + 1);
+        hevm.prank(admin);
+        ig.rollEpoch();
+
+        console.log("************************ SHARE PRICE", vault.epochPricePerShare(ig.getEpoch().previous));
+        console.log("** STATES AFTER ROLLEPOCH");
+        VaultUtils.logState(vault);
+        DVPUtils.logState(ig);
+
+        TokenUtils.provideApprovedTokens(
+            admin,
+            address(baseToken),
+            USER1,
+            address(ig),
+            USER1_INITIAL_BALANCE,
+            _convertVm()
+        );
     }
 
     function _between(uint256 val, uint256 lower, uint256 upper) internal pure returns (uint256) {

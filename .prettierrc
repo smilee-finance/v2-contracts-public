@@ -14,6 +14,14 @@
             "options": {
                 "printWidth": 260
             }
+        },
+        {
+            "files": [
+                "test/invariants/tradePnL/TargetFunctions.sol"
+            ],
+            "options": {
+                "printWidth": 160
+            }
         }
     ]
 }

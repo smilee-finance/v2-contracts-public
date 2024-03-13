@@ -129,7 +129,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         apPriceOracle.setTokenPrice(sideToken, price);
     }
 
-
     function _getRiskFreeRate(address tokenAddress) internal view returns (uint256 riskFreeRate) {
         IMarketOracle marketOracle = IMarketOracle(ap.marketOracle());
         riskFreeRate = marketOracle.getRiskFreeRate(tokenAddress);
@@ -164,13 +163,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     function _buy(Amount memory amount, uint8 buyType) internal returns (uint256) {
         console.log("*** AMOUNT UP", amount.up);
         console.log("*** AMOUNT DOWN", amount.down);
-        console.log(
-            "*** TRADE TIME ELAPSED FROM EPOCH",
-            block.timestamp - (ig.getEpoch().current - ig.getEpoch().frequency)
-        );
+        console.log("*** TRADE TIME ELAPSED FROM EPOCH", block.timestamp - (ig.getEpoch().current - ig.getEpoch().frequency));
 
         uint256 buyTokenPrice = _getTokenPrice(vault.sideToken());
-
         (uint256 expectedPremium, ) = ig.premium(ig.currentStrike(), amount.up, amount.down);
         precondition(expectedPremium > 100); // Slippage has no influence for value <= 100
         (uint256 sigma, ) = ig.getPostTradeVolatility(ig.currentStrike(), amount, true);
@@ -235,10 +230,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     }
 
     function _sell(BuyInfo memory buyInfo_) internal returns (uint256) {
-        console.log(
-            "*** TRADE TIME ELAPSED FROM EPOCH",
-            block.timestamp - (ig.getEpoch().current - ig.getEpoch().frequency)
-        );
+        console.log("*** TRADE TIME ELAPSED FROM EPOCH", block.timestamp - (ig.getEpoch().current - ig.getEpoch().frequency));
         uint256 sellTokenPrice = _getTokenPrice(vault.sideToken());
 
         // if one epoch have passed, get end price from current epoch
@@ -253,23 +245,18 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
 
         hevm.prank(buyInfo_.recipient);
-        (uint256 expectedPayoff, ) = ig.payoff(
-            buyInfo_.epoch,
-            buyInfo_.strike,
-            buyInfo_.amountUp,
-            buyInfo_.amountDown
-        );
+        (uint256 expectedPayoff, ) = ig.payoff(buyInfo_.epoch, buyInfo_.strike, buyInfo_.amountUp, buyInfo_.amountDown);
 
         hevm.prank(buyInfo_.recipient);
         uint256 payoff = ig.burn(
-                buyInfo_.epoch,
-                buyInfo_.recipient,
-                buyInfo_.strike,
-                buyInfo_.amountUp,
-                buyInfo_.amountDown,
-                expectedPayoff,
-                ACCEPTED_SLIPPAGE
-            );
+            buyInfo_.epoch,
+            buyInfo_.recipient,
+            buyInfo_.strike,
+            buyInfo_.amountUp,
+            buyInfo_.amountDown,
+            expectedPayoff,
+            ACCEPTED_SLIPPAGE
+        );
 
         uint256 currentTimestamp = block.timestamp;
         if (msg.sender == USER1 && currentTimestamp == buyInfo_.timestamp && _getTokenPrice(vault.sideToken()) == buyInfo_.buyTokenPrice) {
@@ -294,9 +281,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     // INVARIANTS ASSERTIONS
     //----------------------------------------------
 
-
     function _checkPnL() internal {
         uint256 balance = baseToken.balanceOf(USER1);
-        t(int256(USER1_INITIAL_BALANCE - balance) <= 0 , "PANPROG");
+        t(int256(USER1_INITIAL_BALANCE - balance) <= 0, "PANPROG");
     }
 }
