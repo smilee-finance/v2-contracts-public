@@ -28,7 +28,7 @@ library FinanceIGVega {
     function igVega(
         FinanceIGPrice.Parameters calldata inp,
         uint256 v0
-    ) external view returns (uint256 vBull, uint256 vBear) {
+    ) external pure returns (uint256 vBull, uint256 vBear) {
         {
             (
                 FinanceIGPrice.DTerms memory ds,
@@ -61,7 +61,7 @@ library FinanceIGVega {
         vBear = (v0 * vBear) / inp.theta / 100;
     }
 
-    function bullVega(Params memory p, uint256 ert, int256 v1_, int256 v2_) public view returns (uint256) {
+    function bullVega(Params memory p, uint256 ert, int256 v1_, int256 v2_) public pure returns (uint256) {
         uint256 er2sig8 = FinanceIGPrice.er2sig8(p.inp.r, p.inp.sigma, p.inp.tau);
         uint256 sdivkRtd = ud(p.inp.s).div(ud(p.inp.k)).sqrt().unwrap();
 
@@ -82,7 +82,7 @@ library FinanceIGVega {
         return (SignedMath.abs(sum) * 1e18) / p.inp.sigma;
     }
 
-    function bearVega(Params memory p, uint256 ert, int256 v1_, int256 v2_) public view returns (uint256) {
+    function bearVega(Params memory p, uint256 ert, int256 v1_, int256 v2_) public pure returns (uint256) {
         uint256 er2sig8 = FinanceIGPrice.er2sig8(p.inp.r, p.inp.sigma, p.inp.tau);
         uint256 sdivkRtd = ud(p.inp.s).div(ud(p.inp.k)).sqrt().unwrap();
 

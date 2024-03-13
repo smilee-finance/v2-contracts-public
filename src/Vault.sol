@@ -596,16 +596,22 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         address to,
         uint256 amount
     ) internal override {
-        if (from == address(0) || from == address(this) || to == address(0)) {
+        // NOTE: either mint or burn
+        if (from == address(0) || to == address(0)) {
             return;
         }
+        // NOTE: when from = this, it is a _redeem
+        // NOTE: when to = this, it is an _initiateWithdraw
+        if (from == address(this) || to == address(this)) {
+            return;
+        }
+
         /**
          * As user may transfer their shares, we need to fix the accounting
          * used to adjust state.liquidity.totalDeposit when a user
          * initiate a withdrawal request.
          */
         VaultLib.DepositReceipt storage fromDepositReceipt = depositReceipts[from];
-        VaultLib.DepositReceipt storage toDepositReceipt = depositReceipts[to];
 
         uint256 userDeposits = fromDepositReceipt.cumulativeAmount;
         if (fromDepositReceipt.epoch == getEpoch().current) {
@@ -615,6 +621,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         uint256 amountEquivalent = (userDeposits * amount) / (heldByAccount + heldByVault);
 
         fromDepositReceipt.cumulativeAmount -= amountEquivalent;
+
+        VaultLib.DepositReceipt storage toDepositReceipt = depositReceipts[to];
         toDepositReceipt.cumulativeAmount += amountEquivalent;
     }
 

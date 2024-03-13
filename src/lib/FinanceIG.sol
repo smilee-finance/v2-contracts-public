@@ -264,7 +264,7 @@ library FinanceIG {
             );
     }
 
-    function sigmaZero(uint256 avgU, uint256 n, uint256 theta_, uint256 sigmaZero_) public view returns (uint256) {
+    function sigmaZero(uint256 avgU, uint256 n, uint256 theta_, uint256 sigmaZero_) public pure returns (uint256) {
         // F1 = 1 + (n - 1) * (avgU ^ 3)
         UD60x18 f1 = convert(1).add(ud(n).sub(convert(1)).mul(ud(avgU).powu(3)));
         // F2 = avgU + (1 - θ) * (1 - avgU)
@@ -411,8 +411,5 @@ library FinanceIG {
 
             return params.internalVolatilityParameters.uPrev - uImpact;
         }
-
-        // return params.internalVolatilityParameters.uPrevCache + uImpact;
-        return params.internalVolatilityParameters.uPrev + uImpact;
     }
 }

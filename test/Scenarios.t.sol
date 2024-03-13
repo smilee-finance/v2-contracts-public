@@ -453,8 +453,6 @@ contract TestScenariosJson is Test {
             VaultUtils.addVaultDeposit(_liquidityProvider, endEpoch.depositAmount, _admin, address(_vault), vm);
         }
 
-        uint256 currentStrike = _dvp.currentStrike();
-
         vm.startPrank(_admin);
         _oracle.setTokenPrice(_vault.sideToken(), endEpoch.sideTokenPrice);
         vm.warp(_dvp.currentEpoch() + 1);
