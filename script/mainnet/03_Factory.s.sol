@@ -139,14 +139,15 @@ contract DeployDVP is EnhancedScript {
         uint8 decimals = IERC20Metadata(baseToken).decimals();
         FeeManager.FeeParams memory feeParams = FeeManager.FeeParams({
             timeToExpiryThreshold: 3600,
-            minFeeBeforeTimeThreshold: (10 ** decimals) / 100, // 0.01
-            minFeeAfterTimeThreshold: (10 ** decimals) / 100, // 0.01
-            successFeeTier: 0.02e18,
-            feePercentage: 0.003e18,
-            capPercentage: 0.125e18,
-            maturityFeePercentage: 0.003e18,
-            maturityCapPercentage: 0.125e18
+            minFeeBeforeTimeThreshold: (10 ** decimals), // 1 dollaro
+            minFeeAfterTimeThreshold: (10 ** decimals), // 1 dollaro
+            successFeeTier: 0.005e18, // 0.5 %
+            feePercentage: 0.0004e18, // 0.04 %
+            capPercentage: 0.125e18, // 12.5 %
+            maturityFeePercentage: 0.0004e18, // 0.04 %
+            maturityCapPercentage: 0.125e18 // 12.5 %
         });
+
         _feeManager.setDVPFee(dvpAddr, feeParams);
 
         _registry.register(dvpAddr);
@@ -175,6 +176,12 @@ contract DeployDVP is EnhancedScript {
         }
 
         return address(vault);
+    }
+
+    function setDVPSuccessFee(address dvp, uint256 fee) {
+        FeeManager.FeeParams memory params = _feeManager.dvpsFeeParams(dvp);
+        params.successFeeTier = fee;
+        _feeManager.setDVPFee(dvp, params);
     }
 
     function setDVPFee(

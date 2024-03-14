@@ -41,7 +41,7 @@ contract ChainlinkPriceOracle is IPriceOracle, AccessControl {
 
     constructor() AccessControl() {
         _defaultMaxDelay = 2 days;
-        timeLockDelay = 6 hours;
+        timeLockDelay = 0;
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
         _setRoleAdmin(ROLE_ADMIN, ROLE_GOD);

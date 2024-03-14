@@ -78,7 +78,16 @@ contract DeployCoreFoundations is Script {
 
     function _deployMainContracts() internal {
         // Address provider:
-        AddressProvider ap = new AddressProvider(1 days);
+
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        console.log("Deploying address provider with 0 time lock ////////////////////////////////////////////////////");
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        AddressProvider ap = new AddressProvider(0);
+
+        // AddressProvider ap = new AddressProvider(1 days);
+
         ap.grantRole(ap.ROLE_GOD(), _godAddress);
         ap.grantRole(ap.ROLE_ADMIN(), _adminAddress);
         ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress); // TMP
@@ -87,6 +96,11 @@ contract DeployCoreFoundations is Script {
         }
 
         // Price oracle:
+
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        console.log("Deploying ChainlinkPriceOracle with 0 time lock ////////////////////////////////////////////////");
+        console.log("Change in contract if needed ///////////////////////////////////////////////////////////////////");
+
         ChainlinkPriceOracle priceOracle = new ChainlinkPriceOracle();
         priceOracle.grantRole(priceOracle.ROLE_GOD(), _godAddress);
         priceOracle.grantRole(priceOracle.ROLE_ADMIN(), _adminAddress);
@@ -110,7 +124,13 @@ contract DeployCoreFoundations is Script {
         ap.setMarketOracle(address(marketOracle));
 
         // Swap router:
-        SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(ap), 6 hours);
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        console.log("Deploying swapAdapterRouter with 0 time lock ///////////////////////////////////////////////////");
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(ap), 0);
+
+        // SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(ap), 6 hours);
+
         swapAdapterRouter.grantRole(swapAdapterRouter.ROLE_GOD(), _godAddress);
         swapAdapterRouter.grantRole(swapAdapterRouter.ROLE_ADMIN(), _adminAddress);
         if (!_deployerIsGod) {
@@ -119,7 +139,13 @@ contract DeployCoreFoundations is Script {
         ap.setExchangeAdapter(address(swapAdapterRouter));
 
         // Uniswap adapter:
-        UniswapAdapter uniswapAdapter = new UniswapAdapter(_uniswapRouterAddress, _uniswapFactoryAddress, 6 hours);
+
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        console.log("Deploying uniswapAdapter with 0 time lock //////////////////////////////////////////////////////");
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        UniswapAdapter uniswapAdapter = new UniswapAdapter(_uniswapRouterAddress, _uniswapFactoryAddress, 0);
+
+        // UniswapAdapter uniswapAdapter = new UniswapAdapter(_uniswapRouterAddress, _uniswapFactoryAddress, 6 hours);
         uniswapAdapter.grantRole(uniswapAdapter.ROLE_GOD(), _godAddress);
         uniswapAdapter.grantRole(uniswapAdapter.ROLE_ADMIN(), _adminAddress);
         if (!_deployerIsGod) {
@@ -128,7 +154,12 @@ contract DeployCoreFoundations is Script {
         console.log("UniswapAdapter deployed at", address(uniswapAdapter));
 
         // Fee manager:
-        FeeManager feeManager = new FeeManager(address(ap), 6 hours);
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        console.log("Deploying fee manager with 0 time lock /////////////////////////////////////////////////////////");
+        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
+        FeeManager feeManager = new FeeManager(address(ap), 0);
+
+        // FeeManager feeManager = new FeeManager(address(ap), 6 hours);
         feeManager.grantRole(feeManager.ROLE_GOD(), _godAddress);
         feeManager.grantRole(feeManager.ROLE_ADMIN(), _adminAddress);
         if (!_deployerIsGod) {

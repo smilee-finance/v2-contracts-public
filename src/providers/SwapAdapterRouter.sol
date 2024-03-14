@@ -73,7 +73,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
 
         // Default baseline value:
         if (slippage == 0) {
-            return 0.02e18;
+            return 0.01e18;
         }
     }
 
@@ -101,7 +101,7 @@ contract SwapAdapterRouter is IExchange, AccessControl {
     function setSlippage(address tokenIn, address tokenOut, uint256 slippage) external {
         _checkRole(ROLE_ADMIN);
 
-        if (slippage < 0.005e18 || slippage > 0.1e18) {
+        if (slippage > 0.1e18) {
             revert OutOfAllowedRange();
         }
 
