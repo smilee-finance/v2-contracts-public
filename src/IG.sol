@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDVP} from "./interfaces/IDVP.sol";
-import {IDVPAccessNFT} from "./interfaces/IDVPAccessNFT.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {IMarketOracle} from "./interfaces/IMarketOracle.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
@@ -23,12 +22,8 @@ contract IG is DVP {
 
     FinanceParameters public financeParameters;
 
-    /// @notice A flag to tell if this DVP is currently bound to check access for trade
-    bool public nftAccessFlag = false;
-
     bytes32 public constant ROLE_TRADER = keccak256("ROLE_TRADER");
 
-    error NFTAccessDenied();
     error WrongStrike();
 
     // Used by TheGraph for frontend needs:
@@ -49,15 +44,6 @@ contract IG is DVP {
         _setRoleAdmin(ROLE_TRADER, ROLE_ADMIN);
     }
 
-    /**
-        @notice Allows the contract's owner to enable or disable the nft access to trade operations
-     */
-    function setNftAccessFlag(bool flag) external {
-        _checkRole(ROLE_ADMIN);
-
-        nftAccessFlag = flag;
-    }
-
     /// @notice Common strike price for all impermanent gain positions in this DVP, set at epoch start
     function currentStrike() external view returns (uint256 strike_) {
         strike_ = financeParameters.currentStrike;
@@ -70,10 +56,8 @@ contract IG is DVP {
         uint256 amountUp,
         uint256 amountDown,
         uint256 expectedPremium,
-        uint256 maxSlippage,
-        uint256 nftAccessTokenId
+        uint256 maxSlippage
     ) external override returns (uint256 premium_) {
-        _checkNFTAccess(nftAccessTokenId, recipient, amountUp + amountDown);
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
         if (strike != financeParameters.currentStrike) {
@@ -339,16 +323,5 @@ contract IG is DVP {
     function _setParameters(TimeLockedFinanceValues memory params) internal {
         uint256 timeToValidity = getEpoch().timeToNextEpoch();
         FinanceIG.updateTimeLockedParameters(financeParameters.timeLocked, params, timeToValidity);
-    }
-
-    /// @dev Checks if given trade is allowed to be made using nft.checkCap callback func
-    function _checkNFTAccess(uint256 accessTokenId, address receiver, uint256 notionalAmount) internal {
-        if (nftAccessFlag) {
-            IDVPAccessNFT nft = IDVPAccessNFT(_addressProvider.dvpAccessNFT());
-            if (accessTokenId == 0 || nft.ownerOf(accessTokenId) != receiver) {
-                revert NFTAccessDenied();
-            }
-            nft.checkCap(accessTokenId, notionalAmount);
-        }
     }
 }

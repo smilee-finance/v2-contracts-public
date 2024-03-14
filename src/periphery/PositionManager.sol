@@ -34,9 +34,8 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
     /// @dev The ID of the next token that will be minted. Skips 0
     uint256 private _nextId;
 
-    /// @notice A flag to tell if this DVP is currently bound to check access for trade
+    /// @notice A flag to tell if this PosMan is currently bound to check access for trade
     bool public nftAccessFlag;
-    uint256 public accessTokenId;
 
     IAddressProvider internal immutable _addressProvider;
 
@@ -52,7 +51,6 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
     error NotOwner();
     error PositionExpired();
     error AsymmetricAmount();
-    error MissingAccessToken();
     error NFTAccessDenied();
     error ZeroAddress();
     error NotRegistered();
@@ -60,7 +58,6 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
     constructor(address addressProvider) ERC721Enumerable() ERC721("Smilee DVP Position", "SMIL-DVP-POS") AccessControl() {
         _nextId = 1;
         nftAccessFlag = false;
-        accessTokenId = 0;
         _addressProvider = IAddressProvider(addressProvider);
 
         _setRoleAdmin(ROLE_GOD, ROLE_GOD);
@@ -88,25 +85,7 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
      */
     function setNftAccessFlag(bool flag) external {
         _checkRole(ROLE_ADMIN);
-
-        if (flag && accessTokenId == 0) {
-            revert MissingAccessToken();
-        }
-
         nftAccessFlag = flag;
-    }
-
-    /**
-        @notice Allows the contract's admin to set the internal nft for trading
-     */
-    function setNftAccessToken(uint256 tokenId) external {
-        _checkRole(ROLE_ADMIN);
-
-        if (tokenId == 0) {
-            revert MissingAccessToken();
-        }
-
-        accessTokenId = tokenId;
     }
 
     /// @inheritdoc IPositionManager
@@ -221,8 +200,7 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
             params.notionalUp,
             params.notionalDown,
             params.expectedPremium,
-            params.maxSlippage,
-            accessTokenId
+            params.maxSlippage
         );
 
         if (spending > premium) {

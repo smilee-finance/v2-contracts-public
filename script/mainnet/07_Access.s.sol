@@ -71,12 +71,6 @@ contract AccessTokenOps is EnhancedScript {
         vm.stopBroadcast();
     }
 
-    function setDvpAccess(address dvpAddr, bool value) public {
-        vm.startBroadcast(_adminPrivateKey);
-        IG(dvpAddr).setNftAccessFlag(value);
-        vm.stopBroadcast();
-    }
-
     function setVaultAccess(address vaultAddr, bool value) public {
         vm.startBroadcast(_adminPrivateKey);
         Vault(vaultAddr).setPriorityAccessFlag(value);
@@ -89,24 +83,4 @@ contract AccessTokenOps is EnhancedScript {
         pm.setNftAccessFlag(value);
         vm.stopBroadcast();
     }
-
-    function setPositionManagerAccessToken(uint256 tokenId) public {
-        vm.startBroadcast(_adminPrivateKey);
-        PositionManager pm = PositionManager(_ap.dvpPositionManager());
-        pm.setNftAccessToken(tokenId);
-        vm.stopBroadcast();
-    }
-
-    function getPositionManagerAccessToken() public view {
-        PositionManager pm = PositionManager(_ap.dvpPositionManager());
-        console.log(pm.accessTokenId());
-    }
-
-    function getPosManTokenId() public view {
-        address pm = _ap.dvpPositionManager();
-        IGAccessNFT igAccessNFT = IGAccessNFT(_ap.dvpAccessNFT());
-
-        console.log(igAccessNFT.tokenOfOwnerByIndex(pm, 0));
-    }
-
 }

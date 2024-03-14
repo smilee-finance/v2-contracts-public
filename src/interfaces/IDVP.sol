@@ -65,7 +65,6 @@ interface IDVP is IDVPImmutables, IEpochControls {
         @param amountDown The integer quantity of options recipient wants to mint for the "Down" strategy
         @param expectedPremium The expected market value
         @param maxSlippage The maximum accepted slippage percentage from the expected premium (denominated with 18 decimals, 1e18 = 100%)
-        @param nftAccessTokenId The id of the owned access NFT, if necessary (use 0 if not needed)
         @return leverage The multiplier to obtain position notional from paid premium
         @dev strike param is ignored for IG vaults, can pass 0
      */
@@ -75,8 +74,7 @@ interface IDVP is IDVPImmutables, IEpochControls {
         uint256 amountUp,
         uint256 amountDown,
         uint256 expectedPremium,
-        uint256 maxSlippage,
-        uint256 nftAccessTokenId
+        uint256 maxSlippage
     ) external returns (uint256 leverage);
 
     /**

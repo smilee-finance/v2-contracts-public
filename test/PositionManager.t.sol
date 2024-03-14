@@ -496,11 +496,7 @@ contract PositionManagerTest is Test {
 
     function testMintWithAccesTokenId() public {
         vm.startPrank(admin);
-        uint256 pmAccessTokenId = nft.createToken(address(pm), 100e18);
-        pm.setNftAccessToken(pmAccessTokenId);
         pm.setNftAccessFlag(true);
-        ig.setNftAccessFlag(true);
-
         uint256 aliceAccessTokenId = nft.createToken(alice, 100e18);
         vm.stopPrank();
 
@@ -528,12 +524,7 @@ contract PositionManagerTest is Test {
      */
     function testMintWithAccesTokenIdOwnerNotSender() public {
         vm.startPrank(admin);
-        uint256 pmAccessTokenId = nft.createToken(address(pm), 100e18);
-
-        pm.setNftAccessToken(pmAccessTokenId);
         pm.setNftAccessFlag(true);
-        ig.setNftAccessFlag(true);
-
         uint256 bobAccessTokenId = nft.createToken(bob, 100e18);
         vm.stopPrank();
 
@@ -559,16 +550,5 @@ contract PositionManagerTest is Test {
                 nftAccessTokenId: bobAccessTokenId
             })
         );
-    }
-
-    function testMissingAccessToken() public {
-        vm.startPrank(admin);
-
-        vm.expectRevert(MissingAccessToken);
-        pm.setNftAccessFlag(true);
-
-        vm.expectRevert(MissingAccessToken);
-        pm.setNftAccessToken(0);
-        vm.stopPrank();
     }
 }

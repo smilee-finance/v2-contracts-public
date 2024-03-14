@@ -504,7 +504,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         uint256 premium;
 
         hevm.prank(msg.sender);
-        try ig.mint(msg.sender, buyTokenPrice, amount.up, amount.down, expectedPremium, ACCEPTED_SLIPPAGE, 0) returns (
+        try ig.mint(msg.sender, buyTokenPrice, amount.up, amount.down, expectedPremium, ACCEPTED_SLIPPAGE) returns (
             uint256 _premium
         ) {
             premium = _premium;

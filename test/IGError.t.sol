@@ -92,7 +92,7 @@ contract IGErrorTest is Test {
         vm.prank(admin);
         MockedVault(vault).setAllowedDVP(address(ig));
         feeManager = FeeManager(ap.feeManager());
-        
+
         vm.prank(admin);
         ig.rollEpoch();
     }
@@ -115,7 +115,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 1e18, 0);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
+            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18);
             prezzo -= 20e18;
         }
     }
@@ -138,12 +138,12 @@ contract IGErrorTest is Test {
         (uint256 premium_, ) = _assurePremium(charlie, 2000e18, 0, 15e18);
 
         vm.prank(charlie);
-        ig.mint(charlie, 2000e18, 0, 15e18, premium_, 0.1e18,0);
+        ig.mint(charlie, 2000e18, 0, 15e18, premium_, 0.1e18);
 
         (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
 
         vm.prank(charlie);
-        ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18,0);
+        ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18);
     }
 
     /**
@@ -153,7 +153,7 @@ contract IGErrorTest is Test {
         Buy 1 bear at: price = 2000 + 20 * x
         Issue:
             - Arithmetic underflow or overflow at 12600
-    */  
+    */
     function testBuyPremiumScenario21() public {
         uint256 premium;
 
@@ -165,7 +165,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 0, 1e18);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
+            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18);
             prezzo += 20e18;
         }
     }
@@ -188,7 +188,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 1e18, 0);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
+            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18);
             prezzo -= 20e18;
         }
 
@@ -227,7 +227,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 1e18, 0);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18,0);
+            ig.mint(charlie, 2000e18, 1e18, 0, premium, 0.1e18);
             prezzo -= 20e18;
         }
 
@@ -266,7 +266,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 0, 1e18);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
+            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18);
             prezzo += 20e18;
         }
 
@@ -305,7 +305,7 @@ contract IGErrorTest is Test {
 
             (premium, ) = _assurePremium(charlie, 2000e18, 0, 1e18);
             vm.prank(charlie);
-            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18,0);
+            ig.mint(charlie, 2000e18, 0, 1e18, premium, 0.1e18);
             prezzo += 20e18;
         }
 

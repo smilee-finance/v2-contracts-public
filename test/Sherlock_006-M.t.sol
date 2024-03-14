@@ -125,7 +125,7 @@ contract IGVaultTest is Test {
         (uint256 premium /* uint256 fee */, ) = _assurePremium(charlie, _strike, optionAmountUp, optionAmountDown);
 
         vm.startPrank(charlie);
-        premium = ig.mint(charlie, _strike, optionAmountUp, optionAmountDown, premium, 1e18, 0);
+        premium = ig.mint(charlie, _strike, optionAmountUp, optionAmountDown, premium, 1e18);
         vm.stopPrank();
 
         console.log("premium", premium);
