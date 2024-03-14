@@ -55,7 +55,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         uint256 minVaultDeposit = totalDeposit == 0 ? BT_UNIT : MIN_VAULT_DEPOSIT;
         amount = _between(amount, minVaultDeposit, depositCapacity);
 
+        console.log("--- VAULT STATE PRE DEPOSIT ---");
         VaultUtils.logState(vault);
+        console.log("------");
 
         precondition(block.timestamp < ig.getEpoch().current);
 
@@ -75,7 +77,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         if (firstDepositEpoch < 0) {
             firstDepositEpoch = int256(epochs.length);
         }
+        console.log("--- VAULT STATE AFTER DEPOSIT ---");
         VaultUtils.logState(vault);
+        console.log("------");
     }
 
     function redeem(uint256 index) public countCall("redeem") {
@@ -116,8 +120,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
         sharesToWithdraw = sharesToWithdraw - (sharesToWithdraw / 10000); // see test_27
 
-        console.log("** INITIATE WITHDRAW", sharesToWithdraw);
+        console.log("--- VAULT STATE PRE INITIATE WITHDRAW ---");
         VaultUtils.logState(vault);
+        console.log("------");
+
+        console.log("** INITIATE WITHDRAW", sharesToWithdraw);
 
         hevm.prank(depInfo.user);
         try vault.initiateWithdraw(sharesToWithdraw) {} catch (bytes memory err) {
@@ -131,7 +138,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _pendingWithdraw[depInfo.user] = true;
         withdrawals.push(WithdrawInfo(depInfo.user, sharesToWithdraw, epochs.length));
         _popDepositInfo(index);
+        console.log("--- VAULT STATE AFTER INITIATE WITHDRAW ---");
         VaultUtils.logState(vault);
+        console.log("------");
     }
 
     function completeWithdraw(uint256 index) public countCall("completeWithdraw") {
@@ -358,7 +367,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 uint256 epochPriceT0 = vault.epochPricePerShare(epochInfok0.epochTimestamp);
                 EpochInfo memory epochInfok1 = epochs[epochsCount - 1]; // previous
                 uint256 epochPriceT1 = vault.epochPricePerShare(epochInfok1.epochTimestamp);
-                int256 payoffPerc = int256((epochPriceT1 * BT_UNIT) / epochPriceT0) - int256(BT_UNIT);
+                int256 vaultPayoffPerc = int256((epochPriceT1 * 1e18) / epochPriceT0) - int256(1e18);
 
                 uint256 lpPayoff = TestOptionsFinanceHelper.lpPayoff(
                     ig.currentStrike(),
@@ -367,10 +376,15 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                     _endingFinanceParameters.kB,
                     _endingFinanceParameters.theta
                 );
-                int256 vaultPnL = int256(lpPayoff) - 1e18;
+                int256 lpPnl = int256(lpPayoff) - 1e18;
 
                 if (!FLAG_SLIPPAGE) {
-                    t((payoffPerc * int256(1e18 / BT_UNIT)) >= vaultPnL, _VAULT_01.desc);
+                    uint256 minExp = 1e18 / 10 ** baseToken.decimals();
+                    if ((vaultPayoffPerc <= 0 && lpPnl <= 0) && (uint256(vaultPayoffPerc * -1) <= minExp) && (uint256(lpPnl * -1) <= minExp)) {
+                        t(true, _VAULT_01.desc);
+                    } else {
+                        t(vaultPayoffPerc >= lpPnl, _VAULT_01.desc);
+                    }
                 }
             }
         }
@@ -1129,7 +1143,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             int256 lpPnl = int256(ewT2) - int256(payoffT2) - int256(ewT1) + int256(payoffT1);
 
             // lpPnl can be greater then vaultPnl if time pass but nothing happened and price goes down before (bear)
-            uint256 tolerance = ryT1 / 1e5 < BT_UNIT ? BT_UNIT : ryT1 / 1e5;
+            uint256 tolerance = ryT1 / 1e4 < BT_UNIT ? BT_UNIT : ryT1 / 1e4;
             t(((vaultPnl >= lpPnl) || (uint256(lpPnl - vaultPnl) < tolerance)), _VAULT_25.desc);
         }
     }

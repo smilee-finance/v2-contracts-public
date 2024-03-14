@@ -17,11 +17,4 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     function setUp() public {
         setup();
     }
-
-
-    function test_1_PNL() public {
-        buyBear(25594761466615067723917843399431405630230702421339494310173673432928692439);
-        console.log("XIOPERA");
-        sellBear(94149982639231147751855758656374997029546682337793962531451913699, 94149982639231147751855758656374997029546682337793962531451913699);
-    }
 }

@@ -42,6 +42,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         _;
     }
 
+    string INVARIANT_PNL = "PNL CAN NEVER BE GREATER THAN ZERO IF PRICE DOESN'T CHANGE AND TIME DOESN'T PASS";
+
     //----------------------------------------------
     // USER OPs.
     //----------------------------------------------
@@ -223,10 +225,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         );
 
         uint256 currentTimestamp = block.timestamp;
-        if (msg.sender == USER1 && currentTimestamp == buyInfo_.timestamp && _getTokenPrice(vault.sideToken()) == buyInfo_.buyTokenPrice) {
+        // User PnL can never be greater than 0 if price doesn't change and time doesn't pass
+        if (buyInfo_.recipient == USER1 && currentTimestamp == buyInfo_.timestamp && _getTokenPrice(vault.sideToken()) == buyInfo_.buyTokenPrice) {
             _checkPnL();
         }
-
         return payoff;
     }
 
@@ -247,6 +249,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
     function _checkPnL() internal {
         uint256 balance = baseToken.balanceOf(USER1);
-        t(int256(USER1_INITIAL_BALANCE - balance) <= 0, "PANPROG");
+        t(int256(balance) - int256(USER1_INITIAL_BALANCE) <= 0, INVARIANT_PNL);
     }
 }

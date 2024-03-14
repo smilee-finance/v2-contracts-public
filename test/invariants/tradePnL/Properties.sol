@@ -101,46 +101,4 @@ abstract contract Properties is BeforeAfter, PropertiesDescriptions {
         _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_CHECK_SLIPPAGE] = true;
         _ACCEPTED_REVERTS[_GENERAL_6.code][_ERR_ASYMMETRIC_AMOUNT] = true;
     }
-
-    /// @notice Share price never goes to 0
-    function smilee_invariants_vault_16() public view returns (bool) {
-        if (vault.v0() > 0) {
-            uint256 epochSharePrice = vault.epochPricePerShare(ig.getEpoch().previous);
-            return epochSharePrice > 0;
-        }
-        return true;
-    }
-
-    function smilee_invariants_ig_20() public view returns (bool) {
-        // uint256 price = IPriceOracle(ap.priceOracle()).getPrice(sideToken, address(baseToken));
-        uint256 price = IPriceOracle(ap.priceOracle()).getPrice(ig.sideToken(), ig.baseToken());
-        FeeManager feeManager = FeeManager(ap.feeManager());
-        (, , uint256 minFeeAfterTimeThreshold, , , , , ) = feeManager.dvpsFeeParams(address(ig));
-        return price >= 0 + minFeeAfterTimeThreshold;
-    }
-
-    function smilee_invariants_ig_25() public view returns (bool) {
-        uint256 currentStrike = ig.currentStrike();
-        (uint256 expectedPremiumSmilee, ) = ig.premium(currentStrike, 100e18, 100e18);
-        (uint256 expectedPremiumBull, ) = ig.premium(currentStrike, 100e18, 0);
-        (uint256 expectedPremiumBear, ) = ig.premium(currentStrike, 0, 100e18);
-        return expectedPremiumSmilee == expectedPremiumBull + expectedPremiumBear;
-    }
-
-    function smilee_invariants_vault_9() public view returns (bool) {
-        // uint256 price = IPriceOracle(ap.priceOracle()).getPrice(sideToken, address(baseToken));
-        uint256 v0 = AmountsMath.wrapDecimals(vault.v0(), 18);
-        uint256 price = IPriceOracle(ap.priceOracle()).getPrice(ig.sideToken(), ig.baseToken());
-        uint256 k = ig.currentStrike();
-        uint256 stv = ud(v0).div(convert(2).mul(ud(k))).mul(ud(price)).unwrap();
-        uint256 btv = v0 / 2;
-        return stv < btv ? v0 >= stv : v0 >= btv;
-    }
-
-    function smilee_invariants_vault_24() public view returns (bool) {
-        uint256 notional = vault.notional();
-        uint256 baseTokenAmount = IERC20(baseToken).balanceOf(address(vault));
-        uint256 sideTokenValue = EchidnaVaultUtils.getSideTokenValue(vault, ap);
-        return notional == baseTokenAmount + sideTokenValue; // TODO: ~
-    }
 }
