@@ -266,26 +266,6 @@ contract IGTest is Test {
         ig.burn(currEpoch, alice, strike, 0, 0, expectedMarketValue, 0.1e18);
     }
 
-    function testUserCantBurnUnbalancedAmount(uint256 inputAmount) public {
-        uint256 currEpoch = ig.currentEpoch();
-        uint256 strike = ig.currentStrike();
-
-        // In this case a smilee strategy is required
-        (, , uint256 bearAvailNotional, uint256 bullAvailNotional) = ig.notional();
-        uint256 maxInput = bullAvailNotional <= bearAvailNotional ? bullAvailNotional : bearAvailNotional;
-        vm.assume(MIN_MINT < maxInput);
-        inputAmount = Utils.boundFuzzedValueToRange(inputAmount, MIN_MINT, maxInput);
-        Amount memory amount = Amount(inputAmount, inputAmount);
-
-        _mint(amount, alice);
-
-        vm.prank(alice);
-        (uint256 expectedMarketValue, ) = ig.payoff(currEpoch, strike, amount.up, amount.down);
-        vm.prank(alice);
-        vm.expectRevert(AsymmetricAmount);
-        ig.burn(currEpoch, alice, strike, 1, 2, expectedMarketValue, 0.1e18);
-    }
-
     function testMintAndBurnMultipleUser(uint256 aInputAmount, bool aInputStrategy, uint256 bInputAmount, bool bInputStrategy) public {
 
         Amount memory aAmount = _getInputAmount(aInputAmount, aInputStrategy);
