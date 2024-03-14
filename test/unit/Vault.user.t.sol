@@ -1198,7 +1198,7 @@ contract VaultUserTest is Test {
         vm.assume(secondWithdraw > 0);
         vm.assume(secondWithdraw <= type(uint128).max);
         vm.assume(firstWithdraw + secondWithdraw <= totalShares -  10**baseToken.decimals());
-        
+
 
         vm.prank(admin);
         baseToken.mint(user, totalShares);
@@ -1688,7 +1688,7 @@ contract VaultUserTest is Test {
         vm.assume(sharesToWithdraw < totalDeposit);
         vm.assume(totalDeposit - sharesToWithdraw > 10**baseToken.decimals());
 
-        
+
 
         // User deposit (and later withdraw) a given amount
         vm.prank(admin);
@@ -2014,4 +2014,156 @@ contract VaultUserTest is Test {
 
     // [TBD] test complete withdraw when the liquidity is set aside for payoffs
 
+
+    // Test exchanging shares does not damage the vault totalDeposit counter when receiver withdraws
+    function testSharesExchange(uint256 deposit, uint256 sharesToWithdraw) public {
+        uint256 baseAmount = _firstDeposit();
+
+        deposit = Utils.boundFuzzedValueToRange(deposit, 1, vault.maxDeposit() - baseAmount);
+        sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, deposit);
+
+        address depositor = address(0x10000);
+        address secondWallet = address(0x20000);
+
+        _deposit(depositor, deposit);
+        _roll();
+        _transferShares(depositor, secondWallet);
+
+        vm.prank(secondWallet);
+        vault.initiateWithdraw(sharesToWithdraw);
+
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+
+        (uint256 depositorShares, uint256 depositorUnredeemedShares) = vault.shareBalances(depositor);
+        (uint256 secondWalletShares, uint256 secondWalletUnredeemedShares) = vault.shareBalances(secondWallet);
+        assertEq(0, depositorShares);
+        assertEq(0, depositorUnredeemedShares);
+        assertEq(deposit - sharesToWithdraw, secondWalletShares);
+        assertEq(0, secondWalletUnredeemedShares);
+        assertEq(deposit - sharesToWithdraw, vault.balanceOf(secondWallet));
+        assertEq(sharesToWithdraw, vault.balanceOf(address(vault)) - baseAmount);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(sharesToWithdraw, state.withdrawals.newHeldShares);
+        assertEq(0, state.liquidity.pendingWithdrawals);
+        assertEq(deposit - sharesToWithdraw, state.liquidity.totalDeposit - baseAmount);
+
+        (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(secondWallet);
+        assertEq(vault.getEpoch().current, epoch);
+        assertEq(sharesToWithdraw, withdrawalShares);
+    }
+
+    // Test exchanging shares does not damage the vault totalDeposit counter when receiver withdraws after share price changes
+    function testSharesExchangePriceChange(uint256 deposit, uint256 sharesToWithdraw, uint256 tokenPrice) public {
+        uint256 baseAmount = _firstDeposit();
+
+        deposit = Utils.boundFuzzedValueToRange(deposit, 2, vault.maxDeposit() - baseAmount);
+        sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, deposit / 2);
+        tokenPrice = Utils.boundFuzzedValueToRange(sharesToWithdraw, 0.0001e18, 1000e18);
+
+        address depositor = address(0x10000);
+        address secondWallet = address(0x20000);
+
+        _deposit(depositor, deposit);
+        _roll();
+        _transferShares(depositor, secondWallet);
+
+        vm.prank(secondWallet);
+        vault.initiateWithdraw(sharesToWithdraw);
+
+        VaultLib.VaultState memory state = VaultUtils.getState(vault);
+
+        (uint256 depositorShares, uint256 depositorUnredeemedShares) = vault.shareBalances(depositor);
+        (uint256 secondWalletShares, uint256 secondWalletUnredeemedShares) = vault.shareBalances(secondWallet);
+        assertEq(0, depositorShares);
+        assertEq(0, depositorUnredeemedShares);
+        assertEq(deposit - sharesToWithdraw, secondWalletShares);
+        assertEq(0, secondWalletUnredeemedShares);
+        assertEq(deposit - sharesToWithdraw, vault.balanceOf(secondWallet));
+        assertEq(sharesToWithdraw, vault.balanceOf(address(vault)) - baseAmount);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(sharesToWithdraw, state.withdrawals.newHeldShares);
+        assertEq(0, state.liquidity.pendingWithdrawals);
+        assertEq(deposit - sharesToWithdraw, state.liquidity.totalDeposit - baseAmount);
+
+        {
+            (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(secondWallet);
+            assertEq(vault.getEpoch().current, epoch);
+            assertEq(sharesToWithdraw, withdrawalShares);
+        }
+
+        _changeTokenPrice(tokenPrice);
+        _roll();
+
+        vm.prank(secondWallet);
+        vault.completeWithdraw();
+
+        uint256 secondWithdraw = sharesToWithdraw;
+        if (secondWithdraw > 0) {
+            vm.prank(secondWallet);
+            vault.initiateWithdraw(secondWithdraw);
+        }
+
+        state = VaultUtils.getState(vault);
+        (secondWalletShares, secondWalletUnredeemedShares) = vault.shareBalances(secondWallet);
+        assertEq(deposit - 2 * sharesToWithdraw, secondWalletShares);
+        assertEq(0, secondWalletUnredeemedShares);
+        assertEq(deposit - 2 * sharesToWithdraw, vault.balanceOf(secondWallet));
+        assertEq(secondWithdraw, vault.balanceOf(address(vault)) - baseAmount);
+        assertEq(0, state.withdrawals.heldShares);
+        assertEq(secondWithdraw, state.withdrawals.newHeldShares);
+        assertEq(0, state.liquidity.pendingWithdrawals);
+        assertEq(deposit - 2 * sharesToWithdraw, state.liquidity.totalDeposit - baseAmount);
+
+        {
+            if (secondWithdraw > 0) {
+                (uint256 epoch, uint256 withdrawalShares) = vault.withdrawals(secondWallet);
+                assertEq(vault.getEpoch().current, epoch);
+                assertEq(secondWithdraw, withdrawalShares);
+            }
+        }
+
+    }
+
+    function _changeTokenPrice(uint256 price) private {
+        vm.prank(admin);
+        priceOracle.setTokenPrice(address(sideToken), price);
+    }
+
+    function _transferShares(address from, address to) private {
+        vm.startPrank(from);
+        (, uint256 toRedeem) = vault.shareBalances(from);
+        vault.redeem(toRedeem);
+        vault.transfer(to, vault.balanceOf(from));
+        vm.stopPrank();
+    }
+
+    function _deposit(address depositor, uint256 amount) private {
+        vm.prank(admin);
+        baseToken.mint(depositor, amount);
+
+        vm.startPrank(depositor);
+        baseToken.approve(address(vault), amount);
+        vault.deposit(amount, depositor, 0);
+        vm.stopPrank();
+    }
+
+    function _firstDeposit() private returns (uint256) {
+        uint256 btUnit = 10 ** baseToken.decimals();
+        address firstDepositor = address(0x123456789);
+
+        vm.prank(admin);
+        baseToken.mint(firstDepositor, btUnit);
+
+        vm.startPrank(firstDepositor);
+        baseToken.approve(address(vault), btUnit);
+        vault.deposit(btUnit, firstDepositor, 0);
+        vm.stopPrank();
+        return btUnit;
+    }
+
+    function _roll() private {
+        vm.warp(vault.getEpoch().current + 1);
+        vm.prank(admin);
+        vault.rollEpoch();
+    }
 }

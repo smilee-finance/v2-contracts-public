@@ -389,17 +389,17 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     function shareBalances(address account) public view returns (uint256 heldByAccount, uint256 heldByVault) {
         VaultLib.DepositReceipt memory depositReceipt = depositReceipts[account];
 
-        if (depositReceipt.epoch == 0) {
-            return (0, 0);
-        }
-
         heldByAccount = balanceOf(account);
 
-        heldByVault = depositReceipt.getSharesFromReceipt(
-            getEpoch().current,
-            epochPricePerShare[depositReceipt.epoch],
-            _shareDecimals
-        );
+        if (depositReceipt.epoch == 0) {
+            heldByVault = 0;
+        } else {
+            heldByVault = depositReceipt.getSharesFromReceipt(
+                getEpoch().current,
+                epochPricePerShare[depositReceipt.epoch],
+                _shareDecimals
+            );
+        }
     }
 
     /**
@@ -463,7 +463,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _redeem(0, true);
         // NOTE: since we made a 'redeem all', from now on all the user's shares are owned by him.
         uint256 userShares = balanceOf(msg.sender);
-
         if (isMax) {
             shares = userShares;
         }
@@ -592,12 +591,8 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     }
 
     /// @inheritdoc ERC20
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal view override {
-        amount;
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
+        // amount;
         // NOTE: either mint or burn
         if (from == address(0) || to == address(0)) {
             return;
@@ -608,26 +603,27 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             return;
         }
 
-        revert TransferNotAllowed();
+        // revert TransferNotAllowed();
 
-        // /**
-        //  * As user may transfer their shares, we need to fix the accounting
-        //  * used to adjust state.liquidity.totalDeposit when a user
-        //  * initiate a withdrawal request.
-        //  */
-        // VaultLib.DepositReceipt storage fromDepositReceipt = depositReceipts[from];
+        /**
+         * As user may transfer their shares, we need to fix the accounting
+         * used to adjust state.liquidity.totalDeposit when a user
+         * initiate a withdrawal request.
+         */
+        VaultLib.DepositReceipt storage fromDepositReceipt = depositReceipts[from];
 
-        // uint256 userDeposits = fromDepositReceipt.cumulativeAmount;
-        // if (fromDepositReceipt.epoch == getEpoch().current) {
-        //     userDeposits -= fromDepositReceipt.amount;
-        // }
-        // (uint256 heldByAccount, uint256 heldByVault) = shareBalances(from);
-        // uint256 amountEquivalent = (userDeposits * amount) / (heldByAccount + heldByVault);
+        uint256 userDeposits = fromDepositReceipt.cumulativeAmount;
+        if (fromDepositReceipt.epoch == getEpoch().current) {
+            userDeposits -= fromDepositReceipt.amount;
+        }
 
-        // fromDepositReceipt.cumulativeAmount -= amountEquivalent;
+        (uint256 heldByAccount, uint256 heldByVault) = shareBalances(from);
+        uint256 amountEquivalent = (userDeposits * amount) / (heldByAccount + heldByVault);
 
-        // VaultLib.DepositReceipt storage toDepositReceipt = depositReceipts[to];
-        // toDepositReceipt.cumulativeAmount += amountEquivalent;
+        fromDepositReceipt.cumulativeAmount -= amountEquivalent;
+
+        VaultLib.DepositReceipt storage toDepositReceipt = depositReceipts[to];
+        toDepositReceipt.cumulativeAmount += amountEquivalent;
     }
 
     // ------------------------------------------------------------------------
