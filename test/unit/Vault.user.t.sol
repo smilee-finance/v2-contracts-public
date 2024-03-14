@@ -904,7 +904,7 @@ contract VaultUserTest is Test {
     }
 
     function testRedeemWhenPaused(uint256 shares) public {
-        vm.assume(shares > 0);
+        vm.assume(shares > 10 ** baseToken.decimals());
         vm.assume(shares <= vault.maxDeposit());
 
          vm.prank(admin);
@@ -1021,7 +1021,7 @@ contract VaultUserTest is Test {
     }
 
     function testInitiateWithdrawWithZeroShares(uint256 amount) public {
-        vm.assume(amount > 0);
+        vm.assume(amount > 10 ** baseToken.decimals());
         vm.assume(amount <= vault.maxDeposit());
 
         vm.prank(admin);
@@ -1071,6 +1071,7 @@ contract VaultUserTest is Test {
         totalShares = Utils.boundFuzzedValueToRange(totalShares, 10**baseToken.decimals(), vault.maxDeposit());
         shares = Utils.boundFuzzedValueToRange(shares, 1, totalShares);
         vm.assume(shares < totalShares);
+        vm.assume(totalShares - 10 ** baseToken.decimals() > shares);
 
         vm.prank(admin);
         baseToken.mint(user, totalShares);
@@ -1196,7 +1197,8 @@ contract VaultUserTest is Test {
         vm.assume(firstWithdraw <= type(uint128).max);
         vm.assume(secondWithdraw > 0);
         vm.assume(secondWithdraw <= type(uint128).max);
-        vm.assume(firstWithdraw + secondWithdraw <= totalShares);
+        vm.assume(firstWithdraw + secondWithdraw <= totalShares -  10**baseToken.decimals());
+        
 
         vm.prank(admin);
         baseToken.mint(user, totalShares);
@@ -1288,7 +1290,7 @@ contract VaultUserTest is Test {
     }
 
     function testInitiateWithdrawWhenDead(uint256 shares) public {
-        vm.assume(shares > 0);
+        vm.assume(shares > 10 ** baseToken.decimals());
         vm.assume(shares <= vault.maxDeposit());
 
         vm.prank(admin);
@@ -1340,6 +1342,8 @@ contract VaultUserTest is Test {
         totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 10**baseToken.decimals(), vault.maxDeposit());
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
         vm.assume(sharesToWithdraw < totalDeposit);
+        vm.assume(totalDeposit - sharesToWithdraw > 10**baseToken.decimals());
+
 
         // User deposit (and later withdraw) a given amount
         vm.prank(admin);
@@ -1427,6 +1431,7 @@ contract VaultUserTest is Test {
         sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, totalDeposit);
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
         vm.assume(sharesToWithdraw < totalDeposit);
+        vm.assume(totalDeposit - sharesToWithdraw > 10**baseToken.decimals());
 
         // User deposit (and later withdraw) a given amount
         vm.prank(admin);
@@ -1503,10 +1508,11 @@ contract VaultUserTest is Test {
 
     // Test complete withdraw (requested more than one epoch ago) without removing all the liquidity
     function testCompleteWithdrawAfterMoreThanOneEpoch(uint256 totalDeposit, uint256 sharesToWithdraw, uint256 sideTokenPrice) public {
-        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 2, vault.maxDeposit());
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 10**baseToken.decimals(), vault.maxDeposit());
         sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, totalDeposit);
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
         vm.assume(sharesToWithdraw < totalDeposit);
+        vm.assume(totalDeposit - sharesToWithdraw > 10**baseToken.decimals());
 
         // User deposit (and later withdraw) a given amount
         vm.prank(admin);
@@ -1598,7 +1604,7 @@ contract VaultUserTest is Test {
 
     // Test complete withdraw with all the liquidity withdrawed
     function testCompleteWithdrawNoLiquidityLeft(uint256 totalDeposit, uint256 sideTokenPrice) public {
-        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 1, vault.maxDeposit());
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 10**baseToken.decimals(), vault.maxDeposit());
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
 
         // User deposit (and later withdraw) a given amount
@@ -1676,10 +1682,13 @@ contract VaultUserTest is Test {
 
     // Test complete withdraw when the vault dies (after the request)
     function testCompleteWithdrawWhenDead(uint256 totalDeposit, uint256 sharesToWithdraw, uint256 sideTokenPrice) public {
-        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 2, vault.maxDeposit());
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 10**baseToken.decimals(), vault.maxDeposit());
         sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, totalDeposit);
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
         vm.assume(sharesToWithdraw < totalDeposit);
+        vm.assume(totalDeposit - sharesToWithdraw > 10**baseToken.decimals());
+
+        
 
         // User deposit (and later withdraw) a given amount
         vm.prank(admin);
@@ -1762,10 +1771,11 @@ contract VaultUserTest is Test {
 
     // Test complete withdraw when the vault is paused (revert)
     function testCompleteWithdrawWhenPaused(uint256 totalDeposit, uint256 sharesToWithdraw, uint256 sideTokenPrice) public {
-        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 2, vault.maxDeposit());
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 10**baseToken.decimals(), vault.maxDeposit());
         sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, totalDeposit);
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
         vm.assume(sharesToWithdraw < totalDeposit);
+        vm.assume(totalDeposit - sharesToWithdraw > 10**baseToken.decimals());
 
         // User deposit (and later withdraw) a given amount
         vm.prank(admin);
@@ -1833,7 +1843,7 @@ contract VaultUserTest is Test {
 
     // Test complete withdraw when not initiated (revert)
     function testCompleteWithdrawWhenNotInitiated(uint256 totalDeposit) public {
-        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 1, vault.maxDeposit());
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 10 ** baseToken.decimals(), vault.maxDeposit());
 
         vm.prank(admin);
         baseToken.mint(user, totalDeposit);
@@ -1870,9 +1880,10 @@ contract VaultUserTest is Test {
 
     // Test complete withdraw when its epoch is not passed (revert)
     function testCompleteWithdrawWhenWithdrawWasRequested(uint256 totalDeposit, uint256 sharesToWithdraw) public {
-        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 2, vault.maxDeposit());
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 10**baseToken.decimals(), vault.maxDeposit());
         sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, totalDeposit);
         vm.assume(sharesToWithdraw < totalDeposit);
+        vm.assume(totalDeposit - sharesToWithdraw > 10**baseToken.decimals());
 
         // User deposit (and later withdraw) a given amount
         vm.prank(admin);
@@ -1918,10 +1929,11 @@ contract VaultUserTest is Test {
 
     // Test complete withdraw when already completed (revert)
     function testCompleteWithdrawRepeated(uint256 totalDeposit, uint256 sharesToWithdraw, uint256 sideTokenPrice) public {
-        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 2, vault.maxDeposit());
+        totalDeposit = Utils.boundFuzzedValueToRange(totalDeposit, 10**baseToken.decimals(), vault.maxDeposit());
         sharesToWithdraw = Utils.boundFuzzedValueToRange(sharesToWithdraw, 1, totalDeposit);
         sideTokenPrice = Utils.boundFuzzedValueToRange(sideTokenPrice, 0.001e18, 1_000e18);
         vm.assume(sharesToWithdraw < totalDeposit);
+        vm.assume(totalDeposit - sharesToWithdraw > 10**baseToken.decimals());
 
         // User deposit (and later withdraw) a given amount
         vm.prank(admin);

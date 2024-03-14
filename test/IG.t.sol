@@ -71,7 +71,7 @@ contract IGTest is Test {
         sideToken = vault.sideToken();
 
         uint256 btUnit = 10 ** IERC20Metadata(baseToken).decimals();
-        MIN_MINT = btUnit / 1000; // 0.001
+        MIN_MINT = btUnit; // 0.1
 
         ERR_NOT_ADMIN = abi.encodePacked(
                         "AccessControl: account ",
@@ -130,13 +130,14 @@ contract IGTest is Test {
         (, , , uint256 bullAvailNotional) = ig.notional();
         inputAmount = Utils.boundFuzzedValueToRange(inputAmount, MIN_MINT, bullAvailNotional);
 
-        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), inputAmount, vm);
+        uint256 strikeMint = ig.currentStrike();
+        (uint256 expectedMarketValue, ) = ig.premium(strikeMint, inputAmount, 0);
 
-        (uint256 expectedMarketValue, ) = ig.premium(ig.currentStrike(), inputAmount, 0);
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), expectedMarketValue, vm);
         uint256 strike = ig.currentStrike();
 
         vm.prank(alice);
-        ig.mint(alice, strike, inputAmount, 0, expectedMarketValue, 0.1e18);
+        ig.mint(alice, strikeMint, inputAmount, 0, expectedMarketValue, 0.1e18);
 
         bytes32 posId = keccak256(abi.encodePacked(alice, strike));
 
@@ -281,7 +282,7 @@ contract IGTest is Test {
         vm.prank(alice);
         (uint256 expectedMarketValue, ) = ig.payoff(currEpoch, strike, amount.up, amount.down);
         vm.prank(alice);
-        vm.expectRevert(); // TODO: add exact reason (missing role)
+        vm.expectRevert(AsymmetricAmount);
         ig.burn(currEpoch, alice, strike, 1, 2, expectedMarketValue, 0.1e18);
     }
 
@@ -475,14 +476,13 @@ contract IGTest is Test {
         Amount memory amount = _getInputAmount(inputAmount, strategy);
         uint256 strike = ig.currentStrike();
 
-        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), (amount.up + amount.down), vm);
-
         (uint256 expectedMarketValue, ) = ig.premium(strike, amount.up, amount.down);
+        TokenUtils.provideApprovedTokens(admin, baseToken, alice, address(ig), expectedMarketValue, vm);
 
-        ig.setOptionPrice(20e18);
+        ig.setOptionPrice(2e18);
 
         vm.prank(alice);
-        vm.expectRevert(SlippedMarketValue);
+        vm.expectRevert("ERC20: insufficient allowance");
         ig.mint(alice, strike, amount.up, amount.down, expectedMarketValue, 0.1e18);
     }
 

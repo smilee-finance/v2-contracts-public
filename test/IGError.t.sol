@@ -140,10 +140,10 @@ contract IGErrorTest is Test {
         vm.prank(charlie);
         ig.mint(charlie, 2000e18, 0, 15e18, premium_, 0.1e18);
 
-        (premium_, ) = _assurePremium(charlie, 2000e18, 15e18, 0);
+        (premium_, ) = _assurePremium(charlie, 2000e18, 2000e18, 0);
 
         vm.prank(charlie);
-        ig.mint(charlie, 2000e18, 15e18, 0, premium_, 0.1e18);
+        ig.mint(charlie, 2000e18, 2000e18, 0, premium_, 0.1e18);
     }
 
     /**
