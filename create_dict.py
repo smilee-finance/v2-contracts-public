@@ -33,5 +33,5 @@ for k in scripts.keys():
         f.close()
 
 
-with open("out/addresses.json", "w") as outfile:
+with open(f"out/addresses-{chainid}.json", "w") as outfile:
     json.dump(contracts, outfile, indent=4)

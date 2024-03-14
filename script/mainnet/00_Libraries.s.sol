@@ -69,6 +69,17 @@ contract LibraryDeployer {
         FinanceIGDelta.bullDelta(0, 0, 0, 0);
         FinanceIGPayoff.igPayoffInRange(100000, 2);
         FinanceIGPrice.d1Parts(1, 2, 3);
+        FinanceIGPrice.Parameters memory vegaParams = FinanceIGPrice.Parameters({
+            r: 0.1e18,
+            sigma: 0.5e18,
+            k: 2e18,
+            s: 2e18,
+            tau: 0.5e18,
+            ka: 1.9e18,
+            kb: 2.1e18,
+            theta: 0.5e18
+        });
+        FinanceIGVega.igVega(vegaParams, 100e18);
         notionalInfo.setInitial(123, amountOne);
         Position.getID(address(this), 1);
         SignedMath.castInt(1);

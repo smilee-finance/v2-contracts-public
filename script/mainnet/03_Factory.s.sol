@@ -111,7 +111,7 @@ contract DeployDVP is EnhancedScript {
         Vault vault = Vault(vaultAddr);
 
         vault.setAllowedDVP(dvpAddr);
-        // vault.setPriorityAccessFlag(true);
+        vault.setPriorityAccessFlag(true);
         if (!_deployerIsAdmin) {
             vault.renounceRole(vault.ROLE_ADMIN(), _deployerAddress);
         }
@@ -178,9 +178,27 @@ contract DeployDVP is EnhancedScript {
         return address(vault);
     }
 
-    function setDVPSuccessFee(address dvp, uint256 fee) {
-        FeeManager.FeeParams memory params = _feeManager.dvpsFeeParams(dvp);
-        params.successFeeTier = fee;
+    function setDVPSuccessFee(address dvp, uint256 fee) public {
+        (
+            uint256 timeToExpiryThreshold,
+            uint256 minFeeBeforeTimeThreshold,
+            uint256 minFeeAfterTimeThreshold,
+            ,
+            uint256 feePercentage,
+            uint256 capPercentage,
+            uint256 maturityFeePercentage,
+            uint256 maturityCapPercentage
+        ) = _feeManager.dvpsFeeParams(dvp);
+        FeeManager.FeeParams memory params = FeeManager.FeeParams({
+            timeToExpiryThreshold: timeToExpiryThreshold,
+            minFeeBeforeTimeThreshold: minFeeBeforeTimeThreshold,
+            minFeeAfterTimeThreshold: minFeeAfterTimeThreshold,
+            successFeeTier: fee,
+            feePercentage: feePercentage,
+            capPercentage: capPercentage,
+            maturityFeePercentage: maturityFeePercentage,
+            maturityCapPercentage: maturityCapPercentage
+        });
         _feeManager.setDVPFee(dvp, params);
     }
 
