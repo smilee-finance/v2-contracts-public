@@ -31,8 +31,8 @@ contract AccessTokenOps is EnhancedScript {
         // Load the private key that will be used for signing the transactions:
         _adminPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
 
-        // string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
-        _ap = AddressProvider(0xF2e173B3467D950c4117A1E452A2835A52e55764);
+        string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
+        _ap = AddressProvider(_readAddress(txLogs, "AddressProvider"));
     }
 
     function run() external view {
@@ -83,4 +83,14 @@ contract AccessTokenOps is EnhancedScript {
         pm.setNftAccessFlag(value);
         vm.stopBroadcast();
     }
+
+    function grantVaultAccessWithLimit(address user, uint256 limit) public {
+        VaultAccessNFT vaultAccessNFT = VaultAccessNFT(_ap.vaultAccessNFT());
+        limit = limit * 10**6;
+
+        vm.startBroadcast(_adminPrivateKey);
+        vaultAccessNFT.createToken(user, limit);
+        vm.stopBroadcast();
+    }
+
 }

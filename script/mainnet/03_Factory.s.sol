@@ -48,6 +48,9 @@ contract DeployDVP is EnhancedScript {
     FeeManager internal _feeManager;
     IRegistry internal _registry;
 
+    address internal _dvpAddr;
+    address internal _vaultAddr;
+
     constructor() {
         // Load the private key that will be used for signing the transactions:
         _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
@@ -131,6 +134,8 @@ contract DeployDVP is EnhancedScript {
 
         console.log("DVP deployed at", dvpAddr);
         console.log("Vault deployed at", vaultAddr);
+        _dvpAddr = dvpAddr;
+        _vaultAddr = vaultAddr;
 
         //----------------
 
@@ -179,6 +184,7 @@ contract DeployDVP is EnhancedScript {
     }
 
     function setDVPSuccessFee(address dvp, uint256 fee) public {
+        vm.startBroadcast(_adminPrivateKey);
         (
             uint256 timeToExpiryThreshold,
             uint256 minFeeBeforeTimeThreshold,
@@ -200,6 +206,7 @@ contract DeployDVP is EnhancedScript {
             maturityCapPercentage: maturityCapPercentage
         });
         _feeManager.setDVPFee(dvp, params);
+        vm.stopBroadcast();
     }
 
     function setDVPFee(
@@ -253,6 +260,14 @@ contract DeployDVP is EnhancedScript {
         vm.stopBroadcast();
     }
 
+    function setVaultMaxDeposit(address vaultAddr, uint256 tvl) public {
+        vm.startBroadcast(_adminPrivateKey);
+        Vault vault = Vault(vaultAddr);
+        tvl = tvl * 10 ** vault.decimals();
+        vault.setMaxDeposit(tvl);
+        vm.stopBroadcast();
+    }
+
     function useOnchainImpliedVolatility(address igAddress) public {
         vm.startBroadcast(_adminPrivateKey);
         _useOnchainImpliedVolatility(igAddress);
@@ -279,4 +294,22 @@ contract DeployDVP is EnhancedScript {
             useOracleImpliedVolatility: igParams.useOracleImpliedVolatility.get()
         });
     }
+
+    // // ARBITRUM MAINNET:
+    // function runConfiguration() public {
+    //     // // USDC / WETH
+    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, 604800, 10800);
+    //     setVaultMaxDeposit(_vaultAddr, 1200000);
+    //     // USDC / ARB
+    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x912CE59144191C1204E64559FE8253a0e49E6548, 604800, 10800);
+    //     setVaultMaxDeposit(_vaultAddr, 450000);
+    //     setDVPSuccessFee(_dvpAddr, 0.05e18);
+    //     // // USDC / GMX
+    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a, 604800, 10800);
+    //     setVaultMaxDeposit(_vaultAddr, 150000);
+    //     setDVPSuccessFee(_dvpAddr, 0.05e18);
+    //     // // USDC / WBTC
+    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f, 604800, 10800);
+    //     setVaultMaxDeposit(_vaultAddr, 1200000);
+    // }
 }

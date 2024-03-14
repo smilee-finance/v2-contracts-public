@@ -101,4 +101,4 @@ Copy deployed addresses from `broadcast/00_Libraries.s.sol/<CHAIN_ID>/run-latest
 * `02_Token:setChainlinkPriceFeedForToken`: 0.000252908 ETH (`--legacy`)
 * `02_Token:useUniswapAdapterWithTokens`: 0.0004644136 ETH (`--legacy`)
 * `02_Token:setUniswapPath`: 0.000329508 ETH
-* `03_Factory:createIGMarket`: 0.021753528050732995 ETH
+* `03_Factory:createIGMarket`: 0.0107155216 ETH

@@ -78,15 +78,7 @@ contract DeployCoreFoundations is Script {
 
     function _deployMainContracts() internal {
         // Address provider:
-
-        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
-        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
-        console.log("Deploying address provider with 0 time lock ////////////////////////////////////////////////////");
-        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
-        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
-        AddressProvider ap = new AddressProvider(0);
-
-        // AddressProvider ap = new AddressProvider(1 days);
+        AddressProvider ap = new AddressProvider(1 days);
 
         ap.grantRole(ap.ROLE_GOD(), _godAddress);
         ap.grantRole(ap.ROLE_ADMIN(), _adminAddress);
@@ -96,11 +88,6 @@ contract DeployCoreFoundations is Script {
         }
 
         // Price oracle:
-
-        console.log("////////////////////////////////////////////////////////////////////////////////////////////////");
-        console.log("Deploying ChainlinkPriceOracle with 0 time lock ////////////////////////////////////////////////");
-        console.log("Change in contract if needed ///////////////////////////////////////////////////////////////////");
-
         ChainlinkPriceOracle priceOracle = new ChainlinkPriceOracle();
         priceOracle.grantRole(priceOracle.ROLE_GOD(), _godAddress);
         priceOracle.grantRole(priceOracle.ROLE_ADMIN(), _adminAddress);

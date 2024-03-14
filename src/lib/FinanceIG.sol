@@ -295,7 +295,7 @@ library FinanceIG {
         if (proposed.tradeVolatilityTimeDecay > 0.5e18) {
             revert OutOfAllowedRange();
         }
-        if (proposed.sigmaMultiplier < 0.01e18 || proposed.sigmaMultiplier > 10e18) {
+        if (proposed.sigmaMultiplier < 0.9e18 || proposed.sigmaMultiplier > 100e18) {
             revert OutOfAllowedRange();
         }
         if (proposed.volatilityPriceDiscountFactor < 0.5e18 || proposed.volatilityPriceDiscountFactor > 1.25e18) {
