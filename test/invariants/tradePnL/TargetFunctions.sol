@@ -53,7 +53,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         Amount memory amount_ = _boundBuyInput(_BULL, input);
         DVPUtils.logState(ig);
         console.log("** BUY BULL", amount_.up);
-        _buy(amount_, _BULL);
+        _buy(amount_);
     }
 
     function buyBear(uint256 input) public countCall("buyBear") {
@@ -61,7 +61,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         Amount memory amount_ = _boundBuyInput(_BEAR, input);
         DVPUtils.logState(ig);
         console.log("** BUY BEAR", amount_.down);
-        _buy(amount_, _BEAR);
+        _buy(amount_);
     }
 
     function buySmilee(uint256 input) public countCall("buySmilee") {
@@ -69,7 +69,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         Amount memory amount_ = _boundBuyInput(_SMILEE, input);
         DVPUtils.logState(ig);
         console.log("** BUY SMILEE");
-        _buy(amount_, _SMILEE);
+        _buy(amount_);
     }
 
     function sellBull(uint256 index, uint256 amount) public countCall("sellBull") {
@@ -169,7 +169,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
     // COMMON
     //----------------------------------------------
 
-    function _buy(Amount memory amount, uint8 buyType) internal returns (uint256) {
+    function _buy(Amount memory amount) internal returns (uint256) {
         console.log("*** AMOUNT UP", amount.up);
         console.log("*** AMOUNT DOWN", amount.down);
         console.log("*** TRADE TIME ELAPSED FROM EPOCH", block.timestamp - (ig.getEpoch().current - ig.getEpoch().frequency));

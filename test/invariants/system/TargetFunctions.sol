@@ -545,7 +545,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         console.log("maxPremium", maxPremium);
         console.log("ALLOWANCE", baseToken.allowance(msg.sender, address(ig)));
         hevm.prank(msg.sender);
-        try ig.mint(msg.sender, buyTokenPrice, amount.up, amount.down, expectedPremium, ACCEPTED_SLIPPAGE) returns (
+        try ig.mint(msg.sender, currentStrike, amount.up, amount.down, expectedPremium, ACCEPTED_SLIPPAGE) returns (
             uint256 _premium
         ) {
             premium = _premium;

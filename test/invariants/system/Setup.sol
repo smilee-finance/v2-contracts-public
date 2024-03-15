@@ -70,6 +70,14 @@ abstract contract Setup is Parameters {
         hevm.prank(admin);
         ig.setUseOracleImpliedVolatility(USE_ORACLE_IMPL_VOL);
 
+        bytes32 roleTrader = ig.ROLE_TRADER();
+        hevm.prank(admin);
+        ig.grantRole(roleTrader, USER1);
+        hevm.prank(admin);
+        ig.grantRole(roleTrader, USER2);
+        hevm.prank(admin);
+        ig.grantRole(roleTrader, USER3);
+
         MarketOracle marketOracle = MarketOracle(ap.marketOracle());
         uint256 frequency = ig.getEpoch().frequency;
         hevm.prank(admin);
