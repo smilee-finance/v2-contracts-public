@@ -77,7 +77,6 @@ contract IGTradeTest is Test {
         ig.grantRole(ig.ROLE_ADMIN(), admin);
         ig.grantRole(ig.ROLE_EPOCH_ROLLER(), admin);
         ig.grantRole(ig.ROLE_TRADER(), charlie);
-        ig.grantRole(ig.ROLE_TRADER(), david);
         vault.grantRole(vault.ROLE_ADMIN(), admin);
         vm.stopPrank();
         ig.setOptionPrice(1e3);
@@ -99,10 +98,14 @@ contract IGTradeTest is Test {
 
     // try to buy/sell ig bull below strike for user's profit
     // this will not be hedged, and thus the vault should lose funds
-    function test() public {
+    function test(uint256 price) public {
         _strike = 1e18;
         VaultUtils.addVaultDeposit(alice, 1e18, admin, address(vault), vm);
         VaultUtils.addVaultDeposit(bob, 1e18, admin, address(vault), vm);
+
+        price = Utils.boundFuzzedValueToRange(price, _strike, 2e18);
+        console.log("Attack price", price);
+        TokenUtils.provideApprovedTokens(admin, address(baseToken), charlie, address(ig), 100_000e18, vm);
 
         Utils.skipWeek(true, vm);
 
@@ -111,32 +114,34 @@ contract IGTradeTest is Test {
 
         VaultUtils.logState(vault);
         DVPUtils.logState(ig);
-
+        uint256 initialUserBaseTokenBalance = baseToken.balanceOf(charlie);
+        console.log("Initial user token balance", initialUserBaseTokenBalance);
         // increasing internal volatility cheaply
-        // testBuyOption(1e18, 0.5e18, 0);
-        // testSellOption(1.24e18, 0.5e18, 0);
+        testBuyOption(1e18, 1e18, 0);
+        testSellOption(price, 1e18, 0);
         for (uint i = 0; i < 100; i++) {
-            // testBuyOption(1.24e18, 0.5e18, 0);
-            testBuyOption(1.24e18, 0, 0.01e18); // increase volatility to raise premium
-            // testSellOption(1.24e18, 0.5e18, 0); // sell at increased premium
-            testSellOption(1.24e18, 0, 0.01e18); // sell at reduced premium, but the loss should be smaller in absolute value
+            testBuyOption(price, 0.5e18, 0);
+            testBuyOption(price, 0, 1e18); // increase volatility to raise premium
+            testSellOption(price, 0.5e18, 0); // sell at increased premium
+            testSellOption(price, 0, 1e18); // sell at reduced premium, but the loss should be smaller in absolute value
         }
-        // testBuyOption(1.24e18, 0.5e18, 0);
-        // testSellOption(1e18, 0.5e18, 0);
-
-        VaultUtils.logState(vault);
-        DVPUtils.logState(ig);
+        testBuyOption(price, 1e18, 0);
+        testSellOption(1e18, 1e18, 0);
 
         (uint256 btAmount, uint256 stAmount) = vault.balances();
-        console.log("base token notional", btAmount);
-        console.log("side token notional", stAmount);
+        uint256 finalUserBaseTokenBalance = baseToken.balanceOf(charlie);
+        console.log("Final user token balance", finalUserBaseTokenBalance);
+        console.log("Base token notional", btAmount);
+        console.log("Side token notional", stAmount);
+
+        assertGe(initialUserBaseTokenBalance, finalUserBaseTokenBalance);
     }
 
     function testBuyOption(uint price, uint128 optionAmountUp, uint128 optionAmountDown) internal {
         vm.prank(admin);
         priceOracle.setTokenPrice(address(sideToken), price);
 
-        (uint256 premium /* uint256 fee */, ) = _assurePremium(charlie, _strike, optionAmountUp, optionAmountDown);
+        (uint256 premium, ) = _assurePremium(charlie, _strike, optionAmountUp, optionAmountDown);
 
         vm.startPrank(charlie);
         premium = ig.mint(charlie, _strike, optionAmountUp, optionAmountDown, premium, 10e18);
@@ -153,7 +158,12 @@ contract IGTradeTest is Test {
         uint256 charliePayoffFee;
         {
             vm.startPrank(charlie);
-            (charliePayoff, charliePayoffFee) = ig.payoff(ig.currentEpoch(), _strike, optionAmountUp, optionAmountDown);
+            (charliePayoff, charliePayoffFee) = ig.payoff(
+                ig.currentEpoch(),
+                _strike,
+                optionAmountUp,
+                optionAmountDown
+            );
 
             charliePayoff = ig.burn(
                 ig.currentEpoch(),
@@ -175,8 +185,9 @@ contract IGTradeTest is Test {
         uint256 strike,
         uint256 amountUp,
         uint256 amountDown
-    ) private returns (uint256 premium_, uint256 fee) {
+    ) private view returns (uint256 premium_, uint256 fee) {
         (premium_, fee) = ig.premium(strike, amountUp, amountDown);
-        TokenUtils.provideApprovedTokens(admin, address(baseToken), user, address(ig), premium_ * 5, vm);
+        user;
+        // TokenUtils.provideApprovedTokens(admin, address(baseToken), user, address(ig), premium_*5, vm);
     }
 }
