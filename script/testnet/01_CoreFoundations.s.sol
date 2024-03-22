@@ -2,15 +2,18 @@
 pragma solidity ^0.8.15;
 
 import {Script} from "forge-std/Script.sol";
-import {AddressProvider} from "../../src/AddressProvider.sol";
-import {FeeManager} from "../../src/FeeManager.sol";
-import {MarketOracle} from "../../src/MarketOracle.sol";
-import {PositionManager} from "../../src/periphery/PositionManager.sol";
-import {Registry} from "../../src/periphery/Registry.sol";
-import {VaultProxy} from "../../src/periphery/VaultProxy.sol";
-import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
-import {TestnetSwapAdapter} from "../../src/testnet/TestnetSwapAdapter.sol";
-import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {FeeManager} from "@project/FeeManager.sol";
+import {MarketOracle} from "@project/MarketOracle.sol";
+import {IGAccessNFT} from "@project/periphery/IGAccessNFT.sol";
+import {PositionManager} from "@project/periphery/PositionManager.sol";
+import {Registry} from "@project/periphery/Registry.sol";
+import {VaultProxy} from "@project/periphery/VaultProxy.sol";
+import {VaultAccessNFT} from "@project/periphery/VaultAccessNFT.sol";
+import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
+import {TestnetSwapAdapter} from "@project/testnet/TestnetSwapAdapter.sol";
+import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 
 /*
     Reference: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -30,30 +33,58 @@ import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
 contract DeployCoreFoundations is Script {
     uint256 internal _deployerPrivateKey;
     address internal _deployerAddress;
-    address internal _adminMultiSigAddress;
+    address internal _godAddress;
+    address internal _adminAddress;
+    address internal _scheduler;
+    bool internal _deployerIsGod;
+    bool internal _deployerIsAdmin;
+
+    error ZeroAddress(string name);
 
     constructor() {
         // Load the private key that will be used for signing the transactions:
         _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         _deployerAddress = vm.envAddress("DEPLOYER_ADDRESS");
-        _adminMultiSigAddress = vm.envAddress("ADMIN_MULTI_SIG_ADDRESS");
+
+        _godAddress = vm.envAddress("GOD_ADDRESS");
+        _adminAddress = vm.envAddress("ADMIN_ADDRESS");
+        _scheduler = vm.envAddress("EPOCH_ROLLER_ADDRESS");
+
+        _deployerIsGod = (_deployerAddress == _godAddress);
+        _deployerIsAdmin = (_deployerAddress == _adminAddress);
     }
 
     // NOTE: this is the script entrypoint
     function run() external {
-        // The broadcast will records the calls and contract creations made and will replay them on-chain.
-        // For reference, the broadcast transaction logs will be stored in the broadcast directory.
+        _checkZeroAddress(_deployerAddress, "DEPLOYER_ADDRESS");
+        _checkZeroAddress(_godAddress, "GOD_ADDRESS");
+        _checkZeroAddress(_adminAddress, "ADMIN_ADDRESS");
+        _checkZeroAddress(_scheduler, "SCHEDULER");
+
         vm.startBroadcast(_deployerPrivateKey);
-        _doSomething();
+        _deployMainContracts();
         vm.stopBroadcast();
     }
 
-    function _doSomething() internal {
-        TestnetToken sUSD = new TestnetToken("Smilee USD", "sUSD");
+    function _checkZeroAddress(address addr, string memory name) internal pure {
+        if (addr == address(0)) {
+            revert ZeroAddress(name);
+        }
+    }
+
+    function _deployMainContracts() internal {
         AddressProvider ap = new AddressProvider(0);
-        ap.grantRole(ap.ROLE_GOD(), _adminMultiSigAddress);
-        ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress);
-        //ap.renounceRole(ap.ROLE_GOD(), _deployerAddress);
+        ap.grantRole(ap.ROLE_GOD(), _godAddress);
+        ap.grantRole(ap.ROLE_ADMIN(), _adminAddress);
+        ap.grantRole(ap.ROLE_ADMIN(), _deployerAddress); // TMP
+        if (!_deployerIsGod) {
+            ap.renounceRole(ap.ROLE_GOD(), _deployerAddress);
+        }
+
+        TestnetToken sUSD = new TestnetToken("Smilee USD", "sUSD");
+        sUSD.setDecimals(6);
+        sUSD.setTransferRestriction(false);
+        sUSD.setAddressProvider(address(ap));
 
         TestnetPriceOracle priceOracle = new TestnetPriceOracle(address(sUSD));
         ap.setPriceOracle(address(priceOracle));
@@ -62,32 +93,67 @@ contract DeployCoreFoundations is Script {
         ap.setVaultProxy(address(vaultProxy));
 
         MarketOracle marketOracle = new MarketOracle();
-        marketOracle.grantRole(marketOracle.ROLE_GOD(), _adminMultiSigAddress);
-        marketOracle.grantRole(marketOracle.ROLE_ADMIN(), _deployerAddress);
-        //marketOracle.renounceRole(marketOracle.ROLE_GOD(), _deployerAddress);
+        marketOracle.grantRole(marketOracle.ROLE_GOD(), _godAddress);
+        marketOracle.grantRole(marketOracle.ROLE_ADMIN(), _adminAddress);
+        marketOracle.grantRole(marketOracle.ROLE_ADMIN(), _scheduler);
+        if (!_deployerIsGod) {
+            marketOracle.renounceRole(marketOracle.ROLE_GOD(), _deployerAddress);
+        }
         ap.setMarketOracle(address(marketOracle));
 
-        TestnetSwapAdapter swapper = new TestnetSwapAdapter(address(priceOracle));
-        ap.setExchangeAdapter(address(swapper));
+        SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(ap), 0);
+        swapAdapterRouter.grantRole(swapAdapterRouter.ROLE_GOD(), _godAddress);
+        swapAdapterRouter.grantRole(swapAdapterRouter.ROLE_ADMIN(), _adminAddress);
+        if (!_deployerIsGod) {
+            swapAdapterRouter.renounceRole(swapAdapterRouter.ROLE_GOD(), _deployerAddress);
+        }
+        ap.setExchangeAdapter(address(swapAdapterRouter));
+
+        new TestnetSwapAdapter(address(priceOracle));
+        // ap.setExchangeAdapter(address(swapper));
 
         FeeManager feeManager = new FeeManager(address(ap), 0);
-        feeManager.grantRole(feeManager.ROLE_GOD(), _adminMultiSigAddress);
-        feeManager.grantRole(feeManager.ROLE_ADMIN(), _deployerAddress);
-        //feeManager.renounceRole(feeManager.ROLE_GOD(), _deployerAddress);
+        feeManager.grantRole(feeManager.ROLE_GOD(), _godAddress);
+        feeManager.grantRole(feeManager.ROLE_ADMIN(), _adminAddress);
+        if (!_deployerIsGod) {
+            feeManager.renounceRole(feeManager.ROLE_GOD(), _deployerAddress);
+        }
         ap.setFeeManager(address(feeManager));
 
         Registry registry = new Registry();
-        registry.grantRole(registry.ROLE_GOD(), _adminMultiSigAddress);
-        registry.grantRole(registry.ROLE_ADMIN(), _deployerAddress);
-        //registry.renounceRole(registry.ROLE_GOD(), _deployerAddress);
+        registry.grantRole(registry.ROLE_GOD(), _godAddress);
+        registry.grantRole(registry.ROLE_ADMIN(), _adminAddress);
+        if (!_deployerIsGod) {
+            registry.renounceRole(registry.ROLE_GOD(), _deployerAddress);
+        }
         ap.setRegistry(address(registry));
 
-        sUSD.setAddressProvider(address(ap));
         PositionManager pm = new PositionManager(address(ap));
-        pm.grantRole(pm.ROLE_GOD(), _adminMultiSigAddress);
-        pm.grantRole(pm.ROLE_ADMIN(), _deployerAddress);
+        pm.grantRole(pm.ROLE_GOD(), _godAddress);
+        pm.grantRole(pm.ROLE_ADMIN(), _adminAddress);
+        if (!_deployerIsGod) {
+            pm.renounceRole(pm.ROLE_GOD(), _deployerAddress);
+        }
         ap.setDvpPositionManager(address(pm));
 
-        // ap.renounceRole(ap.ROLE_ADMIN(), _deployerAddress);
+        VaultAccessNFT vaultAccess = new VaultAccessNFT(address(ap));
+        vaultAccess.grantRole(vaultAccess.ROLE_GOD(), _godAddress);
+        vaultAccess.grantRole(vaultAccess.ROLE_ADMIN(), _adminAddress);
+        if (!_deployerIsGod) {
+            vaultAccess.renounceRole(vaultAccess.ROLE_GOD(), _deployerAddress);
+        }
+        ap.setVaultAccessNFT(address(vaultAccess));
+
+        IGAccessNFT igAccess = new IGAccessNFT();
+        igAccess.grantRole(igAccess.ROLE_GOD(), _godAddress);
+        igAccess.grantRole(igAccess.ROLE_ADMIN(), _adminAddress);
+        if (!_deployerIsGod) {
+            igAccess.renounceRole(igAccess.ROLE_GOD(), _deployerAddress);
+        }
+        ap.setDVPAccessNFT(address(igAccess));
+
+        if (!_deployerIsAdmin) {
+            ap.renounceRole(ap.ROLE_ADMIN(), _deployerAddress);
+        }
     }
 }

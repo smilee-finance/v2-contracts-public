@@ -2,9 +2,10 @@
 pragma solidity ^0.8.15;
 
 import {console} from "forge-std/console.sol";
-import {AddressProvider} from "../../src/AddressProvider.sol";
-import {TestnetToken} from "../../src/testnet/TestnetToken.sol";
-import {TestnetPriceOracle} from "../../src/testnet/TestnetPriceOracle.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
+import {TestnetToken} from "@project/testnet/TestnetToken.sol";
+import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
 
 /*
@@ -25,42 +26,49 @@ import {EnhancedScript} from "../utils/EnhancedScript.sol";
 contract DeployToken is EnhancedScript {
 
     uint256 internal _deployerPrivateKey;
+    uint256 internal _adminPrivateKey;
     AddressProvider internal _ap;
+    address internal _sUSD;
+    address internal _swapAdapter;
 
     constructor() {
         // Load the private key that will be used for signing the transactions:
         _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        _adminPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
 
         string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
         _ap = AddressProvider(_readAddress(txLogs, "AddressProvider"));
+        _sUSD = _readAddress(txLogs, "TestnetToken");
+        _swapAdapter = _readAddress(txLogs, "TestnetSwapAdapter");
     }
 
     function run() external {
         address sETH = _deployToken("ETH");
-        console.log(string.concat("Token sETH deployed at"), sETH);
-        setTokenPrice(sETH, 1600e18);
+        setTokenPrice(sETH, 3440e18);
     }
 
     function deployToken(string memory symbol) public {
-        address sToken = _deployToken(symbol);
-        console.log(string.concat("Token s", symbol, " deployed at"), sToken);
+        _deployToken(symbol);
     }
 
-    function _deployToken(string memory symbol) internal returns (address) {
+    function _deployToken(string memory symbol) internal returns (address sTokenAddr) {
         string memory tokenName = string.concat("Smilee ", symbol);
         string memory tokenSymbol = string.concat("s", symbol);
 
         vm.startBroadcast(_deployerPrivateKey);
-
         TestnetToken sToken = new TestnetToken(tokenName, tokenSymbol);
-
+        sToken.setTransferRestriction(false);
         sToken.setAddressProvider(address(_ap));
-
-        // TBD: mint tokens to owner ?
-
+        sTokenAddr = address(sToken);
         vm.stopBroadcast();
 
-        return address(sToken);
+        console.log(string.concat("Token s", symbol, " deployed at"), sTokenAddr);
+
+        vm.startBroadcast(_adminPrivateKey);
+        SwapAdapterRouter swapAdapterRouter = SwapAdapterRouter(_ap.exchangeAdapter());
+        swapAdapterRouter.setAdapter(_sUSD, sTokenAddr, _swapAdapter);
+        swapAdapterRouter.setAdapter(sTokenAddr, _sUSD, _swapAdapter);
+        vm.stopBroadcast();
     }
 
     function setTokenPrice(address token, uint256 price) public {

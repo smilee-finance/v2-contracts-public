@@ -9,7 +9,6 @@ revert_strings = "debug"
 fs_permissions = [{ access = "read", path = "./broadcast/"}, { access = "read", path = "./test/"}]
 cache_path = "cache/default"
 
-
 # By default, each standalone section belongs to the default profile. i.e. [fmt] is equivalent to [profile.default.fmt].
 # Define RPC aliases:
 [rpc_endpoints]
@@ -23,8 +22,8 @@ via_ir = true
 # revert_strings = "strip"
 # optimizer-runs = 200 # Should be lifted up to the contract size limit
 
-[profile.deployment.rpc_endpoints]
-arbitrum_mainnet = "${RPC_MAINNET}"
+# [profile.deployment.rpc_endpoints]
+# arbitrum_mainnet = "${RPC_MAINNET}"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 

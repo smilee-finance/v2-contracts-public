@@ -2,17 +2,17 @@
 pragma solidity ^0.8.15;
 
 import {console} from "forge-std/console.sol";
-import {EnhancedScript} from "../utils/EnhancedScript.sol";
-import {IRegistry} from "../../src/interfaces/IRegistry.sol";
-import {EpochFrequency} from "../../src/lib/EpochFrequency.sol";
-import {AddressProvider} from "../../src/AddressProvider.sol";
-import {FeeManager} from "../../src/FeeManager.sol";
-import {IG} from "../../src/IG.sol";
-import {Vault} from "../../src/Vault.sol";
-import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "../../src/lib/FinanceIG.sol";
-import {TimeLock, TimeLockedBool, TimeLockedUInt} from "../../src/lib/TimeLock.sol";
-// import {Registry} from "../../src/Registry.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IRegistry} from "@project/interfaces/IRegistry.sol";
+import {TimeLockedFinanceParameters, TimeLockedFinanceValues} from "@project/lib/FinanceIG.sol";
+import {TimeLock, TimeLockedBool, TimeLockedUInt} from "@project/lib/TimeLock.sol";
+import {AddressProvider} from "@project/AddressProvider.sol";
+import {FeeManager} from "@project/FeeManager.sol";
+import {IG} from "@project/IG.sol";
+import {Vault} from "@project/Vault.sol";
+import {ChainlinkPriceOracle} from "@project/providers/chainlink/ChainlinkPriceOracle.sol";
+import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
+import {EnhancedScript} from "../utils/EnhancedScript.sol";
 
 /*
     Reference: https://book.getfoundry.sh/tutorials/solidity-scripting
@@ -22,72 +22,142 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
         source .env
 
         # To deploy [and verify] the contracts
-        # - On a local network:
-        #   NOTE: Make sue that the local node (anvil) is running...
-        forge script script/testnet/03_Factory.s.sol:DeployDVP --fork-url $RPC_LOCALNET [--broadcast] -vvvv
         # - On a real network:
         #   ToDo: see https://book.getfoundry.sh/reference/forge/forge-script#wallet-options---raw
         forge script script/testnet/03_Factory.s.sol:DeployDVP --rpc-url $RPC_MAINNET --broadcast [--verify] -vvvv
 
         # NOTE: add the following to customize
-        #       --sig 'createIGMarket(address,address,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS>
+        #       --sig 'createIGMarket(address,address,uint256,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS> <FIRST_EPOCH_DURATION_IN_SECONDS>
  */
 contract DeployDVP is EnhancedScript {
     using TimeLock for TimeLockedBool;
     using TimeLock for TimeLockedUInt;
 
-    uint256 internal _deployerPrivateKey;
     address internal _deployerAddress;
-    address internal _adminMultiSigAddress;
-    address internal _epochRollerAddress;
-    address internal _sUSD;
+    uint256 internal _deployerPrivateKey;
+    address internal _adminAddress;
+    uint256 internal _adminPrivateKey;
+
+    address internal _godAddress;
+    address internal _scheduler;
+
+    bool internal _deployerIsGod;
+    bool internal _deployerIsAdmin;
+
     AddressProvider internal _addressProvider;
+    FeeManager internal _feeManager;
     IRegistry internal _registry;
+
+    address internal _dvpAddr;
+    address internal _vaultAddr;
 
     constructor() {
         // Load the private key that will be used for signing the transactions:
         _deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         _deployerAddress = vm.envAddress("DEPLOYER_ADDRESS");
-        _adminMultiSigAddress = vm.envAddress("ADMIN_MULTI_SIG_ADDRESS");
-        _epochRollerAddress = vm.envAddress("EPOCH_ROLLER_ADDRESS");
+
+        _adminAddress = vm.envAddress("ADMIN_ADDRESS");
+        _adminPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
+
+        _godAddress = vm.envAddress("GOD_ADDRESS");
+        _scheduler = vm.envAddress("EPOCH_ROLLER_ADDRESS");
+
+        _deployerIsGod = (_deployerAddress == _godAddress);
+        _deployerIsAdmin = (_deployerAddress == _adminAddress);
 
         string memory txLogs = _getLatestTransactionLogs("01_CoreFoundations.s.sol");
-        _sUSD = _readAddress(txLogs, "TestnetToken");
+
         _addressProvider = AddressProvider(_readAddress(txLogs, "AddressProvider"));
-        console.log("AddressProvider", address(_addressProvider));
-        console.log("Registry Address", _addressProvider.registry());
+        _checkZeroAddress(address(_addressProvider), "AddressProvider");
+        _checkZeroAddress(_addressProvider.feeManager(), "FeeManager");
+        _feeManager = FeeManager(_addressProvider.feeManager());
+        _checkZeroAddress(_addressProvider.registry(), "IRegistry");
         _registry = IRegistry(_addressProvider.registry());
     }
 
-    function run() external {
-        string memory txLogs = _getLatestTransactionLogs("02_Token.s.sol");
-        address sideToken = _readAddress(txLogs, "TestnetToken");
-
-        createIGMarket(_sUSD, sideToken, EpochFrequency.WEEKLY);
+    function run() external view {
+        console.log("Please run a specific task");
     }
 
-    function createIGMarket(address baseToken, address sideToken, uint256 epochFrequency) public {
+    function createIGMarket(
+        address baseToken,
+        address sideToken,
+        uint256 epochFrequency,
+        uint256 firstEpochDuration
+    ) public {
         vm.startBroadcast(_deployerPrivateKey);
 
-        address vault = _createVault(baseToken, sideToken, epochFrequency);
-        address dvp = _createImpermanentGainDVP(vault);
+        _checkZeroAddress(_addressProvider.priceOracle(), "ChainlinkPriceOracle");
+        ChainlinkPriceOracle priceOracle = ChainlinkPriceOracle(_addressProvider.priceOracle());
+        _checkZeroAddress(_addressProvider.exchangeAdapter(), "SwapAdapterRouter");
+        SwapAdapterRouter swapAdapter = SwapAdapterRouter(_addressProvider.exchangeAdapter());
 
-        Vault(vault).setAllowedDVP(dvp);
-        console.log(address(_registry));
+        _checkZeroAddress(_deployerAddress, "DEPLOYER_ADDRESS");
+        _checkZeroAddress(_godAddress, "GOD_ADDRESS");
+        _checkZeroAddress(_adminAddress, "ADMIN_ADDRESS");
+        _checkZeroAddress(_scheduler, "EPOCH_ROLLER_ADDRESS");
 
-        string memory sideTokenSymbol = IERC20Metadata(Vault(vault).sideToken()).symbol();
-        if (!_stringEquals(sideTokenSymbol, "sETH") && !_stringEquals(sideTokenSymbol, "sBTC")) {
-            _setTimeLockedParameters(dvp);
+        // Check if exists a record for the given tokens
+        priceOracle.getPrice(baseToken, sideToken);
+        if (swapAdapter.getAdapter(baseToken, sideToken) == address(0)) {
+            revert("Swap Adapter hasn't been set for the tokens pair (1)");
+        }
+        if (swapAdapter.getAdapter(sideToken, baseToken) == address(0)) {
+            revert("Swap Adapter hasn't been set for the tokens pair (2)");
         }
 
-        _setDefaultFees(dvp);
+        //----------------
 
-        _registry.register(dvp);
+        address vaultAddr = _createVault(baseToken, sideToken, epochFrequency, firstEpochDuration);
+        address dvpAddr = _createImpermanentGainDVP(vaultAddr);
+
+        Vault vault = Vault(vaultAddr);
+
+        vault.setAllowedDVP(dvpAddr);
+        // vault.setPriorityAccessFlag(true);
+        if (!_deployerIsAdmin) {
+            vault.renounceRole(vault.ROLE_ADMIN(), _deployerAddress);
+        }
+
+        string memory sideTokenSymbol = IERC20Metadata(vault.sideToken()).symbol();
+        // TODO: review to better handle wrapped tokens
+        bool deribitToken = _stringEquals(sideTokenSymbol, "sETH") || _stringEquals(sideTokenSymbol, "sBTC");
+        if (!deribitToken) {
+            _useOnchainImpliedVolatility(dvpAddr);
+        }
+        if (!_deployerIsAdmin) {
+            IG dvp = IG(dvpAddr);
+            dvp.renounceRole(dvp.ROLE_ADMIN(), _deployerAddress);
+        }
 
         vm.stopBroadcast();
 
-        console.log("DVP deployed at", dvp);
-        console.log("Vault deployed at", vault);
+        console.log("DVP deployed at", dvpAddr);
+        console.log("Vault deployed at", vaultAddr);
+        _dvpAddr = dvpAddr;
+        _vaultAddr = vaultAddr;
+
+        //----------------
+
+        vm.startBroadcast(_adminPrivateKey);
+
+        uint8 decimals = IERC20Metadata(baseToken).decimals();
+        FeeManager.FeeParams memory feeParams = FeeManager.FeeParams({
+            timeToExpiryThreshold: 3600,
+            minFeeBeforeTimeThreshold: (10 ** decimals), // 1 dollaro
+            minFeeAfterTimeThreshold: (10 ** decimals), // 1 dollaro
+            successFeeTier: 0.005e18, // 0.5 %
+            feePercentage: 0.0004e18, // 0.04 %
+            capPercentage: 0.125e18, // 12.5 %
+            maturityFeePercentage: 0.0004e18, // 0.04 %
+            maturityCapPercentage: 0.125e18 // 12.5 %
+        });
+
+        _feeManager.setDVPFee(dvpAddr, feeParams);
+
+        _registry.register(dvpAddr);
+
+        vm.stopBroadcast();
     }
 
     function _stringEquals(string memory s1, string memory s2) internal pure returns (bool) {
@@ -95,57 +165,116 @@ contract DeployDVP is EnhancedScript {
         return keccak256(bytes(s1)) == keccak256(bytes(s2));
     }
 
-    function _createVault(address baseToken, address sideToken, uint256 epochFrequency) internal returns (address) {
-        Vault vault = new Vault(baseToken, sideToken, epochFrequency, epochFrequency, address(_addressProvider));
+    function _createVault(
+        address baseToken,
+        address sideToken,
+        uint256 epochFrequency,
+        uint256 firstEpochDuration
+    ) internal returns (address) {
+        Vault vault = new Vault(baseToken, sideToken, epochFrequency, firstEpochDuration, address(_addressProvider));
 
-        vault.grantRole(vault.ROLE_GOD(), _adminMultiSigAddress);
-        vault.grantRole(vault.ROLE_ADMIN(), _deployerAddress);
-        vault.renounceRole(vault.ROLE_GOD(), _deployerAddress);
+        vault.grantRole(vault.ROLE_GOD(), _godAddress);
+        vault.grantRole(vault.ROLE_ADMIN(), _adminAddress);
+        vault.grantRole(vault.ROLE_ADMIN(), _deployerAddress); // TMP for setAllowedDVP
+        if (!_deployerIsGod) {
+            vault.renounceRole(vault.ROLE_GOD(), _deployerAddress);
+        }
 
         return address(vault);
     }
 
+    function setDVPSuccessFee(address dvp, uint256 fee) public {
+        vm.startBroadcast(_adminPrivateKey);
+        (
+            uint256 timeToExpiryThreshold,
+            uint256 minFeeBeforeTimeThreshold,
+            uint256 minFeeAfterTimeThreshold,
+            ,
+            uint256 feePercentage,
+            uint256 capPercentage,
+            uint256 maturityFeePercentage,
+            uint256 maturityCapPercentage
+        ) = _feeManager.dvpsFeeParams(dvp);
+        FeeManager.FeeParams memory params = FeeManager.FeeParams({
+            timeToExpiryThreshold: timeToExpiryThreshold,
+            minFeeBeforeTimeThreshold: minFeeBeforeTimeThreshold,
+            minFeeAfterTimeThreshold: minFeeAfterTimeThreshold,
+            successFeeTier: fee,
+            feePercentage: feePercentage,
+            capPercentage: capPercentage,
+            maturityFeePercentage: maturityFeePercentage,
+            maturityCapPercentage: maturityCapPercentage
+        });
+        _feeManager.setDVPFee(dvp, params);
+        vm.stopBroadcast();
+    }
+
+    function setDVPFee(
+        address dvp,
+        uint256 timeToExpiryThreshold,
+        uint256 minFeeBeforeThreshold,
+        uint256 minFeeAfterThreshold,
+        uint256 successFeeTier,
+        uint256 feePercentage,
+        uint256 capPercertage,
+        uint256 mFeePercentage,
+        uint256 mCapPercentage
+    ) public {
+        FeeManager.FeeParams memory params = FeeManager.FeeParams(
+            timeToExpiryThreshold,
+            minFeeBeforeThreshold,
+            minFeeAfterThreshold,
+            successFeeTier,
+            feePercentage,
+            capPercertage,
+            mFeePercentage,
+            mCapPercentage
+        );
+
+        vm.startBroadcast(_adminPrivateKey);
+        _feeManager.setDVPFee(dvp, params);
+        vm.stopBroadcast();
+    }
+
     function _createImpermanentGainDVP(address vault) internal returns (address) {
+        address pm = _addressProvider.dvpPositionManager();
+
         IG dvp = new IG(vault, address(_addressProvider));
 
-        dvp.grantRole(dvp.ROLE_GOD(), _adminMultiSigAddress);
-        dvp.grantRole(dvp.ROLE_ADMIN(), _deployerAddress);
-        dvp.grantRole(dvp.ROLE_EPOCH_ROLLER(), _epochRollerAddress);
-        dvp.renounceRole(dvp.ROLE_GOD(), _deployerAddress);
+        dvp.grantRole(dvp.ROLE_GOD(), _godAddress);
+        dvp.grantRole(dvp.ROLE_ADMIN(), _adminAddress);
+        dvp.grantRole(dvp.ROLE_ADMIN(), _deployerAddress); // TMP
+        dvp.grantRole(dvp.ROLE_EPOCH_ROLLER(), _scheduler);
+        dvp.grantRole(dvp.ROLE_TRADER(), pm);
+        if (!_deployerIsGod) {
+            dvp.renounceRole(dvp.ROLE_GOD(), _deployerAddress);
+        }
 
         return address(dvp);
     }
 
+    // TODO: move elsewhere
     function dvpUnregister(address dvpAddr) public {
-        vm.startBroadcast(_deployerPrivateKey);
+        vm.startBroadcast(_adminPrivateKey);
         _registry.unregister(dvpAddr);
         vm.stopBroadcast();
     }
 
-    // function setTradCompFees() public {
-    //     vm.startBroadcast(_deployerPrivateKey);
-    //     FeeManager feeMan = FeeManager(_addressProvider.feeManager());
-    //     feeMan.setFeePercentage(0.00015e18);
-    //     feeMan.setCapPercentage(0.05e18);
-    //     feeMan.setMaturityFeePercentage(0.000075e18);
-    //     feeMan.setMaturityCapPercentage(0.05e18);
-    //     vm.stopBroadcast();
-    // }
-
-    function _setDefaultFees(address dvpAddr) internal {
-        FeeManager(_addressProvider.feeManager()).setDVPFee(
-            dvpAddr,
-            FeeManager.FeeParams(3600, 0, 0, 0, 0.0035e18, 0.125e18, 0.0015e18, 0.125e18)
-        );
-    }
-
-    function setTimeLockedParameters(address igAddress) public {
-        vm.startBroadcast(_deployerPrivateKey);
-        _setTimeLockedParameters(igAddress);
+    function setVaultMaxDeposit(address vaultAddr, uint256 tvl) public {
+        vm.startBroadcast(_adminPrivateKey);
+        Vault vault = Vault(vaultAddr);
+        tvl = tvl * 10 ** vault.decimals();
+        vault.setMaxDeposit(tvl);
         vm.stopBroadcast();
     }
 
-    function _setTimeLockedParameters(address igAddress) internal {
+    function useOnchainImpliedVolatility(address igAddress) public {
+        vm.startBroadcast(_adminPrivateKey);
+        _useOnchainImpliedVolatility(igAddress);
+        vm.stopBroadcast();
+    }
+
+    function _useOnchainImpliedVolatility(address igAddress) internal {
         IG ig = IG(igAddress);
         TimeLockedFinanceValues memory currentValues = _getTimeLockedFinanceParameters(ig);
         currentValues.useOracleImpliedVolatility = false;
@@ -166,28 +295,4 @@ contract DeployDVP is EnhancedScript {
         });
     }
 
-    // function fixTradingCompFinanceParams() public {
-    //     vm.startBroadcast(_deployerPrivateKey);
-    //     Registry registry = Registry(_addressProvider.registry());
-    //     address[] memory sideTokens = registry.getSideTokens();
-    //     uint256 numSideTokens = sideTokens.length;
-    //     console.log("Num of side tokens: ", numSideTokens);
-    //     for (uint256 i = 0; i < numSideTokens; i++) {
-    //         address sideTokenAddr = sideTokens[i];
-    //         string memory sideTokenSymbol = IERC20Metadata(sideTokenAddr).symbol();
-    //         console.log("Working on ", sideTokenSymbol);
-    //         if (_stringEquals(sideTokenSymbol, "sETH") || _stringEquals(sideTokenSymbol, "sBTC")) {
-    //             continue;
-    //         }
-    //         address[] memory dvps = registry.getDvpsBySideToken(sideTokenAddr);
-    //         uint256 numDVPs = dvps.length;
-    //         console.log("- Num of DVPs: ", numDVPs);
-    //         for (uint256 j = 0; j < numDVPs; j++) {
-    //             address dvpAddr = dvps[j];
-    //             console.log("-- Fixing DVP: ", dvpAddr);
-    //             _setTimeLockedParameters(dvpAddr);
-    //         }
-    //     }
-    //     vm.stopBroadcast();
-    // }
 }

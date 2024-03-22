@@ -1,0 +1,118 @@
+= Deployment instructions
+
+== Dependencies
+
+* We internally use this link:https://github.com/dverso/foundry-env[Foundry environment] and its Makefile.
+
+== Prerequisites
+
+. Fill in a `.env` file from the `.env.template` one.
+. `source .env`
+. Compile in an optimized way:
++
+`export FOUNDRY_PROFILE="deployment"`
++
+This is mainly due to the `IG` contract which is quite large...
+
+== Deploy on a local testnet
+
+. Externally start the chain with `make chain`
+. Deploy core contracts, libraries and base token:
++
+`forge script script/mainnet/00_Libraries.s.sol:DeployLibraries --fork-url $RPC_LOCALNET --broadcast -vvvv`
+. Deploy all libraries (copy deployed libraries's addresses from run-latest into foundry.toml in order to link):
++
+`forge script script/testnet/01_CoreFoundations.s.sol:DeployCoreFoundations --fork-url $RPC_LOCALNET --broadcast -vvvv`
+. Deploy a new `<SYMBOL>` token (e.g. "ETH" for "sETH"):
++
+`forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'deployToken(string memory)' <SYMBOL>`
+. Set a token price.:
++
+`forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'setTokenPrice(address,uint256)' <TOKEN_ADDRESS> <TOKEN_PRICE>`
+. Create an Impermanent Gain DVP and its Vault:
++
+`forge script script/testnet/03_Factory.s.sol:DeployDVP --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'createIGMarket(address,address,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS>`
+. Roll the epoch for every DVP/Vault that need it:
++
+`forge script script/mainnet/04_Epoch.s.sol:RollEpoch --fork-url $RPC_LOCALNET --broadcast -vvvv`
+. Mint and deposit the given `<AMOUNT>` of base tokens into the provided vault:
++
+`forge script script/testnet/05_Vault.s.sol:VaultOps --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'fillVault(address,uint256)' <VAULT_ADDRESS> <AMOUNT>`
+. Advance chain time (for local testnet):
++
+`cast rpc --rpc-url $RPC_LOCALNET evm_increaseTime <SECONDS> && cast rpc --rpc-url $RPC_LOCALNET evm_mine`
+. Mint tokens:
++
+`forge script script/testnet/02_Token.s.sol:DeployToken --fork-url $RPC_LOCALNET --broadcast -vvvv --sig 'mint(address,address,uint256)' <TOKEN_ADDRESS> <RECIPIENT_ADDRESS> <AMOUNT>`
+. `exit`
+
+== Deploy on Testnet
+
+. Deploy libraries:
++
+`forge script script/mainnet/00_Libraries.s.sol:DeployLibraries --rpc-url $RPC_TESTNET --broadcast -vv --skip test`
++
+Get the libraries to link with each of the following commands by running `python3 libraries-to-link.py <CHAIN_ID>`.
+. Deploy core contracts and base token:
++
+`forge script script/testnet/01_CoreFoundations.s.sol:DeployCoreFoundations --rpc-url $RPC_TESTNET --broadcast -vv --skip test <LINKED_LIBRARIES>`
+. Deploy a new `<SYMBOL>` token (e.g. "ETH" for "sETH"):
++
+`forge script script/testnet/02_Token.s.sol:DeployToken --rpc-url $RPC_TESTNET --broadcast -vv --skip test --sig 'deployToken(string memory)' <SYMBOL> <LINKED_LIBRARIES>`
+. Set a token price.:
++
+`forge script script/testnet/02_Token.s.sol:DeployToken --rpc-url $RPC_TESTNET --broadcast -vv --skip test --sig 'setTokenPrice(address,uint256)' <TOKEN_ADDRESS> <TOKEN_PRICE> <LINKED_LIBRARIES>`
+. Create an Impermanent Gain DVP and its Vault:
++
+`forge script script/testnet/03_Factory.s.sol:DeployDVP --rpc-url $RPC_TESTNET --broadcast -vv --skip test --sig 'createIGMarket(address,address,uint256,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS> <FIRST_EPOCH_DURATION_IN_SECONDS> <LINKED_LIBRARIES>`
+. Mint tokens:
++
+`forge script script/testnet/02_Token.s.sol:DeployToken --rpc-url $RPC_TESTNET --broadcast -vv --skip test --sig 'mint(address,address,uint256)' <TOKEN_ADDRESS> <RECIPIENT_ADDRESS> <AMOUNT> <LINKED_LIBRARIES>`
+. Roll the epoch for every DVP/Vault that need it:
++
+`forge script script/mainnet/04_Epoch.s.sol:RollEpoch --rpc-url $RPC_TESTNET --broadcast -vv --skip test <LINKED_LIBRARIES>`
+
+== Deploy on Mainnet
+
+See link:./reference_addresses.adoc[reference_addresses.adoc] for reference addresses.
+
+. Deploy libraries:
++
+`forge script script/mainnet/00_Libraries.s.sol:DeployLibraries --rpc-url $RPC_MAINNET --broadcast -vv --skip test`
++
+Get the libraries to link with each of the following commands by running `python3 libraries-to-link.py <CHAIN_ID>`.
+. Deploy core contracts:
++
+`forge script script/mainnet/01_CoreFoundations.s.sol:DeployCoreFoundations --rpc-url $RPC_MAINNET --broadcast -vv --skip test <LINKED_LIBRARIES>`
+. For each token of interest:
+.. Set Chainlink price feed:
++
+`forge script script/mainnet/02_Token.s.sol:TokenOps --rpc-url $RPC_MAINNET --broadcast -vv --skip test --sig 'setChainlinkPriceFeedForToken(address, address)' <TOKEN> <FEED> <LINKED_LIBRARIES>`
+. For each pair of tokens of interest:
+.. Configure the router to use Uniswap:
++
+`forge script script/mainnet/02_Token.s.sol:TokenOps --rpc-url $RPC_MAINNET --broadcast -vv --skip test --sig 'useUniswapAdapterWithTokens(address, address)' <TOKEN_1> <TOKEN_2> <LINKED_LIBRARIES>`
+.. Configure the Uniswap paths (mind the direction!):
++
+`forge script script/mainnet/02_Token.s.sol:TokenOps --rpc-url $RPC_MAINNET --broadcast -vv --skip test --sig 'setUniswapPath(address,address,bytes memory)' <TOKEN_IN> <TOKEN_OUT> <PATH> <LINKED_LIBRARIES>`
+. Create an Impermanent Gain DVP and its Vault:
++
+`forge script script/mainnet/03_Factory.s.sol:DeployDVP --rpc-url $RPC_MAINNET --broadcast -vv --skip test --sig 'createIGMarket(address,address,uint256,uint256)' <BASE_TOKEN_ADDRESS> <SIDE_TOKEN_ADDRESS> <EPOCH_FREQUENCY_IN_SECONDS> <FIRST_EPOCH_DURATION_IN_SECONDS> <LINKED_LIBRARIES>`
+. Grant access to ALL the DVPs and their Vaults to a user:
++
+`forge script script/mainnet/07_Access.s.sol:AccessTokenOps --rpc-url $RPC_MAINNET --broadcast -vv --skip test --sig 'grantVaultAccess(address)' <WALLET> <LINKED_LIBRARIES>`
++
+`forge script script/mainnet/07_Access.s.sol:AccessTokenOps --rpc-url $RPC_MAINNET --broadcast -vv --skip test --sig 'grantIGAccess(address)' <WALLET> <LINKED_LIBRARIES>`
+
+== Common issues:
+
+* If you get `Failed to get EIP-1559 fees`, append `--legacy` to the script; it may also help with "Failed to estimate gas for transaction" (if you have funds in your wallet).
+
+== Estimated costs:
+
+* `00_Libraries`: 0.0234660274 ETH (`--legacy`)
+* `01_CoreFoundations`: 0.0393005254 ETH (`--legacy`)
+* `02_Token:setChainlinkPriceFeedForToken`: 0.000252908 ETH (`--legacy`)
+* `02_Token:useUniswapAdapterWithTokens`: 0.0004644136 ETH (`--legacy`)
+* `02_Token:setUniswapPath`: 0.000329508 ETH
+* `03_Factory:createIGMarket`: 0.0107155216 ETH
