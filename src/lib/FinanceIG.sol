@@ -30,7 +30,6 @@ struct VolatilityParameters {
     uint256 vegaAdj; // vega adjusted
     uint256 tPrev; // previous trade timestamp
     uint256 uPrev; // previous trade utilization rate (post trade)
-    // uint256 uPrevCache; // previous trade old utilization rate (still = uPrev even after `updateVolatilityOnTrade()` call)
     uint256 tvwUr; // time-vega weighted utilization rate
     uint256 omega; // total weight
 }
@@ -163,7 +162,19 @@ library FinanceIG {
         return kkartd == 1 || kkbrtd == 1;
     }
 
-    function updateParameters(FinanceParameters storage params, uint256 impliedVolatility, uint256 riskFree) public {
+    /**
+        @notice Updates finance parameters on epoch roll
+        @param params The finance parameters to be updated
+        @param impliedVolatility The current sigma
+        @param riskFree The risk free rate
+        @param baseTokenDecimals The number of decimals to normalize base token amounts
+     */
+    function updateParameters(
+        FinanceParameters storage params,
+        uint256 impliedVolatility,
+        uint256 riskFree,
+        uint8 baseTokenDecimals
+    ) public {
         _updateSigmaZero(params, impliedVolatility);
 
         {
@@ -189,12 +200,17 @@ library FinanceIG {
             params.internalVolatilityParameters.omega = 0;
             params.internalVolatilityParameters.tPrev = 0;
             params.internalVolatilityParameters.uPrev = 0;
-            // params.internalVolatilityParameters.uPrevCache = 0;
 
             // Multiply baselineVolatility for a safety margin after the computation of kA and kB:
             uint256 volatilityPriceDiscountFactor = params.timeLocked.volatilityPriceDiscountFactor.get();
             params.sigmaZero = params.sigmaZero.wmul(volatilityPriceDiscountFactor);
-            (uint256 vBull, uint256 vBear) = _vega(params, riskFree, params.currentStrike, params.sigmaZero);
+            (uint256 vBull, uint256 vBear) = _vega(
+                params,
+                riskFree,
+                params.currentStrike,
+                params.sigmaZero,
+                baseTokenDecimals
+            );
             params.internalVolatilityParameters.vegaAdj = vBull + vBear;
         }
     }
@@ -245,23 +261,23 @@ library FinanceIG {
         FinanceParameters storage params,
         uint256 riskFree,
         uint256 oraclePrice,
-        uint256 sigma
+        uint256 sigma,
+        uint8 baseTokenDecimals
     ) internal view returns (uint256 vBull, uint256 vBear) {
         uint256 tau = _yearsToMaturity(params.maturity);
-        return
-            FinanceIGVega.igVega(
-                FinanceIGPrice.Parameters(
-                    riskFree, // r
-                    sigma,
-                    params.currentStrike, // K
-                    oraclePrice, // S
-                    tau,
-                    params.kA,
-                    params.kB,
-                    params.theta
-                ),
-                params.initialLiquidity.getTotal()
-            );
+        (vBull, vBear) = FinanceIGVega.igVega(
+            FinanceIGPrice.Parameters(
+                riskFree, // r
+                sigma,
+                params.currentStrike, // K
+                oraclePrice, // S
+                tau,
+                params.kA,
+                params.kB,
+                params.theta
+            ),
+            AmountsMath.wrapDecimals(params.initialLiquidity.getTotal(), baseTokenDecimals)
+        );
     }
 
     function sigmaZero(uint256 avgU, uint256 n, uint256 theta_, uint256 sigmaZero_) public pure returns (uint256) {
@@ -273,6 +289,11 @@ library FinanceIG {
         return ud(sigmaZero_).mul(f1).mul(f2).unwrap();
     }
 
+    /**
+        @notice Updates volatility parameters on trade
+        @param vParams The volatility parameters to be updated
+        @param duration The epoch duration in seconds
+     */
     function updateVparamsStep(VolatilityParameters storage vParams, uint256 duration) public {
         // s = v0 * (T - t0)
         UD60x18 sharedUpdateFactor = ud(vParams.vegaAdj).mul((convert(duration).sub(convert(vParams.tPrev))));
@@ -345,24 +366,43 @@ library FinanceIG {
         sigma = FinanceIGPrice.tradeVolatility(igPriceParams);
     }
 
+    /**
+        @notice Sets updated volatility parameters in finance parameters on every trade
+        @param params The finance parameters to be updated
+        @param oraclePrice The current side token price
+        @param riskFree The risk free rate
+        @param postTradeUtilizationRate_ Newly computed UR after trade
+        @param postTradeVol Newly computed sigma after trade
+        @param baseTokenDecimals The number of decimals to normalize base token amounts
+     */
     function updateVolatilityOnTrade(
         FinanceParameters storage params,
         uint256 oraclePrice,
-        uint256 postTradeUtilizationRate_,
         uint256 riskFree,
-        uint256 postTradeVol
+        uint256 postTradeUtilizationRate_,
+        uint256 postTradeVol,
+        uint8 baseTokenDecimals
     ) external {
         uint256 timeElapsed = block.timestamp - params.internalVolatilityParameters.epochStart;
         updateVparamsStep(params.internalVolatilityParameters, timeElapsed);
 
         params.internalVolatilityParameters.tPrev = timeElapsed;
-        // cache old uPrev (used by swap price premium computation, after `_deltaHedgePosition()`)
-        // params.internalVolatilityParameters.uPrevCache = params.internalVolatilityParameters.uPrev;
         params.internalVolatilityParameters.uPrev = postTradeUtilizationRate_;
-        (uint256 vBull, uint256 vBear) = _vega(params, riskFree, oraclePrice, postTradeVol);
+        (uint256 vBull, uint256 vBear) = _vega(params, riskFree, oraclePrice, postTradeVol, baseTokenDecimals);
         params.internalVolatilityParameters.vegaAdj = vBull + vBear;
     }
 
+    /**
+        @notice Gets the utilization rate after a trade
+        @param params The finance parameters currently set
+        @param oraclePrice The current side token price
+        @param riskFree The risk free rate
+        @param volatility The previous sigma
+        @param availableLiquidity The residual liquidity avalaible for trades
+        @param tradeAmount The traded liquidity
+        @param tradeIsBuy The trade direction
+        @param baseTokenDecimals The number of decimals to normalize base token amounts
+     */
     function postTradeUtilizationRate(
         FinanceParameters storage params,
         uint256 oraclePrice,
@@ -370,14 +410,14 @@ library FinanceIG {
         uint256 volatility,
         Amount calldata availableLiquidity,
         Amount calldata tradeAmount,
-        bool tradeIsBuy
+        bool tradeIsBuy,
+        uint8 baseTokenDecimals
     ) public view returns (uint256) {
         if (tradeAmount.up == 0 && tradeAmount.down == 0) {
-            // return params.internalVolatilityParameters.uPrevCache;
             return params.internalVolatilityParameters.uPrev;
         }
 
-        (uint256 vBull, uint256 vBear) = _vega(params, riskFree, oraclePrice, volatility);
+        (uint256 vBull, uint256 vBear) = _vega(params, riskFree, oraclePrice, volatility, baseTokenDecimals);
 
         // down limit vegas to 0.000000001
         vBull = vBull < 1e9 ? 1e9 : vBull;
@@ -397,16 +437,17 @@ library FinanceIG {
                 (vBull * availableLiquidity.up) /
                 params.initialLiquidity.up);
 
-            // uImpact = (vTrade * (1e18 - params.internalVolatilityParameters.uPrevCache)) / availableVega;
             uImpact = (vTrade * (1e18 - params.internalVolatilityParameters.uPrev)) / availableVega;
 
             return params.internalVolatilityParameters.uPrev + uImpact;
         } else {
-            uint256 vBearUsed = vBear * (1e18 - (availableLiquidity.down * 1e18) / params.initialLiquidity.down);
-            uint256 vBullUsed = vBull * (1e18 - (availableLiquidity.up * 1e18) / params.initialLiquidity.up);
-            uint256 usedVega = (vBearUsed + vBullUsed) / 1e18;
+            uint256 usedVega;
+            {
+                uint256 vBearUsed = vBear * (1e18 - (availableLiquidity.down * 1e18) / params.initialLiquidity.down);
+                uint256 vBullUsed = vBull * (1e18 - (availableLiquidity.up * 1e18) / params.initialLiquidity.up);
+                usedVega = (vBearUsed + vBullUsed) / 1e18;
+            }
 
-            // uImpact = (vTrade * params.internalVolatilityParameters.uPrevCache) / usedVega;
             uImpact = (vTrade * params.internalVolatilityParameters.uPrev) / usedVega;
 
             return params.internalVolatilityParameters.uPrev - uImpact;

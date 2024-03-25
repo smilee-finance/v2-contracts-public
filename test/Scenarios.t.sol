@@ -210,6 +210,8 @@ contract TestScenariosJson is Test {
     // Buy a Both option immediately, with an ever-decreasing price over time, selling little by little until maturity.
     function testScenario8() public { _checkScenario("scenario_8", true); }
 
+    function testScenarioDec01() public { _checkScenario("dec_6-18_01", true); }
+
     // Controls the behavior of all components over multiple epochs
     function testScenarioMultiEpoch01() public { _checkScenario("multi_01_e1", true); _checkScenario("multi_01_e2", false); }
     function testScenarioMultiEpoch02() public { _checkScenario("multi_02_e1", true); _checkScenario("multi_02_e2", false); }

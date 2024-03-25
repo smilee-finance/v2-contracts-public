@@ -25,6 +25,12 @@ library FinanceIGVega {
         FinanceIGPrice.NTerms pdfbs;
     }
 
+    /**
+        @notice Computes current vega of the protocol assets
+        @param inp The struct containing necessary input parameters
+        @param v0 The initial notional for the current epoch
+        NOTE: expects v0 to already be 18 decimals
+     */
     function igVega(
         FinanceIGPrice.Parameters calldata inp,
         uint256 v0
@@ -55,10 +61,9 @@ library FinanceIGVega {
             vBull = bullVega(p, ert, v1_, v2_);
             vBear = bearVega(p, ert, v1_, v2_);
         }
-        {
-        }
-        vBull = (v0 * vBull) / inp.theta / 100;
-        vBear = (v0 * vBear) / inp.theta / 100;
+
+        vBull = ((v0 * vBull) / inp.theta) / 100;
+        vBear = ((v0 * vBear) / inp.theta) / 100;
     }
 
     function bullVega(Params memory p, uint256 ert, int256 v1_, int256 v2_) public pure returns (uint256) {

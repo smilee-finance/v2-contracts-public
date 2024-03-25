@@ -10,15 +10,22 @@ import {AddressProvider} from "@project/AddressProvider.sol";
 import {MarketOracle} from "@project/MarketOracle.sol";
 import {Vault} from "@project/Vault.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
-// import {TestnetToken} from "@project/testnet/TestnetToken.sol";
+import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {MockedRegistry} from "../mock/MockedRegistry.sol";
 import {MockedVault} from "../mock/MockedVault.sol";
+import {Parameters} from "./Parameters.sol";
 import {TokenUtils} from "./TokenUtils.sol";
 
 library VaultUtils {
     function createVault(uint256 epochFrequency, AddressProvider ap, address admin, Vm vm) public returns (address) {
         // NOTE: the stable base token must be the first as it's used as reference for the price oracle if it doesn't exists in the AddressProvider.
         address baseToken = TokenUtils.createToken("Testnet USD", "stUSD", address(ap), admin, vm);
+
+        if (Parameters.BASE_TOKEN_DECIMALS != 18) {
+            vm.prank(admin);
+            TestnetToken(baseToken).setDecimals(Parameters.BASE_TOKEN_DECIMALS);
+        }
+
         return createVaultSideTokenSym(baseToken, "WETH", epochFrequency, ap, admin, vm);
     }
 
@@ -37,8 +44,11 @@ library VaultUtils {
             admin,
             vm
         );
-        // vm.prank(admin);
-        // TestnetToken(sideToken).setDecimals(8);
+
+        if (Parameters.SIDE_TOKEN_DECIMALS != 18) {
+            vm.prank(admin);
+            TestnetToken(baseToken).setDecimals(Parameters.SIDE_TOKEN_DECIMALS);
+        }
 
         return createVaultFromTokens(baseToken, sideToken, epochFrequency, ap, admin, vm);
     }
@@ -80,12 +90,7 @@ library VaultUtils {
             bool killed
         ) = vault.state();
 
-        return VaultLib.VaultState({
-            liquidity: liquidity,
-            withdrawals: withdrawals,
-            dead: dead,
-            killed: killed
-        });
+        return VaultLib.VaultState({liquidity: liquidity, withdrawals: withdrawals, dead: dead, killed: killed});
     }
 
     /**

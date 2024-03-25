@@ -27,14 +27,19 @@ library DVPUtils {
             uint256 kA,
             uint256 kB,
             uint256 theta,
-            /* TimeLockedFinanceParameters timeLocked */,
-            uint256 sigmaZero,
-            /* internalVolatilityParameters */
+            ,
+            /* TimeLockedFinanceParameters timeLocked */ uint256 sigmaZero /* internalVolatilityParameters */,
+
         ) = ig.financeParameters();
+
+        (, , uint256 bearAvailNotional, uint256 bullAvailNotional) = ig.notional();
+
         console.log("IG STATE ------------- maturity", maturity);
         console.log("IG STATE ------------- strike", currentStrike);
         console.log("IG STATE ------------- v0 up", initialLiquidity.up);
         console.log("IG STATE ------------- v0 down", initialLiquidity.down);
+        console.log("IG STATE ------------- Available up", bullAvailNotional);
+        console.log("IG STATE ------------- Available down", bearAvailNotional);
         console.log("IG STATE ------------- kA", kA);
         console.log("IG STATE ------------- kB", kB);
         console.log("IG STATE ------------- theta", theta);

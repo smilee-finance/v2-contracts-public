@@ -160,7 +160,6 @@ contract IG is DVP {
         {
             uint256 preTradeVol = FinanceIG.getPostTradeVolatility(
                 financeParameters,
-                // financeParameters.internalVolatilityParameters.uPrevCache,
                 financeParameters.internalVolatilityParameters.uPrev,
                 t0
             );
@@ -180,7 +179,8 @@ contract IG is DVP {
                 preTradeVol,
                 availableLiq,
                 amount,
-                tradeIsBuy
+                tradeIsBuy,
+                _baseTokenDecimals
             );
         }
 
@@ -225,16 +225,20 @@ contract IG is DVP {
         swapPrice = Finance.getSwapPrice(tokensToSwap, exchangedBaseTokens, _sideTokenDecimals, _baseTokenDecimals);
     }
 
-    function _updateVolatility(uint256 strike,
-        Amount memory amount,
-        bool tradeIsBuy
-    ) internal virtual override {
+    function _updateVolatility(uint256 strike, Amount memory amount, bool tradeIsBuy) internal virtual override {
         uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
         uint256 riskFree = IMarketOracle(_getMarketOracle()).getRiskFreeRate(baseToken);
 
         (uint256 postTradeVol, uint256 postTradeUr) = getPostTradeVolatility(strike, amount, tradeIsBuy);
 
-        FinanceIG.updateVolatilityOnTrade(financeParameters, oraclePrice, postTradeUr, riskFree, postTradeVol);
+        FinanceIG.updateVolatilityOnTrade(
+            financeParameters,
+            oraclePrice,
+            riskFree,
+            postTradeUr,
+            postTradeVol,
+            _baseTokenDecimals
+        );
     }
 
     function _beforeTrade() internal virtual override {
@@ -288,7 +292,7 @@ contract IG is DVP {
                 financeParameters.currentStrike,
                 epoch.frequency
             );
-            FinanceIG.updateParameters(financeParameters, iv, riskFree);
+            FinanceIG.updateParameters(financeParameters, iv, riskFree, _baseTokenDecimals);
         }
 
         if (FinanceIG.checkFinanceApprox(financeParameters)) {
