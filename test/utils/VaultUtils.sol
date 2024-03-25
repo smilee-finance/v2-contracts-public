@@ -47,7 +47,7 @@ library VaultUtils {
 
         if (Parameters.SIDE_TOKEN_DECIMALS != 18) {
             vm.prank(admin);
-            TestnetToken(baseToken).setDecimals(Parameters.SIDE_TOKEN_DECIMALS);
+            TestnetToken(sideToken).setDecimals(Parameters.SIDE_TOKEN_DECIMALS);
         }
 
         return createVaultFromTokens(baseToken, sideToken, epochFrequency, ap, admin, vm);

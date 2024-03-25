@@ -22,6 +22,7 @@ import {MockedVault} from "./mock/MockedVault.sol";
 import {TokenUtils} from "./utils/TokenUtils.sol";
 import {VaultUtils} from "./utils/VaultUtils.sol";
 import {Utils} from "./utils/Utils.sol";
+import {Parameters} from "./utils/Parameters.sol";
 
 contract TestScenariosJson is Test {
     using AmountHelper for Amount;
@@ -211,6 +212,7 @@ contract TestScenariosJson is Test {
     function testScenario8() public { _checkScenario("scenario_8", true); }
 
     function testScenarioDec01() public { _checkScenario("dec_6-18_01", true); }
+    function testScenarioDec02() public { _checkScenario("dec_6-8_01", true); }
 
     // Controls the behavior of all components over multiple epochs
     function testScenarioMultiEpoch01() public { _checkScenario("multi_01_e1", true); _checkScenario("multi_01_e2", false); }
@@ -314,18 +316,18 @@ contract TestScenariosJson is Test {
         }
 
         (, , , , , , , uint256 sigmaZero, ) = _dvp.financeParameters();
-        assertApproxEqAbs(t0.post.impliedVolatility, sigmaZero, _tolerance(t0.post.impliedVolatility));
+        assertApproxEqAbs(t0.post.impliedVolatility, sigmaZero, _toleranceWad(t0.post.impliedVolatility));
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
 
         // assertEq(t0.post.baseTokenAmount, baseTokenAmount); // TMP for math precision
-        assertApproxEqAbs(t0.post.baseTokenAmount, baseTokenAmount, _tolerance(t0.post.baseTokenAmount));
-        assertApproxEqAbs(t0.post.sideTokenAmount, sideTokenAmount, _tolerance(t0.post.sideTokenAmount));
-        assertApproxEqAbs(t0.post.strike, _dvp.currentStrike(), _tolerance(t0.post.strike));
+        assertApproxEqAbs(t0.post.baseTokenAmount, baseTokenAmount, _toleranceBt(t0.post.baseTokenAmount));
+        assertApproxEqAbs(t0.post.sideTokenAmount, sideTokenAmount, _toleranceSt(t0.post.sideTokenAmount));
+        assertApproxEqAbs(t0.post.strike, _dvp.currentStrike(), _toleranceWad(t0.post.strike));
         FinanceParameters memory financeParams = _dvp.getCurrentFinanceParameters();
-        assertApproxEqAbs(t0.post.kA, financeParams.kA, _tolerance(t0.post.kA));
-        assertApproxEqAbs(t0.post.kB, financeParams.kB, _tolerance(t0.post.kB));
-        assertApproxEqAbs(t0.post.theta, financeParams.theta, _tolerance(t0.post.theta));
+        assertApproxEqAbs(t0.post.kA, financeParams.kA, _toleranceWad(t0.post.kA));
+        assertApproxEqAbs(t0.post.kB, financeParams.kB, _toleranceWad(t0.post.kB));
+        assertApproxEqAbs(t0.post.theta, financeParams.theta, _toleranceWad(t0.post.theta));
     }
 
     function _checkTrade(Trade memory t) internal {
@@ -337,14 +339,14 @@ contract TestScenariosJson is Test {
         vm.stopPrank();
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
-        assertApproxEqAbs(t.pre.baseTokenAmount, baseTokenAmount, _tolerance(t.pre.baseTokenAmount));
-        assertApproxEqAbs(t.pre.sideTokenAmount, sideTokenAmount, _tolerance(t.pre.sideTokenAmount));
+        assertApproxEqAbs(t.pre.baseTokenAmount, baseTokenAmount, _toleranceBt(t.pre.baseTokenAmount));
+        assertApproxEqAbs(t.pre.sideTokenAmount, sideTokenAmount, _toleranceSt(t.pre.sideTokenAmount));
 
         assertApproxEqAbs(t.pre.utilizationRate, _dvp.getUtilizationRate(), _toleranceOnPercentage);
         (, , uint256 availableBearNotional, uint256 availableBullNotional) = _dvp.notional();
 
-        assertApproxEqAbs(t.pre.availableNotionalBear, availableBearNotional, _tolerance(t.pre.availableNotionalBear));
-        assertApproxEqAbs(t.pre.availableNotionalBull, availableBullNotional, _tolerance(t.pre.availableNotionalBull));
+        assertApproxEqAbs(t.pre.availableNotionalBear, availableBearNotional, _toleranceBt(t.pre.availableNotionalBear));
+        assertApproxEqAbs(t.pre.availableNotionalBull, availableBullNotional, _toleranceBt(t.pre.availableNotionalBull));
         uint256 strike = _dvp.currentStrike();
 
         {
@@ -405,32 +407,20 @@ contract TestScenariosJson is Test {
         //fee = _feeManager.calculateTradeFee(t.amountUp + t.amountDown, marketValue, IToken(_vault.baseToken()).decimals(), false);
 
         //post-conditions:
-        assertApproxEqAbs(t.post.marketValue, marketValue, _tolerance(t.post.marketValue));
+        assertApproxEqAbs(t.post.marketValue, marketValue, _toleranceBt(t.post.marketValue));
         assertApproxEqAbs(t.post.utilizationRate, _dvp.getUtilizationRate(), _toleranceOnPercentage);
         (, , availableBearNotional, availableBullNotional) = _dvp.notional();
-        assertApproxEqAbs(
-            t.post.availableNotionalBear,
-            availableBearNotional,
-            _tolerance(t.post.availableNotionalBear)
-        );
-        assertApproxEqAbs(
-            t.post.availableNotionalBull,
-            availableBullNotional,
-            _tolerance(t.post.availableNotionalBull)
-        );
+        assertApproxEqAbs(t.post.availableNotionalBear, availableBearNotional, _toleranceBt(t.post.availableNotionalBear));
+        assertApproxEqAbs(t.post.availableNotionalBull, availableBullNotional, _toleranceBt(t.post.availableNotionalBull));
 
         {
             (uint256 sigma, /* uint256 ur */) = _dvp.getPostTradeVolatility(strike, Amount({up: 0, down: 0}), true);
-            assertApproxEqAbs(
-                t.post.volatility,
-                sigma,
-                _toleranceOnPercentage
-            );
+            assertApproxEqAbs(t.post.volatility, sigma, _toleranceOnPercentage);
         }
 
         (baseTokenAmount, sideTokenAmount) = _vault.balances();
-        assertApproxEqAbs(t.post.baseTokenAmount, baseTokenAmount, _tolerance(t.post.baseTokenAmount));
-        assertApproxEqAbs(t.post.sideTokenAmount, sideTokenAmount, _tolerance(t.post.sideTokenAmount));
+        assertApproxEqAbs(t.post.baseTokenAmount, baseTokenAmount, _toleranceBt(t.post.baseTokenAmount));
+        assertApproxEqAbs(t.post.sideTokenAmount, sideTokenAmount, _toleranceSt(t.post.sideTokenAmount));
     }
 
     function _checkEndEpoch(string memory json) private {
@@ -465,17 +455,17 @@ contract TestScenariosJson is Test {
         (, , , , , , , uint256 sigmaZero, ) = _dvp.financeParameters();
         // NOTE: the value of sigmaZero must be divided by rho (0.9) in order to be checked
         sigmaZero = (sigmaZero * 10 ** 18) / 0.9e18;
-        assertApproxEqAbs(endEpoch.impliedVolatility, sigmaZero, _tolerance(endEpoch.impliedVolatility));
+        assertApproxEqAbs(endEpoch.impliedVolatility, sigmaZero, _toleranceWad(endEpoch.impliedVolatility));
 
         (uint256 baseTokenAmount, uint256 sideTokenAmount) = _vault.balances();
 
-        assertApproxEqAbs(endEpoch.baseTokenAmount, baseTokenAmount, _tolerance(endEpoch.baseTokenAmount));
-        assertApproxEqAbs(endEpoch.sideTokenAmount, sideTokenAmount, _tolerance(endEpoch.sideTokenAmount));
-        assertApproxEqAbs(endEpoch.v0, _vault.v0(), _tolerance(endEpoch.v0));
+        assertApproxEqAbs(endEpoch.baseTokenAmount, baseTokenAmount, _toleranceBt(endEpoch.baseTokenAmount));
+        assertApproxEqAbs(endEpoch.sideTokenAmount, sideTokenAmount, _toleranceSt(endEpoch.sideTokenAmount));
+        assertApproxEqAbs(endEpoch.v0, _vault.v0(), _toleranceBt(endEpoch.v0));
 
         // Checking user payoff for matured positions
         uint256 vaultPendingPayoff = VaultUtils.getState(_vault).liquidity.pendingPayoffs;
-        assertApproxEqAbs(endEpoch.payoffNet, vaultPendingPayoff, _tolerance(endEpoch.payoffNet));
+        assertApproxEqAbs(endEpoch.payoffNet, vaultPendingPayoff, _toleranceBt(endEpoch.payoffNet));
 
         uint256 accPayoffNet = 0;
         uint256 accPayoffFees = 0;
@@ -505,28 +495,52 @@ contract TestScenariosJson is Test {
             }
         }
 
-        assertApproxEqAbs(endEpoch.payoffNet, accPayoffNet + accPayoffFees, _tolerance(endEpoch.payoffNet));
+        assertApproxEqAbs(endEpoch.payoffNet, accPayoffNet + accPayoffFees, _toleranceBt(endEpoch.payoffNet));
 
         // Right now it makes sense only becasue there is only one trader
-        assertApproxEqAbs(endEpoch.payoffTotal, accNetPaid, _tolerance(endEpoch.payoffTotal));
+        assertApproxEqAbs(endEpoch.payoffTotal, accNetPaid, _toleranceBt(endEpoch.payoffTotal));
 
         vm.stopPrank();
 
         // TODO: add missing "complete withdraw"
     }
 
-    function _tolerance(uint256 value) private view returns (uint256 tol) {
-        if (value == 0) { // only works for 18 decimals
-            return 1e9;
+    function _toleranceWad(uint256 value) private view returns (uint256 tol) {
+        return _tolerance(value, 18);
+    }
+
+    function _toleranceBt(uint256 value) private view returns (uint256 tol) {
+        return _tolerance(value, Parameters.BASE_TOKEN_DECIMALS);
+    }
+
+    function _toleranceSt(uint256 value) private view returns (uint256 tol) {
+        return _tolerance(value, Parameters.SIDE_TOKEN_DECIMALS);
+    }
+
+    function _toleranceWad(int256 value) private view returns (uint256 tol) {
+        return _toleranceWad(uint256(value >= 0 ? value : -value));
+    }
+
+    function _toleranceBt(int256 value) private view returns (uint256 tol) {
+        return _toleranceBt(uint256(value >= 0 ? value : -value));
+    }
+
+    function _toleranceSt(int256 value) private view returns (uint256 tol) {
+        return _toleranceSt(uint256(value >= 0 ? value : -value));
+    }
+
+    function _tolerance(uint256 value, uint256 decimals) private view returns (uint256 tol) {
+        if (value == 0) {
+            return 10 ** decimals / 2;
         }
         tol = (value * _tolerancePercentage) / 1e18;
-        if (tol < 5e6) { // only works for 18 decimals
-            tol = 5e6;
+        if (tol < 5 * 10 ** (decimals / 3)) {
+            tol = 5 * 10 ** (decimals / 3);
         }
     }
 
-    function _tolerance(int256 value) private view returns (uint256) {
-        return _tolerance(uint256(value >= 0 ? value : -value));
+    function _tolerance(int256 value, uint256 decimals) private view returns (uint256) {
+        return _tolerance(uint256(value >= 0 ? value : -value), decimals);
     }
 
     function _getTestsFromJson(string memory filename) internal view returns (string memory) {
