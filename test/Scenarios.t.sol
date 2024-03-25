@@ -211,21 +211,21 @@ contract TestScenariosJson is Test {
     function testScenario8() public { _checkScenario("scenario_8", true); }
 
     // Controls the behavior of all components over multiple epochs
-    function testScenarioMultiEpoch01() public { _checkScenario("scenario_multi_1_e1", true); _checkScenario("scenario_multi_1_e2", false); }
-    function testScenarioMultiEpoch02() public { _checkScenario("scenario_multi_2_e1", true); _checkScenario("scenario_multi_2_e2", false); }
-    function testScenarioMultiEpoch03() public { _checkScenario("scenario_multi_3_e1", true); _checkScenario("scenario_multi_3_e2", false); }
-    function testScenarioMultiEpoch04() public { _checkScenario("scenario_multi_4_e1", true); _checkScenario("scenario_multi_4_e2", false); }
-    function testScenarioMultiEpoch05() public { _checkScenario("scenario_multi_5_e1", true); _checkScenario("scenario_multi_5_e2", false); }
-    function testScenarioMultiEpoch06() public { _checkScenario("scenario_multi_6_e1", true); _checkScenario("scenario_multi_6_e2", false); }
-    function testScenarioMultiEpoch07() public { _checkScenario("scenario_multi_7_e1", true); _checkScenario("scenario_multi_7_e2", false); }
-    function testScenarioMultiEpoch08() public { _checkScenario("scenario_multi_8_e1", true); _checkScenario("scenario_multi_8_e2", false); }
-    function testScenarioMultiEpoch09() public { _checkScenario("scenario_multi_9_e1", true); _checkScenario("scenario_multi_9_e2", false); }
-    function testScenarioMultiEpoch10() public { _checkScenario("scenario_multi_10_e1", true); _checkScenario("scenario_multi_10_e2", false); }
-    function testScenarioMultiEpoch11() public { _checkScenario("scenario_multi_11_e1", true); _checkScenario("scenario_multi_11_e2", false); }
-    function testScenarioMultiEpoch12() public { _checkScenario("scenario_multi_12_e1", true); _checkScenario("scenario_multi_12_e2", false); }
-    function testScenarioMultiEpoch13() public { _checkScenario("scenario_multi_13_e1", true); _checkScenario("scenario_multi_13_e2", false); }
-    function testScenarioMultiEpoch14() public { _checkScenario("scenario_multi_14_e1", true); _checkScenario("scenario_multi_14_e2", false); }
-    function testScenarioMultiEpoch15() public { _checkScenario("scenario_multi_15_e1", true); _checkScenario("scenario_multi_15_e2", false); }
+    function testScenarioMultiEpoch01() public { _checkScenario("multi_01_e1", true); _checkScenario("multi_01_e2", false); }
+    function testScenarioMultiEpoch02() public { _checkScenario("multi_02_e1", true); _checkScenario("multi_02_e2", false); }
+    function testScenarioMultiEpoch03() public { _checkScenario("multi_03_e1", true); _checkScenario("multi_03_e2", false); }
+    function testScenarioMultiEpoch04() public { _checkScenario("multi_04_e1", true); _checkScenario("multi_04_e2", false); }
+    function testScenarioMultiEpoch05() public { _checkScenario("multi_05_e1", true); _checkScenario("multi_05_e2", false); }
+    function testScenarioMultiEpoch06() public { _checkScenario("multi_06_e1", true); _checkScenario("multi_06_e2", false); }
+    function testScenarioMultiEpoch07() public { _checkScenario("multi_07_e1", true); _checkScenario("multi_07_e2", false); }
+    function testScenarioMultiEpoch08() public { _checkScenario("multi_08_e1", true); _checkScenario("multi_08_e2", false); }
+    function testScenarioMultiEpoch09() public { _checkScenario("multi_09_e1", true); _checkScenario("multi_09_e2", false); }
+    function testScenarioMultiEpoch10() public { _checkScenario("multi_10_e1", true); _checkScenario("multi_10_e2", false); }
+    function testScenarioMultiEpoch11() public { _checkScenario("multi_11_e1", true); _checkScenario("multi_11_e2", false); }
+    function testScenarioMultiEpoch12() public { _checkScenario("multi_12_e1", true); _checkScenario("multi_12_e2", false); }
+    function testScenarioMultiEpoch13() public { _checkScenario("multi_13_e1", true); _checkScenario("multi_13_e2", false); }
+    function testScenarioMultiEpoch14() public { _checkScenario("multi_14_e1", true); _checkScenario("multi_14_e2", false); }
+    function testScenarioMultiEpoch15() public { _checkScenario("multi_15_e1", true); _checkScenario("multi_15_e2", false); }
 
     // function testScenarioLowKAHighVolatility() public {
     //     _checkScenario("scenario_low_ka_high_volatility", true);
