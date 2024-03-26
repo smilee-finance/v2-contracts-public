@@ -217,7 +217,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         @return baseTokenAmount The amount of baseToken currently locked in the vault
         @return sideTokenAmount The amount of sideToken currently locked in the vault
      */
-    function balances() public view returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
+    function balances() external view returns (uint256 baseTokenAmount, uint256 sideTokenAmount) {
         baseTokenAmount = _notionalBaseTokens();
         sideTokenAmount = _notionalSideTokens();
     }

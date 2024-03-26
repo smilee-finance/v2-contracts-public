@@ -72,14 +72,16 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         @notice Emitted when option is minted for a given position
         @param sender The address that minted the option
         @param owner The owner of the option
+        @param price The price used for computing the premium
      */
-    event Mint(address sender, address indexed owner);
+    event Mint(address sender, address indexed owner, uint256 price);
 
     /**
         @notice Emitted when a position's option is destroyed
         @param owner The owner of the position that is being burnt
+        @param price The price used for computing the payoff, when not expired
      */
-    event Burn(address indexed owner);
+    event Burn(address indexed owner, uint256 price);
 
     event ChangedPauseState(bool paused);
 
@@ -142,14 +144,16 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
         uint256 fee;
         uint256 vaultFee;
+        uint256 price;
         {
             uint256 premiumOrac;
             {
+                uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
                 premiumOrac = _getMarketValue(
                     strike,
                     amount,
                     true,
-                    IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)
+                    oraclePrice
                 );
 
                 // anticipate expected premium transfer (to facilitate delta hedge corner cases)
@@ -157,7 +161,14 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
                 uint256 swapPrice = _deltaHedgePosition(strike, amount, true);
                 uint256 premiumSwap = _getMarketValue(strike, amount, true, swapPrice);
-                premium_ = premiumSwap > premiumOrac ? premiumSwap : premiumOrac;
+
+                if (premiumSwap > premiumOrac) {
+                    premium_ = premiumSwap;
+                    price = swapPrice;
+                } else {
+                    premium_ = premiumOrac;
+                    price = oraclePrice;
+                }
             }
 
             _updateVolatility(strike, amount, true);
@@ -203,7 +214,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         position.amountUp += amount.up;
         position.amountDown += amount.down;
 
-        emit Mint(msg.sender, recipient);
+        emit Mint(msg.sender, recipient, price);
     }
 
     function _checkSlippage(
@@ -271,20 +282,30 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             revert CantBurnMoreThanMinted();
         }
 
+        uint256 price = 0;
         bool expired = expiry != getEpoch().current;
         if (!expired) {
             // NOTE: checked only here as expired positions needs to be burned even if the vault was killed.
             _checkEpochNotFinished();
 
             uint256 swapPrice = _deltaHedgePosition(strike, amount, false);
+            uint256 oraclePrice = IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken);
             uint256 payoffOrac = _getMarketValue(
                 strike,
                 amount,
                 false,
-                IPriceOracle(_getPriceOracle()).getPrice(sideToken, baseToken)
+                oraclePrice
             );
             uint256 payoffSwap = _getMarketValue(strike, amount, false, swapPrice);
-            paidPayoff = payoffSwap < payoffOrac ? payoffSwap : payoffOrac;
+
+            if (payoffSwap < payoffOrac) {
+                paidPayoff = payoffSwap;
+                price = swapPrice;
+            } else {
+                paidPayoff = payoffOrac;
+                price = oraclePrice;
+            }
+
             _checkSlippage(paidPayoff, expectedMarketValue, maxSlippage, false);
 
             _updateVolatility(strike, amount, false);
@@ -297,37 +318,45 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             _liquidity[expiry].decreasePayoff(strike, payoff_);
         }
 
-        // NOTE: premium fix for the leverage issue annotated in the mint flow.
-        // notional : position.notional = fix : position.premium
-        uint256 entryPremiumProp = ((amount.up + amount.down) * position.premium) /
-            (position.amountUp + position.amountDown);
-        position.premium -= entryPremiumProp;
-
         IFeeManager feeManager = IFeeManager(_getFeeManager());
-        (uint256 fee, uint256 vaultFee) = feeManager.tradeSellFee(
-            address(this),
-            expiry,
-            amount.up + amount.down,
-            paidPayoff,
-            entryPremiumProp,
-            _baseTokenDecimals
-        );
+        uint256 fee;
+        uint256 vaultFee;
+        {
+            // stack too deep avoidance:
+            uint256 expiry_ = expiry;
+            Amount memory amount_ = amount;
 
-        if (paidPayoff >= fee) {
-            paidPayoff -= fee;
-        } else {
-            // if the option didn't reached maturity, vaultFee is always paid expect if vaultFee exceed paidPayoff
-            if (!expired && vaultFee > paidPayoff) {
-                revert PayoffTooLow();
-            }
+            // NOTE: premium fix for the leverage issue annotated in the mint flow.
+            // notional : position.notional = fix : position.premium
+            uint256 entryPremiumProp = ((amount_.up + amount_.down) * position.premium) /
+                (position.amountUp + position.amountDown);
+            position.premium -= entryPremiumProp;
 
-            // Fee becomes all paidPayoff and the user will not receive anything.
-            fee = paidPayoff;
-            paidPayoff = 0;
+            (fee, vaultFee) = feeManager.tradeSellFee(
+                address(this),
+                expiry_,
+                amount_.up + amount_.down,
+                paidPayoff,
+                entryPremiumProp,
+                _baseTokenDecimals
+            );
 
-            // if vaultFee is greater than the paidPayoff all the fee will be transfered to the Vault.
-            if (vaultFee > fee) {
-                vaultFee = fee;
+            if (paidPayoff >= fee) {
+                paidPayoff -= fee;
+            } else {
+                // if the option didn't reached maturity, vaultFee is always paid expect if vaultFee exceed paidPayoff
+                if (!expired && vaultFee > paidPayoff) {
+                    revert PayoffTooLow();
+                }
+
+                // Fee becomes all paidPayoff and the user will not receive anything.
+                fee = paidPayoff;
+                paidPayoff = 0;
+
+                // if vaultFee is greater than the paidPayoff all the fee will be transfered to the Vault.
+                if (vaultFee > fee) {
+                    vaultFee = fee;
+                }
             }
         }
 
@@ -345,7 +374,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         feeManager.receiveFee(netFee);
         feeManager.trackVaultFee(address(vault), vaultFee);
 
-        emit Burn(msg.sender);
+        emit Burn(msg.sender, price);
     }
 
     /// @inheritdoc EpochControls
@@ -391,19 +420,24 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         @notice Utility function to simplify the work done in _accountResidualPayoffs()
      */
     function _accountResidualPayoff(uint256 strike, uint256 price) internal {
+        (uint256 payoffUp_, uint256 payoffDown_) = computeResidualPayoff(strike, price);
+
+        Notional.Info storage liquidity = _liquidity[getEpoch().current];
+        liquidity.accountPayoffs(strike, payoffUp_, payoffDown_);
+    }
+
+    function computeResidualPayoff(uint256 strike, uint256 price) public view returns (uint256 payoffUp, uint256 payoffDown) {
         Notional.Info storage liquidity = _liquidity[getEpoch().current];
 
         // computes the payoff to be set aside at the end of the epoch for the provided strike.
         Amount memory residualAmount = liquidity.getUsed(strike);
         (uint256 percentageUp, uint256 percentageDown) = _residualPayoffPerc(strike, price);
-        (uint256 payoffUp_, uint256 payoffDown_) = Finance.computeResidualPayoffs(
+        (payoffUp, payoffDown) = Finance.computeResidualPayoffs(
             residualAmount,
             percentageUp,
             percentageDown,
             _baseTokenDecimals
         );
-
-        liquidity.accountPayoffs(strike, payoffUp_, payoffDown_);
     }
 
     /**
@@ -466,13 +500,17 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             payoff_ = payoffAmount_.getTotal();
         }
 
+        // notional : position.notional = fix : position.premium
+        uint256 entryPremiumProp = ((amountUp + amountDown) * position.premium) /
+            (position.amountUp + position.amountDown);
+
         IFeeManager feeManager = IFeeManager(_getFeeManager());
         (fee_, ) = feeManager.tradeSellFee(
             address(this),
             expiry,
             amount_.up + amount_.down,
             payoff_,
-            position.premium,
+            entryPremiumProp,
             _baseTokenDecimals
         );
 
