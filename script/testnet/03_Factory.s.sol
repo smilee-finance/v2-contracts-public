@@ -11,7 +11,7 @@ import {FeeManager} from "@project/FeeManager.sol";
 import {IG} from "@project/IG.sol";
 import {Vault} from "@project/Vault.sol";
 import {ChainlinkPriceOracle} from "@project/providers/chainlink/ChainlinkPriceOracle.sol";
-import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
+// import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
 
 /*
@@ -90,7 +90,7 @@ contract DeployDVP is EnhancedScript {
         _checkZeroAddress(_addressProvider.priceOracle(), "ChainlinkPriceOracle");
         ChainlinkPriceOracle priceOracle = ChainlinkPriceOracle(_addressProvider.priceOracle());
         _checkZeroAddress(_addressProvider.exchangeAdapter(), "SwapAdapterRouter");
-        SwapAdapterRouter swapAdapter = SwapAdapterRouter(_addressProvider.exchangeAdapter());
+        // SwapAdapterRouter swapAdapter = SwapAdapterRouter(_addressProvider.exchangeAdapter());
 
         _checkZeroAddress(_deployerAddress, "DEPLOYER_ADDRESS");
         _checkZeroAddress(_godAddress, "GOD_ADDRESS");
@@ -99,12 +99,13 @@ contract DeployDVP is EnhancedScript {
 
         // Check if exists a record for the given tokens
         priceOracle.getPrice(baseToken, sideToken);
-        if (swapAdapter.getAdapter(baseToken, sideToken) == address(0)) {
-            revert("Swap Adapter hasn't been set for the tokens pair (1)");
-        }
-        if (swapAdapter.getAdapter(sideToken, baseToken) == address(0)) {
-            revert("Swap Adapter hasn't been set for the tokens pair (2)");
-        }
+        // NOTE: in testnet the router cannot be used as the TestnetToken does not support it when swapping...
+        // if (swapAdapter.getAdapter(baseToken, sideToken) == address(0)) {
+        //     revert("Swap Adapter hasn't been set for the tokens pair (1)");
+        // }
+        // if (swapAdapter.getAdapter(sideToken, baseToken) == address(0)) {
+        //     revert("Swap Adapter hasn't been set for the tokens pair (2)");
+        // }
 
         //----------------
 

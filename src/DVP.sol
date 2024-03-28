@@ -74,14 +74,14 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         @param owner The owner of the option
         @param price The price used for computing the premium
      */
-    event Mint(address sender, address indexed owner, uint256 price);
+    event Mint(address sender, address indexed owner, uint256 price, uint256 netFee, uint256 vaultFee);
 
     /**
         @notice Emitted when a position's option is destroyed
         @param owner The owner of the position that is being burnt
         @param price The price used for computing the payoff, when not expired
      */
-    event Burn(address indexed owner, uint256 price);
+    event Burn(address indexed owner, uint256 price, uint256 netFee, uint256 vaultFee);
 
     event ChangedPauseState(bool paused);
 
@@ -214,7 +214,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         position.amountUp += amount.up;
         position.amountDown += amount.down;
 
-        emit Mint(msg.sender, recipient, price);
+        emit Mint(msg.sender, recipient, price, fee - vaultFee, vaultFee);
     }
 
     function _checkSlippage(
@@ -374,7 +374,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         feeManager.receiveFee(netFee);
         feeManager.trackVaultFee(address(vault), vaultFee);
 
-        emit Burn(msg.sender, price);
+        emit Burn(msg.sender, price, netFee, vaultFee);
     }
 
     /// @inheritdoc EpochControls

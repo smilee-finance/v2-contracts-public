@@ -101,16 +101,17 @@ contract DeployCoreFoundations is Script {
         }
         ap.setMarketOracle(address(marketOracle));
 
+        // NOTE: in testnet the router cannot be used as the TestnetToken does not support it when swapping...
         SwapAdapterRouter swapAdapterRouter = new SwapAdapterRouter(address(ap), 0);
         swapAdapterRouter.grantRole(swapAdapterRouter.ROLE_GOD(), _godAddress);
         swapAdapterRouter.grantRole(swapAdapterRouter.ROLE_ADMIN(), _adminAddress);
         if (!_deployerIsGod) {
             swapAdapterRouter.renounceRole(swapAdapterRouter.ROLE_GOD(), _deployerAddress);
         }
-        ap.setExchangeAdapter(address(swapAdapterRouter));
+        // ap.setExchangeAdapter(address(swapAdapterRouter));
 
-        new TestnetSwapAdapter(address(priceOracle));
-        // ap.setExchangeAdapter(address(swapper));
+        TestnetSwapAdapter swapper = new TestnetSwapAdapter(address(priceOracle));
+        ap.setExchangeAdapter(address(swapper));
 
         FeeManager feeManager = new FeeManager(address(ap), 0);
         feeManager.grantRole(feeManager.ROLE_GOD(), _godAddress);

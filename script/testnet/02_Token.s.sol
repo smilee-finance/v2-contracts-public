@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import {console} from "forge-std/console.sol";
 import {AddressProvider} from "@project/AddressProvider.sol";
-import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
+// import {SwapAdapterRouter} from "@project/providers/SwapAdapterRouter.sol";
 import {TestnetToken} from "@project/testnet/TestnetToken.sol";
 import {TestnetPriceOracle} from "@project/testnet/TestnetPriceOracle.sol";
 import {EnhancedScript} from "../utils/EnhancedScript.sol";
@@ -64,11 +64,11 @@ contract DeployToken is EnhancedScript {
 
         console.log(string.concat("Token s", symbol, " deployed at"), sTokenAddr);
 
-        vm.startBroadcast(_adminPrivateKey);
-        SwapAdapterRouter swapAdapterRouter = SwapAdapterRouter(_ap.exchangeAdapter());
-        swapAdapterRouter.setAdapter(_sUSD, sTokenAddr, _swapAdapter);
-        swapAdapterRouter.setAdapter(sTokenAddr, _sUSD, _swapAdapter);
-        vm.stopBroadcast();
+        // vm.startBroadcast(_adminPrivateKey);
+        // SwapAdapterRouter swapAdapterRouter = SwapAdapterRouter(_ap.exchangeAdapter());
+        // swapAdapterRouter.setAdapter(_sUSD, sTokenAddr, _swapAdapter);
+        // swapAdapterRouter.setAdapter(sTokenAddr, _sUSD, _swapAdapter);
+        // vm.stopBroadcast();
     }
 
     function setTokenPrice(address token, uint256 price) public {
@@ -79,12 +79,13 @@ contract DeployToken is EnhancedScript {
         vm.stopBroadcast();
     }
 
-
     function mint(address tokenAddr, address recipient, uint256 amount) public {
         TestnetToken sToken = TestnetToken(tokenAddr);
+        amount = amount * (10 ** sToken.decimals());
 
         vm.startBroadcast(_deployerPrivateKey);
         sToken.mint(recipient, amount);
         vm.stopBroadcast();
     }
+
 }
