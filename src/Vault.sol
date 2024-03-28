@@ -94,7 +94,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     event Deposit(uint256 amount);
     event Redeem(uint256 amount);
     event InitiateWithdraw(uint256 amount);
-    event Withdraw(uint256 amount);
+    event Withdraw(uint256 shares, uint256 amount);
     // Used by TheGraph for frontend needs:
     event MissingLiquidity(uint256 missing);
     event ChangedHedgeMargin(uint256 basisPoints);
@@ -561,7 +561,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _burn(address(this), sharesToWithdraw);
         IERC20(baseToken).safeTransfer(msg.sender, amountToWithdraw);
 
-        emit Withdraw(amountToWithdraw);
+        emit Withdraw(sharesToWithdraw, amountToWithdraw);
     }
 
     function rescueShares() external isDead whenNotPaused {
