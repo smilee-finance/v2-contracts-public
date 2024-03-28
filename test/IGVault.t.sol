@@ -283,7 +283,8 @@ contract IGVaultTest is Test {
                 ig.currentEpoch(),
                 strike,
                 (optionStrategy) ? davidAmountToBurn : 0,
-                (optionStrategy) ? 0 : davidAmountToBurn
+                (optionStrategy) ? 0 : davidAmountToBurn,
+                0
             );
 
             davidPayoff = ig.burn(
@@ -293,7 +294,8 @@ contract IGVaultTest is Test {
                 (optionStrategy) ? davidAmountToBurn : 0,
                 (optionStrategy) ? 0 : davidAmountToBurn,
                 davidPayoff,
-                0.1e18
+                0.1e18,
+                0
             );
             vm.stopPrank();
         }
@@ -401,7 +403,8 @@ contract IGVaultTest is Test {
             positionEpoch,
             positionStrike,
             (params.optionStrategy) ? params.charlieAmount : 0,
-            (params.optionStrategy) ? 0 : params.charlieAmount
+            (params.optionStrategy) ? 0 : params.charlieAmount,
+            0
         );
 
         assertApproxEqAbs(params.charlieAmount / 5, charliePayoff + charlieFeePayoff, 1e2);
@@ -411,7 +414,8 @@ contract IGVaultTest is Test {
             positionEpoch,
             positionStrike,
             (params.optionStrategy) ? params.davidAmount : 0,
-            (params.optionStrategy) ? 0 : params.davidAmount
+            (params.optionStrategy) ? 0 : params.davidAmount,
+            0
         );
 
         console.log("davidPayoff + davidFeePayoff", davidPayoff + davidFeePayoff);
@@ -431,7 +435,8 @@ contract IGVaultTest is Test {
                 (optionStrategy) ? davidAmount : 0,
                 (optionStrategy) ? 0 : davidAmount,
                 davidPayoff,
-                0.1e18
+                0.1e18,
+                0
             );
         }
 
@@ -522,9 +527,9 @@ contract IGVaultTest is Test {
         uint256 currentEpoch = ig.currentEpoch();
         vm.startPrank(charlie);
 
-        (expectedMarketValue, ) = ig.payoff(currentEpoch, strike, optionAmount / 2, 0);
+        (expectedMarketValue, ) = ig.payoff(currentEpoch, strike, optionAmount / 2, 0, 0);
         vm.expectRevert("Pausable: paused");
-        ig.burn(currentEpoch, charlie, strike, optionAmount / 2, 0, expectedMarketValue, 0.1e18);
+        ig.burn(currentEpoch, charlie, strike, optionAmount / 2, 0, expectedMarketValue, 0.1e18, 0);
         vm.stopPrank();
 
         vm.prank(admin);
@@ -532,8 +537,8 @@ contract IGVaultTest is Test {
 
         // Burn should be work again
         vm.startPrank(charlie);
-        (expectedMarketValue, ) = ig.payoff(currentEpoch, strike, optionAmount / 2, 0);
-        ig.burn(ig.currentEpoch(), charlie, strike, optionAmount / 2, 0, expectedMarketValue, 0.1e18);
+        (expectedMarketValue, ) = ig.payoff(currentEpoch, strike, optionAmount / 2, 0, 0);
+        ig.burn(ig.currentEpoch(), charlie, strike, optionAmount / 2, 0, expectedMarketValue, 0.1e18, 0);
         vm.stopPrank();
 
         // Test RollEpoch when Vault is paused
@@ -641,13 +646,13 @@ contract IGVaultTest is Test {
 
         // Burn the first option successfully.
         vm.startPrank(charlie);
-        (uint256 expectedMarketValue, ) = ig.payoff(firstOptionEpoch, strike, optionAmount, 0);
-        ig.burn(firstOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
+        (uint256 expectedMarketValue, ) = ig.payoff(firstOptionEpoch, strike, optionAmount, 0, 0);
+        ig.burn(firstOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18, 0);
 
         // Burn the second option expecting EpochFinished error.
-        (expectedMarketValue, ) = ig.payoff(secondOptionEpoch, strike, optionAmount, 0);
+        (expectedMarketValue, ) = ig.payoff(secondOptionEpoch, strike, optionAmount, 0, 0);
         vm.expectRevert(EpochFinished);
-        ig.burn(secondOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18);
+        ig.burn(secondOptionEpoch, charlie, strike, optionAmount, 0, expectedMarketValue, 0.1e18, 0);
         vm.stopPrank();
 
         // Buy third option expecting EpochFinished error.

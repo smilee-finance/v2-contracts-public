@@ -14,8 +14,6 @@ library Position {
         uint256 strike;
         // the timestamp corresponding to the maturity of this position epoch
         uint256 epoch;
-        // premium paid by user inluding fee
-        uint256 premium;
     }
 
     /**

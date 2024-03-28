@@ -39,6 +39,7 @@ interface IDVP is IDVPImmutables, IEpochControls {
         @param strike The position strike price
         @param amountUp The position amount used to compute payoff for the "Up" strategy
         @param amountDown The position amount used to compute payoff for the "Down" strategy
+        @param entryPremium The premium paid when creating position
         @return payoff An estimate of the current value of the position
         @return fee The amount of base tokens that will be paid as a fee
      */
@@ -46,7 +47,8 @@ interface IDVP is IDVPImmutables, IEpochControls {
         uint256 epoch,
         uint256 strike,
         uint256 amountUp,
-        uint256 amountDown
+        uint256 amountDown,
+        uint256 entryPremium
     ) external view returns (uint256 payoff, uint256 fee);
 
     /**
@@ -86,6 +88,7 @@ interface IDVP is IDVPImmutables, IEpochControls {
         @param amountDown The amount of notional to be burned for the "Down" strategy.
         @param expectedMarketValue The expected market value of the burned notional; ignored when epoch is not the current one.
         @param maxSlippage The maximum accepted slippage percentage from the expected value (denominated with 18 decimals, 1e18 = 100%); ignored when epoch is not the current one.
+        @param entryPremium The paid when creating position
         @return paidPayoff The amount of paid payoff
         @dev After maturity, the amount parameter is ignored and all the option is burned.
      */
@@ -96,7 +99,8 @@ interface IDVP is IDVPImmutables, IEpochControls {
         uint256 amountUp,
         uint256 amountDown,
         uint256 expectedMarketValue,
-        uint256 maxSlippage
+        uint256 maxSlippage,
+        uint256 entryPremium
     ) external returns (uint256 paidPayoff);
 
 }

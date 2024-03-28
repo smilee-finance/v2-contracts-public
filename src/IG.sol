@@ -75,11 +75,12 @@ contract IG is DVP {
         uint256 amountUp,
         uint256 amountDown,
         uint256 expectedMarketValue,
-        uint256 maxSlippage
+        uint256 maxSlippage,
+        uint256 entryPremium
     ) external override returns (uint256 paidPayoff) {
         Amount memory amount_ = Amount({up: amountUp, down: amountDown});
 
-        paidPayoff = _burn(epoch, recipient, strike, amount_, expectedMarketValue, maxSlippage);
+        paidPayoff = _burn(epoch, recipient, strike, amount_, expectedMarketValue, maxSlippage, entryPremium);
     }
 
     /// @inheritdoc IDVP

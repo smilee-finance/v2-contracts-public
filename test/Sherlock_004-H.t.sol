@@ -143,7 +143,8 @@ contract IGVaultTest is Test {
                 ig.currentEpoch(),
                 _strike,
                 optionAmountUp,
-                optionAmountDown
+                optionAmountDown,
+                0
             );
 
             charliePayoff = ig.burn(
@@ -153,7 +154,8 @@ contract IGVaultTest is Test {
                 optionAmountUp,
                 optionAmountDown,
                 charliePayoff,
-                0.1e18
+                0.1e18,
+                0
             );
             vm.stopPrank();
 

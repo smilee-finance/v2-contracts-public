@@ -202,8 +202,8 @@ contract IGErrorTest is Test {
             vm.stopPrank();
 
             vm.startPrank(charlie);
-            (premium, ) = ig.payoff(epoch, 2000e18, 1e18, 0);
-            ig.burn(epoch, charlie, 2000e18, 1e18, 0, premium, 0.1e18);
+            (premium, ) = ig.payoff(epoch, 2000e18, 1e18, 0, 0);
+            ig.burn(epoch, charlie, 2000e18, 1e18, 0, premium, 0.1e18, 0);
             vm.stopPrank();
             prezzo -= 20e18;
         }
@@ -241,8 +241,8 @@ contract IGErrorTest is Test {
             vm.stopPrank();
 
             vm.startPrank(charlie);
-            (premium, ) = ig.payoff(epoch, 2000e18, 1e18, 0);
-            ig.burn(epoch, charlie, 2000e18, 1e18, 0, premium, 0.1e18);
+            (premium, ) = ig.payoff(epoch, 2000e18, 1e18, 0, 0);
+            ig.burn(epoch, charlie, 2000e18, 1e18, 0, premium, 0.1e18, 0);
             vm.stopPrank();
             prezzo -= 20e18;
         }
@@ -280,8 +280,8 @@ contract IGErrorTest is Test {
             vm.stopPrank();
 
             vm.startPrank(charlie);
-            (uint256 payoff, ) = ig.payoff(epoch, 2000e18, 0, 1e18);
-            ig.burn(epoch, charlie, 2000e18, 0, 1e18, payoff, 0.1e18);
+            (uint256 payoff, ) = ig.payoff(epoch, 2000e18, 0, 1e18, 0);
+            ig.burn(epoch, charlie, 2000e18, 0, 1e18, payoff, 0.1e18, 0);
             vm.stopPrank();
             prezzo += 20e18;
         }
@@ -319,8 +319,8 @@ contract IGErrorTest is Test {
             vm.stopPrank();
 
             vm.startPrank(charlie);
-            (uint256 payoff, ) = ig.payoff(epoch, 2000e18, 0, 1e18);
-            ig.burn(epoch, charlie, 2000e18, 0, 1e18, payoff, 0.1e18);
+            (uint256 payoff, ) = ig.payoff(epoch, 2000e18, 0, 1e18, 0);
+            ig.burn(epoch, charlie, 2000e18, 0, 1e18, payoff, 0.1e18, 0);
             vm.stopPrank();
             prezzo += 20e18;
         }

@@ -380,7 +380,11 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
                 if (!FLAG_SLIPPAGE) {
                     uint256 minExp = 1e18 / 10 ** baseToken.decimals();
-                    if ((vaultPayoffPerc <= 0 && lpPnl <= 0) && (uint256(vaultPayoffPerc * -1) <= minExp) && (uint256(lpPnl * -1) <= minExp)) {
+                    if (
+                        (vaultPayoffPerc <= 0 && lpPnl <= 0) &&
+                        (uint256(vaultPayoffPerc * -1) <= minExp) &&
+                        (uint256(lpPnl * -1) <= minExp)
+                    ) {
                         t(true, _VAULT_01.desc);
                     } else {
                         t(vaultPayoffPerc >= lpPnl, _VAULT_01.desc);
@@ -621,7 +625,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
             buyInfo_.epoch,
             buyInfo_.strike,
             buyInfo_.amountUp,
-            buyInfo_.amountDown
+            buyInfo_.amountDown,
+            0
         );
 
         {
@@ -631,9 +636,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 if (_getTokenPrice(address(vault.sideToken())) > financeParameters.kA) {
                     uint256 expiryPayoff = _getTradeExpiryPayoff(buyInfo_.amountUp, buyInfo_.amountDown);
                     (uint256 expectedPremium, ) = ig.premium(buyInfo_.strike, buyInfo_.amountUp, buyInfo_.amountDown);
-                    uint256 epTolerance = expectedPremium > BT_UNIT
-                        ? expectedPremium / BT_UNIT
-                        : 1;
+                    uint256 epTolerance = expectedPremium > BT_UNIT ? expectedPremium / BT_UNIT : 1;
                     gte(expectedPremium + epTolerance, expiryPayoff, _IG_14.desc);
                 }
                 (uint256 ivMax, uint256 ivMin) = _getIVMaxMin(EPOCH_FREQUENCY);
@@ -650,8 +653,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         uint256 payoff;
 
         if (!FLAG_SLIPPAGE) {
-            (uint256 preTradeRY, uint256 preTradePremium, uint256 uPreTrade) = _getPreTradeRY(
-                ig.currentStrike());
+            (uint256 preTradeRY, uint256 preTradePremium, uint256 uPreTrade) = _getPreTradeRY(ig.currentStrike());
             ryInfo_VAULT_2_1 = RYInfo(preTradeRY, preTradePremium, uPreTrade);
         }
         hevm.prank(buyInfo_.recipient);
@@ -663,7 +665,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                 buyInfo_.amountUp,
                 buyInfo_.amountDown,
                 expectedPayoff,
-                ACCEPTED_SLIPPAGE
+                ACCEPTED_SLIPPAGE,
+                0
             )
         returns (uint256 payoff_) {
             payoff = payoff_;
@@ -676,7 +679,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
 
         if (!FLAG_SLIPPAGE) {
-            uint256 postTradeRY = _getPostTradeRY(buyInfo_.strike, ryInfo_VAULT_2_1, buyInfo_.amountUp, buyInfo_.amountDown);
+            uint256 postTradeRY = _getPostTradeRY(
+                buyInfo_.strike,
+                ryInfo_VAULT_2_1,
+                buyInfo_.amountUp,
+                buyInfo_.amountDown
+            );
             t(postTradeRY - ryInfo_VAULT_2_1.tradeRY >= 0, _VAULT_02_1.desc);
         }
 
@@ -902,14 +910,14 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
                         t(payoff == 0, _IG_13.desc);
                     }
                 } else if (sellType == _SMILEE) {
-                        int256 diff = int256(sellTokenPrice) - int256(buyInfo_.strike);
-                        diff = diff > 0 ? diff : -diff;
+                    int256 diff = int256(sellTokenPrice) - int256(buyInfo_.strike);
+                    diff = diff > 0 ? diff : -diff;
 
-                        if (diff > 1e9) {
-                            t(payoff > 0, _IG_27.desc);
-                        } else {
-                            t(payoff == 0, _IG_27.desc);
-                        }
+                    if (diff > 1e9) {
+                        t(payoff > 0, _IG_27.desc);
+                    } else {
+                        t(payoff == 0, _IG_27.desc);
+                    }
                 }
             }
         } else {
@@ -1093,16 +1101,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
         }
     }
 
-    function _getRYPremium(
-        uint256 strike,
-        uint256 amountUp,
-        uint256 amountDown
-    ) internal view returns (uint256 p) {
+    function _getRYPremium(uint256 strike, uint256 amountUp, uint256 amountDown) internal view returns (uint256 p) {
         Amount memory amount = Amount(amountUp, amountDown);
-        Amount memory hypAmount = Amount(
-                amountUp > 0 ? 1 : 0,
-                amountDown > 0 ? 1 : 0
-            );
+        Amount memory hypAmount = Amount(amountUp > 0 ? 1 : 0, amountDown > 0 ? 1 : 0);
         uint256 sideTokenPrice = _getTokenPrice(vault.sideToken());
         (uint256 iv, ) = ig.getPostTradeVolatility(strike, hypAmount, true);
         p = _getMarketValueWithCustomIV(iv, amount, address(baseToken), sideTokenPrice);
@@ -1136,8 +1137,12 @@ abstract contract TargetFunctions is BaseTargetFunctions, State {
 
             uint256 payoffT1 = t1Vault25.payoff;
             uint256 payoffT2 = _getTotalExpiryPayoff();
-            uint256 ewT1 = _initialEwBaseTokens + _initialEwSideTokens * t1Vault25.tokenPrice * BT_UNIT / (1e18 * ST_UNIT);
-            uint256 ewT2 = _initialEwBaseTokens + _initialEwSideTokens * _getTokenPrice(address(vault.sideToken())) * BT_UNIT / (1e18 * ST_UNIT);
+            uint256 ewT1 = _initialEwBaseTokens +
+                (_initialEwSideTokens * t1Vault25.tokenPrice * BT_UNIT) /
+                (1e18 * ST_UNIT);
+            uint256 ewT2 = _initialEwBaseTokens +
+                (_initialEwSideTokens * _getTokenPrice(address(vault.sideToken())) * BT_UNIT) /
+                (1e18 * ST_UNIT);
 
             int256 vaultPnl = int256(ryT2) - int256(ryT1);
             int256 lpPnl = int256(ewT2) - int256(payoffT2) - int256(ewT1) + int256(payoffT1);

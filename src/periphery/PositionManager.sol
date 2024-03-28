@@ -55,7 +55,9 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
     error ZeroAddress();
     error NotRegistered();
 
-    constructor(address addressProvider) ERC721Enumerable() ERC721("Smilee DVP Position", "SMIL-DVP-POS") AccessControl() {
+    constructor(
+        address addressProvider
+    ) ERC721Enumerable() ERC721("Smilee DVP Position", "SMIL-DVP-POS") AccessControl() {
         _nextId = 1;
         nftAccessFlag = false;
         _addressProvider = IAddressProvider(addressProvider);
@@ -186,7 +188,7 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
             }
         }
 
-        uint256 spending = params.expectedPremium + params.expectedPremium * params.maxSlippage / 1e18;
+        uint256 spending = params.expectedPremium + (params.expectedPremium * params.maxSlippage) / 1e18;
 
         // Transfer premium:
         // NOTE: The PositionManager is just a middleman between the user and the DVP
@@ -253,7 +255,10 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
         uint256 notionalDown
     ) external view returns (uint256 payoff_, uint256 fee) {
         ManagedPosition storage position = _positions[tokenId];
-        return IDVP(position.dvpAddr).payoff(position.expiry, position.strike, notionalUp, notionalDown);
+        uint256 premiumProp = ((notionalUp + notionalDown) * position.premium) /
+            (position.notionalUp + position.notionalDown);
+
+        return IDVP(position.dvpAddr).payoff(position.expiry, position.strike, notionalUp, notionalDown, premiumProp);
     }
 
     function sell(SellParams calldata params) external isOwner(params.tokenId) returns (uint256 payoff_) {
@@ -300,6 +305,11 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
             revert AsymmetricAmount();
         }
 
+        // NOTE: premium fix for the leverage issue annotated in the mint flow.
+        // notional : position.notional = fix : position.premium
+        uint256 premiumProp = ((notionalUp + notionalDown) * position.premium) /
+            (position.notionalUp + position.notionalDown);
+
         // NOTE: the DVP already checks that the burned notional is lesser or equal to the position notional.
         // NOTE: the payoff is transferred directly from the DVP
         payoff_ = IDVP(position.dvpAddr).burn(
@@ -309,14 +319,11 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
             notionalUp,
             notionalDown,
             expectedMarketValue,
-            maxSlippage
+            maxSlippage,
+            premiumProp
         );
 
-        // NOTE: premium fix for the leverage issue annotated in the mint flow.
-        // notional : position.notional = fix : position.premium
-        uint256 premiumFix = ((notionalUp + notionalDown) * position.premium) /
-            (position.notionalUp + position.notionalDown);
-        position.premium -= premiumFix;
+        position.premium -= premiumProp;
         position.cumulatedPayoff += payoff_;
         position.notionalUp -= notionalUp;
         position.notionalDown -= notionalDown;
@@ -334,7 +341,9 @@ contract PositionManager is ERC721Enumerable, AccessControl, IPositionManager {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC721Enumerable, IERC165) returns (bool) {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(AccessControl, ERC721Enumerable, IERC165) returns (bool) {
         return ERC721Enumerable.supportsInterface(interfaceId) || AccessControl.supportsInterface(interfaceId);
     }
 }

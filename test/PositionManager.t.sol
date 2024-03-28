@@ -310,7 +310,7 @@ contract PositionManagerTest is Test {
 
         (uint256 pmExpectedMarketValue, ) = pm.payoff(tokenId, position.notionalUp, position.notionalDown);
         vm.prank(address(pm));
-        (uint256 expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown);
+        (uint256 expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown, 0);
 
         assertEq(pmExpectedMarketValue, expectedMarketValue);
 
@@ -338,7 +338,7 @@ contract PositionManagerTest is Test {
         IPositionManager.PositionDetail memory position = pm.positionDetail(tokenId);
 
         vm.prank(address(pm));
-        (uint256 expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown);
+        (uint256 expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown, 0);
         IPositionManager.SellParams memory params = IPositionManager.SellParams({
                 tokenId: tokenId,
                 notionalUp: position.notionalUp,
@@ -368,7 +368,7 @@ contract PositionManagerTest is Test {
 
         IPositionManager.PositionDetail memory position = pm.positionDetail(firstTokenId);
         vm.prank(address(pm));
-        (uint256 expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown);
+        (uint256 expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown, 0);
 
         sellAllParams[0] = IPositionManager.SellParams({
                 tokenId: firstTokenId,
@@ -380,7 +380,7 @@ contract PositionManagerTest is Test {
 
         position = pm.positionDetail(secondTokenId);
         vm.prank(address(pm));
-        (expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown);
+        (expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown, 0);
 
         sellAllParams[1] = IPositionManager.SellParams({
                 tokenId: secondTokenId,
@@ -410,7 +410,7 @@ contract PositionManagerTest is Test {
 
         IPositionManager.PositionDetail memory position = pm.positionDetail(firstTokenId);
         vm.prank(address(pm));
-        (uint256 expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown);
+        (uint256 expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown, 0);
 
         sellAllParams[0] = IPositionManager.SellParams({
                 tokenId: firstTokenId,
@@ -422,7 +422,7 @@ contract PositionManagerTest is Test {
 
         position = pm.positionDetail(secondTokenId);
         vm.prank(address(pm));
-        (expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown);
+        (expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown, 0);
 
         sellAllParams[1] = IPositionManager.SellParams({
                 tokenId: secondTokenId,
@@ -479,7 +479,7 @@ contract PositionManagerTest is Test {
 
             IPositionManager.PositionDetail memory position = pm.positionDetail(tokenId);
             vm.prank(address(pm));
-            (expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown);
+            (expectedMarketValue, ) = ig.payoff(position.expiry, position.strike, position.notionalUp, position.notionalDown, 0);
 
             vm.prank(alice);
             vm.expectRevert(AsymmetricAmount);

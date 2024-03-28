@@ -162,7 +162,8 @@ contract IGTradeTest is Test {
                 ig.currentEpoch(),
                 _strike,
                 optionAmountUp,
-                optionAmountDown
+                optionAmountDown,
+                0
             );
 
             charliePayoff = ig.burn(
@@ -172,7 +173,8 @@ contract IGTradeTest is Test {
                 optionAmountUp,
                 optionAmountDown,
                 charliePayoff,
-                0.1e18
+                0.1e18,
+                0
             );
             vm.stopPrank();
 

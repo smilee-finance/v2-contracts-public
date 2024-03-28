@@ -208,7 +208,6 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
 
         // Create or update position:
         Position.Info storage position = _getPosition(epoch.current, recipient, strike);
-        position.premium += premium_;
         position.epoch = epoch.current;
         position.strike = strike;
         position.amountUp += amount.up;
@@ -265,7 +264,8 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 strike,
         Amount memory amount,
         uint256 expectedMarketValue,
-        uint256 maxSlippage
+        uint256 maxSlippage,
+        uint256 entryPremium
     ) internal returns (uint256 paidPayoff) {
         _beforeTrade();
         _requireNotPaused();
@@ -326,18 +326,12 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             uint256 expiry_ = expiry;
             Amount memory amount_ = amount;
 
-            // NOTE: premium fix for the leverage issue annotated in the mint flow.
-            // notional : position.notional = fix : position.premium
-            uint256 entryPremiumProp = ((amount_.up + amount_.down) * position.premium) /
-                (position.amountUp + position.amountDown);
-            position.premium -= entryPremiumProp;
-
             (fee, vaultFee) = feeManager.tradeSellFee(
                 address(this),
                 expiry_,
                 amount_.up + amount_.down,
                 paidPayoff,
-                entryPremiumProp,
+                entryPremium,
                 _baseTokenDecimals
             );
 
@@ -473,7 +467,8 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         uint256 expiry,
         uint256 strike,
         uint256 amountUp,
-        uint256 amountDown
+        uint256 amountDown,
+        uint256 entryPremium
     ) public view virtual returns (uint256 payoff_, uint256 fee_) {
         Position.Info storage position = _getPosition(expiry, msg.sender, strike);
         if (!position.exists()) {
@@ -500,17 +495,13 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
             payoff_ = payoffAmount_.getTotal();
         }
 
-        // notional : position.notional = fix : position.premium
-        uint256 entryPremiumProp = ((amountUp + amountDown) * position.premium) /
-            (position.amountUp + position.amountDown);
-
         IFeeManager feeManager = IFeeManager(_getFeeManager());
         (fee_, ) = feeManager.tradeSellFee(
             address(this),
             expiry,
             amount_.up + amount_.down,
             payoff_,
-            entryPremiumProp,
+            entryPremium,
             _baseTokenDecimals
         );
 
