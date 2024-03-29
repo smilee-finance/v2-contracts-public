@@ -76,6 +76,8 @@ Get the libraries to link with each of the following commands by running `python
 
 See link:./reference_addresses.adoc[reference_addresses.adoc] for reference addresses.
 
+Add `--verify --etherscan-api-key=<API_KEY> --verifier-url=<BLOCK_EXPLORER_API>`
+
 . Deploy libraries:
 +
 `forge script script/mainnet/00_Libraries.s.sol:DeployLibraries --rpc-url $RPC_MAINNET --broadcast -vv --skip test`

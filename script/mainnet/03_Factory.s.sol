@@ -297,19 +297,19 @@ contract DeployDVP is EnhancedScript {
 
     // // ARBITRUM MAINNET:
     // function runConfiguration() public {
-    //     // // USDC / WETH
-    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, 604800, 10800);
-    //     setVaultMaxDeposit(_vaultAddr, 1050000);
+    //     // USDC / WETH
+    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, 604800, 442800);
+    //     setVaultMaxDeposit(_vaultAddr, 1150000);
     //     // USDC / ARB
-    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x912CE59144191C1204E64559FE8253a0e49E6548, 604800, 10800);
+    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x912CE59144191C1204E64559FE8253a0e49E6548, 604800, 442800);
     //     setVaultMaxDeposit(_vaultAddr, 600000);
     //     setDVPSuccessFee(_dvpAddr, 0.05e18);
-    //     // // USDC / GMX
-    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a, 604800, 10800);
-    //     setVaultMaxDeposit(_vaultAddr, 300000);
+    //     // USDC / GMX
+    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a, 604800, 442800);
+    //     setVaultMaxDeposit(_vaultAddr, 250000);
     //     setDVPSuccessFee(_dvpAddr, 0.05e18);
-    //     // // USDC / WBTC
-    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f, 604800, 10800);
-    //     setVaultMaxDeposit(_vaultAddr, 1050000);
+    //     // USDC / WBTC
+    //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f, 604800, 442800);
+    //     setVaultMaxDeposit(_vaultAddr, 1000000);
     // }
 }
