@@ -114,7 +114,7 @@ contract DeployDVP is EnhancedScript {
         Vault vault = Vault(vaultAddr);
 
         vault.setAllowedDVP(dvpAddr);
-        vault.setPriorityAccessFlag(true);
+        // vault.setPriorityAccessFlag(true);
         if (!_deployerIsAdmin) {
             vault.renounceRole(vault.ROLE_ADMIN(), _deployerAddress);
         }
@@ -143,9 +143,9 @@ contract DeployDVP is EnhancedScript {
 
         uint8 decimals = IERC20Metadata(baseToken).decimals();
         FeeManager.FeeParams memory feeParams = FeeManager.FeeParams({
-            timeToExpiryThreshold: 3600,
-            minFeeBeforeTimeThreshold: (10 ** decimals), // 1 dollaro
-            minFeeAfterTimeThreshold: (10 ** decimals), // 1 dollaro
+            timeToExpiryThreshold: 3 days,
+            minFeeBeforeTimeThreshold: (10 ** decimals) / 2, // 0.5 base tokens
+            minFeeAfterTimeThreshold: (10 ** decimals) / 4, // 0.25 base tokens
             successFeeTier: 0.005e18, // 0.5 %
             feePercentage: 0.0004e18, // 0.04 %
             capPercentage: 0.125e18, // 12.5 %
@@ -299,17 +299,17 @@ contract DeployDVP is EnhancedScript {
     // function runConfiguration() public {
     //     // // USDC / WETH
     //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, 604800, 10800);
-    //     setVaultMaxDeposit(_vaultAddr, 1200000);
+    //     setVaultMaxDeposit(_vaultAddr, 1050000);
     //     // USDC / ARB
     //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x912CE59144191C1204E64559FE8253a0e49E6548, 604800, 10800);
-    //     setVaultMaxDeposit(_vaultAddr, 450000);
+    //     setVaultMaxDeposit(_vaultAddr, 600000);
     //     setDVPSuccessFee(_dvpAddr, 0.05e18);
     //     // // USDC / GMX
     //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a, 604800, 10800);
-    //     setVaultMaxDeposit(_vaultAddr, 150000);
+    //     setVaultMaxDeposit(_vaultAddr, 300000);
     //     setDVPSuccessFee(_dvpAddr, 0.05e18);
     //     // // USDC / WBTC
     //     createIGMarket(0xaf88d065e77c8cC2239327C5EDb3A432268e5831, 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f, 604800, 10800);
-    //     setVaultMaxDeposit(_vaultAddr, 1200000);
+    //     setVaultMaxDeposit(_vaultAddr, 1050000);
     // }
 }
