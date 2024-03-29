@@ -8,6 +8,7 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
+import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IMutableToken} from "./interfaces/IMutableToken.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
 import {IVault} from "./interfaces/IVault.sol";
@@ -90,7 +91,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     error InsufficientLiquidity(bytes4); // raise when accounting operations would break the system due to lack of liquidity
     error FailingDeltaHedge();
     error OutOfAllowedRange();
-    error TransferNotAllowed();
+    error ChangeTokenNotAllowed();
 
     event Deposit(uint256 amount);
     event Redeem(uint256 amount);
@@ -605,8 +606,6 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
             return;
         }
 
-        // revert TransferNotAllowed();
-
         /**
          * As user may transfer their shares, we need to fix the accounting
          * used to adjust state.liquidity.totalDeposit when a user
@@ -919,18 +918,21 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
 
         bool isBaseToken = (from == baseToken);
         bool isSideToken = (from == sideToken);
-        if (!isBaseToken && !isSideToken) {
-            revert TransferNotAllowed();
+        if ((!isBaseToken && !isSideToken) || from == to) {
+            revert ChangeTokenNotAllowed();
         }
+        uint8 toDecimals = IERC20Metadata(to).decimals();
         if (isBaseToken) {
-            uint8 toDecimals = IERC20Metadata(to).decimals();
-            if (toDecimals != _shareDecimals) {
-                revert TransferNotAllowed();
+            if (toDecimals != _shareDecimals || to == sideToken) {
+                revert ChangeTokenNotAllowed();
             }
-
             baseToken = to;
         }
         if (isSideToken) {
+            uint8 fromDecimals = IERC20Metadata(sideToken).decimals();
+            if (toDecimals != fromDecimals || to == baseToken) {
+                revert ChangeTokenNotAllowed();
+            }
             sideToken = to;
         }
 
@@ -944,12 +946,13 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         IERC20(from).safeApprove(exchangeAddress, amount);
         uint256 newAmount = exchange.swapIn(from, to, amount);
 
-        if (newAmount < amount) {
-            revert AmountNotAllowed();
+        IPriceOracle oracle = IPriceOracle(_addressProvider.priceOracle());
+
+        if (oracle.getPrice(to, from) < 1e18 || newAmount < amount) {
+            revert ChangeTokenNotAllowed();
         }
 
         IMutableToken(dvp).changeToken(from, to);
-
         emit ChangedToken(from, to);
     }
 }

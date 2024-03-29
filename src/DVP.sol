@@ -69,7 +69,6 @@ abstract contract DVP is IDVP, IMutableToken, EpochControls, AccessControl, Paus
     error OnlyPositionManager();
     error OnlyVault();
     error AsymmetricAmount();
-    error ChangeNotAllowed();
 
     /**
         @notice Emitted when option is minted for a given position
@@ -584,11 +583,6 @@ abstract contract DVP is IDVP, IMutableToken, EpochControls, AccessControl, Paus
             baseToken = to;
         } else {
             sideToken = to;
-
-            uint8 toDecimals = IERC20Metadata(to).decimals();
-            if (toDecimals != _sideTokenDecimals) {
-                revert ChangeNotAllowed();
-            }
         }
     }
 }
