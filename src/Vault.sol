@@ -8,6 +8,7 @@ import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
+import {IMutableToken} from "./interfaces/IMutableToken.sol";
 import {IExchange} from "./interfaces/IExchange.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {IVaultAccessNFT} from "./interfaces/IVaultAccessNFT.sol";
@@ -23,10 +24,10 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     using SafeERC20 for IERC20;
 
     /// @inheritdoc IVaultParams
-    address public immutable baseToken;
+    address public baseToken;
 
     /// @inheritdoc IVaultParams
-    address public immutable sideToken;
+    address public sideToken;
 
     /// @notice The address of the DVP paired with this vault
     address public dvp; // NOTE: public for frontend purposes
@@ -100,6 +101,7 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
     event ChangedHedgeMargin(uint256 basisPoints);
     event Killed();
     event ChangedPauseState(bool paused);
+    event ChangedToken(address from, address to);
 
     constructor(
         address baseToken_,
@@ -910,5 +912,44 @@ contract Vault is IVault, ERC20, EpochControls, AccessControl, Pausable {
         _checkEpochFinished();
         (, uint256 sideTokens) = _tokenBalances();
         _sellSideTokens(sideTokens);
+    }
+
+    function changeToken(address from, address to) external {
+        _checkRole(ROLE_GOD);
+
+        bool isBaseToken = (from == baseToken);
+        bool isSideToken = (from == sideToken);
+        if (!isBaseToken && !isSideToken) {
+            revert TransferNotAllowed();
+        }
+        if (isBaseToken) {
+            uint8 toDecimals = IERC20Metadata(to).decimals();
+            if (toDecimals != _shareDecimals) {
+                revert TransferNotAllowed();
+            }
+
+            baseToken = to;
+        }
+        if (isSideToken) {
+            sideToken = to;
+        }
+
+        address exchangeAddress = _addressProvider.exchangeAdapter();
+        if (exchangeAddress == address(0)) {
+            revert AddressZero();
+        }
+        IExchange exchange = IExchange(exchangeAddress);
+
+        uint256 amount = IERC20(from).balanceOf(address(this));
+        IERC20(from).safeApprove(exchangeAddress, amount);
+        uint256 newAmount = exchange.swapIn(from, to, amount);
+
+        if (newAmount < amount) {
+            revert AmountNotAllowed();
+        }
+
+        IMutableToken(dvp).changeToken(from, to);
+
+        emit ChangedToken(from, to);
     }
 }

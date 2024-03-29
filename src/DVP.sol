@@ -10,6 +10,7 @@ import {IAddressProvider} from "./interfaces/IAddressProvider.sol";
 import {IDVP, IDVPImmutables} from "./interfaces/IDVP.sol";
 import {IEpochControls} from "./interfaces/IEpochControls.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
+import {IMutableToken} from "./interfaces/IMutableToken.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {IVault} from "./interfaces/IVault.sol";
 import {Amount, AmountHelper} from "./lib/Amount.sol";
@@ -20,16 +21,16 @@ import {Position} from "./lib/Position.sol";
 import {EpochControls} from "./EpochControls.sol";
 import {VaultLib} from "./lib/VaultLib.sol";
 
-abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
+abstract contract DVP is IDVP, IMutableToken, EpochControls, AccessControl, Pausable {
     using AmountHelper for Amount;
     using Position for Position.Info;
     using Notional for Notional.Info;
     using SafeERC20 for IERC20Metadata;
 
     /// @inheritdoc IDVPImmutables
-    address public immutable override baseToken;
+    address public override baseToken;
     /// @inheritdoc IDVPImmutables
-    address public immutable override sideToken;
+    address public override sideToken;
     /// @inheritdoc IDVPImmutables
     bool public immutable override optionType;
     /// @inheritdoc IDVP
@@ -66,7 +67,9 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
     error PayoffTooLow();
     error VaultDead();
     error OnlyPositionManager();
+    error OnlyVault();
     error AsymmetricAmount();
+    error ChangeNotAllowed();
 
     /**
         @notice Emitted when option is minted for a given position
@@ -366,7 +369,7 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         IVault(vault).transferPayoff(address(this), netFee, expired);
         IERC20Metadata(baseToken).safeApprove(address(feeManager), netFee);
         feeManager.receiveFee(netFee);
-        feeManager.trackVaultFee(address(vault), vaultFee);
+        feeManager.trackVaultFee(vault, vaultFee);
 
         emit Burn(msg.sender, price, netFee, vaultFee);
     }
@@ -568,5 +571,24 @@ abstract contract DVP is IDVP, EpochControls, AccessControl, Pausable {
         }
 
         emit ChangedPauseState(!paused);
+    }
+
+    /// @inheritdoc IMutableToken
+    function changeToken(address from, address to) external {
+        if (msg.sender != vault) {
+            revert OnlyVault();
+        }
+
+        bool isBaseToken = (from == baseToken);
+        if (isBaseToken) {
+            baseToken = to;
+        } else {
+            sideToken = to;
+
+            uint8 toDecimals = IERC20Metadata(to).decimals();
+            if (toDecimals != _sideTokenDecimals) {
+                revert ChangeNotAllowed();
+            }
+        }
     }
 }
